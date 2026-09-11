@@ -100,14 +100,12 @@ class TerrainRenderRebuildLease
     {
         if ( !Complete() )
         {
-            SB_FATAL(
-                "World/Terrain",
-                "Terrain render-resource operation requires complete backend-epoch bindings. operation=%s config=%d " "assets=%d resources=%d",
-                operation ? operation : "unknown",
-                m_config ? 1 : 0,
-                m_assets ? 1 : 0,
-                m_resources ? 1 : 0
-            );
+            SB_FATAL( "World/Terrain",
+                      "Terrain render-resource operation requires complete backend-epoch bindings. operation=%s config=%d " "assets=%d resources=%d",
+                      operation ? operation : "unknown",
+                      m_config ? 1 : 0,
+                      m_assets ? 1 : 0,
+                      m_resources ? 1 : 0 );
         }
     }
 
@@ -172,60 +170,50 @@ class Terrain
 #endif
     static constexpr float FLAT_SLOPE_EXTENT = 1000.0f; // XZ extent of the analytic flat slope play area
 
-    static SkullbonezCore::Core::SbResult TryCreateFromHeightMap(
-        SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-        const char* fileName,
-        int mapSize,
-        int stepSize,
-        int textureWrap,
-        const SkullbonezCore::Core::EngineConfig& config,
-        Assets::AssetSystem& assets,
-        Rendering::Dx12ResourceBuilder& resources,
-        std::unique_ptr<Terrain>& outTerrain
-    ); // recoverable factory for external RAW height-map input.
-    static SkullbonezCore::Core::SbResult TryCreatePhysicsFromHeightMap(
-        SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-        const char* fileName,
-        int mapSize,
-        int stepSize,
-        int textureWrap,
-        const SkullbonezCore::Core::EngineConfig& config,
-        std::unique_ptr<Terrain>& outTerrain
-    ); // CPU-domain load path with no renderer double.
+    static SkullbonezCore::Core::SbResult TryCreateFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                  const char* fileName,
+                                                                  int mapSize,
+                                                                  int stepSize,
+                                                                  int textureWrap,
+                                                                  const SkullbonezCore::Core::EngineConfig& config,
+                                                                  Assets::AssetSystem& assets,
+                                                                  Rendering::Dx12ResourceBuilder& resources,
+                                                                  std::unique_ptr<Terrain>& outTerrain ); // recoverable factory for external RAW height-map input.
+    static SkullbonezCore::Core::SbResult TryCreatePhysicsFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                         const char* fileName,
+                                                                         int mapSize,
+                                                                         int stepSize,
+                                                                         int textureWrap,
+                                                                         const SkullbonezCore::Core::EngineConfig& config,
+                                                                         std::unique_ptr<Terrain>& outTerrain ); // CPU-domain load path with no renderer double.
 
     // Invariant: only the factories can name ValidatedHeightMapGeometry. Height-map
     // construction therefore receives positive, divisible dimensions and one
     // checked set of pixel/post/quad counts before any field is initialized.
     Terrain( ValidatedHeightMapGeometry geometry, const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem* assets, Rendering::Dx12ResourceBuilder* resources );
-    Terrain(
-        float slopeBaseY,
-        float slopeX,
-        float slopeZ,
-        const SkullbonezCore::Core::EngineConfig& config,
-        Assets::AssetSystem& assets,
-        Rendering::Dx12ResourceBuilder& resources
-    );                                                                                                         // Flat analytic slope constructor: y = slopeBaseY + slopeX*x + slopeZ*z
+    Terrain( float slopeBaseY,
+             float slopeX,
+             float slopeZ,
+             const SkullbonezCore::Core::EngineConfig& config,
+             Assets::AssetSystem& assets,
+             Rendering::Dx12ResourceBuilder& resources );                                                      // Flat analytic slope constructor: y = slopeBaseY + slopeX*x + slopeZ*z
     Terrain( float slopeBaseY, float slopeX, float slopeZ, const SkullbonezCore::Core::EngineConfig& config ); // Physics-only analytic slope; owns no GPU resources.
     ~Terrain();
 
-    void Render(
-        const Math::Transformation::Matrix4& view,
-        const Math::Transformation::Matrix4& projection,
-        Rendering::Dx12TextureOwner& textures,
-        const float* lightPosition,
-        const float* clipPlane,
-        const Rendering::PassRasterStateBucket& rasterState,
-        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
-        const Rendering::ShadowFrameData* shadow = nullptr,
-        const Rendering::ShadowFrameData* detailShadow = nullptr
-    ); // Terrain color pass with optional broad and tight shadow inputs.
-    void RenderShadowDepth(
-        Core::Profiler* profiler,
-        const Math::Transformation::Matrix4& lightView,
-        const Math::Transformation::Matrix4& lightProjection,
-        const Rendering::PassRasterStateBucket& rasterState,
-        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr
-    ); // Depth-only terrain caster pass for directional shadows.
+    void Render( const Math::Transformation::Matrix4& view,
+                 const Math::Transformation::Matrix4& projection,
+                 Rendering::Dx12TextureOwner& textures,
+                 const float* lightPosition,
+                 const float* clipPlane,
+                 const Rendering::PassRasterStateBucket& rasterState,
+                 const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
+                 const Rendering::ShadowFrameData* shadow = nullptr,
+                 const Rendering::ShadowFrameData* detailShadow = nullptr ); // Terrain color pass with optional broad and tight shadow inputs.
+    void RenderShadowDepth( Core::Profiler* profiler,
+                            const Math::Transformation::Matrix4& lightView,
+                            const Math::Transformation::Matrix4& lightProjection,
+                            const Rendering::PassRasterStateBucket& rasterState,
+                            const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr ); // Depth-only terrain caster pass for directional shadows.
     void BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& resources ); // Borrow rebuild-only services for terrain resources.
     void
     EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& resources ); // Lazily rebuilds missing backend resources.
@@ -337,22 +325,18 @@ class Terrain
     Plane m_flatSlopePlane;
     Math::Vector::Vector3 m_flatSlopeNormal;
 
-    Terrain(
-        float slopeBaseY,
-        float slopeX,
-        float slopeZ,
-        const SkullbonezCore::Core::EngineConfig& config,
-        Assets::AssetSystem* assets,
-        Rendering::Dx12ResourceBuilder* resources
-    ); // Shared analytic-slope construction shell.
+    Terrain( float slopeBaseY,
+             float slopeX,
+             float slopeZ,
+             const SkullbonezCore::Core::EngineConfig& config,
+             Assets::AssetSystem* assets,
+             Rendering::Dx12ResourceBuilder* resources ); // Shared analytic-slope construction shell.
 
-    static SkullbonezCore::Core::SbResult TryValidateHeightMapDimensions(
-        SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-        int mapSize,
-        int stepSize,
-        int textureWrap,
-        ValidatedHeightMapGeometry& outGeometry
-    ); // recoverable boundary before construction.
+    static SkullbonezCore::Core::SbResult TryValidateHeightMapDimensions( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                          int mapSize,
+                                                                          int stepSize,
+                                                                          int textureWrap,
+                                                                          ValidatedHeightMapGeometry& outGeometry ); // recoverable boundary before construction.
 
     SkullbonezCore::Core::SbResult LoadTerrainData( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* fileName ); // Cold RAW byte load used to construct authoritative posts.
     const SkullbonezCore::Core::EngineConfig& Config() const;                                                                     // Runtime config must be bound before terrain queries or rebuilds.

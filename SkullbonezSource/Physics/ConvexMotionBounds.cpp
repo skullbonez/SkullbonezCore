@@ -13,7 +13,9 @@ namespace Vector = Math::Vector;
 
 float MaximumRotatedProjection( const Math::Orientation::Quaternion& orientation,
                                 const Math::CollisionDetection::CollisionShapeReference& shape,
-                                const Vector3& angularVelocity, const Vector3& normal, float stepDuration )
+                                const Vector3& angularVelocity,
+                                const Vector3& normal,
+                                float stepDuration )
 {
     const auto rotation = orientation.GetOrientationMatrix();
     Vector3 integratedOmega = angularVelocity;
@@ -52,40 +54,35 @@ float MaximumRotatedProjection( const Math::Orientation::Quaternion& orientation
         const float roundoff = 64.0f * std::numeric_limits<float>::epsilon() * ( 1.0f + radius );
         return (std::min)( orbitMaximum, arcMaximum + integrationAngleAllowance * radius ) + roundoff;
     };
-    return Math::CollisionDetection::
-        VisitCollisionShape( shape,
-                             [&]( const auto& value )
-                             {
-                                 using Shape = std::decay_t<decltype( value )>;
-                                 if constexpr ( std::is_same_v<Shape, Math::CollisionDetection::BoundingSphere> )
-                                 {
-                                     return project( value.GetPosition() ) + value.GetRadius();
-                                 }
-                                 else
-                                 {
-                                     float maximum = -std::numeric_limits<float>::max();
-                                     if constexpr ( std::is_same_v<Shape, Math::CollisionDetection::BoundingBox> )
-                                     {
-                                         const Vector3 half = value.GetHalfExtents();
-                                         for ( unsigned index = 0; index < 8u; ++index )
-                                         {
-                                             const Vector3 vertex( index & 1u ? half.x : -half.x,
-                                                                   index & 2u ? half.y : -half.y,
-                                                                   index & 4u ? half.z : -half.z );
-                                             maximum = (std::max)( maximum, project( value.GetPosition() + vertex ) );
-                                         }
-                                     }
-                                     else
-                                     {
-                                         for ( uint16_t index = 0; index < value.GetVertexCount(); ++index )
-                                         {
-                                             maximum = (std::max)( maximum, project( value.GetPosition() +
-                                                                                     value.GetVertex( index ) ) );
-                                         }
-                                     }
-                                     return maximum;
-                                 }
-                             } );
+    return Math::CollisionDetection::VisitCollisionShape( shape, [&]( const auto& value )
+                                                          {
+                                                              using Shape = std::decay_t<decltype( value )>;
+                                                              if constexpr ( std::is_same_v<Shape, Math::CollisionDetection::BoundingSphere> )
+                                                              {
+                                                                  return project( value.GetPosition() ) + value.GetRadius();
+                                                              }
+                                                              else
+                                                              {
+                                                                  float maximum = -std::numeric_limits<float>::max();
+                                                                  if constexpr ( std::is_same_v<Shape, Math::CollisionDetection::BoundingBox> )
+                                                                  {
+                                                                      const Vector3 half = value.GetHalfExtents();
+                                                                      for ( unsigned index = 0; index < 8u; ++index )
+                                                                      {
+                                                                          const Vector3 vertex( index & 1u ? half.x : -half.x, index & 2u ? half.y : -half.y, index & 4u ? half.z : -half.z );
+                                                                          maximum = (std::max)( maximum, project( value.GetPosition() + vertex ) );
+                                                                      }
+                                                                  }
+                                                                  else
+                                                                  {
+                                                                      for ( uint16_t index = 0; index < value.GetVertexCount(); ++index )
+                                                                      {
+                                                                          maximum = (std::max)( maximum, project( value.GetPosition() + value.GetVertex( index ) ) );
+                                                                      }
+                                                                  }
+                                                                  return maximum;
+                                                              }
+                                                          } );
 }
 
 } // namespace SkullbonezCore::Physics

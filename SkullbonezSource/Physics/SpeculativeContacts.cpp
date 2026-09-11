@@ -26,21 +26,18 @@ float AngularReach( const ColliderRecord& collider, const Vector3& angularVeloci
 }
 
 
-bool WitnessIsOnShape( const Vector3& witness, const ObjectContactBodyView& body,
-                       const Math::CollisionDetection::CollisionShapeReference& shape )
+bool WitnessIsOnShape( const Vector3& witness, const ObjectContactBodyView& body, const Math::CollisionDetection::CollisionShapeReference& shape )
 {
     const Math::CollisionDetection::CollisionShape point = Math::CollisionDetection::BoundingSphere( 0.0f, ZERO_VECTOR );
     ObjectContactBodyView pointBody;
     pointBody.position = witness;
     const auto distance = ComputeConvexDistance( pointBody, point, body, shape );
     // World witnesses have already rounded to body-coordinate precision.
-    const float tolerance = 8.0f * std::numeric_limits<float>::epsilon() *
-                            (std::max)( 1.0f, Vector::VectorMag( body.position ) );
+    const float tolerance = 8.0f * std::numeric_limits<float>::epsilon() * (std::max)( 1.0f, Vector::VectorMag( body.position ) );
     return distance.converged && distance.separation <= tolerance;
 }
 
-bool BuildAngularContactPatch( const PhysicsBodyStore& bodies, const ColliderStore& colliders, float stepDuration,
-                               float searchDistance, int bodyA, int bodyB, ObjectContactManifold& manifold )
+bool BuildAngularContactPatch( const PhysicsBodyStore& bodies, const ColliderStore& colliders, float stepDuration, float searchDistance, int bodyA, int bodyB, ObjectContactManifold& manifold )
 {
     const auto hot = bodies.HotFields();
     const ObjectContactBodyView a { PhysicsBodyPosition( hot, bodyA ), PhysicsBodyOrientation( hot, bodyA ) };
@@ -90,8 +87,7 @@ bool BuildAngularContactPatch( const PhysicsBodyStore& bodies, const ColliderSto
 }
 } // namespace
 
-bool BuildArticulatedContactManifold( const PhysicsBodyStore& bodies, const ColliderStore& colliders, float stepDuration,
-                                      float contactEpsilon, int bodyA, int bodyB, ObjectContactManifold& manifold )
+bool BuildArticulatedContactManifold( const PhysicsBodyStore& bodies, const ColliderStore& colliders, float stepDuration, float contactEpsilon, int bodyA, int bodyB, ObjectContactManifold& manifold )
 {
     const auto hot = bodies.HotFields();
     const ObjectContactBodyView a { PhysicsBodyPosition( hot, bodyA ), PhysicsBodyOrientation( hot, bodyA ) };
@@ -109,8 +105,7 @@ bool BuildArticulatedContactManifold( const PhysicsBodyStore& bodies, const Coll
     {
         // Fatal invariant: an unresolved distance cannot silently discard a
         // fast articulated candidate and turn numerical failure into tunnelling.
-        SB_FATAL( "Physics/ConvexDistance", "Distance did not converge: bodyA=%d bodyB=%d separation=%g iterations=%d.",
-                  bodyA, bodyB, distance.separation, distance.iterations );
+        SB_FATAL( "Physics/ConvexDistance", "Distance did not converge: bodyA=%d bodyB=%d separation=%g iterations=%d.", bodyA, bodyB, distance.separation, distance.iterations );
     }
     if ( distance.separation <= 0.0f )
     {
@@ -126,24 +121,19 @@ bool BuildArticulatedContactManifold( const PhysicsBodyStore& bodies, const Coll
     const Vector3 velocityB = linearB + Vector::CrossProduct( angularB, armB );
     const float closingVelocity = Dot( velocityB - velocityA, distance.normal );
     const float angularBound = AngularReach( colliderA, angularA ) + AngularReach( colliderB, angularB );
-    const float conservativeClosing = (std::min)( closingVelocity,
-                                                  Dot( linearB - linearA, distance.normal ) - angularBound );
+    const float conservativeClosing = (std::min)( closingVelocity, Dot( linearB - linearA, distance.normal ) - angularBound );
     if ( conservativeClosing >= 0.0f || distance.separation + conservativeClosing * stepDuration >= 0.0f )
     {
         return false;
     }
     if ( angularBound > 0.0f )
     {
-        const float reachA = MaximumRotatedProjection( a.orientation, colliderA.shape, angularA, distance.normal,
-                                                       stepDuration );
-        const float reachB = MaximumRotatedProjection( b.orientation, colliderB.shape, angularB, -distance.normal,
-                                                       stepDuration );
+        const float reachA = MaximumRotatedProjection( a.orientation, colliderA.shape, angularA, distance.normal, stepDuration );
+        const float reachB = MaximumRotatedProjection( b.orientation, colliderB.shape, angularB, -distance.normal, stepDuration );
         const float relativeTravel = Dot( linearB - linearA, distance.normal ) * stepDuration;
-        const float separationBound = Dot( b.position - a.position, distance.normal ) - reachA - reachB +
-                                      (std::min)( 0.0f, relativeTravel );
+        const float separationBound = Dot( b.position - a.position, distance.normal ) - reachA - reachB + (std::min)( 0.0f, relativeTravel );
         const float rounding = 32.0f * std::numeric_limits<float>::epsilon() *
-                               ( 1.0f + colliderA.maximumCenterOfMassRadius + colliderB.maximumCenterOfMassRadius +
-                                 Vector::VectorMag( b.position - a.position ) + std::abs( relativeTravel ) );
+                               ( 1.0f + colliderA.maximumCenterOfMassRadius + colliderB.maximumCenterOfMassRadius + Vector::VectorMag( b.position - a.position ) + std::abs( relativeTravel ) );
         // A separating plane throughout both arcs proves a miss even when
         // instantaneous corner velocities would cross that plane linearly.
         if ( separationBound > rounding )
@@ -151,16 +141,14 @@ bool BuildArticulatedContactManifold( const PhysicsBodyStore& bodies, const Coll
             return false;
         }
     }
-    if ( angularBound > 0.0f && BuildAngularContactPatch( bodies, colliders, stepDuration,
-                                                          -conservativeClosing * stepDuration, bodyA, bodyB, manifold ) )
+    if ( angularBound > 0.0f && BuildAngularContactPatch( bodies, colliders, stepDuration, -conservativeClosing * stepDuration, bodyA, bodyB, manifold ) )
     {
         return true;
     }
     // Why: a closing tangent plane alone may brake a near miss. For translating
     // shapes the existing swept geometry rejects that false plane crossing.
     // Rotation uses conservative reach; it does not claim exact rotational TOI.
-    if ( angularBound == 0.0f &&
-         !SweepObjectContact( a, colliderA.shape, linearA, b, colliderB.shape, linearB, stepDuration ).hit )
+    if ( angularBound == 0.0f && !SweepObjectContact( a, colliderA.shape, linearA, b, colliderB.shape, linearB, stepDuration ).hit )
     {
         return false;
     }

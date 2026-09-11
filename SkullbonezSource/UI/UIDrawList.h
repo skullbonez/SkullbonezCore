@@ -141,8 +141,7 @@ class UIDrawList
 
     // Fallback fill and label are part of the recorded value so a missing
     // frame-local renderer target cannot silently produce a blank panel.
-    void AddPreviewImage( PreviewTargetId target, const UIRect& bounds, const Style::UIColor& fallbackColor,
-                          const char* fallbackLabel );
+    void AddPreviewImage( PreviewTargetId target, const UIRect& bounds, const Style::UIColor& fallbackColor, const char* fallbackLabel );
 
     // Appends another list in order and applies a screen-space translation to
     // its geometry. Text is copied into this list's bounded storage so neither

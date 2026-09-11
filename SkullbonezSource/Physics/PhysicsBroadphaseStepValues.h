@@ -32,8 +32,11 @@ class BroadphaseBodyActivityView
     std::span<const float> m_angularExpansion;
 
   public:
-    static bool IsValid( int bodyCount, std::span<const uint8_t> sleepState, std::span<const int> awakeBodyIndices,
-                         std::span<const uint8_t> motionEligibilityState, std::span<const float> angularExpansion ) noexcept
+    static bool IsValid( int bodyCount,
+                         std::span<const uint8_t> sleepState,
+                         std::span<const int> awakeBodyIndices,
+                         std::span<const uint8_t> motionEligibilityState,
+                         std::span<const float> angularExpansion ) noexcept
     {
         if ( bodyCount < 0 || sleepState.size() != static_cast<std::size_t>( bodyCount ) ||
              ( !motionEligibilityState.empty() && motionEligibilityState.size() != static_cast<std::size_t>( bodyCount ) ) ||
@@ -57,16 +60,21 @@ class BroadphaseBodyActivityView
         return true;
     }
 
-    BroadphaseBodyActivityView( int bodyCount, std::span<const uint8_t> sleepState, std::span<const int> awakeBodyIndices,
-                                std::span<const uint8_t> motionEligibilityState, std::span<const float> angularExpansion )
-        : m_bodyCount( bodyCount ), m_sleepState( sleepState ), m_awakeBodyIndices( awakeBodyIndices ),
-          m_motionEligibilityState( motionEligibilityState ), m_angularExpansion( angularExpansion )
+    BroadphaseBodyActivityView( int bodyCount,
+                                std::span<const uint8_t> sleepState,
+                                std::span<const int> awakeBodyIndices,
+                                std::span<const uint8_t> motionEligibilityState,
+                                std::span<const float> angularExpansion )
+        : m_bodyCount( bodyCount ), m_sleepState( sleepState ), m_awakeBodyIndices( awakeBodyIndices ), m_motionEligibilityState( motionEligibilityState ), m_angularExpansion( angularExpansion )
     {
         if ( !IsValid( bodyCount, sleepState, awakeBodyIndices, motionEligibilityState, angularExpansion ) )
         {
             SB_FATAL( "Physics/BroadphaseBodyActivityView",
                       "Broadphase activity rows are misaligned: bodies=%d sleep=%zu awake=%zu motion=%zu angular=%zu.",
-                      bodyCount, sleepState.size(), awakeBodyIndices.size(), motionEligibilityState.size(),
+                      bodyCount,
+                      sleepState.size(),
+                      awakeBodyIndices.size(),
+                      motionEligibilityState.size(),
                       angularExpansion.size() );
         }
     }
@@ -94,15 +102,12 @@ class BroadphaseBodyActivityView
         }
         // Conservative fallback preserves the former missing-row policy.
         return bodyIndex < 0 || bodyIndex >= m_bodyCount || m_motionEligibilityState.empty() ||
-               ( m_motionEligibilityState[static_cast<std::size_t>( bodyIndex )] &
-                 PhysicsMotionEligibilityLinearPromoted ) != 0u;
+               ( m_motionEligibilityState[static_cast<std::size_t>( bodyIndex )] & PhysicsMotionEligibilityLinearPromoted ) != 0u;
     }
 
     float AngularExpansion( int bodyIndex ) const noexcept
     {
-        return bodyIndex >= 0 && bodyIndex < m_bodyCount && !m_angularExpansion.empty()
-                   ? m_angularExpansion[static_cast<std::size_t>( bodyIndex )]
-                   : 0.0f;
+        return bodyIndex >= 0 && bodyIndex < m_bodyCount && !m_angularExpansion.empty() ? m_angularExpansion[static_cast<std::size_t>( bodyIndex )] : 0.0f;
     }
 };
 
@@ -116,18 +121,14 @@ class BroadphaseSweepContactEnvelope
   public:
     static bool IsValid( float deltaTime, float contactSkin, float contactEpsilon ) noexcept
     {
-        return std::isfinite( deltaTime ) && deltaTime >= 0.0f && std::isfinite( contactSkin ) && contactSkin >= 0.0f &&
-               std::isfinite( contactEpsilon ) && contactEpsilon >= 0.0f;
+        return std::isfinite( deltaTime ) && deltaTime >= 0.0f && std::isfinite( contactSkin ) && contactSkin >= 0.0f && std::isfinite( contactEpsilon ) && contactEpsilon >= 0.0f;
     }
 
-    BroadphaseSweepContactEnvelope( float deltaTime, float contactSkin, float contactEpsilon )
-        : m_deltaTime( deltaTime ), m_contactSkin( contactSkin ), m_contactEpsilon( contactEpsilon )
+    BroadphaseSweepContactEnvelope( float deltaTime, float contactSkin, float contactEpsilon ) : m_deltaTime( deltaTime ), m_contactSkin( contactSkin ), m_contactEpsilon( contactEpsilon )
     {
         if ( !IsValid( deltaTime, contactSkin, contactEpsilon ) )
         {
-            SB_FATAL( "Physics/BroadphaseSweepContactEnvelope",
-                      "Broadphase sweep/contact values are invalid: dt=%.9g skin=%.9g epsilon=%.9g.", deltaTime, contactSkin,
-                      contactEpsilon );
+            SB_FATAL( "Physics/BroadphaseSweepContactEnvelope", "Broadphase sweep/contact values are invalid: dt=%.9g skin=%.9g epsilon=%.9g.", deltaTime, contactSkin, contactEpsilon );
         }
     }
 

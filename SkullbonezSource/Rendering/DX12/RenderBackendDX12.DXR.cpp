@@ -45,15 +45,13 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 
 
-Dx12RaytracingOwner::Dx12RaytracingOwner(
-    SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-    Dx12RenderDevice& device,
-    Dx12DescriptorHeaps& descriptors,
-    Dx12FrameOwner& frame,
-    Dx12TextureOwner& textures,
-    Dx12PipelineOwner& pipeline,
-    Dx12GeometryOwner& geometry
-)
+Dx12RaytracingOwner::Dx12RaytracingOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                          Dx12RenderDevice& device,
+                                          Dx12DescriptorHeaps& descriptors,
+                                          Dx12FrameOwner& frame,
+                                          Dx12TextureOwner& textures,
+                                          Dx12PipelineOwner& pipeline,
+                                          Dx12GeometryOwner& geometry )
     : m_resultDiagnostics( resultDiagnostics ), m_device( device ), m_descriptors( descriptors ), m_frame( frame ), m_textures( textures ), m_rasterPipeline( pipeline ), m_geometry( geometry ),
       m_terrainBlas( resultDiagnostics ), m_sphereBlas( resultDiagnostics ), m_tlas( resultDiagnostics ), m_sbt( resultDiagnostics )
 {
@@ -499,15 +497,13 @@ Dx12RaytracingOwner::BeginSetup( ID3D12Device* device, ID3D12GraphicsCommandList
 
     // Build the static BLAS objects once. The terrain BLAS holds terrain
     // triangles; the sphere BLAS is reused by every moving sphere instance.
-    setupResult = m_terrainBlas.Build(
-        m_device5,
-        m_commandList4,
-        static_cast<D3D12_GPU_VIRTUAL_ADDRESS>( setup.terrain.vertexBufferAddress ),
-        setup.terrain.vertexCount,
-        setup.terrain.vertexStride,
-        DXGI_FORMAT_R32G32B32_FLOAT,
-        true
-    );
+    setupResult = m_terrainBlas.Build( m_device5,
+                                       m_commandList4,
+                                       static_cast<D3D12_GPU_VIRTUAL_ADDRESS>( setup.terrain.vertexBufferAddress ),
+                                       setup.terrain.vertexCount,
+                                       setup.terrain.vertexStride,
+                                       DXGI_FORMAT_R32G32B32_FLOAT,
+                                       true );
 
     if ( !setupResult.Ok() )
     {
@@ -516,15 +512,13 @@ Dx12RaytracingOwner::BeginSetup( ID3D12Device* device, ID3D12GraphicsCommandList
     }
 
     outcome.recordedBuildWork = true;
-    setupResult = m_sphereBlas.Build(
-        m_device5,
-        m_commandList4,
-        static_cast<D3D12_GPU_VIRTUAL_ADDRESS>( setup.sphere.vertexBufferAddress ),
-        setup.sphere.vertexCount,
-        setup.sphere.vertexStride,
-        DXGI_FORMAT_R32G32B32_FLOAT,
-        false
-    );
+    setupResult = m_sphereBlas.Build( m_device5,
+                                      m_commandList4,
+                                      static_cast<D3D12_GPU_VIRTUAL_ADDRESS>( setup.sphere.vertexBufferAddress ),
+                                      setup.sphere.vertexCount,
+                                      setup.sphere.vertexStride,
+                                      DXGI_FORMAT_R32G32B32_FLOAT,
+                                      false );
 
     if ( !setupResult.Ok() )
     {
@@ -688,13 +682,11 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::BuildScene( std::span<const 
         // Invariant: the TLAS instance buffer was sized during InitDXR for one
         // terrain instance plus the active model capacity. A larger rebuild
         // would overwrite the fixed raytracing instance table.
-        SB_FATAL(
-            "RenderBackendDX12",
-            "DX12 TLAS instance count exceeds active model capacity. requested=%d activeCapacity=%d " "maxSceneObjects=%d",
-            instanceCount,
-            m_maxInstances,
-            SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS
-        );
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 TLAS instance count exceeds active model capacity. requested=%d activeCapacity=%d " "maxSceneObjects=%d",
+                  instanceCount,
+                  m_maxInstances,
+                  SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
 
     // Concept: a TLAS is a scene-level table of instances.
@@ -763,16 +755,14 @@ Dx12RaytracingOwner::DispatchReflections( ID3D12Device* device, Dx12DescriptorHe
     // every row before writing frame memory or mutating command-list state.
     // Hazard: dispatching without a complete table can consume descriptors
     // retained from an earlier compute pass.
-    const std::array<uint32_t, DX12_RAYTRACING_MATERIAL_TEXTURE_COUNT> textureHandles = {
-        reflection.textures.sphere,
-        reflection.textures.terrain,
-        reflection.textures.skyUp,
-        reflection.textures.skyDown,
-        reflection.textures.skyRight,
-        reflection.textures.skyLeft,
-        reflection.textures.skyFront,
-        reflection.textures.skyBack
-    };
+    const std::array<uint32_t, DX12_RAYTRACING_MATERIAL_TEXTURE_COUNT> textureHandles = { reflection.textures.sphere,
+                                                                                          reflection.textures.terrain,
+                                                                                          reflection.textures.skyUp,
+                                                                                          reflection.textures.skyDown,
+                                                                                          reflection.textures.skyRight,
+                                                                                          reflection.textures.skyLeft,
+                                                                                          reflection.textures.skyFront,
+                                                                                          reflection.textures.skyBack };
     std::array<UINT, DX12_RAYTRACING_MATERIAL_TEXTURE_COUNT> resolvedSrvIndices = {};
 
     for ( size_t i = 0; i < textureHandles.size(); ++i )

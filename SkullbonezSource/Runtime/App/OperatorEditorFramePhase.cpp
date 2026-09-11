@@ -140,15 +140,13 @@ OperatorUiGizmoMode SampleOperatorUiGizmoMode( RuntimeInteractionGestureKind ges
     }
 }
 
-RuntimeViewModel SampleRuntimeViewModel(
-    const SceneSessionState& scene,
-    const SceneWorld& world,
-    int sceneCount,
-    const RunScreenshotState& screenshot,
-    bool presentationInterpolation,
-    bool presentationPinned,
-    float presentationAlpha
-)
+RuntimeViewModel SampleRuntimeViewModel( const SceneSessionState& scene,
+                                         const SceneWorld& world,
+                                         int sceneCount,
+                                         const RunScreenshotState& screenshot,
+                                         bool presentationInterpolation,
+                                         bool presentationPinned,
+                                         float presentationAlpha )
 {
     RuntimeViewModel view;
     const bool screenshotConfigured = screenshot.isScreenshotAndExit || screenshot.screenshotFrame >= 0 || screenshot.screenshotMs >= 0 || screenshot.screenshotPath[0] != '\0' ||
@@ -251,35 +249,31 @@ OperatorUiProjectionFacts Run::SampleOperatorUiProjectionFacts( const RuntimeUiT
     const UI::RunSceneBrowserState& browser = m_operatorUi->SceneNavigation().browser;
     const std::string* scenePath = m_sceneController.CurrentPath();
     const SceneSessionState& scene = m_sceneController.State();
-    RuntimeViewModel runtime = SampleRuntimeViewModel(
-        scene,
-        m_sceneController.Scene(),
-        m_sceneController.QueueSize(),
-        m_capture.Screenshot(),
-        m_config.runtimeRender.presentationInterpolation,
-        uiTextFacts.presentationPinned,
-        uiTextFacts.presentationAlpha
-    );
-    OperatorUiSceneFacts sceneFacts {
-        runtime,
-        scenePath ? scenePath->c_str() : nullptr,
-        scenePath ? SceneFileNameFromPath( scenePath->c_str() ) : "",
-        browser.namePtrs.empty() ? nullptr : browser.namePtrs.data(),
-        browser.CurrentIndexForPath( m_sceneController.CurrentPath() ),
-        static_cast<int>( browser.namePtrs.size() ),
-        browser.selectedCineModeSceneIndex,
-        m_sceneController.Scene().SceneEntityCount(),
-        static_cast<int>( scene.rngSeed ),
-        scene.solverBallCount,
-        scene.solverBoxCount,
-        frameMetrics.sceneEnergy,
-        m_sceneController.Scene().Environment().GetGravity(),
-        m_sceneController.Scene().Environment().GetFluidSurfaceHeight(),
-        m_sceneController.Scene().Environment().GetFluidDensity(),
-        m_sceneController.HasCurrentEntry(),
-        scene.isExitOnComplete,
-        scene.isTestComplete
-    };
+    RuntimeViewModel runtime = SampleRuntimeViewModel( scene,
+                                                       m_sceneController.Scene(),
+                                                       m_sceneController.QueueSize(),
+                                                       m_capture.Screenshot(),
+                                                       m_config.runtimeRender.presentationInterpolation,
+                                                       uiTextFacts.presentationPinned,
+                                                       uiTextFacts.presentationAlpha );
+    OperatorUiSceneFacts sceneFacts { runtime,
+                                      scenePath ? scenePath->c_str() : nullptr,
+                                      scenePath ? SceneFileNameFromPath( scenePath->c_str() ) : "",
+                                      browser.namePtrs.empty() ? nullptr : browser.namePtrs.data(),
+                                      browser.CurrentIndexForPath( m_sceneController.CurrentPath() ),
+                                      static_cast<int>( browser.namePtrs.size() ),
+                                      browser.selectedCineModeSceneIndex,
+                                      m_sceneController.Scene().SceneEntityCount(),
+                                      static_cast<int>( scene.rngSeed ),
+                                      scene.solverBallCount,
+                                      scene.solverBoxCount,
+                                      frameMetrics.sceneEnergy,
+                                      m_sceneController.Scene().Environment().GetGravity(),
+                                      m_sceneController.Scene().Environment().GetFluidSurfaceHeight(),
+                                      m_sceneController.Scene().Environment().GetFluidDensity(),
+                                      m_sceneController.HasCurrentEntry(),
+                                      scene.isExitOnComplete,
+                                      scene.isTestComplete };
     const ReplayHudStatus replayHud = m_replayRuntime.BuildHudStatus( false );
     const Core::CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( scene, m_config );
     const bool cinematicRendering = IsSceneCinematicRenderingEnabled( scene, m_config, m_launchOptions, debug.isTextOnly, true );
@@ -287,48 +281,42 @@ OperatorUiProjectionFacts Run::SampleOperatorUiProjectionFacts( const RuntimeUiT
     return { runtime, uiTextFacts, sceneFacts, replayHud, cinematic, cinematicRendering, shadowsEnabled };
 }
 
-void Run::ProjectOperatorEditorPrimaryView(
-    UI::OperatorEditorFrameView& view,
-    const OperatorUiProjectionFacts& facts,
-    const RuntimeUiTextFrameFacts& uiTextFacts,
-    bool secondarySurfaceVisible,
-    const OverlayDebugState& debug
-)
+void Run::ProjectOperatorEditorPrimaryView( UI::OperatorEditorFrameView& view,
+                                            const OperatorUiProjectionFacts& facts,
+                                            const RuntimeUiTextFrameFacts& uiTextFacts,
+                                            bool secondarySurfaceVisible,
+                                            const OverlayDebugState& debug )
 {
     const RenderPresentationSettings& renderPresentation = Renderer().PresentationSettings();
     const OperatorUiGizmoMode gizmoMode = SampleOperatorUiGizmoMode( m_interaction.Gesture().kind, m_interaction.Gesture().gizmoKind );
-    const OperatorUiRenderingFacts renderingFacts {
-        m_config.ordinaryRender,
-        facts.cinematic,
-        uiTextFacts,
-        gizmoMode,
-        renderPresentation.vsyncEnabled,
-        m_config.runtimeRender.presentationInterpolation,
-        facts.shadowsEnabled,
-        facts.cinematicRendering,
-        debug.isTerrainHidden,
-        debug.isWaterHidden,
-        debug.isWaterFreezeDebug,
-        debug.isWaterFlatDebug,
-        debug.isWaterNoReflect,
-        debug.isWaterRTReflect
-    };
+    const OperatorUiRenderingFacts renderingFacts { m_config.ordinaryRender,
+                                                    facts.cinematic,
+                                                    uiTextFacts,
+                                                    gizmoMode,
+                                                    renderPresentation.vsyncEnabled,
+                                                    m_config.runtimeRender.presentationInterpolation,
+                                                    facts.shadowsEnabled,
+                                                    facts.cinematicRendering,
+                                                    debug.isTerrainHidden,
+                                                    debug.isWaterHidden,
+                                                    debug.isWaterFreezeDebug,
+                                                    debug.isWaterFlatDebug,
+                                                    debug.isWaterNoReflect,
+                                                    debug.isWaterRTReflect };
 
     // Invariant: projection completes before either UI presenter observes the
     // frame; both surfaces receive only completed detached values.
     ProjectOperatorEditorScene( view, facts.scene );
     ProjectOperatorEditorRendering( view, renderingFacts );
     ProjectOperatorEditorLookLab( view, m_operatorUi->LookLabView() );
-    ProjectOperatorEditorReplay(
-        view,
-        facts.replayHud.memoryPreset,
-        facts.replayHud.requestedRetentionSeconds,
-        facts.replayHud.requestedBudgetMiB,
-        facts.replayHud.presentationRetentionSeconds,
-        facts.replayHud.solverRetentionSeconds,
-        facts.replayHud.memoryBudgetClamped,
-        facts.replayHud.solverWindowReduced
-    );
+    ProjectOperatorEditorReplay( view,
+                                 facts.replayHud.memoryPreset,
+                                 facts.replayHud.requestedRetentionSeconds,
+                                 facts.replayHud.requestedBudgetMiB,
+                                 facts.replayHud.presentationRetentionSeconds,
+                                 facts.replayHud.solverRetentionSeconds,
+                                 facts.replayHud.memoryBudgetClamped,
+                                 facts.replayHud.solverWindowReduced );
     ProjectOperatorEditorSurfaces( view, m_operatorUi->IsVisible(), secondarySurfaceVisible );
     ProjectOperatorEditorForecast( view, SampleOperatorUiForecastFacts( m_continuousForecast.View() ) );
 }
@@ -340,22 +328,20 @@ void Run::ProjectOperatorEditorHierarchyView( UI::OperatorEditorFrameView& view 
     const SceneEntityStore& entities = sceneWorld.Entities();
     const int selectedRow = PeekSelectedEditorModelIndex( editor, sceneWorld.BodyStore() );
     const SceneSessionState& scene = m_sceneController.State();
-    const OperatorUiHierarchyFacts facts {
-        static_cast<uint32_t>( entities.Count() ),
-        selectedRow,
-        editor.objectType,
-        UI::EditorTab::OBJECT_TYPE_COUNT,
-        static_cast<int>( editor.history.UndoDepth() ),
-        static_cast<int>( editor.history.RedoDepth() ),
-        editor.history.IsDirty(),
-        editor.editorModeEnabled,
-        editor.placementModeEnabled,
-        editor.placeStaticObject,
-        m_sceneController.CrossScenePauseLocked(),
-        scene.isFixedStep,
-        editor.autoTerrainAlign,
-        m_assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr
-    };
+    const OperatorUiHierarchyFacts facts { static_cast<uint32_t>( entities.Count() ),
+                                           selectedRow,
+                                           editor.objectType,
+                                           UI::EditorTab::OBJECT_TYPE_COUNT,
+                                           static_cast<int>( editor.history.UndoDepth() ),
+                                           static_cast<int>( editor.history.RedoDepth() ),
+                                           editor.history.IsDirty(),
+                                           editor.editorModeEnabled,
+                                           editor.placementModeEnabled,
+                                           editor.placeStaticObject,
+                                           m_sceneController.CrossScenePauseLocked(),
+                                           scene.isFixedStep,
+                                           editor.autoTerrainAlign,
+                                           m_assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr };
     BeginOperatorEditorHierarchy( view, facts );
 
     const uint32_t rowCount = (std::min)( facts.totalRowCount, UI::OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY );
@@ -363,15 +349,13 @@ void Run::ProjectOperatorEditorHierarchyView( UI::OperatorEditorFrameView& view 
     for ( uint32_t index = 0u; index < rowCount; ++index )
     {
         const SceneEntityRecord& entity = entities.At( static_cast<int>( index ) );
-        const OperatorUiHierarchyEntityFacts entityFacts {
-            entity.displayName,
-            entity.sceneObjectId.value,
-            entity.behaviorGroup.rootObjectId.value,
-            entity.behaviorGroup.partIndex,
-            entity.asset.isAssetBacked,
-            entity.editorVisible,
-            entity.editorLocked
-        };
+        const OperatorUiHierarchyEntityFacts entityFacts { entity.displayName,
+                                                           entity.sceneObjectId.value,
+                                                           entity.behaviorGroup.rootObjectId.value,
+                                                           entity.behaviorGroup.partIndex,
+                                                           entity.asset.isAssetBacked,
+                                                           entity.editorVisible,
+                                                           entity.editorLocked };
         AppendOperatorEditorHierarchyRow( view, facts, entityFacts, index );
     }
 }
@@ -381,12 +365,10 @@ void Run::ProjectOperatorEditorInspectorView( UI::OperatorEditorFrameView& view 
     (void)view;
 }
 
-void Run::SampleOperatorUiDiagnosticsFacts(
-    OperatorUiDiagnosticsFacts& facts,
-    const RuntimeRenderFrameViews& renderFrame,
-    const ReplayHudStatus& replayHud,
-    const RuntimeFrameMetricsSnapshot& metrics
-)
+void Run::SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts,
+                                            const RuntimeRenderFrameViews& renderFrame,
+                                            const ReplayHudStatus& replayHud,
+                                            const RuntimeFrameMetricsSnapshot& metrics )
 {
     RuntimeRenderer& renderer = Renderer();
     facts.metrics = metrics;
@@ -483,17 +465,15 @@ void Run::SampleOperatorUiDiagnosticsFacts(
     }
 }
 
-void Run::BuildOperatorGameUiData(
-    UI::InGameUIFrameData& uiData,
-    const OperatorUiProjectionFacts& projection,
-    const RuntimeRenderFrameViews& renderFrame,
-    const UI::OperatorEditorFrameView& operatorEditorView,
-    const RuntimeFrameMetricsSnapshot& metrics,
-    const UiTextViewport& uiViewport,
-    int uiDrawCallStart,
-    const OverlayDebugState& debug,
-    RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews
-)
+void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData,
+                                   const OperatorUiProjectionFacts& projection,
+                                   const RuntimeRenderFrameViews& renderFrame,
+                                   const UI::OperatorEditorFrameView& operatorEditorView,
+                                   const RuntimeFrameMetricsSnapshot& metrics,
+                                   const UiTextViewport& uiViewport,
+                                   int uiDrawCallStart,
+                                   const OverlayDebugState& debug,
+                                   RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews )
 {
     UI::UIRuntimeReserveCapacityRow reserveCapacityRows[UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX] = {};
     OperatorUiDiagnosticsFacts diagnostics;
@@ -503,64 +483,60 @@ void Run::BuildOperatorGameUiData(
     const SceneWorld& sceneWorld = m_sceneController.Scene();
     const Gameplay::TornadoFieldConfig& tornado = sceneWorld.Tornado().GetFieldConfig();
     const RenderPresentationSettings& presentation = Renderer().PresentationSettings();
-    const OperatorUiSettingsFacts settings {
-        m_config.ordinaryRender,
-        projection.cinematic,
-        BuildDiagnosticsPhysicsUIStatus( debug ),
-        Core::ActiveSceneObjectCapacity( m_config ),
-        sceneWorld.Environment().GetGravity(),
-        sceneWorld.Environment().GetFluidSurfaceHeight(),
-        sceneWorld.Environment().GetFluidDensity(),
-        tornado.radius,
-        tornado.height,
-        tornado.inwardAcceleration,
-        tornado.swirlAcceleration,
-        tornado.liftAcceleration,
-        m_config.physicsMaterial.frictionCoeff,
-        m_config.physicsMaterial.objectFrictionCoeff,
-        m_config.physicsMaterial.rollingFrictionCoeff,
-        debug.isTextOnly,
-        presentation.vsyncEnabled,
-        presentation.pipelineSyncEnabled,
-        sceneWorld.Physics().IsSleepEnabled(),
-        tornado.enabled,
-        sceneWorld.Tornado().VisualSettings().enabled,
-        tornado.visualizeVelocityField,
-        debug.isWaterFreezeDebug,
-        debug.isWaterFlatDebug,
-        debug.isTerrainHidden,
-        debug.isWaterHidden,
-        debug.isWaterNoReflect,
-        debug.isWaterRTReflect,
-        projection.cinematicRendering
-    };
+    const OperatorUiSettingsFacts settings { m_config.ordinaryRender,
+                                             projection.cinematic,
+                                             BuildDiagnosticsPhysicsUIStatus( debug ),
+                                             Core::ActiveSceneObjectCapacity( m_config ),
+                                             sceneWorld.Environment().GetGravity(),
+                                             sceneWorld.Environment().GetFluidSurfaceHeight(),
+                                             sceneWorld.Environment().GetFluidDensity(),
+                                             tornado.radius,
+                                             tornado.height,
+                                             tornado.inwardAcceleration,
+                                             tornado.swirlAcceleration,
+                                             tornado.liftAcceleration,
+                                             m_config.physicsMaterial.frictionCoeff,
+                                             m_config.physicsMaterial.objectFrictionCoeff,
+                                             m_config.physicsMaterial.rollingFrictionCoeff,
+                                             debug.isTextOnly,
+                                             presentation.vsyncEnabled,
+                                             presentation.pipelineSyncEnabled,
+                                             sceneWorld.Physics().IsSleepEnabled(),
+                                             tornado.enabled,
+                                             sceneWorld.Tornado().VisualSettings().enabled,
+                                             tornado.visualizeVelocityField,
+                                             debug.isWaterFreezeDebug,
+                                             debug.isWaterFlatDebug,
+                                             debug.isTerrainHidden,
+                                             debug.isWaterHidden,
+                                             debug.isWaterNoReflect,
+                                             debug.isWaterRTReflect,
+                                             projection.cinematicRendering };
     ProjectOperatorUiSettings( uiData, settings );
 
     const RunRayCastTestState& rayCast = m_runtimeTools.RayCastTest();
     const RunEditorPlacementState& editor = m_editorTools.Editor();
     const RuntimeInputMode inputMode = m_inputRouter.RuntimeContext().CurrentMode();
     const RuntimeUiTextFrameFacts& uiText = projection.uiText;
-    const OperatorUiInteractionFacts interaction {
-        uiText.cameraModeLabel,
-        m_camera.trackBallRow.IsValid() ? m_camera.trackHeight : 0.0f,
-        m_camera.autoCycleInterval > 0.0f ? m_camera.autoCycleInterval : 0.0f,
-        rayCast.impulseStrength,
-        rayCast.projectileSpeed,
-        uiText.cameraModeEnabledMask,
-        static_cast<int>( m_camera.mode ),
-        editor.objectType,
-        static_cast<int>( editor.history.UndoDepth() ),
-        static_cast<int>( editor.history.RedoDepth() ),
-        rayCast.visualizeRays,
-        ( inputMode == RuntimeInputMode::FlyCamera || inputMode == RuntimeInputMode::Launcher || inputMode == RuntimeInputMode::EditorViewportLook ) && !m_operatorUi->BlocksCameraMouse(),
-        editor.editorModeEnabled,
-        editor.placementModeEnabled,
-        editor.placeStaticObject,
-        editor.autoTerrainAlign,
-        editor.terrainBrushEnabled,
-        editor.terrainBrushRadius,
-        editor.viewportLookActive
-    };
+    const OperatorUiInteractionFacts interaction { uiText.cameraModeLabel,
+                                                   m_camera.trackBallRow.IsValid() ? m_camera.trackHeight : 0.0f,
+                                                   m_camera.autoCycleInterval > 0.0f ? m_camera.autoCycleInterval : 0.0f,
+                                                   rayCast.impulseStrength,
+                                                   rayCast.projectileSpeed,
+                                                   uiText.cameraModeEnabledMask,
+                                                   static_cast<int>( m_camera.mode ),
+                                                   editor.objectType,
+                                                   static_cast<int>( editor.history.UndoDepth() ),
+                                                   static_cast<int>( editor.history.RedoDepth() ),
+                                                   rayCast.visualizeRays,
+                                                   ( inputMode == RuntimeInputMode::FlyCamera || inputMode == RuntimeInputMode::Launcher || inputMode == RuntimeInputMode::EditorViewportLook ) && !m_operatorUi->BlocksCameraMouse(),
+                                                   editor.editorModeEnabled,
+                                                   editor.placementModeEnabled,
+                                                   editor.placeStaticObject,
+                                                   editor.autoTerrainAlign,
+                                                   editor.terrainBrushEnabled,
+                                                   editor.terrainBrushRadius,
+                                                   editor.viewportLookActive };
     uiData.surface.transportAlpha = projection.replayHud.scrubberAlpha;
     ProjectOperatorUiInteraction( uiData, interaction );
     ProjectOperatorUiPresentation( uiData, projection.scene, operatorEditorView );
@@ -569,12 +545,10 @@ void Run::BuildOperatorGameUiData(
     const RenderDiagnosticsReadout readout = Renderer().BuildDiagnosticsReadout();
     ProjectOperatorUiRenderIdentity( uiData, readout.rendererName.data(), uiDrawCallStart );
     const UI::InteractionRecordingBrowserState& recordings = m_operatorUi->SceneNavigation().recordings;
-    ProjectOperatorUiRecordingBrowser(
-        uiData,
-        recordings.namePtrs.empty() ? nullptr : recordings.namePtrs.data(),
-        static_cast<int>( recordings.namePtrs.size() ),
-        recordings.paths.empty() ? -1 : recordings.selectedIndex
-    );
+    ProjectOperatorUiRecordingBrowser( uiData,
+                                       recordings.namePtrs.empty() ? nullptr : recordings.namePtrs.data(),
+                                       static_cast<int>( recordings.namePtrs.size() ),
+                                       recordings.paths.empty() ? -1 : recordings.selectedIndex );
 
     Renderer().AppendDxrReflectionPreview( renderTargetPreviews, uiViewport, settings.waterRtReflect && !settings.waterNoReflect );
     OperatorUiRenderTargetListFacts renderTargets;
@@ -589,33 +563,29 @@ void Run::BuildOperatorGameUiData(
     ProjectOperatorUiRenderTargets( uiData, renderTargets );
 }
 
-int Run::RenderOperatorUiTextPass(
-    OperatorUiPhaseOwner& operatorUiPhase,
-    const OperatorUiProjectionFacts& projection,
-    const RuntimeRenderFrameViews& renderFrame,
-    const UI::OperatorEditorFrameView& operatorEditorView,
-    const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
-    RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews,
-    const OverlayDebugState& debug
-)
+int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase,
+                                   const OperatorUiProjectionFacts& projection,
+                                   const RuntimeRenderFrameViews& renderFrame,
+                                   const UI::OperatorEditorFrameView& operatorEditorView,
+                                   const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
+                                   RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews,
+                                   const OverlayDebugState& debug )
 {
     RuntimeRenderer& renderer = Renderer();
     UI::InGameUI& ui = *m_operatorUi;
     const SceneSessionState& scene = m_sceneController.State();
     const bool replayPathVisualizerHasTarget = m_replayRuntime.BuildInputView().hasPathTarget;
-    const UiTextVisibility visibility {
-        debug.isTextOnly,
-        scene.isSceneMode,
-        scene.isSceneText,
-        debug.overlayMode != OverlayMode::None,
-        ui.NeedsUiTextPass(),
-        m_sceneController.CrossScenePauseLocked(),
-        debug.isTopTextHidden,
-        scene.isTestComplete,
-        replayOverlay.timeline.shouldRenderScrubber,
-        replayPathVisualizerHasTarget,
-        ProjectUiCameraBadgeMode( m_camera.mode ) != UiCameraBadgeMode::Quiet
-    };
+    const UiTextVisibility visibility { debug.isTextOnly,
+                                        scene.isSceneMode,
+                                        scene.isSceneText,
+                                        debug.overlayMode != OverlayMode::None,
+                                        ui.NeedsUiTextPass(),
+                                        m_sceneController.CrossScenePauseLocked(),
+                                        debug.isTopTextHidden,
+                                        scene.isTestComplete,
+                                        replayOverlay.timeline.shouldRenderScrubber,
+                                        replayPathVisualizerHasTarget,
+                                        ProjectUiCameraBadgeMode( m_camera.mode ) != UiCameraBadgeMode::Quiet };
 
     // Hazard: an empty/loading Lab skips world drawing. Clear its previous
     // backbuffer so hidden chrome and dismissed menus cannot remain as pixels.
@@ -738,24 +708,22 @@ int Run::RenderOperatorUiTextPass(
     if ( submission.submitReplay && !ComparisonUiActive() )
     {
         const RECT sceneBounds = m_window.PresentationViewport();
-        const UI::UIDrawList& drawList = m_replayRuntime.ComposeOverlayDrawList(
-            replayOverlay,
-            projection.uiText.gameUiActive,
-            scene.isScenePhysics,
-            projection.uiText.interactionGestureKind,
-            { viewport.screenW,
-              viewport.screenH,
-              m_window.GetProjectionMatrix() * m_sceneController.Scene().Cameras().GetViewMatrix(),
-              { static_cast<float>( sceneBounds.left ),
-                static_cast<float>( sceneBounds.top ),
-                static_cast<float>( sceneBounds.right - sceneBounds.left ),
-                static_cast<float>( sceneBounds.bottom - sceneBounds.top ) },
-              m_operatorUi->SharedPresentationEnabled() ? m_operatorUi->PresentationBounds().transport : UI::UIRect {},
-              m_operatorUi->PresentationBounds().replayControls,
-              m_operatorUi->PresentationBounds().replayScroll,
-              m_operatorUi->SharedPresentationEnabled() ? m_operatorUi->PresentationBounds().statusContent : UI::UIRect {} },
-            metrics.simulationTotalSeconds
-        );
+        const UI::UIDrawList& drawList = m_replayRuntime.ComposeOverlayDrawList( replayOverlay,
+                                                                                 projection.uiText.gameUiActive,
+                                                                                 scene.isScenePhysics,
+                                                                                 projection.uiText.interactionGestureKind,
+                                                                                 { viewport.screenW,
+                                                                                                                             viewport.screenH,
+                                                                                                                             m_window.GetProjectionMatrix() * m_sceneController.Scene().Cameras().GetViewMatrix(),
+                                                                                                                             { static_cast<float>( sceneBounds.left ),
+                                                                                                                                                                           static_cast<float>( sceneBounds.top ),
+                                                                                                                                                                           static_cast<float>( sceneBounds.right - sceneBounds.left ),
+                                                                                                                                                                           static_cast<float>( sceneBounds.bottom - sceneBounds.top ) },
+                                                                                                                             m_operatorUi->SharedPresentationEnabled() ? m_operatorUi->PresentationBounds().transport : UI::UIRect {},
+                                                                                                                             m_operatorUi->PresentationBounds().replayControls,
+                                                                                                                             m_operatorUi->PresentationBounds().replayScroll,
+                                                                                                                             m_operatorUi->SharedPresentationEnabled() ? m_operatorUi->PresentationBounds().statusContent : UI::UIRect {} },
+                                                                                 metrics.simulationTotalSeconds );
         panels.Append( drawList );
     }
 
@@ -783,30 +751,26 @@ int Run::RenderOperatorUiTextPass(
 }
 
 
-void Run::RenderOperatorUiPhase(
-    const RuntimeRenderFrameViews& renderFrame,
-    float presentationAlpha,
-    bool capturePresentationPinned,
-    double secondsPerFrame,
-    bool gameUiActive,
-    const RuntimeFrameMetricsSnapshot& frameMetrics
-)
+void Run::RenderOperatorUiPhase( const RuntimeRenderFrameViews& renderFrame,
+                                 float presentationAlpha,
+                                 bool capturePresentationPinned,
+                                 double secondsPerFrame,
+                                 bool gameUiActive,
+                                 const RuntimeFrameMetricsSnapshot& frameMetrics )
 {
     SkullbonezCore::UI::OperatorEditorFrameView operatorEditorView;
     bool secondarySurfaceVisible = false;
     OperatorUiFrameSnapshot operatorUiSnapshot;
-    operatorUiSnapshot.uiText = {
-        RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode, m_sceneController.Scene().SceneEntityCount() ),
-        m_camera.mode == RunCameraMode::Attach ? m_attachedCamera.ModeLabel() : RunCameraModeLabel( m_camera.mode ),
-        m_runtimeTools.LauncherFireModeLabel(),
-        RunCameraModeUsesLauncher( m_camera.mode ),
-        m_interaction.Gesture().kind,
-        m_interaction.Gesture().gizmoKind,
-        presentationAlpha,
-        capturePresentationPinned,
-        secondsPerFrame,
-        gameUiActive
-    };
+    operatorUiSnapshot.uiText = { RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode, m_sceneController.Scene().SceneEntityCount() ),
+                                  m_camera.mode == RunCameraMode::Attach ? m_attachedCamera.ModeLabel() : RunCameraModeLabel( m_camera.mode ),
+                                  m_runtimeTools.LauncherFireModeLabel(),
+                                  RunCameraModeUsesLauncher( m_camera.mode ),
+                                  m_interaction.Gesture().kind,
+                                  m_interaction.Gesture().gizmoKind,
+                                  presentationAlpha,
+                                  capturePresentationPinned,
+                                  secondsPerFrame,
+                                  gameUiActive };
 
     operatorUiSnapshot.metrics = frameMetrics;
     operatorUiSnapshot.viewportWidth = m_window.ClientWidth();
@@ -817,15 +781,13 @@ void Run::RenderOperatorUiPhase(
 
     const RuntimeUiTextFrameFacts& uiTextFacts = operatorUiPhase.Snapshot().uiText;
 
-    const ReplayOverlay::ReplayOverlayStateView replayOverlay = m_replayRuntime.BuildOverlayStateView(
-        m_editorTools.Editor().editorModeEnabled,
-        m_operatorUi->IsVisible(),
-        m_operatorUi->IsMinimized(),
-        m_interaction.Gesture().kind,
-        renderFrame.modelPresentation.presentationRecords,
-        renderFrame.debug.physics.bodyStore,
-        m_operatorUi->SharedPresentationEnabled()
-    );
+    const ReplayOverlay::ReplayOverlayStateView replayOverlay = m_replayRuntime.BuildOverlayStateView( m_editorTools.Editor().editorModeEnabled,
+                                                                                                       m_operatorUi->IsVisible(),
+                                                                                                       m_operatorUi->IsMinimized(),
+                                                                                                       m_interaction.Gesture().kind,
+                                                                                                       renderFrame.modelPresentation.presentationRecords,
+                                                                                                       renderFrame.debug.physics.bodyStore,
+                                                                                                       m_operatorUi->SharedPresentationEnabled() );
 
     RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
     OverlayDebugState& debug = presentationEdit.State();

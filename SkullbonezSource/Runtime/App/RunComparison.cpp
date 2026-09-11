@@ -199,8 +199,7 @@ void Run::PollComparisonLoad()
         stateCommand.type = SkarnessCommandType::ComparisonState;
         SkarnessCommandApplication application;
         ApplySkarnessComparisonCommand( stateCommand, application );
-        m_skarness.CompleteCommand( m_comparisonLoadRequest, success, application.result,
-                                    success ? nullptr : m_comparisonLoad.Error().c_str() );
+        m_skarness.CompleteCommand( m_comparisonLoadRequest, success, application.result, success ? nullptr : m_comparisonLoad.Error().c_str() );
         m_comparisonLoadRequest.clear();
     }
 #else
@@ -227,8 +226,7 @@ void Run::FocusComparison()
     }
     Vector3 center = a && b ? ( a->position + b->position ) * 0.5f : a ? a->position : b->position;
     (void)m_comparisonPanel.ContactPivot( m_comparison, center );
-    const float radius = m_comparisonPanel.Radius( m_comparison.Selected() ) +
-                         ( a && b ? Length( a->position - b->position ) * 0.5f : 0 );
+    const float radius = m_comparisonPanel.Radius( m_comparison.Selected() ) + ( a && b ? Length( a->position - b->position ) * 0.5f : 0 );
     auto& cameras = m_sceneController.Scene().Cameras();
     auto direction = cameras.GetCameraTranslation() - cameras.GetCameraView();
     if ( !direction.TryNormalise() )
@@ -264,8 +262,7 @@ void Run::MoveComparisonCamera( float yaw, float pitch, float panX, float panY, 
     float azimuth = std::atan2( offset.x, offset.z ) + yaw;
     float elevation = std::clamp( std::asin( std::clamp( offset.y / distance, -1.0f, 1.0f ) ) + pitch, -1.55f, 1.55f );
     distance = std::clamp( distance * std::exp( zoom ), 0.02f, 1000000.0f );
-    const Vector3 direction { std::sin( azimuth ) * std::cos( elevation ), std::sin( elevation ),
-                              std::cos( azimuth ) * std::cos( elevation ) };
+    const Vector3 direction { std::sin( azimuth ) * std::cos( elevation ), std::sin( elevation ), std::cos( azimuth ) * std::cos( elevation ) };
     const Vector3 right { std::cos( azimuth ), 0, -std::sin( azimuth ) };
     const Vector3 up = Cross( direction, right );
     const Vector3 pan = right * ( panX * distance ) + up * ( panY * distance );
@@ -349,8 +346,7 @@ void Run::PickComparisonObject( int x, int y )
     }
     const Vector3 up = Cross( right, forward );
     // Invariant: hit testing inverts the same per-viewport lens used for drawing.
-    Vector3 direction = forward + right * ( ( 2.0f * x / width - 1 ) / frame.projection.m[0] ) +
-                        up * ( ( 1 - 2.0f * y / height ) / frame.projection.m[5] );
+    Vector3 direction = forward + right * ( ( 2.0f * x / width - 1 ) / frame.projection.m[0] ) + up * ( ( 1 - 2.0f * y / height ) / frame.projection.m[5] );
     if ( !direction.TryNormalise() )
     {
         return;
@@ -399,11 +395,8 @@ bool Run::UpdateComparisonInput( bool textActive )
         const double elapsed = m_comparisonPanel.Advance( m_comparison, now );
         const auto ui = BuildUIInputSnapshot( device, m_inputRouter.UiSnapshot().mouse, m_operatorUi->InputOverride() );
         const bool dragging = m_inputRouter.UpdateTimelineDrag( m_comparisonPanel.TimelineContains( ui.mouseX, ui.mouseY ) );
-        const bool panelMoving = m_operatorUi->PanelTransitions().BlocksPointer(
-            { static_cast<float>( ui.mouseX ), static_cast<float>( ui.mouseY ) } );
-        const auto panelAction = m_operatorUi->HasOpenPopup() || panelMoving
-                                     ? ComparisonPanelAction::None
-                                     : m_comparisonPanel.Input( m_comparison, ui, dragging );
+        const bool panelMoving = m_operatorUi->PanelTransitions().BlocksPointer( { static_cast<float>( ui.mouseX ), static_cast<float>( ui.mouseY ) } );
+        const auto panelAction = m_operatorUi->HasOpenPopup() || panelMoving ? ComparisonPanelAction::None : m_comparisonPanel.Input( m_comparison, ui, dragging );
         if ( panelAction != ComparisonPanelAction::None )
         {
             action = panelAction;
@@ -427,25 +420,21 @@ bool Run::UpdateComparisonInput( bool textActive )
         }
         const auto* after = m_comparison.Body( 0, m_comparison.Selected(), m_comparison.Tick() );
         Vector3 contactCenter;
-        if ( m_comparison.Settings().followA && !m_comparisonPanel.ContactPivot( m_comparison, contactCenter ) &&
-             previousSelection == m_comparison.Selected() && previousEvent == m_comparison.EventSelectionRevision() &&
-             before && after )
+        if ( m_comparison.Settings().followA && !m_comparisonPanel.ContactPivot( m_comparison, contactCenter ) && previousSelection == m_comparison.Selected() &&
+             previousEvent == m_comparison.EventSelectionRevision() && before && after )
         {
             auto& cameras = m_sceneController.Scene().Cameras();
             const auto delta = after->position - previous;
-            cameras.SetPrimaryPose( cameras.GetCameraTranslation() + delta, cameras.GetCameraView() + delta,
-                                    cameras.GetCameraUp() );
+            cameras.SetPrimaryPose( cameras.GetCameraTranslation() + delta, cameras.GetCameraView() + delta, cameras.GetCameraUp() );
         }
         if ( device.appFocused && !textActive )
         {
             const float forward = ( device.keys.IsDown( 'W' ) ? 1.0f : 0 ) - ( device.keys.IsDown( 'S' ) ? 1.0f : 0 );
             const float strafe = ( device.keys.IsDown( 'D' ) ? 1.0f : 0 ) - ( device.keys.IsDown( 'A' ) ? 1.0f : 0 );
-            FlyComparisonCamera( forward, strafe,
-                                 static_cast<float>( elapsed ) * ( device.keys.IsDown( VK_SHIFT ) ? 3.0f : 1.0f ) );
+            FlyComparisonCamera( forward, strafe, static_cast<float>( elapsed ) * ( device.keys.IsDown( VK_SHIFT ) ? 3.0f : 1.0f ) );
         }
         if ( device.appFocused && !dragging && !m_operatorUi->HasOpenPopup() && !m_operatorUi->BlocksCameraMouse() &&
-             m_operatorUi->PresentationBounds().viewport.Contains( device.clientX, device.clientY ) &&
-             !m_comparisonPanel.Contains( device.clientX, device.clientY ) )
+             m_operatorUi->PresentationBounds().viewport.Contains( device.clientX, device.clientY ) && !m_comparisonPanel.Contains( device.clientX, device.clientY ) )
         {
             if ( ui.leftPressed )
             {
@@ -453,11 +442,11 @@ bool Run::UpdateComparisonInput( bool textActive )
             }
             if ( device.rightDown || device.middleDown || device.wheelDelta )
             {
-                MoveComparisonCamera( device.rightDown ? InputController::ResolveMouseLookRadians( device.rawMouseX, 0.005f )
-                                                       : 0,
+                MoveComparisonCamera( device.rightDown ? InputController::ResolveMouseLookRadians( device.rawMouseX, 0.005f ) : 0,
                                       device.rightDown ? device.rawMouseY * 0.005f : 0,
                                       device.middleDown ? -device.rawMouseX * 0.001f : 0,
-                                      device.middleDown ? device.rawMouseY * 0.001f : 0, -device.wheelDelta * 0.001f );
+                                      device.middleDown ? device.rawMouseY * 0.001f : 0,
+                                      -device.wheelDelta * 0.001f );
             }
         }
     }
@@ -482,8 +471,7 @@ bool Run::UpdateComparisonInput( bool textActive )
     }
     else if ( action == ComparisonPanelAction::RagdollWall || action == ComparisonPanelAction::WallOnly )
     {
-        LoadSolverLab( action == ComparisonPanelAction::RagdollWall ? UI::UISolverLabChoice::RagdollWall
-                                                                    : UI::UISolverLabChoice::WallOnly );
+        LoadSolverLab( action == ComparisonPanelAction::RagdollWall ? UI::UISolverLabChoice::RagdollWall : UI::UISolverLabChoice::WallOnly );
     }
     else if ( action == ComparisonPanelAction::Open || action == ComparisonPanelAction::Restore )
     {
@@ -494,8 +482,7 @@ bool Run::UpdateComparisonInput( bool textActive )
     }
     else if ( action == ComparisonPanelAction::Save && ChooseComparisonFile( path, true ) )
     {
-        m_comparison.SaveFinding( path, CameraSample( m_sceneController.Scene().Cameras() ),
-                                  m_comparison.FindingNote().c_str() );
+        m_comparison.SaveFinding( path, CameraSample( m_sceneController.Scene().Cameras() ), m_comparison.FindingNote().c_str() );
     }
     return ComparisonUiActive();
 }
@@ -518,13 +505,11 @@ void Run::ApplySkarnessComparisonCommand( const SkarnessCommand& command, Skarne
     application.handled = true;
     if ( command.type == SkarnessCommandType::ComparisonLoad || command.type == SkarnessCommandType::ComparisonLoadFinding )
     {
-        application.applied = LoadComparison( command.text.c_str(),
-                                              command.type == SkarnessCommandType::ComparisonLoadFinding );
+        application.applied = LoadComparison( command.text.c_str(), command.type == SkarnessCommandType::ComparisonLoadFinding );
         if ( application.applied )
         {
             // The asynchronous load already owns its Capture phase; only its reply id is retained here.
-            Core::Allocation::RuntimeAllocationScope diagnosticsScope(
-                Core::Allocation::RuntimeAllocationPhase::Diagnostics );
+            Core::Allocation::RuntimeAllocationScope diagnosticsScope( Core::Allocation::RuntimeAllocationPhase::Diagnostics );
             m_comparisonLoadRequest = command.requestId;
             application.deferred = true;
             return;
@@ -580,22 +565,21 @@ void Run::ApplySkarnessComparisonCommand( const SkarnessCommand& command, Skarne
             application.applied = m_comparison.SetSetting( command.text.c_str(), command.number );
             break;
         case SkarnessCommandType::ComparisonLoop:
-            application.applied = command.integer >= 0 && command.secondInteger >= command.integer &&
-                                  command.secondInteger <= m_comparison.LastTick();
+            application.applied = command.integer >= 0 && command.secondInteger >= command.integer && command.secondInteger <= m_comparison.LastTick();
             if ( application.applied )
             {
                 m_comparison.SetLoop( command.integer, command.secondInteger, command.enabled );
             }
             break;
         case SkarnessCommandType::ComparisonCamera:
-            MoveComparisonCamera( static_cast<float>( command.number ), static_cast<float>( command.secondNumber ),
-                                  static_cast<float>( command.fourthNumber ), static_cast<float>( command.fifthNumber ),
+            MoveComparisonCamera( static_cast<float>( command.number ),
+                                  static_cast<float>( command.secondNumber ),
+                                  static_cast<float>( command.fourthNumber ),
+                                  static_cast<float>( command.fifthNumber ),
                                   static_cast<float>( command.thirdNumber ) );
             break;
         case SkarnessCommandType::ComparisonSaveFinding:
-            application.applied = m_comparison.SaveFinding( command.text.c_str(),
-                                                            CameraSample( m_sceneController.Scene().Cameras() ),
-                                                            command.secondText.c_str() );
+            application.applied = m_comparison.SaveFinding( command.text.c_str(), CameraSample( m_sceneController.Scene().Cameras() ), command.secondText.c_str() );
             break;
         default:
             break;
@@ -649,8 +633,7 @@ void Run::ApplySkarnessComparisonCommand( const SkarnessCommand& command, Skarne
         state.comparisonEventTick = m_comparison.Events()[static_cast<std::size_t>( state.comparisonSelectedEvent )].tick;
     }
     const auto contactFrame = m_comparisonPanel.BuildFrame( m_comparison, m_window.ClientWidth(), m_window.ClientHeight() );
-    state.comparisonViewport = { static_cast<float>( contactFrame.x ), static_cast<float>( contactFrame.y ),
-                                 static_cast<float>( contactFrame.width ), static_cast<float>( contactFrame.height ) };
+    state.comparisonViewport = { static_cast<float>( contactFrame.x ), static_cast<float>( contactFrame.y ), static_cast<float>( contactFrame.width ), static_cast<float>( contactFrame.height ) };
     Vector3 contactCenter;
     if ( m_comparisonPanel.ContactPivot( m_comparison, contactCenter ) )
     {
@@ -664,8 +647,7 @@ void Run::ApplySkarnessComparisonCommand( const SkarnessCommand& command, Skarne
         state.comparisonDiagnostics[side] = m_comparison.Recording( side ).Evidence( m_comparison.Tick() ) != nullptr;
         if ( const auto* body = m_comparison.Body( side, m_comparison.Selected(), m_comparison.Tick() ) )
         {
-            ( side ? state.comparisonPositionB : state.comparisonPositionA ) = { body->position.x, body->position.y,
-                                                                                 body->position.z };
+            ( side ? state.comparisonPositionB : state.comparisonPositionA ) = { body->position.x, body->position.y, body->position.z };
         }
     }
     const auto difference = m_comparison.Difference( m_comparison.Selected(), m_comparison.Tick() );

@@ -103,8 +103,7 @@ struct ComparisonLoadProgress
         const auto now = std::chrono::steady_clock::now();
         if ( phaseStarted != std::chrono::steady_clock::time_point {} )
         {
-            std::printf( "[solver-lab] %s: %.3f s\n", phase.load(),
-                         std::chrono::duration<double>( now - phaseStarted ).count() );
+            std::printf( "[solver-lab] %s: %.3f s\n", phase.load(), std::chrono::duration<double>( now - phaseStarted ).count() );
             std::fflush( stdout );
         }
         phaseStarted = now;
@@ -136,8 +135,7 @@ struct ComparisonRecording
         uint64_t bodyA = 0, bodyB = 0;
         uint32_t feature = 0;
         Math::Vector::Vector3 normal { 0, 0, 0 };
-        float penetration = 0, normalImpulse = 0, tangentImpulse = 0, preNormalSpeed = 0, preSlipSpeed = 0,
-              postSlipSpeed = 0;
+        float penetration = 0, normalImpulse = 0, tangentImpulse = 0, preNormalSpeed = 0, preSlipSpeed = 0, postSlipSpeed = 0;
         bool terrain = false, warmStarted = false;
     };
     struct IterationSummary
@@ -162,10 +160,8 @@ struct ComparisonRecording
     const ReplaySolverFrameSample* Evidence( int tick ) const noexcept;
     const ReplayPresentationSample* Frame( int tick ) const noexcept;
     const Observations* Observation( int tick ) const noexcept;
-    bool LoadObservations( const char* path, int ticks, uint64_t& residentBytes, ComparisonLoadProgress* progress = nullptr,
-                           int side = 0 );
-    bool LoadBinaryObservations( const char* path, int ticks, uint64_t& residentBytes,
-                                 ComparisonLoadProgress* progress = nullptr, int side = 0 );
+    bool LoadObservations( const char* path, int ticks, uint64_t& residentBytes, ComparisonLoadProgress* progress = nullptr, int side = 0 );
+    bool LoadBinaryObservations( const char* path, int ticks, uint64_t& residentBytes, ComparisonLoadProgress* progress = nullptr, int side = 0 );
 };
 
 // Planning retains immutable recordings and a presentation cursor. Neither
@@ -267,8 +263,7 @@ class PhysicsComparison
     {
         return m_note;
     }
-    static ComparisonBodyDifference Compare( const ReplayBodyPresentationSample* a,
-                                             const ReplayBodyPresentationSample* b ) noexcept;
+    static ComparisonBodyDifference Compare( const ReplayBodyPresentationSample* a, const ReplayBodyPresentationSample* b ) noexcept;
 
   private:
     friend struct PhysicsComparisonTestAccess;

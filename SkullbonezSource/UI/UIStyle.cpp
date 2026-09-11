@@ -12,8 +12,7 @@ namespace
 // Byte colours keep each theme readable as data and comparable with screenshots.
 constexpr UIColor Rgb( unsigned int rgb, float alpha = 1.0f )
 {
-    return { static_cast<float>( ( rgb >> 16 ) & 255 ) / 255.0f, static_cast<float>( ( rgb >> 8 ) & 255 ) / 255.0f,
-             static_cast<float>( rgb & 255 ) / 255.0f, alpha };
+    return { static_cast<float>( ( rgb >> 16 ) & 255 ) / 255.0f, static_cast<float>( ( rgb >> 8 ) & 255 ) / 255.0f, static_cast<float>( rgb & 255 ) / 255.0f, alpha };
 }
 struct ThemeDefinition
 {
@@ -40,19 +39,40 @@ constexpr ThemeDefinition themes[] = { { "Blue",
                                              Rgb( 0x2AC8F0 ),        // accentStrong
                                              Rgb( 0xF4A645 ),        // warningAccent
                                              Rgb( 0x2AC8F0 )         // toggleKnob
-                                         } },
-                                       { "Dark",
-                                         { Rgb( 0x1B1B1D, .98f ), Rgb( 0x262629 ), Rgb( 0x141416, .98f ), Rgb( 0x303034 ),
-                                           Rgb( 0x3D3D42 ), Rgb( 0x344353 ), Rgb( 0xF1F1F3 ), Rgb( 0xC4C4CA ),
-                                           Rgb( 0x9999A3 ), Rgb( 0x777780, .60f ), Rgb( 0x777780, .40f ),
-                                           Rgb( 0x777780, .30f ), Rgb( 0x000000, .40f ), Rgb( 0x62B4F5 ), Rgb( 0xA5D6FF ),
-                                           Rgb( 0xF4B85F ), Rgb( 0xA5D6FF ) } },
-                                       { "Light",
-                                         { Rgb( 0xF1F3F6 ), Rgb( 0xFFFFFF ), Rgb( 0xE7EBF0 ), Rgb( 0xFFFFFF ),
-                                           Rgb( 0xE2E9F1 ), Rgb( 0xD2E7FA ), Rgb( 0x182330 ), Rgb( 0x384D62 ),
-                                           Rgb( 0x596A7B ), Rgb( 0x677D94, .65f ), Rgb( 0x677D94, .45f ),
-                                           Rgb( 0x677D94, .30f ), Rgb( 0x162A40, .18f ), Rgb( 0x0069AD ), Rgb( 0x005A82 ),
-                                           Rgb( 0x925000 ), Rgb( 0xFFFFFF ), .55f } } };
+                                         } }, { "Dark", { Rgb( 0x1B1B1D, .98f ),
+                                                   Rgb( 0x262629 ),
+                                                   Rgb( 0x141416, .98f ),
+                                                   Rgb( 0x303034 ),
+                                                   Rgb( 0x3D3D42 ),
+                                                   Rgb( 0x344353 ),
+                                                   Rgb( 0xF1F1F3 ),
+                                                   Rgb( 0xC4C4CA ),
+                                                   Rgb( 0x9999A3 ),
+                                                   Rgb( 0x777780, .60f ),
+                                                   Rgb( 0x777780, .40f ),
+                                                   Rgb( 0x777780, .30f ),
+                                                   Rgb( 0x000000, .40f ),
+                                                   Rgb( 0x62B4F5 ),
+                                                   Rgb( 0xA5D6FF ),
+                                                   Rgb( 0xF4B85F ),
+                                                   Rgb( 0xA5D6FF ) } }, { "Light", { Rgb( 0xF1F3F6 ),
+                                                    Rgb( 0xFFFFFF ),
+                                                    Rgb( 0xE7EBF0 ),
+                                                    Rgb( 0xFFFFFF ),
+                                                    Rgb( 0xE2E9F1 ),
+                                                    Rgb( 0xD2E7FA ),
+                                                    Rgb( 0x182330 ),
+                                                    Rgb( 0x384D62 ),
+                                                    Rgb( 0x596A7B ),
+                                                    Rgb( 0x677D94, .65f ),
+                                                    Rgb( 0x677D94, .45f ),
+                                                    Rgb( 0x677D94, .30f ),
+                                                    Rgb( 0x162A40, .18f ),
+                                                    Rgb( 0x0069AD ),
+                                                    Rgb( 0x005A82 ),
+                                                    Rgb( 0x925000 ),
+                                                    Rgb( 0xFFFFFF ),
+                                                    .55f } } };
 static_assert( sizeof( themes ) / sizeof( themes[0] ) == static_cast<unsigned>( Theme::Count ) );
 constexpr unsigned ThemeIndex( Theme theme )
 {

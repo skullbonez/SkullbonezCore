@@ -115,14 +115,12 @@ void SceneController::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, Sc
     // bodies, and colliders disagree about the live topology.
     if ( ( requiresEmptyTopology && ( entityCount != 0 || bodyCount != 0 || colliderCount != 0 ) ) || ( requiresMatchedTopology && ( entityCount != bodyCount || entityCount != colliderCount ) ) )
     {
-        SB_FATAL(
-            "Runtime/SceneController",
-            "Scene lifecycle topology mismatch. phase=%s entities=%d bodies=%d colliders=%d",
-            SceneRuntimeLifecycleEventName( event ),
-            entityCount,
-            bodyCount,
-            colliderCount
-        );
+        SB_FATAL( "Runtime/SceneController",
+                  "Scene lifecycle topology mismatch. phase=%s entities=%d bodies=%d colliders=%d",
+                  SceneRuntimeLifecycleEventName( event ),
+                  entityCount,
+                  bodyCount,
+                  colliderCount );
     }
 
     SceneSession::RecordLifecycleEvent( event, consumers );

@@ -85,13 +85,11 @@ void CaptureSceneDiagnosticsLoad( SceneLoadTransaction& transaction, Diagnostics
 }
 
 
-bool ApplySceneDiagnosticsReactions(
-    const SceneDiagnosticsReactionBatch& reactions,
-    DiagnosticsRuntime& diagnostics,
-    bool applyAuthoredPerfLog,
-    SceneController& sceneController,
-    const SkullbonezCore::Core::EngineConfig& config
-)
+bool ApplySceneDiagnosticsReactions( const SceneDiagnosticsReactionBatch& reactions,
+                                     DiagnosticsRuntime& diagnostics,
+                                     bool applyAuthoredPerfLog,
+                                     SceneController& sceneController,
+                                     const SkullbonezCore::Core::EngineConfig& config )
 {
 #ifndef _DEBUG
     (void)sceneController;
@@ -138,15 +136,13 @@ bool ApplySceneDiagnosticsReactions(
             break;
         case SceneDiagnosticsReactionKind::BeginPhysicsDiagnostics:
 #ifdef _DEBUG
-            diagnostics.BeginPhysicsDiagnosticsRun(
-                sceneController.Scene().Physics(),
-                ProjectSceneDiagnosticFacts( sceneController.State() ),
-                config,
-                reaction.path,
-                reaction.rendererName,
-                reaction.explicitRenderFrameLockstep,
-                reaction.effectiveRenderFrameLockstep
-            );
+            diagnostics.BeginPhysicsDiagnosticsRun( sceneController.Scene().Physics(),
+                                                    ProjectSceneDiagnosticFacts( sceneController.State() ),
+                                                    config,
+                                                    reaction.path,
+                                                    reaction.rendererName,
+                                                    reaction.explicitRenderFrameLockstep,
+                                                    reaction.effectiveRenderFrameLockstep );
 #endif
             break;
         }
@@ -323,19 +319,17 @@ SkullbonezCore::Core::SbResult Run::LoadSceneRequest( SceneLoadTransaction& tran
     }
 
     CaptureSceneDiagnosticsLoad( transaction, m_diagnosticsRuntime );
-    SkullbonezCore::Core::SbResult result = transaction.Load(
-        m_sceneController,
-        request,
-        m_resultDiagnostics,
-        m_config,
-        m_launchOptions,
-        m_renderDefaults.CinematicBaseline(),
-        m_startup,
-        m_assets,
-        m_workerPool,
-        &renderer.RenderFrame(),
-        &renderer.RenderResources()
-    );
+    SkullbonezCore::Core::SbResult result = transaction.Load( m_sceneController,
+                                                              request,
+                                                              m_resultDiagnostics,
+                                                              m_config,
+                                                              m_launchOptions,
+                                                              m_renderDefaults.CinematicBaseline(),
+                                                              m_startup,
+                                                              m_assets,
+                                                              m_workerPool,
+                                                              &renderer.RenderFrame(),
+                                                              &renderer.RenderResources() );
 
     // Invariant: the command-line artifact is the sole perf-log owner when
     // supplied. A missing authored directory must not fail a valid override.
@@ -387,7 +381,7 @@ bool Run::ExecutePendingSceneRequests( SceneLoadTransaction& transaction )
         switch ( request.type )
         {
         case SceneRequestType::LoadBrowserIndex:
-            accepted = LoadSceneRequest( transaction, transaction.NavigationForFollowingRequest( CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) ).LoadSceneFromBrowserIndex( request.index, m_sceneController ) )
+            accepted = LoadSceneRequest( transaction, transaction.NavigationForFollowingRequest( CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) ) .LoadSceneFromBrowserIndex( request.index, m_sceneController ) )
                            .Ok();
             break;
         case SceneRequestType::LoadDemoScene:
@@ -458,7 +452,12 @@ void Run::ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction )
     for ( std::size_t index = 0; index < outputs.completedWorldChangeCount; ++index )
     {
         const SceneLoadCompletedWorldChange& change = outputs.completedWorldChanges[index];
-        m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity, change.previousFluidHeight, change.previousFluidDensity, change.gravity, change.fluidHeight, change.fluidDensity ) );
+        m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
+                                                                                       change.previousFluidHeight,
+                                                                                       change.previousFluidDensity,
+                                                                                       change.gravity,
+                                                                                       change.fluidHeight,
+                                                                                       change.fluidDensity ) );
     }
 
     m_runtimeTools.ObserveSceneLifecycle( lifecycle, m_inputRouter, m_interaction );
@@ -472,12 +471,10 @@ void Run::ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction )
     m_replayRuntime.ObserveSceneLifecycleAfterClear( lifecycle, m_interaction, m_inputRouter );
 
     const bool enterInspectAfterActivation = outputs.camera.mode == RunCameraMode::Inspect;
-    m_interaction.ObserveSceneLifecycle(
-        lifecycle.generation,
-        SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared ),
-        SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneActivated ),
-        enterInspectAfterActivation
-    );
+    m_interaction.ObserveSceneLifecycle( lifecycle.generation,
+                                         SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared ),
+                                         SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneActivated ),
+                                         enterInspectAfterActivation );
 
     if ( m_cameraSceneLifecycleObserver.ShouldApply( lifecycle, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
     {
@@ -504,26 +501,22 @@ void Run::ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction )
         restoreMode = RunCameraMode::Inspect;
     }
 
-    const ReplaySceneTimelineResetInput timelineReset = ReplayTimelineOperations::DescribeReplaySceneTimeline(
-        m_sceneController,
-        outputs.navigation.overrides,
-        m_sceneController.State(),
-        m_sceneController.Scene().ActiveSceneObjectCapacity(),
-        static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride )
-    );
+    const ReplaySceneTimelineResetInput timelineReset = ReplayTimelineOperations::DescribeReplaySceneTimeline( m_sceneController,
+                                                                                                               outputs.navigation.overrides,
+                                                                                                               m_sceneController.State(),
+                                                                                                               m_sceneController.Scene().ActiveSceneObjectCapacity(),
+                                                                                                               static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
 
-    m_replayRuntime.ObserveSceneLifecycleAfterActivation(
-        lifecycle,
-        timelineReset,
-        m_inputRouter,
-        m_interaction,
-        &m_sceneController.Scene().Cameras(),
-        m_sceneController.Scene().Terrain().Get(),
-        m_camera,
-        restoreMode,
-        m_attachedCamera.State().activeFollow,
-        m_camera.director.grabbed
-    );
+    m_replayRuntime.ObserveSceneLifecycleAfterActivation( lifecycle,
+                                                          timelineReset,
+                                                          m_inputRouter,
+                                                          m_interaction,
+                                                          &m_sceneController.Scene().Cameras(),
+                                                          m_sceneController.Scene().Terrain().Get(),
+                                                          m_camera,
+                                                          restoreMode,
+                                                          m_attachedCamera.State().activeFollow,
+                                                          m_camera.director.grabbed );
 
     if ( m_launchOptions.replayGuideArcsAtStartup && lifecycle.event == SceneRuntimeLifecycleEvent::AfterSceneActivated )
     {
@@ -563,18 +556,16 @@ void Run::ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction )
             break;
         }
 
-        m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand(
-                ReplayEventKind::OwnerAction,
-                0,
-                true,
-                SceneRequestFlags( request ),
-                static_cast<int32_t>( eventCode ),
-                request.index,
-                0,
-                0,
-                0,
-                request.type == SceneRequestType::CreateScene ? request.text : ReplayOwnerEventName( eventCode )
-            ) );
+        m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand( ReplayEventKind::OwnerAction,
+                                                                                 0,
+                                                                                 true,
+                                                                                 SceneRequestFlags( request ),
+                                                                                 static_cast<int32_t>( eventCode ),
+                                                                                 request.index,
+                                                                                 0,
+                                                                                 0,
+                                                                                 0,
+                                                                                 request.type == SceneRequestType::CreateScene ? request.text : ReplayOwnerEventName( eventCode ) ) );
     }
 }
 
@@ -619,12 +610,10 @@ void ApplySceneLoadWindowUiPresentation( const SceneLoadResult& outputs, Window&
 }
 
 
-void ApplySceneLoadGraphicsStressPresentation(
-    const SceneLifecyclePacket& lifecycle,
-    GraphicsStressController& graphicsStress,
-    SceneLifecycleGenerationObserver& graphicsStressSceneObserver,
-    const RunLaunchOptions& launchOptions
-)
+void ApplySceneLoadGraphicsStressPresentation( const SceneLifecyclePacket& lifecycle,
+                                               GraphicsStressController& graphicsStress,
+                                               SceneLifecycleGenerationObserver& graphicsStressSceneObserver,
+                                               const RunLaunchOptions& launchOptions )
 {
     // Invariant: a reload may be sampled more than once, but the Capture-owned
     // random stream and cadence resume exactly once after population commits.

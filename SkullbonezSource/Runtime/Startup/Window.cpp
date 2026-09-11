@@ -73,8 +73,7 @@ bool Window::RequestClientSize( int width, int height )
     }
     // The ordinary WM_SIZE queue remains authoritative for resource resizing.
     // This requests native geometry without changing cached client dimensions.
-    return SetWindowPos( m_sWindow, nullptr, 0, 0, bounds.right - bounds.left, bounds.bottom - bounds.top,
-                         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE ) != FALSE;
+    return SetWindowPos( m_sWindow, nullptr, 0, 0, bounds.right - bounds.left, bounds.bottom - bounds.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE ) != FALSE;
 }
 
 void Window::SetStartupWindowSize( int width, int height )
@@ -149,16 +148,14 @@ void Window::UpdateProjectionForCurrentClient()
     // Invariant: Window owns the projection depth range after startup; resize
     // must not reopen global config while handling OS messages.
     const float aspect = static_cast<float>( w ) / static_cast<float>( h );
-    projectionMatrix = Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f, aspect, m_projectionNearPlane,
-                                                                            m_projectionFarPlane );
+    projectionMatrix = Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f, aspect, m_projectionNearPlane, m_projectionFarPlane );
 }
 
 RECT Window::PresentationViewport() const
 {
     const LONG width = (std::max)( 1L, m_sWindowDimensions.x );
     const LONG height = (std::max)( 1L, m_sWindowDimensions.y );
-    if ( m_presentationViewport.right <= m_presentationViewport.left ||
-         m_presentationViewport.bottom <= m_presentationViewport.top )
+    if ( m_presentationViewport.right <= m_presentationViewport.left || m_presentationViewport.bottom <= m_presentationViewport.top )
     {
         return { 0, 0, width, height };
     }
@@ -172,8 +169,7 @@ RECT Window::PresentationViewport() const
 
 void Window::SetPresentationViewport( const RECT& bounds )
 {
-    if ( m_presentationViewport.left == bounds.left && m_presentationViewport.top == bounds.top &&
-         m_presentationViewport.right == bounds.right && m_presentationViewport.bottom == bounds.bottom )
+    if ( m_presentationViewport.left == bounds.left && m_presentationViewport.top == bounds.top && m_presentationViewport.right == bounds.right && m_presentationViewport.bottom == bounds.bottom )
     {
         return;
     }
@@ -191,12 +187,7 @@ bool Window::PeekNativeMessage( NativeHostMessage& message )
         return false;
     }
 
-    message = { native.hwnd,
-                native.message,
-                native.wParam,
-                native.lParam,
-                static_cast<int>( native.wParam ),
-                native.message == WM_QUIT };
+    message = { native.hwnd, native.message, native.wParam, native.lParam, static_cast<int>( native.wParam ), native.message == WM_QUIT };
     return true;
 }
 
@@ -272,8 +263,7 @@ LRESULT CALLBACK SkullbonezCore::Runtime::WndProc( HWND windowHandle, UINT messa
     // this WndProc ABI seam; the window object retains lifetime authority.
     Window* window = reinterpret_cast<Window*>( GetWindowLongPtr( windowHandle, GWLP_USERDATA ) );
 
-    const NativeHostMessageRoute route = window && window->m_dispatchActive ? window->m_activeRoute
-                                                                            : NativeHostMessageRoute {};
+    const NativeHostMessageRoute route = window && window->m_dispatchActive ? window->m_activeRoute : NativeHostMessageRoute {};
 
     // Window callbacks cannot propagate failures through Win32. Engine-owned
     // operations invoked here use explicit result/fatal lanes.
@@ -329,16 +319,14 @@ LRESULT CALLBACK SkullbonezCore::Runtime::WndProc( HWND windowHandle, UINT messa
 
         if ( window && GetForegroundWindow() == windowHandle )
         {
-            window->m_events.Push(
-                NativeHostEvent { NativeHostEventType::MouseWheel, windowHandle, GET_WHEEL_DELTA_WPARAM( wParam ) } );
+            window->m_events.Push( NativeHostEvent { NativeHostEventType::MouseWheel, windowHandle, GET_WHEEL_DELTA_WPARAM( wParam ) } );
         }
 
         break;
 
     case WM_INPUT:
     {
-        if ( !route.engineConsumes || !window || window->m_events.MoveResizeActive() ||
-             GetForegroundWindow() != windowHandle )
+        if ( !route.engineConsumes || !window || window->m_events.MoveResizeActive() || GetForegroundWindow() != windowHandle )
         {
             break;
         }
@@ -348,13 +336,13 @@ LRESULT CALLBACK SkullbonezCore::Runtime::WndProc( HWND windowHandle, UINT messa
         RAWINPUT raw = {};
         UINT rawSize = sizeof( raw );
 
-        if ( GetRawInputData( reinterpret_cast<HRAWINPUT>( lParam ), RID_INPUT, &raw, &rawSize, sizeof( RAWINPUTHEADER ) ) !=
-                 static_cast<UINT>( -1 ) &&
-             raw.header.dwType == RIM_TYPEMOUSE )
+        if ( GetRawInputData( reinterpret_cast<HRAWINPUT>( lParam ), RID_INPUT, &raw, &rawSize, sizeof( RAWINPUTHEADER ) ) != static_cast<UINT>( -1 ) && raw.header.dwType == RIM_TYPEMOUSE )
         {
             const RAWMOUSE& mouse = raw.data.mouse;
-            window->m_events.Push( NativeHostEvent { NativeHostEventType::RawMouse, windowHandle,
-                                                     static_cast<int>( mouse.lLastX ), static_cast<int>( mouse.lLastY ),
+            window->m_events.Push( NativeHostEvent { NativeHostEventType::RawMouse,
+                                                     windowHandle,
+                                                     static_cast<int>( mouse.lLastX ),
+                                                     static_cast<int>( mouse.lLastY ),
                                                      ( mouse.usFlags & MOUSE_MOVE_ABSOLUTE ) != 0,
                                                      ( mouse.usFlags & MOUSE_VIRTUAL_DESKTOP ) != 0 } );
         }
@@ -483,7 +471,8 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE instance, bool
                          dwStyle,
                          windowX, // Window xPos
                          windowY, // Window yPos
-                         windowW, windowH,
+                         windowW,
+                         windowH,
                          nullptr,  // Parent window handle
                          nullptr,  // Window menu handle
                          instance, // Application instance

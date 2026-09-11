@@ -43,13 +43,11 @@ enum PhysicsMotionEligibilityBit : uint8_t
     PhysicsMotionEligibilitySpeculativeDisabled = 1u << 3, // Validation-only A/B; uniform joint stepping remains active.
 };
 
-inline constexpr uint8_t PHYSICS_MOTION_ELIGIBILITY_VALID_BITS = PhysicsMotionEligibilityLinearPromoted |
-                                                                 PhysicsMotionEligibilityAngularExpanded;
+inline constexpr uint8_t PHYSICS_MOTION_ELIGIBILITY_VALID_BITS = PhysicsMotionEligibilityLinearPromoted | PhysicsMotionEligibilityAngularExpanded;
 
 inline bool UsesArticulatedContacts( std::span<const uint8_t> paths, int body )
 {
-    return body >= 0 && body < static_cast<int>( paths.size() ) &&
-           ( paths[body] & PhysicsMotionEligibilityArticulated ) != 0u;
+    return body >= 0 && body < static_cast<int>( paths.size() ) && ( paths[body] & PhysicsMotionEligibilityArticulated ) != 0u;
 }
 
 inline bool UsesSpeculativeContacts( std::span<const uint8_t> paths, int body )

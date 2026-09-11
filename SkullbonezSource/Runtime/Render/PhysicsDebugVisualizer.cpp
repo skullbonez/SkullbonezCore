@@ -77,27 +77,25 @@ std::span<const float> BuildContactStrokeVertices( std::span<const float> lines,
         for ( std::size_t segment = 0; segment < count; ++segment )
         {
             const std::size_t first = segment * 12u;
-            const std::array<float, 19> record {
-                lines[first],
-                lines[first + 1],
-                lines[first + 2],
-                lines[first + 6],
-                lines[first + 7],
-                lines[first + 8],
-                outline ? 4.25f : 2.25f,
-                outline ? 0.025f : lines[first + 3],
-                outline ? 0.035f : lines[first + 4],
-                outline ? 0.055f : lines[first + 5],
-                outline ? 0.72f : 1.0f,
-                1.0f,
-                0.0f,
-                lines[first],
-                lines[first + 1],
-                lines[first + 2],
-                lines[first + 6],
-                lines[first + 7],
-                lines[first + 8]
-            };
+            const std::array<float, 19> record { lines[first],
+                                                 lines[first + 1],
+                                                 lines[first + 2],
+                                                 lines[first + 6],
+                                                 lines[first + 7],
+                                                 lines[first + 8],
+                                                 outline ? 4.25f : 2.25f,
+                                                 outline ? 0.025f : lines[first + 3],
+                                                 outline ? 0.035f : lines[first + 4],
+                                                 outline ? 0.055f : lines[first + 5],
+                                                 outline ? 0.72f : 1.0f,
+                                                 1.0f,
+                                                 0.0f,
+                                                 lines[first],
+                                                 lines[first + 1],
+                                                 lines[first + 2],
+                                                 lines[first + 6],
+                                                 lines[first + 7],
+                                                 lines[first + 8] };
 
             // Open segment endpoints retain the original arrowheads and crosses;
             // the generic shader gives each stroke analytic rounded caps.
@@ -374,11 +372,7 @@ void PhysicsDebugVisualizer::EmitObjectAxes( const PhysicsDebugBodyView& view )
         Vector3 center = PhysicsBodyPosition( hotFields, bodyIndex );
         Quaternion orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
         RotationMatrix rot = orientation.GetOrientationMatrix();
-        Vector3 axes[3] = {
-            rot * Vector3( 1.0f, 0.0f, 0.0f ),
-            rot * Vector3( 0.0f, 1.0f, 0.0f ),
-            rot * Vector3( 0.0f, 0.0f, 1.0f ),
-        };
+        Vector3 axes[3] = { rot * Vector3( 1.0f, 0.0f, 0.0f ), rot * Vector3( 0.0f, 1.0f, 0.0f ), rot * Vector3( 0.0f, 0.0f, 1.0f ), };
 
         EmitArrow( center, center + axes[0] * ShapeAxisLength( collider, 0 ), 1.0f, 0.05f, 0.04f );
         EmitArrow( center, center + axes[1] * ShapeAxisLength( collider, 1 ), 0.05f, 0.9f, 0.12f );

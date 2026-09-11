@@ -89,10 +89,8 @@ class Text2d
 
   public:
     // Clockwise text in projection space, anchored at the label's upper-right.
-    static void RenderVerticalText( TextBatch& batch, const char* value, const std::array<float, 3>& color, float x, float y,
-                                    float size, float opacity = 1.0f );
-    static void RenderTextColor( TextBatch& batch, float x, float y, float size, const std::array<float, 4>& color,
-                                 const char* value );
+    static void RenderVerticalText( TextBatch& batch, const char* value, const std::array<float, 3>& color, float x, float y, float size, float opacity = 1.0f );
+    static void RenderTextColor( TextBatch& batch, float x, float y, float size, const std::array<float, 4>& color, const char* value );
     struct SdfGdiOperationResults
     {
         bool bitmapSelected = true;
@@ -148,18 +146,16 @@ class Text2d
         return true;
     }
 
-    static bool SdfAtlasWriteSucceeded( std::size_t headerRowsWritten, std::size_t pixelBytesWritten,
-                                        std::size_t expectedPixelBytes, int flushResult, int closeResult )
+    static bool SdfAtlasWriteSucceeded( std::size_t headerRowsWritten, std::size_t pixelBytesWritten, std::size_t expectedPixelBytes, int flushResult, int closeResult )
     {
         return headerRowsWritten == 1u && pixelBytesWritten == expectedPixelBytes && flushResult == 0 && closeResult == 0;
     }
 
     static bool SdfGdiOperationsSucceeded( const SdfGdiOperationResults& results )
     {
-        return results.bitmapSelected && results.brushCreated && results.backgroundFilled && results.brushDeleted &&
-               results.fontCreated && results.fontSelected && results.glyphWidthsMeasured && results.backgroundModeSet &&
-               results.textColorSet && results.glyphsDrawn && results.queueFlushed && results.fontRestored &&
-               results.bitmapRestored && results.fontDeleted && results.bitmapDeleted && results.dcDeleted;
+        return results.bitmapSelected && results.brushCreated && results.backgroundFilled && results.brushDeleted && results.fontCreated && results.fontSelected && results.glyphWidthsMeasured &&
+               results.backgroundModeSet && results.textColorSet && results.glyphsDrawn && results.queueFlushed && results.fontRestored && results.bitmapRestored && results.fontDeleted &&
+               results.bitmapDeleted && results.dcDeleted;
     }
 
     static bool PublishSdfAtlasCandidate( uint32_t textureHandle, std::span<const float> advances )
@@ -182,36 +178,53 @@ class Text2d
     // x/y normally stay within [-0.5, 0.5], size is normalized, and the format
     // string accepts printf-style arguments.
     // Queues white SDF text for this frame's text batch.
-    static void Render2dTextColor( TextBatch& batch, float xPosition, float yPosition, float size, float r, float g, float b,
+    static void Render2dTextColor( TextBatch& batch,
+                                   float xPosition,
+                                   float yPosition,
+                                   float size,
+                                   float r,
+                                   float g,
+                                   float b,
                                    const char* format,
-                                   ... ); // Queues colored SDF text for this frame's text batch.
-    static void FlushText( TextBatch& batch, Rendering::Dx12TextureOwner& renderTextures,
-                           Rendering::Dx12GeometryOwner& renderCommands ); // Uploads the current queued text segment.
-    static void Render2dQuad( TextBatch& batch, Rendering::Dx12GeometryOwner& renderCommands, float x0, float y0, float x1,
-                              float y1, float r, float g, float b,
+                                   ... );                                                                                                 // Queues colored SDF text for this frame's text batch.
+    static void FlushText( TextBatch& batch, Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderCommands ); // Uploads the current queued text segment.
+    static void Render2dQuad( TextBatch& batch,
+                              Rendering::Dx12GeometryOwner& renderCommands,
+                              float x0,
+                              float y0,
+                              float x1,
+                              float y1,
+                              float r,
+                              float g,
+                              float b,
                               float a ); // Immediate HUD quad path for legacy call sites.
-    static void BatchQuad( TextBatch& batch, Rendering::Dx12GeometryOwner& renderCommands, float x0, float y0, float x1,
-                           float y1, float r, float g, float b,
+    static void BatchQuad( TextBatch& batch,
+                           Rendering::Dx12GeometryOwner& renderCommands,
+                           float x0,
+                           float y0,
+                           float x1,
+                           float y1,
+                           float r,
+                           float g,
+                           float b,
                            float a ); // Queues a colored quad for the shared HUD batch.
     // Positions contain three XY pairs in projection space.
-    static void BatchTriangle( TextBatch& batch, Rendering::Dx12GeometryOwner& renderCommands,
-                               std::span<const float, 6> positions, float r, float g, float b, float a );
+    static void BatchTriangle( TextBatch& batch, Rendering::Dx12GeometryOwner& renderCommands, std::span<const float, 6> positions, float r, float g, float b, float a );
+    static void FlushQuads( TextBatch& batch, Rendering::Dx12GeometryOwner& renderCommands ); // Uploads the current queued quad/triangle segment.
+    static SkullbonezCore::Core::SbResult BuildFont( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                                     TextBatch& batch,
+                                                     Rendering::Dx12TextureOwner& renderTextures,
+                                                     Rendering::Dx12GeometryOwner& renderGeometry,
+                                                     std::unique_ptr<Rendering::ShaderDX12> textShader,
+                                                     std::unique_ptr<Rendering::ShaderDX12> solidShader,
+                                                     std::unique_ptr<Rendering::ShaderDX12> solidBatchShader,
+                                                     int screenW,
+                                                     int screenH,
+                                                     const char* fontName );            // Loads or generates SDF atlas resources for the active backend.
+    static bool GenerateSdfAtlasToFile( const char* fontName, const char* outputPath ); // Offline SDF atlas writer used by --gen-atlas tooling.
     static void
-    FlushQuads( TextBatch& batch,
-                Rendering::Dx12GeometryOwner& renderCommands ); // Uploads the current queued quad/triangle segment.
-    static SkullbonezCore::Core::SbResult
-    BuildFont( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, TextBatch& batch,
-               Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-               std::unique_ptr<Rendering::ShaderDX12> textShader, std::unique_ptr<Rendering::ShaderDX12> solidShader,
-               std::unique_ptr<Rendering::ShaderDX12> solidBatchShader, int screenW, int screenH,
-               const char* fontName ); // Loads or generates SDF atlas resources for the active backend.
-    static bool GenerateSdfAtlasToFile( const char* fontName,
-                                        const char* outputPath ); // Offline SDF atlas writer used by --gen-atlas tooling.
-    static void DeleteFont(
-        TextBatch& batch, Rendering::Dx12TextureOwner* renderTextures,
-        Rendering::Dx12GeometryOwner* renderGeometry ); // Releases GPU font resources while a backend is still available.
-    static void RebuildProjection( TextBatch& batch, int w,
-                                   int h ); // Recomputes owned ortho projection after a window resize.
+    DeleteFont( TextBatch& batch, Rendering::Dx12TextureOwner* renderTextures, Rendering::Dx12GeometryOwner* renderGeometry ); // Releases GPU font resources while a backend is still available.
+    static void RebuildProjection( TextBatch& batch, int w, int h );                                                           // Recomputes owned ortho projection after a window resize.
     static float HalfW( const TextBatch& batch )
     {
         return batch.m_halfWidth;
@@ -223,8 +236,7 @@ class Text2d
     static float MeasureText( float size, const char* text ); // Width in text-space units for already-formatted strings.
 
   private:
-    static void RenderTextInternal( TextBatch& batch, float xPosition, float yPosition, float size, float colR, float colG,
-                                    float colB, const char* formatted, float opacity = 1.0f );
+    static void RenderTextInternal( TextBatch& batch, float xPosition, float yPosition, float size, float colR, float colG, float colB, const char* formatted, float opacity = 1.0f );
 };
 } // namespace Text
 } // namespace SkullbonezCore

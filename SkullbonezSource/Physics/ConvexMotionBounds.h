@@ -9,6 +9,7 @@ namespace SkullbonezCore::Physics
 // approximation. Translation is deliberately left to the calling geometry query.
 float MaximumRotatedProjection( const Math::Orientation::Quaternion& orientation,
                                 const Math::CollisionDetection::CollisionShapeReference& shape,
-                                const Math::Vector::Vector3& angularVelocity, const Math::Vector::Vector3& normal,
+                                const Math::Vector::Vector3& angularVelocity,
+                                const Math::Vector::Vector3& normal,
                                 float stepDuration );
 } // namespace SkullbonezCore::Physics

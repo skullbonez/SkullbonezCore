@@ -464,15 +464,13 @@ int ReplayCauseSummaryMaxScroll( const ReplayCauseInspectorLayout& layout, const
 // Concept: one projection describes both retained Replay placement and the
 // Planning-owned attached drawer. `drawerProgress` is already eased; CHUI3's
 // lifecycle supplies it without adding a second placement owner.
-ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout(
-    const ReplayCauseSolverDetailView& solverDetail,
-    const RunReplayCauseTreeState& causeTree,
-    int screenWidth,
-    int screenHeight,
-    float drawerProgress,
-    const UI::UIRect& shellBounds = {},
-    const UI::UIRect& shellViewport = {}
-) noexcept;
+ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSolverDetailView& solverDetail,
+                                                            const RunReplayCauseTreeState& causeTree,
+                                                            int screenWidth,
+                                                            int screenHeight,
+                                                            float drawerProgress,
+                                                            const UI::UIRect& shellBounds = {},
+                                                            const UI::UIRect& shellViewport = {} ) noexcept;
 inline constexpr float REPLAY_CAUSE_SHELL_MIN_CONTENT_HEIGHT = 340.0f;
 inline UI::UIRect ReplayCauseShellContentBounds( const ReplayCauseDisplayView& display ) noexcept
 {
@@ -488,15 +486,13 @@ inline UI::UIRect ReplayCauseShellContentBounds( const ReplayCauseDisplayView& d
 inline ReplayCauseInspectorLayout
 BuildReplayCauseInspectorLayout( const ReplayCauseInspectionView& inspection, const RunReplayCauseTreeState& causeTree, int screenWidth, int screenHeight, float drawerProgress ) noexcept
 {
-    return BuildReplayCauseInspectorLayout(
-        inspection.SolverDetail(),
-        causeTree,
-        screenWidth,
-        screenHeight,
-        inspection.Display().sharedShell ? ( inspection.Display().drawerOpen ? 1.0f : 0.0f ) : drawerProgress,
-        ReplayCauseShellContentBounds( inspection.Display() ),
-        inspection.Display().shellViewport
-    );
+    return BuildReplayCauseInspectorLayout( inspection.SolverDetail(),
+                                            causeTree,
+                                            screenWidth,
+                                            screenHeight,
+                                            inspection.Display().sharedShell ? ( inspection.Display().drawerOpen ? 1.0f : 0.0f ) : drawerProgress,
+                                            ReplayCauseShellContentBounds( inspection.Display() ),
+                                            inspection.Display().shellViewport );
 }
 bool ReplayCauseInspectorContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept;
 bool ReplayCauseInspectorDrawerTitleContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept;
@@ -522,12 +518,10 @@ class ReplayCauseInspection
     bool SeekPredictionPlayback( std::span<const RunReplayPredictionFrame> frames, float normalized, double nowSeconds ) noexcept;
     void AdvancePredictionPlayback( std::span<const RunReplayPredictionFrame> frames, int direction, double nowSeconds ) noexcept;
     bool TakeTransportRequest( ReplayCauseTransportRequest& outRequest ) noexcept;
-    void PublishSolverDetail(
-        uint64_t generation,
-        const ReplayCauseSolverDetailResult& detail,
-        const Rendering::ContactManifoldPresentation& contactPresentation = {},
-        const std::array<ReplayCauseObjectDetails, 2>& objects = {}
-    ) noexcept;
+    void PublishSolverDetail( uint64_t generation,
+                              const ReplayCauseSolverDetailResult& detail,
+                              const Rendering::ContactManifoldPresentation& contactPresentation = {},
+                              const std::array<ReplayCauseObjectDetails, 2>& objects = {} ) noexcept;
     void CompleteTransport( uint64_t generation, bool succeeded ) noexcept;
     bool BeginAftermath( bool& outReleasePause ) noexcept;
     ReplayCauseExitAction BeginReturn() noexcept;
@@ -538,18 +532,16 @@ class ReplayCauseInspection
     void SetActiveTab( ReplayCauseInspectorTab tab ) noexcept;
     void SetSummaryExpandedSections( int section ) noexcept;
     bool CopySelectedRecord( char* destination, std::size_t destinationCapacity ) const noexcept;
-    bool TickSolverDetailPanelInput(
-        const RunReplayCauseTreeState& causeTree,
-        int mouseX,
-        int mouseY,
-        bool hasClientPosition,
-        bool pointerBlocked,
-        bool leftPressed,
-        int wheelDelta,
-        int screenWidth,
-        int screenHeight,
-        ReplayCauseInspectorCommand* outCommand = nullptr
-    ) noexcept;
+    bool TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree,
+                                     int mouseX,
+                                     int mouseY,
+                                     bool hasClientPosition,
+                                     bool pointerBlocked,
+                                     bool leftPressed,
+                                     int wheelDelta,
+                                     int screenWidth,
+                                     int screenHeight,
+                                     ReplayCauseInspectorCommand* outCommand = nullptr ) noexcept;
     void Reset() noexcept;
     ReplayCauseInspectionView View() const noexcept;
 

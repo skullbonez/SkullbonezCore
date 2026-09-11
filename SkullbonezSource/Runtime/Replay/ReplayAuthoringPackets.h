@@ -142,8 +142,7 @@ class ReplayInteractionRequest
     }
 
   private:
-    void BeginGesture( ReplayToolGestureKind kind, int startX, int startY, Physics::PhysicsBodyHandle body, int axis,
-                       bool angular )
+    void BeginGesture( ReplayToolGestureKind kind, int startX, int startY, Physics::PhysicsBodyHandle body, int axis, bool angular )
     {
         m_beginGesture = kind;
         m_gestureStartX = startX;

@@ -158,8 +158,7 @@ class PhysicsWorld
 
     // Point joints are PhysicsWorld-owned solver state; the solver and sleep
     // controller borrow the dense rows only for each synchronous call.
-    PhysicsBodyRowList<PointJointConstraint> m_pointJointConstraints { "PhysicsWorld.pointJointConstraints",
-                                                                       PhysicsCapacityReason::PointJoints };
+    PhysicsBodyRowList<PointJointConstraint> m_pointJointConstraints { "PhysicsWorld.pointJointConstraints", PhysicsCapacityReason::PointJoints };
     std::size_t m_pointJointCapacity = 0u;
     uint32_t m_nextPointJointHandleIndex = 0u;
     uint32_t m_pointJointHandleGeneration = PHYSICS_HANDLE_INITIAL_GENERATION;
@@ -170,14 +169,28 @@ class PhysicsWorld
 #endif
     PhysicsRuntimeSettings m_runtimeSettings;
 
-    void RunSolverPhysics( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                           std::span<BuoyancyBodyFacts> buoyancyFacts, float dt, const PhysicsWorldForces& worldForces,
-                           const ExternalForceFrameInput& externalForces, Threading::WorkerPool& workerPool,
+    void DetectAndCommitTerrainContacts( PhysicsBodyStore& bodyStore,
+                                         const ColliderStore& colliderStore,
+                                         std::span<BuoyancyBodyFacts> buoyancyFacts,
+                                         std::span<const uint8_t> sleepStates,
+                                         std::span<const int> awakeBodyIndices,
+                                         Threading::WorkerPool& workerPool );
+
+    void RunSolverPhysics( PhysicsBodyStore& bodyStore,
+                           const ColliderStore& colliderStore,
+                           std::span<BuoyancyBodyFacts> buoyancyFacts,
+                           float dt,
+                           const PhysicsWorldForces& worldForces,
+                           const ExternalForceFrameInput& externalForces,
+                           Threading::WorkerPool& workerPool,
                            bool probeDormantUnderwaterLocks );
     void CommitContactSolverConsequences();
-    void ApplyExternalForces( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                              std::span<BuoyancyBodyFacts> buoyancyFacts, const PhysicsWorldForces& worldForces,
-                              const ExternalForceFrameInput& input, const PhysicsExecutionSettings& execution,
+    void ApplyExternalForces( PhysicsBodyStore& bodyStore,
+                              const ColliderStore& colliderStore,
+                              std::span<BuoyancyBodyFacts> buoyancyFacts,
+                              const PhysicsWorldForces& worldForces,
+                              const ExternalForceFrameInput& input,
+                              const PhysicsExecutionSettings& execution,
                               Threading::WorkerPool& workerPool );
 
   public:
@@ -193,9 +206,13 @@ class PhysicsWorld
 
     // Runs one fixed world step over the stores. Collision diagnostics append
     // fixed events only; name lookup and file output occur after the hot pass.
-    void RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                     std::span<BuoyancyBodyFacts> buoyancyFacts, float deltaSeconds, const PhysicsWorldForces& worldForces,
-                     const ExternalForceFrameInput& externalForces, Threading::WorkerPool& workerPool );
+    void RunPhysics( PhysicsBodyStore& bodyStore,
+                     const ColliderStore& colliderStore,
+                     std::span<BuoyancyBodyFacts> buoyancyFacts,
+                     float deltaSeconds,
+                     const PhysicsWorldForces& worldForces,
+                     const ExternalForceFrameInput& externalForces,
+                     Threading::WorkerPool& workerPool );
 
     // Emits Debug-only regression and SkullScope records from the stores the
     // caller passes in. The diagnostics sink owns the registered cold name
@@ -203,14 +220,12 @@ class PhysicsWorld
     // or logging globals.
     bool ShouldEmitStepDiagnostics() const;
     void SetDiagnosticNames( std::span<const char* const> diagnosticNames );
-    void EmitStepDiagnostics( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, float deltaSeconds,
-                              const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+    void EmitStepDiagnostics( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, float deltaSeconds, const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
 
     // Wake and seed decisions read physics-owned fixed/sleep state before the
     // scene edge performs any owner-side cache invalidation.
     void WakeModel( PhysicsBodyStore& bodyStore, int index );
-    void WakeModel( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                    std::span<BuoyancyBodyFacts> buoyancyFacts, const PhysicsWorldForces& worldForces, int index );
+    void WakeModel( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, std::span<BuoyancyBodyFacts> buoyancyFacts, const PhysicsWorldForces& worldForces, int index );
     void SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index );
     void SetPhysicsSleepEnabled( bool enabled );
     bool IsPhysicsSleepEnabled() const;
@@ -230,12 +245,9 @@ class PhysicsWorld
     bool UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc );
     bool DestroyConstraint( PhysicsConstraintHandle constraint );
     const PhysicsBodyRowList<PointJointConstraint>& GetPointJointConstraints() const;
-    void CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount, const PhysicsBodyStore& bodyStore,
-                                      bool capturePipelineTrace ) const;
-    bool CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount,
-                                         const PhysicsBodyStore& bodyStore ) const;
-    bool RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount,
-                                      const PhysicsBodyStore& bodyStore );
+    void CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount, const PhysicsBodyStore& bodyStore, bool capturePipelineTrace ) const;
+    bool CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount, const PhysicsBodyStore& bodyStore ) const;
+    bool RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount, const PhysicsBodyStore& bodyStore );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;

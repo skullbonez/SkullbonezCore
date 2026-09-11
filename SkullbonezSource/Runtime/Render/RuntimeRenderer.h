@@ -143,8 +143,11 @@ class RuntimeRenderer
         {
         }
 #endif
-        WorldOverlayTransaction( RuntimeRenderer& renderer, const RenderCameraLighting& camera,
-                                 const WorldFrameSubmission& submission, int windowWidth, int windowHeight,
+        WorldOverlayTransaction( RuntimeRenderer& renderer,
+                                 const RenderCameraLighting& camera,
+                                 const WorldFrameSubmission& submission,
+                                 int windowWidth,
+                                 int windowHeight,
                                  bool useCinematicTarget ) noexcept;
         void BeginOverlaySubmissionOrFatal()
         {
@@ -166,17 +169,21 @@ class RuntimeRenderer
         WorldOverlayPhaseCursor m_phase;
     };
 
-    RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::RenderBackendDX12& backend,
-                     Assets::AssetSystem& assets, Window& window, SkullbonezCore::Core::EngineConfig& config,
-                     Environment::WorldEnvironment& worldEnvironment, SkullbonezCore::Core::Profiler* profiler,
-                     int sceneIndex, int sceneLoadCount );
+    RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                     Rendering::RenderBackendDX12& backend,
+                     Assets::AssetSystem& assets,
+                     Window& window,
+                     SkullbonezCore::Core::EngineConfig& config,
+                     Environment::WorldEnvironment& worldEnvironment,
+                     SkullbonezCore::Core::Profiler* profiler,
+                     int sceneIndex,
+                     int sceneLoadCount );
     ~RuntimeRenderer();
 
     // Runs after Core FrameBegin and before draw-call counters reset. This
     // reads completed GPU samples and publishes the preceding render counters.
     void BeginProfilerFrame();
-    void UpdateDebugVisualizers( float secondsPerFrame, const RuntimeRenderDebugViews& debug,
-                                 const RuntimeRenderFramePolicy& policy );
+    void UpdateDebugVisualizers( float secondsPerFrame, const RuntimeRenderDebugViews& debug, const RuntimeRenderFramePolicy& policy );
 
     const RenderPresentationSettings& PresentationSettings() const
     {
@@ -190,9 +197,7 @@ class RuntimeRenderer
     void SetVsyncEnabled( bool enabled );
     bool PipelineSyncEnabled() const;
     void SetPipelineSyncEnabled( bool enabled );
-    static void ResetDebugVisualizerTransientState( CollisionVisualizer& collisionVisualizer,
-                                                    PhysicsDebugVisualizer& physicsDebugVisualizer,
-                                                    BroadphaseVisualizer& broadphaseVisualizer )
+    static void ResetDebugVisualizerTransientState( CollisionVisualizer& collisionVisualizer, PhysicsDebugVisualizer& physicsDebugVisualizer, BroadphaseVisualizer& broadphaseVisualizer )
     {
         collisionVisualizer.ResetTransientState();
         physicsDebugVisualizer.ResetTransientState();
@@ -261,15 +266,11 @@ class RuntimeRenderer
     // Each operation consumes only its focused inputs. Renderer-local callback
     // records borrow those inputs until that operation's graph completes.
     int BeginUiTextFrame( const UiTextViewport& viewport );
-    void SubmitUiChrome( const UiTextViewport& viewport, const UiChromeStatusValues& status,
-                         const UiChromeTailValues& tail );
+    void SubmitUiChrome( const UiTextViewport& viewport, const UiChromeStatusValues& status, const UiChromeTailValues& tail );
     void PrepareOperatorUiSubmission( const UiTextViewport& viewport, bool drawTestPattern );
-    void AppendDxrReflectionPreview( RuntimeRenderTargetPreviewSnapshot& previews, const UiTextViewport& viewport,
-                                     bool available ) const;
-    void SubmitOperatorUiDrawList( const UI::UIDrawList& drawList, const RuntimeRenderTargetPreviewSnapshot& previews,
-                                   Assets::AssetSystem& assets, const UiTextViewport& viewport );
-    void SubmitUiOverlay( const UiTextViewport& viewport, UiOverlayMode mode, int modelCount, float rollingFpsTime,
-                          float sceneEnergyForDisplay );
+    void AppendDxrReflectionPreview( RuntimeRenderTargetPreviewSnapshot& previews, const UiTextViewport& viewport, bool available ) const;
+    void SubmitOperatorUiDrawList( const UI::UIDrawList& drawList, const RuntimeRenderTargetPreviewSnapshot& previews, Assets::AssetSystem& assets, const UiTextViewport& viewport );
+    void SubmitUiOverlay( const UiTextViewport& viewport, UiOverlayMode mode, int modelCount, float rollingFpsTime, float sceneEnergyForDisplay );
     void SubmitUiDrawList( const UI::UIDrawList& drawList, const UiTextViewport& viewport );
     void FinalizeUiOverlay( UiOverlayMode mode );
     int EndUiTextFrame( int drawCallStart );
@@ -366,22 +367,24 @@ class RuntimeRenderer
     void FinalizeFrameGraphInternal( const char* declarationOnlyPassName, bool appendPresent, bool releaseGraphStorage );
     void ExecuteBackbufferAcquireThroughRenderGraph( const BackbufferAcquireGraphInputs& inputs );
     ShadowPassOutput ExecuteShadowThroughRenderGraph( const ShadowPassInputs& pass );
-    void ExecuteSkyboxThroughRenderGraph( const RenderCameraLighting& camera, Rendering::Dx12GeometryOwner& renderGeometry,
+    void ExecuteSkyboxThroughRenderGraph( const RenderCameraLighting& camera,
+                                          Rendering::Dx12GeometryOwner& renderGeometry,
                                           Rendering::Dx12TextureOwner& renderTextures,
                                           Rendering::Dx12GraphTransientPool& renderGraph );
     ReflectionPassOutput ExecuteReflectionThroughRenderGraph( const ReflectionPassInputs& pass );
-    void ExecuteSceneTargetBeginThroughRenderGraph(
-        const RenderCameraLighting& camera, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-        Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12TextureOwner& renderTextures,
-        Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,
-        Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::RenderGpuTimingOwner& gpuTiming );
+    void ExecuteSceneTargetBeginThroughRenderGraph( const RenderCameraLighting& camera,
+                                                    const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                                                    Rendering::Dx12GeometryOwner& renderGeometry,
+                                                    Rendering::Dx12TextureOwner& renderTextures,
+                                                    Rendering::Dx12FrameOwner& renderFrame,
+                                                    Rendering::Dx12GraphTransientPool& renderGraph,
+                                                    Rendering::Dx12Diagnostics& renderDiagnostics,
+                                                    Rendering::RenderGpuTimingOwner& gpuTiming );
     void ExecuteObjectThroughRenderGraph( const ObjectGraphInputs& inputs );
     void ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs );
     void ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs );
     bool ExecuteWorldExtensionThroughRenderGraph( const WorldExtensionGraphInputs& inputs );
-    DebugOverlaySnapshot BuildDebugOverlaySnapshot( RuntimeRenderWorldExtensionDebugView worldExtensionDebug,
-                                                    const RenderToolOverlayView& toolOverlay,
-                                                    const RuntimeRenderFramePolicy& policy ) const;
+    DebugOverlaySnapshot BuildDebugOverlaySnapshot( RuntimeRenderWorldExtensionDebugView worldExtensionDebug, const RenderToolOverlayView& toolOverlay, const RuntimeRenderFramePolicy& policy ) const;
     void ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );
     bool ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs );
     CinematicPostFrameOutput ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );

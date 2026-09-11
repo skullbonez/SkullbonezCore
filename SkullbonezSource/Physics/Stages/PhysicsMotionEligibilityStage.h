@@ -47,8 +47,12 @@ class PhysicsMotionEligibilityStage
     void Clear();
     void InvalidateBodyTopology();
     void CommitReplayRestoreState( bool hasVersionedState );
-    void Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
-              float dt, std::span<const PointJointConstraint> joints = {}, bool speculativeEnabled = true );
+    void Run( const PhysicsBodyStore& bodyStore,
+              const ColliderStore& colliderStore,
+              std::span<const uint8_t> sleepState,
+              float dt,
+              std::span<const PointJointConstraint> joints = {},
+              bool speculativeEnabled = true );
 
     std::span<const uint8_t> State() const;
     std::span<const uint8_t> CollisionPathState() const;
@@ -66,17 +70,12 @@ class PhysicsMotionEligibilityStage
   private:
     // Tick-derived membership belongs to this stage, not the hot body store or
     // replay hysteresis. Scene-load reservation gives it the same body ceiling.
-    PhysicsBodyRowList<uint8_t> m_collisionPathState { "PhysicsMotionEligibilityStage.collisionPathState",
-                                                       PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<uint8_t> m_collisionPathState { "PhysicsMotionEligibilityStage.collisionPathState", PhysicsCapacityReason::SceneBodies };
     PhysicsBodyRowList<uint8_t> m_state { "PhysicsMotionEligibilityStage.state", PhysicsCapacityReason::SceneBodies };
-    PhysicsBodyRowList<float> m_linearTravelSquared { "PhysicsMotionEligibilityStage.linearTravelSquared",
-                                                      PhysicsCapacityReason::SceneBodies };
-    PhysicsBodyRowList<float> m_linearDirectionalBoundary { "PhysicsMotionEligibilityStage.linearDirectionalBoundary",
-                                                            PhysicsCapacityReason::SceneBodies };
-    PhysicsBodyRowList<float> m_angularTravelSquared { "PhysicsMotionEligibilityStage.angularTravelSquared",
-                                                       PhysicsCapacityReason::SceneBodies };
-    PhysicsBodyRowList<float> m_angularBroadphaseExpansion { "PhysicsMotionEligibilityStage.angularBroadphaseExpansion",
-                                                             PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<float> m_linearTravelSquared { "PhysicsMotionEligibilityStage.linearTravelSquared", PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<float> m_linearDirectionalBoundary { "PhysicsMotionEligibilityStage.linearDirectionalBoundary", PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<float> m_angularTravelSquared { "PhysicsMotionEligibilityStage.angularTravelSquared", PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<float> m_angularBroadphaseExpansion { "PhysicsMotionEligibilityStage.angularBroadphaseExpansion", PhysicsCapacityReason::SceneBodies };
     PhysicsMotionEligibilityStats m_stats;
     bool m_topologyInvalidated = true;
 };

@@ -532,19 +532,17 @@ void DrawOverlaySubsystemStack( const SkullbonezCore::UI::UIDrawContext& draw, c
     const float stackEndX = stackRect.x + stackRect.w;
     DrawMemoryStackSegment( draw, x, stackRect.y, stackRect.h, stackRect.w, stackEndX, memory.gameObjects.totalBytes, totalBytes, 0.70f, 0.90f, 0.54f );
 
-    DrawMemoryStackSegment(
-        draw,
-        x,
-        stackRect.y,
-        stackRect.h,
-        stackRect.w,
-        stackEndX,
-        memory.replay.totalBytes,
-        totalBytes,
-        tablePalette.accentStrong.r,
-        tablePalette.accentStrong.g,
-        tablePalette.accentStrong.b
-    );
+    DrawMemoryStackSegment( draw,
+                            x,
+                            stackRect.y,
+                            stackRect.h,
+                            stackRect.w,
+                            stackEndX,
+                            memory.replay.totalBytes,
+                            totalBytes,
+                            tablePalette.accentStrong.r,
+                            tablePalette.accentStrong.g,
+                            tablePalette.accentStrong.b );
 
     DrawMemoryStackSegment( draw, x, stackRect.y, stackRect.h, stackRect.w, stackEndX, memory.otherTrackedBytes, totalBytes, 0.95f, 0.76f, 0.34f );
 
@@ -577,22 +575,18 @@ uint64_t ReplayMemoryCategoryCounter( const SkullbonezCore::Core::MainMemoryRepl
 
 // Concept: the memory tab prints emitted/dropped trajectory pairs compactly so
 // a manual flicker repro can watch which lane starts dropping segments.
-void FormatReplayTrajectoryPair(
-    char* out,
-    std::size_t outSize,
-    const char* label,
-    const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& trajectory,
-    SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane
-)
+void FormatReplayTrajectoryPair( char* out,
+                                 std::size_t outSize,
+                                 const char* label,
+                                 const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& trajectory,
+                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
-    snprintf(
-        out,
-        outSize,
-        "%s %llu/%llu",
-        label,
-        static_cast<unsigned long long>( ReplayTrajectoryLaneCounter( trajectory.emittedSegments, lane ) ),
-        static_cast<unsigned long long>( ReplayTrajectoryLaneCounter( trajectory.droppedSegments, lane ) )
-    );
+    snprintf( out,
+              outSize,
+              "%s %llu/%llu",
+              label,
+              static_cast<unsigned long long>( ReplayTrajectoryLaneCounter( trajectory.emittedSegments, lane ) ),
+              static_cast<unsigned long long>( ReplayTrajectoryLaneCounter( trajectory.droppedSegments, lane ) ) );
 }
 
 void DrawReplayPresetButton( const SkullbonezCore::UI::UIDrawContext& draw, const SkullbonezCore::UI::UIButton& button, const char* label, bool active, bool hovered )
@@ -605,41 +599,35 @@ void DrawReplayPresetButton( const SkullbonezCore::UI::UIDrawContext& draw, cons
     const float b = active ? palette.selection.b : palette.window.b;
     draw.RoundedRect( bounds.x, bounds.y, bounds.w, bounds.h, SkullbonezCore::UI::Style::Radii().control, r, g, b, fillA );
 
-    draw.Outline(
-        bounds.x,
-        bounds.y,
-        bounds.w,
-        bounds.h,
-        active ? palette.accentStrong.r : palette.innerBorder.r,
-        active ? palette.accentStrong.g : palette.innerBorder.g,
-        active ? palette.accentStrong.b : palette.innerBorder.b,
-        active ? 0.78f : 0.54f
-    );
+    draw.Outline( bounds.x,
+                  bounds.y,
+                  bounds.w,
+                  bounds.h,
+                  active ? palette.accentStrong.r : palette.innerBorder.r,
+                  active ? palette.accentStrong.g : palette.innerBorder.g,
+                  active ? palette.accentStrong.b : palette.innerBorder.b,
+                  active ? 0.78f : 0.54f );
 
-    draw.Text(
-        bounds.x + 9.0f,
-        bounds.y + 6.0f,
-        8.8f,
-        active ? palette.textPrimary.r : palette.textSecondary.r,
-        active ? palette.textPrimary.g : palette.textSecondary.g,
-        active ? palette.textPrimary.b : palette.textSecondary.b,
-        label
-    );
+    draw.Text( bounds.x + 9.0f,
+               bounds.y + 6.0f,
+               8.8f,
+               active ? palette.textPrimary.r : palette.textSecondary.r,
+               active ? palette.textPrimary.g : palette.textSecondary.g,
+               active ? palette.textPrimary.b : palette.textSecondary.b,
+               label );
 }
 
-void DrawReplayMemoryPolicyPanel(
-    const SkullbonezCore::UI::UIDrawContext& draw,
-    SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
-    const SkullbonezCore::UI::UIMemoryTabFrameView& data,
-    float contentX,
-    float contentY,
-    float contentW,
-    float contentH,
-    float panelY,
-    int activeSlider,
-    int mouseX,
-    int mouseY
-)
+void DrawReplayMemoryPolicyPanel( const SkullbonezCore::UI::UIDrawContext& draw,
+                                  SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
+                                  const SkullbonezCore::UI::UIMemoryTabFrameView& data,
+                                  float contentX,
+                                  float contentY,
+                                  float contentW,
+                                  float contentH,
+                                  float panelY,
+                                  int activeSlider,
+                                  int mouseX,
+                                  int mouseY )
 {
     SetReplayPolicyControlBounds( state, contentX, panelY, contentW );
     if ( !IsMemoryRowVisible( contentY, contentH, panelY, MEMORY_REPLAY_POLICY_BLOCK_H ) )
@@ -657,15 +645,13 @@ void DrawReplayMemoryPolicyPanel(
     char text[160] = {};
     snprintf( text, sizeof( text ), "visual %ds  solver %ds%s", state.lastPresentationRetentionSeconds, state.lastSolverRetentionSeconds, state.lastSolverWindowReduced ? "  solver trimmed" : "" );
 
-    draw.Text(
-        contentW < 390.0f ? contentX + 14.0f : contentX + contentW - 226.0f,
-        panelY + ( contentW < 390.0f ? 22.0f : 10.0f ),
-        8.4f,
-        tablePalette.textMuted.r,
-        tablePalette.textMuted.g,
-        tablePalette.textMuted.b,
-        text
-    );
+    draw.Text( contentW < 390.0f ? contentX + 14.0f : contentX + contentW - 226.0f,
+               panelY + ( contentW < 390.0f ? 22.0f : 10.0f ),
+               8.4f,
+               tablePalette.textMuted.r,
+               tablePalette.textMuted.g,
+               tablePalette.textMuted.b,
+               text );
 
     for ( int i = 0; i < SkullbonezCore::UI::MemoryTab::MEMORY_REPLAY_PRESET_COUNT; ++i )
     {
@@ -696,15 +682,13 @@ void DrawReplayMemoryPolicyPanel(
     }
 }
 
-void DrawMainMemoryPanel(
-    const SkullbonezCore::UI::UIDrawContext& draw,
-    const SkullbonezCore::UI::UIMemoryTabFrameView& data,
-    float contentX,
-    float contentY,
-    float contentW,
-    float contentH,
-    float scrolledY
-)
+void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
+                          const SkullbonezCore::UI::UIMemoryTabFrameView& data,
+                          float contentX,
+                          float contentY,
+                          float contentW,
+                          float contentH,
+                          float scrolledY )
 {
     const SkullbonezCore::Core::MainMemoryStats& memory = data.mainMemory;
     const float panelX = contentX;
@@ -792,28 +776,24 @@ void DrawMainMemoryPanel(
 
         if ( hasForeignFrees )
         {
-            snprintf(
-                text,
-                sizeof( text ),
-                "FOREIGN FREES %llu  models %llu/%llu  replay %llu/%llu samples",
-                static_cast<unsigned long long>( memory.foreignFreeCount ),
-                static_cast<unsigned long long>( memory.gameObjects.modelCount ),
-                static_cast<unsigned long long>( memory.gameObjects.modelCapacity ),
-                static_cast<unsigned long long>( memory.replay.presentationSamples ),
-                static_cast<unsigned long long>( memory.replay.solverSamples )
-            );
+            snprintf( text,
+                      sizeof( text ),
+                      "FOREIGN FREES %llu  models %llu/%llu  replay %llu/%llu samples",
+                      static_cast<unsigned long long>( memory.foreignFreeCount ),
+                      static_cast<unsigned long long>( memory.gameObjects.modelCount ),
+                      static_cast<unsigned long long>( memory.gameObjects.modelCapacity ),
+                      static_cast<unsigned long long>( memory.replay.presentationSamples ),
+                      static_cast<unsigned long long>( memory.replay.solverSamples ) );
         }
         else
         {
-            snprintf(
-                text,
-                sizeof( text ),
-                "models %llu/%llu  replay %llu/%llu samples",
-                static_cast<unsigned long long>( memory.gameObjects.modelCount ),
-                static_cast<unsigned long long>( memory.gameObjects.modelCapacity ),
-                static_cast<unsigned long long>( memory.replay.presentationSamples ),
-                static_cast<unsigned long long>( memory.replay.solverSamples )
-            );
+            snprintf( text,
+                      sizeof( text ),
+                      "models %llu/%llu  replay %llu/%llu samples",
+                      static_cast<unsigned long long>( memory.gameObjects.modelCount ),
+                      static_cast<unsigned long long>( memory.gameObjects.modelCapacity ),
+                      static_cast<unsigned long long>( memory.replay.presentationSamples ),
+                      static_cast<unsigned long long>( memory.replay.solverSamples ) );
         }
 
         draw.Text( x, row0 + 92.0f, 8.8f, hasForeignFrees ? 0.95f : 0.48f, hasForeignFrees ? 0.48f : 0.60f, hasForeignFrees ? 0.34f : 0.64f, text );
@@ -855,30 +835,26 @@ void DrawMainMemoryPanel(
     snprintf( text, sizeof( text ), "%s  %s  %s  %s", retainedPair, baselinePair, markerPair, auxiliaryPair );
     draw.Text( x, row0 + 126.0f, 8.0f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
 
-    snprintf(
-        text,
-        sizeof( text ),
-        "traj store rec %llu  pts %llu/%llu  ver max %u churn %llu",
-        static_cast<unsigned long long>( memory.replay.trajectory.recordCount ),
-        static_cast<unsigned long long>( memory.replay.trajectory.publishedPointCount ),
-        static_cast<unsigned long long>( memory.replay.trajectory.pointCount ),
-        memory.replay.trajectory.maxRecordVersion,
-        static_cast<unsigned long long>( memory.replay.trajectory.versionChurn )
-    );
+    snprintf( text,
+              sizeof( text ),
+              "traj store rec %llu  pts %llu/%llu  ver max %u churn %llu",
+              static_cast<unsigned long long>( memory.replay.trajectory.recordCount ),
+              static_cast<unsigned long long>( memory.replay.trajectory.publishedPointCount ),
+              static_cast<unsigned long long>( memory.replay.trajectory.pointCount ),
+              memory.replay.trajectory.maxRecordVersion,
+              static_cast<unsigned long long>( memory.replay.trajectory.versionChurn ) );
 
     draw.Text( x, row0 + 140.0f, 8.0f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
 
-    snprintf(
-        text,
-        sizeof( text ),
-        "budget begin %llu step %llu tree %llu retained %llu rebuild d/a %llu/%llu",
-        static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBegin )] ),
-        static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionStep )] ),
-        static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBuildTree )] ),
-        static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayBudgetPass::RetainedRefresh )] ),
-        static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayRebuildCause::Dirty )] ),
-        static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayRebuildCause::AutomaticRefresh )] )
-    );
+    snprintf( text,
+              sizeof( text ),
+              "budget begin %llu step %llu tree %llu retained %llu rebuild d/a %llu/%llu",
+              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBegin )] ),
+              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionStep )] ),
+              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBuildTree )] ),
+              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayBudgetPass::RetainedRefresh )] ),
+              static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayRebuildCause::Dirty )] ),
+              static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayRebuildCause::AutomaticRefresh )] ) );
 
     draw.Text( x, row0 + 154.0f, 8.0f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
 
@@ -958,16 +934,14 @@ void DrawMainMemoryPanel(
     FormatMemoryMiB( render.uploadUsedBytes, a, sizeof( a ) );
     FormatMemoryMiB( render.uploadPeakBytes, b, sizeof( b ) );
     FormatMemoryMiB( render.uploadCapacityBytes, c, sizeof( c ) );
-    snprintf(
-        text,
-        sizeof( text ),
-        "upload used %s  peak %s  cap %s  flush/drop %llu/%llu",
-        a,
-        b,
-        c,
-        static_cast<unsigned long long>( render.uploadFlushCount ),
-        static_cast<unsigned long long>( render.uploadDropCount )
-    );
+    snprintf( text,
+              sizeof( text ),
+              "upload used %s  peak %s  cap %s  flush/drop %llu/%llu",
+              a,
+              b,
+              c,
+              static_cast<unsigned long long>( render.uploadFlushCount ),
+              static_cast<unsigned long long>( render.uploadDropCount ) );
 
     draw.Text( x, row0 + 242.0f, 8.0f, tablePalette.textSecondary.r, tablePalette.textSecondary.g, tablePalette.textSecondary.b, text );
 
@@ -995,15 +969,13 @@ float CapacityTableHeight( const SkullbonezCore::UI::UIMemoryTabFrameView& data 
     return MEMORY_CAPACITY_HEADER_H + static_cast<float>( rowCount ) * MEMORY_CAPACITY_ROW_H;
 }
 
-void DrawReserveCapacityRows(
-    const SkullbonezCore::UI::UIDrawContext& draw,
-    const SkullbonezCore::UI::UIMemoryTabFrameView& data,
-    float contentX,
-    float contentY,
-    float contentW,
-    float contentH,
-    float tableY
-)
+void DrawReserveCapacityRows( const SkullbonezCore::UI::UIDrawContext& draw,
+                              const SkullbonezCore::UI::UIMemoryTabFrameView& data,
+                              float contentX,
+                              float contentY,
+                              float contentW,
+                              float contentH,
+                              float tableY )
 {
     const float tableX = contentX;
     const float tableW = contentW;
@@ -1025,14 +997,14 @@ void DrawReserveCapacityRows(
     }
 
     std::sort( sortedRows, sortedRows + rowCount, []( const SkullbonezCore::UI::UIRuntimeReserveCapacityRow* left, const SkullbonezCore::UI::UIRuntimeReserveCapacityRow* right )
-        {
-            if ( left->residentBytes != right->residentBytes )
-            {
-                return left->residentBytes > right->residentBytes;
-            }
+               {
+                   if ( left->residentBytes != right->residentBytes )
+                   {
+                       return left->residentBytes > right->residentBytes;
+                   }
 
-            return std::strcmp( left->ownerName, right->ownerName ) < 0;
-        } );
+                   return std::strcmp( left->ownerName, right->ownerName ) < 0;
+               } );
 
     const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
     char text[96] = {};
@@ -1118,15 +1090,13 @@ void DrawReserveCapacityRows(
     }
 }
 
-void DrawReserveGrowthEvents(
-    const SkullbonezCore::UI::UIDrawContext& draw,
-    const SkullbonezCore::UI::UIMemoryTabFrameView& data,
-    float contentX,
-    float contentY,
-    float contentW,
-    float contentH,
-    float tableY
-)
+void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,
+                              const SkullbonezCore::UI::UIMemoryTabFrameView& data,
+                              float contentX,
+                              float contentY,
+                              float contentW,
+                              float contentH,
+                              float tableY )
 {
     const float tableX = contentX;
     const float tableW = contentW;
@@ -1147,14 +1117,12 @@ void DrawReserveGrowthEvents(
     draw.Outline( tableX, tableY, tableW, tableH, tablePalette.border.r, tablePalette.border.g, tablePalette.border.b, 0.62f );
     draw.Text( tableX + 14.0f, tableY + 9.0f, 10.4f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, "Reserve Growth" );
 
-    snprintf(
-        text,
-        sizeof( text ),
-        "total %llu  shown %d  dropped %llu",
-        static_cast<unsigned long long>( data.reserveGrowthEventTotalCount ),
-        eventCount,
-        static_cast<unsigned long long>( data.reserveGrowthEventDroppedCount )
-    );
+    snprintf( text,
+              sizeof( text ),
+              "total %llu  shown %d  dropped %llu",
+              static_cast<unsigned long long>( data.reserveGrowthEventTotalCount ),
+              eventCount,
+              static_cast<unsigned long long>( data.reserveGrowthEventDroppedCount ) );
 
     draw.Text( tableX + tableW - 196.0f, tableY + 10.0f, 8.4f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
 
@@ -1294,15 +1262,13 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
 
     draw.Text( panel.x + 10.0f, panel.y + 8.0f, 10.5f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, "F6  Memory" );
     const bool narrowHeader = docked && panel.w < 260.0f;
-    draw.Text(
-        narrowHeader ? panel.x + 10.0f : panel.x + panel.w - ( docked ? 158.0f : 112.0f ),
-        panel.y + ( narrowHeader ? 24.0f : 8.0f ),
-        10.0f,
-        tablePalette.textPrimary.r,
-        tablePalette.textPrimary.g,
-        tablePalette.textPrimary.b,
-        totalText
-    );
+    draw.Text( narrowHeader ? panel.x + 10.0f : panel.x + panel.w - ( docked ? 158.0f : 112.0f ),
+               panel.y + ( narrowHeader ? 24.0f : 8.0f ),
+               10.0f,
+               tablePalette.textPrimary.r,
+               tablePalette.textPrimary.g,
+               tablePalette.textPrimary.b,
+               totalText );
 
     draw.Rect( plot.x, plot.y, plot.w, plot.h, palette.window.r, palette.window.g, palette.window.b, 0.58f );
     draw.Rect( plot.x, plot.y, plot.w, 1.0f, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.20f );
@@ -1444,19 +1410,17 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
     }
 }
 
-void Draw(
-    const UIDrawContext& draw,
-    UIMemoryOverlayState& state,
-    const UIMemoryTabFrameView& data,
-    float contentX,
-    float contentY,
-    float contentW,
-    float contentH,
-    float scrolledY,
-    int activeSlider,
-    int mouseX,
-    int mouseY
-)
+void Draw( const UIDrawContext& draw,
+           UIMemoryOverlayState& state,
+           const UIMemoryTabFrameView& data,
+           float contentX,
+           float contentY,
+           float contentW,
+           float contentH,
+           float scrolledY,
+           int activeSlider,
+           int mouseX,
+           int mouseY )
 {
     DrawReplayMemoryPolicyPanel( draw, state, data, contentX, contentY, contentW, contentH, scrolledY, activeSlider, mouseX, mouseY );
 
@@ -1494,7 +1458,10 @@ bool HandleContentClick( UIMemoryOverlayState& state, InGameUIInputResult& resul
     if ( state.replayBudgetSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = MEMORY_REPLAY_SLIDER_BUDGET;
-        state.previewBudgetMiB = static_cast<int>( state.replayBudgetSlider .ValueFromMouse( mouseX, static_cast<float>( MEMORY_REPLAY_BUDGET_MIN_MIB ), static_cast<float>( MEMORY_REPLAY_BUDGET_MAX_MIB ), static_cast<float>( MEMORY_REPLAY_BUDGET_STEP_MIB ) ) );
+        state.previewBudgetMiB = static_cast<int>( state.replayBudgetSlider.ValueFromMouse( mouseX,
+                                                                                            static_cast<float>( MEMORY_REPLAY_BUDGET_MIN_MIB ),
+                                                                                            static_cast<float>( MEMORY_REPLAY_BUDGET_MAX_MIB ),
+                                                                                            static_cast<float>( MEMORY_REPLAY_BUDGET_STEP_MIB ) ) );
 
         return true;
     }
@@ -1513,7 +1480,10 @@ bool UpdateActiveSlider( UIMemoryOverlayState& state, int activeSlider, int mous
 
     if ( activeSlider == MEMORY_REPLAY_SLIDER_BUDGET )
     {
-        state.previewBudgetMiB = static_cast<int>( state.replayBudgetSlider .ValueFromMouse( mouseX, static_cast<float>( MEMORY_REPLAY_BUDGET_MIN_MIB ), static_cast<float>( MEMORY_REPLAY_BUDGET_MAX_MIB ), static_cast<float>( MEMORY_REPLAY_BUDGET_STEP_MIB ) ) );
+        state.previewBudgetMiB = static_cast<int>( state.replayBudgetSlider.ValueFromMouse( mouseX,
+                                                                                            static_cast<float>( MEMORY_REPLAY_BUDGET_MIN_MIB ),
+                                                                                            static_cast<float>( MEMORY_REPLAY_BUDGET_MAX_MIB ),
+                                                                                            static_cast<float>( MEMORY_REPLAY_BUDGET_STEP_MIB ) ) );
 
         return true;
     }

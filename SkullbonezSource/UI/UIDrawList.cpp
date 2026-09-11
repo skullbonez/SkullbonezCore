@@ -174,8 +174,7 @@ void UIDrawList::ExtractForeground( UIDrawList& destination )
         }
         *copy = command;
         copy->foreground = false;
-        if ( command.type == CommandType::Text || command.type == CommandType::VerticalText ||
-             command.type == CommandType::PreviewImage )
+        if ( command.type == CommandType::Text || command.type == CommandType::VerticalText || command.type == CommandType::PreviewImage )
         {
             copy->textOffset = destination.StoreText( TextAt( command.textOffset ) );
         }
@@ -250,8 +249,7 @@ void UIDrawList::PopClip()
 }
 
 
-void UIDrawList::AddPreviewImage( PreviewTargetId target, const UIRect& bounds, const Style::UIColor& fallbackColor,
-                                  const char* fallbackLabel )
+void UIDrawList::AddPreviewImage( PreviewTargetId target, const UIRect& bounds, const Style::UIColor& fallbackColor, const char* fallbackLabel )
 {
     Command* command = PushCommand();
 
@@ -284,26 +282,26 @@ void UIDrawList::Append( const UIDrawList& source, float offsetX, float offsetY 
         switch ( command.type )
         {
         case CommandType::Rect:
-            AddRect( { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h },
-                     { command.r, command.g, command.b, command.a } );
+            AddRect( { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h }, { command.r, command.g, command.b, command.a } );
 
             break;
         case CommandType::RoundedRect:
-            AddRoundedRect( { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h }, command.radius,
-                            { command.r, command.g, command.b, command.a } );
+            AddRoundedRect( { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h }, command.radius, { command.r, command.g, command.b, command.a } );
 
             break;
         case CommandType::Triangle:
-            AddTriangle( { { command.x0 + offsetX, command.y0 + offsetY },
-                           { command.x1 + offsetX, command.y1 + offsetY },
-                           { command.x2 + offsetX, command.y2 + offsetY } },
-                         { command.r, command.g, command.b, command.a } );
+            AddTriangle( { { command.x0 + offsetX, command.y0 + offsetY }, { command.x1 + offsetX, command.y1 + offsetY }, { command.x2 + offsetX, command.y2 + offsetY } }, { command.r,
+                                                                                                                                                                               command.g,
+                                                                                                                                                                               command.b,
+                                                                                                                                                                               command.a } );
 
             break;
         case CommandType::Text:
         case CommandType::VerticalText:
-            AddText( { command.x0 + offsetX, command.y0 + offsetY }, command.pxSize,
-                     { command.r, command.g, command.b, command.a }, source.TextAt( command.textOffset ),
+            AddText( { command.x0 + offsetX, command.y0 + offsetY },
+                     command.pxSize,
+                     { command.r, command.g, command.b, command.a },
+                     source.TextAt( command.textOffset ),
                      command.type == CommandType::VerticalText );
 
             break;
@@ -317,8 +315,10 @@ void UIDrawList::Append( const UIDrawList& source, float offsetX, float offsetY 
             BeginLayer();
             break;
         case CommandType::PreviewImage:
-            AddPreviewImage( command.preview, { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h },
-                             { command.r, command.g, command.b, command.a }, source.TextAt( command.textOffset ) );
+            AddPreviewImage( command.preview,
+                             { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h },
+                             { command.r, command.g, command.b, command.a },
+                             source.TextAt( command.textOffset ) );
 
             break;
         }
@@ -422,8 +422,7 @@ uint64_t UIDrawList::Fingerprint() const
         addUint32( command.preview.catalogIndex );
         addByte( command.preview.valid ? 1u : 0u );
 
-        if ( command.type == CommandType::Text || command.type == CommandType::VerticalText ||
-             command.type == CommandType::PreviewImage )
+        if ( command.type == CommandType::Text || command.type == CommandType::VerticalText || command.type == CommandType::PreviewImage )
         {
             addText( TextAt( command.textOffset ) );
         }
@@ -502,8 +501,7 @@ bool UIDrawList::HasPanel( UIPanel panel ) const
 {
     for ( const Command& command : Commands() )
     {
-        if ( command.panel == panel && command.type != CommandType::PushClip && command.type != CommandType::PopClip &&
-             command.type != CommandType::LayerBreak )
+        if ( command.panel == panel && command.type != CommandType::PushClip && command.type != CommandType::PopClip && command.type != CommandType::LayerBreak )
         {
             return true;
         }
@@ -518,8 +516,7 @@ void UIDrawList::CopyPanel( const UIDrawList& source, UIPanel panel )
     // this panel. Filtering geometry must never leave a cached exit unclipped.
     for ( const Command& command : source.Commands() )
     {
-        if ( command.panel != panel && command.type != CommandType::PushClip && command.type != CommandType::PopClip &&
-             command.type != CommandType::LayerBreak )
+        if ( command.panel != panel && command.type != CommandType::PushClip && command.type != CommandType::PopClip && command.type != CommandType::LayerBreak )
         {
             continue;
         }
@@ -529,8 +526,7 @@ void UIDrawList::CopyPanel( const UIDrawList& source, UIPanel panel )
             break;
         }
         *copy = command;
-        if ( command.type == CommandType::Text || command.type == CommandType::VerticalText ||
-             command.type == CommandType::PreviewImage )
+        if ( command.type == CommandType::Text || command.type == CommandType::VerticalText || command.type == CommandType::PreviewImage )
         {
             copy->textOffset = StoreText( source.TextAt( command.textOffset ) );
         }

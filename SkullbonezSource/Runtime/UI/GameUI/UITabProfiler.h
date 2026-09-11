@@ -209,34 +209,30 @@ void ApplyDefaultExpansion( UIProfilerTabState& state );
 void ApplyExpandAll( UIProfilerTabState& state );
 
 int ContentHeight( const UIProfilerTabState& state );
-bool HandleContentClick(
-    UIProfilerTabState& state,
-    InGameUIInputResult& result,
-    int& activeSlider,
-    int contentX,
-    int contentY,
-    float contentW,
-    float scrollY,
-    int mouseX,
-    int mouseY,
-    int currentWorkerThreads,
-    int maxWorkerThreads
-);
+bool HandleContentClick( UIProfilerTabState& state,
+                         InGameUIInputResult& result,
+                         int& activeSlider,
+                         int contentX,
+                         int contentY,
+                         float contentW,
+                         float scrollY,
+                         int mouseX,
+                         int mouseY,
+                         int currentWorkerThreads,
+                         int maxWorkerThreads );
 bool UpdateActiveSlider( UIProfilerTabState& state, int activeSlider, int mouseX, int maxWorkerThreads, InGameUIInputResult& result );
 bool CommitActiveSlider( UIProfilerTabState& state, int activeSlider, InGameUIInputResult& result );
 
-bool HandlePerformanceHistogramInput(
-    UIProfilerTabState& state,
-    InGameUIInputResult& result,
-    int screenW,
-    int screenH,
-    int mouseX,
-    int mouseY,
-    bool leftDown,
-    bool leftPressed,
-    bool leftReleased,
-    int wheelDelta
-);
+bool HandlePerformanceHistogramInput( UIProfilerTabState& state,
+                                      InGameUIInputResult& result,
+                                      int screenW,
+                                      int screenH,
+                                      int mouseX,
+                                      int mouseY,
+                                      bool leftDown,
+                                      bool leftPressed,
+                                      bool leftReleased,
+                                      int wheelDelta );
 void PushPerformanceHistogramSample( UIProfilerTabState& state, const UIProfilerTabFrameView& data );
 void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfilerTabFrameView& data );
 

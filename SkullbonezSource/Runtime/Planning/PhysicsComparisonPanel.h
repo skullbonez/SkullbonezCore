@@ -50,8 +50,7 @@ class PhysicsComparisonPanel
     void Prepare( const Physics::ColliderStore& colliders, const Rendering::RenderInstanceStore& instances );
     Rendering::PairedViewFrame BuildFrame( const PhysicsComparison& comparison, int width, int height );
     const UI::UIDrawList& Compose( const PhysicsComparison& comparison, int width, int height );
-    ComparisonPanelAction Input( PhysicsComparison& comparison, const UI::InputControl::UIInputSnapshot& input,
-                                 bool timelineDrag );
+    ComparisonPanelAction Input( PhysicsComparison& comparison, const UI::InputControl::UIInputSnapshot& input, bool timelineDrag );
     UI::UIRect TimelineBounds() const
     {
         return m_timeline;
@@ -65,8 +64,7 @@ class PhysicsComparisonPanel
     double Advance( PhysicsComparison& comparison, double now );
     float Radius( uint64_t id ) const noexcept;
     bool ContactPivot( const PhysicsComparison& comparison, Math::Vector::Vector3& pivot ) const;
-    uint64_t Pick( const PhysicsComparison& comparison, const Math::Vector::Vector3& origin,
-                   const Math::Vector::Vector3& direction, int side ) const;
+    uint64_t Pick( const PhysicsComparison& comparison, const Math::Vector::Vector3& origin, const Math::Vector::Vector3& direction, int side ) const;
 
   private:
     struct Shape

@@ -316,13 +316,11 @@ static void RenderCauseCoefficients( const CauseInspectorDrawing& draw, const Ph
     }
 }
 
-static void RenderReplayCauseSummaryTab(
-    UI::UIDrawList& drawList,
-    const UI::UIDrawContext& uiDraw,
-    const ReplayCauseInspectionView& inspection,
-    const ReplayCauseInspectorLayout& layout,
-    const UI::Style::UIPalette& palette
-)
+static void RenderReplayCauseSummaryTab( UI::UIDrawList& drawList,
+                                         const UI::UIDrawContext& uiDraw,
+                                         const ReplayCauseInspectionView& inspection,
+                                         const ReplayCauseInspectorLayout& layout,
+                                         const UI::Style::UIPalette& palette )
 {
     const CauseInspectorDrawing draw( uiDraw, UI::IntersectRect( layout.content, layout.visibleDrawer ) );
     const int contactIndex = ReplayCauseSelectedContactIndex( inspection );
@@ -359,13 +357,11 @@ static void RenderReplayCauseSummaryTab(
         draw.Text( cardX + 10.0f, y + 199.0f, 9.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, index == 2 ? "u" : "mass*u/s" );
     }
     char policy[128] = {};
-    sprintf_s(
-        policy,
-        "Warm start: %s    Friction: %s    Sleep: %s",
-        contact.warmStarted ? "yes" : "no",
-        contact.allowsTangentFriction ? "enabled" : "disabled",
-        contact.inhibitsSleep ? "inhibited" : "allowed"
-    );
+    sprintf_s( policy,
+               "Warm start: %s    Friction: %s    Sleep: %s",
+               contact.warmStarted ? "yes" : "no",
+               contact.allowsTangentFriction ? "enabled" : "disabled",
+               contact.inhibitsSleep ? "inhibited" : "allowed" );
     draw.Text( x, y + 232.0f, 10.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, policy );
     const char* sections[] = { "Contact geometry", "Solver coefficients", "Identity & exact values" };
     for ( int section = 0; section < 3; ++section )
@@ -409,13 +405,11 @@ static void RenderReplayCauseSummaryTab(
     }
 }
 
-static void RenderReplayCauseRawRecordTab(
-    UI::UIDrawList& drawList,
-    const UI::UIDrawContext& uiDraw,
-    const ReplayCauseInspectionView& inspection,
-    const ReplayCauseInspectorLayout& layout,
-    const UI::Style::UIPalette& palette
-)
+static void RenderReplayCauseRawRecordTab( UI::UIDrawList& drawList,
+                                           const UI::UIDrawContext& uiDraw,
+                                           const ReplayCauseInspectionView& inspection,
+                                           const ReplayCauseInspectorLayout& layout,
+                                           const UI::Style::UIPalette& palette )
 {
     const CauseInspectorDrawing draw( uiDraw, UI::IntersectRect( layout.content, layout.visibleDrawer ) );
     const int contactIndex = ReplayCauseSelectedContactIndex( inspection );
@@ -477,13 +471,11 @@ static void RenderReplayCauseRawRecordTab(
     }
 }
 
-static void RenderReplayCauseIterationsTab(
-    UI::UIDrawList& drawList,
-    const UI::UIDrawContext& uiDraw,
-    const ReplayCauseInspectionView& inspection,
-    const ReplayCauseInspectorLayout& layout,
-    const UI::Style::UIPalette& palette
-)
+static void RenderReplayCauseIterationsTab( UI::UIDrawList& drawList,
+                                            const UI::UIDrawContext& uiDraw,
+                                            const ReplayCauseInspectionView& inspection,
+                                            const ReplayCauseInspectorLayout& layout,
+                                            const UI::Style::UIPalette& palette )
 {
     const CauseInspectorDrawing draw( uiDraw, UI::IntersectRect( layout.content, layout.visibleDrawer ) );
     const int contactIndex = ReplayCauseSelectedContactIndex( inspection );
@@ -497,15 +489,13 @@ static void RenderReplayCauseIterationsTab(
     if ( rowCount == 0 )
     {
         draw.RoundedRect( layout.iterationsTable.x, layout.iterationsTable.y, layout.iterationsTable.w, 40.0f, 4.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
-        draw.Text(
-            layout.iterationsTable.x + 10.0f,
-            layout.iterationsTable.y + 14.0f,
-            10.0f,
-            palette.textMuted.r,
-            palette.textMuted.g,
-            palette.textMuted.b,
-            "No iteration pipeline records for selected contact"
-        );
+        draw.Text( layout.iterationsTable.x + 10.0f,
+                   layout.iterationsTable.y + 14.0f,
+                   10.0f,
+                   palette.textMuted.r,
+                   palette.textMuted.g,
+                   palette.textMuted.b,
+                   "No iteration pipeline records for selected contact" );
         return;
     }
 
@@ -624,23 +614,19 @@ void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UID
     headerDraw.Text( layout.drawerTitle.x + 12.0f, layout.drawerTitle.y + 9.0f, docked ? 12.0f : 14.0f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, "SOLVER INSPECTOR" );
 
     char frameLabel[96] = {};
-    sprintf_s(
-        frameLabel,
-        sizeof( frameLabel ),
-        "FRAME %llu | %zu ROWS%s",
-        static_cast<unsigned long long>( inspection.Transport().targetFrame ),
-        inspection.SolverDetail().solverDetailContacts.size(),
-        inspection.SolverDetail().contactPresentation.truncated ? " | PATCH TRUNCATED" : ""
-    );
-    headerDraw.Text(
-        layout.drawerTitle.x + ( docked ? 12.0f : 170.0f ),
-        layout.drawerTitle.y + ( docked ? 26.0f : 12.0f ),
-        10.0f,
-        inspection.SolverDetail().contactPresentation.truncated ? palette.warningAccent.r : palette.accent.r,
-        inspection.SolverDetail().contactPresentation.truncated ? palette.warningAccent.g : palette.accent.g,
-        inspection.SolverDetail().contactPresentation.truncated ? palette.warningAccent.b : palette.accent.b,
-        frameLabel
-    );
+    sprintf_s( frameLabel,
+               sizeof( frameLabel ),
+               "FRAME %llu | %zu ROWS%s",
+               static_cast<unsigned long long>( inspection.Transport().targetFrame ),
+               inspection.SolverDetail().solverDetailContacts.size(),
+               inspection.SolverDetail().contactPresentation.truncated ? " | PATCH TRUNCATED" : "" );
+    headerDraw.Text( layout.drawerTitle.x + ( docked ? 12.0f : 170.0f ),
+                     layout.drawerTitle.y + ( docked ? 26.0f : 12.0f ),
+                     10.0f,
+                     inspection.SolverDetail().contactPresentation.truncated ? palette.warningAccent.r : palette.accent.r,
+                     inspection.SolverDetail().contactPresentation.truncated ? palette.warningAccent.g : palette.accent.g,
+                     inspection.SolverDetail().contactPresentation.truncated ? palette.warningAccent.b : palette.accent.b,
+                     frameLabel );
 
     // Sign/units are rendered as part of the surface so a captured frame remains
     // interpretable without consulting solver implementation comments.
@@ -654,15 +640,13 @@ void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UID
         const UI::Style::UIColor& tabAccent = tabIndex == 0 ? CAUSE_PREDICTION : ( tabIndex == 1 ? CAUSE_MANIFOLD : CAUSE_SOLVER );
         draw.RoundedRect( tab.x, tab.y, tab.w, tab.h, 4.0f, tabFill.r, tabFill.g, tabFill.b, 1.0f );
         draw.Rect( tab.x, tab.y + tab.h - 2.0f, tab.w, 2.0f, tabAccent.r, tabAccent.g, tabAccent.b, selected ? 1.0f : 0.34f );
-        headerDraw.Text(
-            tab.x + 8.0f,
-            tab.y + 7.0f,
-            docked ? 10.0f : 12.0f,
-            selected ? tabAccent.r : palette.textSecondary.r,
-            selected ? tabAccent.g : palette.textSecondary.g,
-            selected ? tabAccent.b : palette.textSecondary.b,
-            TAB_LABELS[tabIndex]
-        );
+        headerDraw.Text( tab.x + 8.0f,
+                         tab.y + 7.0f,
+                         docked ? 10.0f : 12.0f,
+                         selected ? tabAccent.r : palette.textSecondary.r,
+                         selected ? tabAccent.g : palette.textSecondary.g,
+                         selected ? tabAccent.b : palette.textSecondary.b,
+                         TAB_LABELS[tabIndex] );
     }
 
     if ( docked )
@@ -673,38 +657,32 @@ void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UID
     }
     else
     {
-        headerDraw.Text(
-            layout.drawer.x + 12.0f,
-            layout.drawer.y + 42.0f,
-            11.0f,
-            palette.textSecondary.r,
-            palette.textSecondary.g,
-            palette.textSecondary.b,
-            "UNITS  v=u/s  w=rad/s  impulse=mass*u/s  mass=mass  depth=u"
-        );
-        headerDraw.Text(
-            layout.drawer.x + 12.0f,
-            layout.drawer.y + 55.0f,
-            11.0f,
-            palette.textMuted.r,
-            palette.textMuted.g,
-            palette.textMuted.b,
-            "SIGNS  +penetration=overlap  normal A->B  CLAMP=friction limit"
-        );
+        headerDraw.Text( layout.drawer.x + 12.0f,
+                         layout.drawer.y + 42.0f,
+                         11.0f,
+                         palette.textSecondary.r,
+                         palette.textSecondary.g,
+                         palette.textSecondary.b,
+                         "UNITS  v=u/s  w=rad/s  impulse=mass*u/s  mass=mass  depth=u" );
+        headerDraw.Text( layout.drawer.x + 12.0f,
+                         layout.drawer.y + 55.0f,
+                         11.0f,
+                         palette.textMuted.r,
+                         palette.textMuted.g,
+                         palette.textMuted.b,
+                         "SIGNS  +penetration=overlap  normal A->B  CLAMP=friction limit" );
     }
 
     if ( inspection.SolverDetail().solverDetailAvailability != ReplayCauseSolverDetailAvailability::Available || inspection.SolverDetail().solverDetailContacts.empty() )
     {
         draw.RoundedRect( layout.content.x, layout.content.y, layout.content.w, layout.content.h, 6.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
-        headerDraw.Text(
-            layout.content.x + 10.0f,
-            layout.content.y + 15.0f,
-            11.5f,
-            palette.textSecondary.r,
-            palette.textSecondary.g,
-            palette.textSecondary.b,
-            inspection.SolverDetail().solverDetailFeedback
-        );
+        headerDraw.Text( layout.content.x + 10.0f,
+                         layout.content.y + 15.0f,
+                         11.5f,
+                         palette.textSecondary.r,
+                         palette.textSecondary.g,
+                         palette.textSecondary.b,
+                         inspection.SolverDetail().solverDetailFeedback );
         drawList.PopClip();
         return;
     }
@@ -732,15 +710,13 @@ void RenderReplayCauseInspectorToggle( const UI::UIDrawContext& draw, const Repl
     {
         const UI::Style::UIPalette& palette = UI::Style::Palette();
         draw.RoundedPanel( layout.drawerToggle, 4.0f, hovered ? CAUSE_SELECTED : CAUSE_NAVY_ALT, palette.innerBorder );
-        draw.Text(
-            layout.drawerToggle.x + 9.0f,
-            layout.drawerToggle.y + 7.0f,
-            11.0f,
-            palette.textPrimary.r,
-            palette.textPrimary.g,
-            palette.textPrimary.b,
-            inspection.Display().drawerOpen ? "Hide" : "Evidence"
-        );
+        draw.Text( layout.drawerToggle.x + 9.0f,
+                   layout.drawerToggle.y + 7.0f,
+                   11.0f,
+                   palette.textPrimary.r,
+                   palette.textPrimary.g,
+                   palette.textPrimary.b,
+                   inspection.Display().drawerOpen ? "Hide" : "Evidence" );
         return;
     }
     const float railAlpha = hovered ? 0.58f : 0.38f;
@@ -762,14 +738,12 @@ void RenderReplayCauseInspectorToggle( const UI::UIDrawContext& draw, const Repl
 class ReplayScrubberComposer
 {
   public:
-    ReplayScrubberComposer(
-        UI::UIDrawList& drawList,
-        ReplayScrubberPresentationView presentation,
-        bool scenePhysicsEnabled,
-        ReplayOverlayGestureView gesture,
-        ReplayOverlayViewport viewport,
-        double nowSeconds
-    );
+    ReplayScrubberComposer( UI::UIDrawList& drawList,
+                            ReplayScrubberPresentationView presentation,
+                            bool scenePhysicsEnabled,
+                            ReplayOverlayGestureView gesture,
+                            ReplayOverlayViewport viewport,
+                            double nowSeconds );
     void Compose();
 
   private:
@@ -814,14 +788,12 @@ class ReplayScrubberComposer
 };
 } // namespace
 
-ReplayScrubberComposer::ReplayScrubberComposer(
-    UI::UIDrawList& drawList,
-    ReplayScrubberPresentationView presentation,
-    bool scenePhysicsEnabled,
-    ReplayOverlayGestureView gesture,
-    ReplayOverlayViewport viewport,
-    double nowSeconds
-)
+ReplayScrubberComposer::ReplayScrubberComposer( UI::UIDrawList& drawList,
+                                                ReplayScrubberPresentationView presentation,
+                                                bool scenePhysicsEnabled,
+                                                ReplayOverlayGestureView gesture,
+                                                ReplayOverlayViewport viewport,
+                                                double nowSeconds )
     : m_presentation( presentation ), m_scrubber( m_presentation.scrubber ), m_gesture( gesture ), m_viewport( viewport ), m_nowSeconds( nowSeconds ),
       m_loadedPresentation( m_presentation.selection.loadedPresentation ), m_solverReplayEnabled( m_presentation.solverStats.enabled ),
       m_solverToolsEnabled( m_solverReplayEnabled && m_presentation.solverStats.sampleCount >= 2 ), m_predictionToolsEnabled( m_solverReplayEnabled && scenePhysicsEnabled ),
@@ -884,14 +856,12 @@ namespace
 {
 ReplayScrubberSurfaceInput DescribePresentationSurface( const ReplayScrubberPresentationView& presentation, const ReplayOverlayViewport& viewport, bool scenePhysicsEnabled )
 {
-    const ReplayScrubberSourceAvailability sources {
-        presentation.selection.loadedPresentation,
-        presentation.pathVisualizer.hasTarget,
-        presentation.predictionTimelineAvailable,
-        presentation.selection.currentPresentation != nullptr,
-        presentation.selection.currentSolver != nullptr,
-        scenePhysicsEnabled,
-    };
+    const ReplayScrubberSourceAvailability sources { presentation.selection.loadedPresentation,
+                                                     presentation.pathVisualizer.hasTarget,
+                                                     presentation.predictionTimelineAvailable,
+                                                     presentation.selection.currentPresentation != nullptr,
+                                                     presentation.selection.currentSolver != nullptr,
+                                                     scenePhysicsEnabled, };
     ReplayScrubberSurfaceInput input = DescribeReplayScrubberAvailability( presentation.scrubber, presentation.solverStats, sources );
     input.screenW = viewport.width;
     input.screenH = viewport.height;
@@ -911,21 +881,40 @@ ReplayScrubberTooltips BuildReplayScrubberTooltips( const ReplayScrubberPresenta
     {
         return result;
     }
-    static constexpr UI::UITooltipText descriptions[] = {
-        { "Restore the selected recorded sample and continue on a new live branch.", "", "Enter", "Select a retained recorded sample that can be restored." },
-        { "Retain detailed contact and solver evidence for prediction inspection.", "", "", "Enable solver recording in a physics scene." },
-        { "Modify the selected object's velocity using the existing velocity editor.", "Scene units per second", "", "Capture at least two solver samples before modifying velocity." },
-        { "Enable or disable prediction from the current solver state.", "", "P pauses and arms prediction", "Enable solver recording in a physics scene." },
-        { "Set how far into the future prediction runs.", "Seconds, 1 to 120", "", "Enable solver recording in a physics scene." },
-        { "Show predicted ragdoll parts.", "", "", "Enable solver recording in a physics scene." },
-        { "Show the selected object's recorded path.", "", "", "Select a path target and capture at least two solver samples." },
-        { "Save the retained solver recording through the existing recording writer.", "", "", "Capture at least two solver samples in the live scene before saving." },
-        { "Choose and load a saved recording through the existing replay loader." },
-        { "Drag to inspect recorded history or the available prediction. Layout changes keep the cursor.",
-          "Seconds relative to the live sample",
-          "",
-          "Capture at least two solver samples, produce a prediction, or load a recording." }
-    };
+    static constexpr UI::UITooltipText descriptions[] = { { "Restore the selected recorded sample and continue on a new live branch.", "", "Enter", "Select a retained recorded sample that can be restored." },
+                                                          { "Retain detailed contact and solver evidence for prediction inspection.",
+                                                                                                                                                                   "",
+                                                                                                                                                                   "",
+                                                                                                                                                                   "Enable solver recording in a physics scene." },
+                                                          { "Modify the selected object's velocity using the existing velocity editor.",
+                                                                                                                                                                                                                      "Scene units per second",
+                                                                                                                                                                                                                      "",
+                                                                                                                                                                                                                      "Capture at least two solver samples before modifying velocity." },
+                                                          { "Enable or disable prediction from the current solver state.",
+                                                                                                                                                                                                                                                                                            "",
+                                                                                                                                                                                                                                                                                            "P pauses and arms prediction",
+                                                                                                                                                                                                                                                                                            "Enable solver recording in a physics scene." },
+                                                          { "Set how far into the future prediction runs.",
+                                                                                                                                                                                                                                                                                                                                               "Seconds, 1 to 120",
+                                                                                                                                                                                                                                                                                                                                               "",
+                                                                                                                                                                                                                                                                                                                                               "Enable solver recording in a physics scene." },
+                                                          { "Show predicted ragdoll parts.",
+                                                                                                                                                                                                                                                                                                                                                                                                  "",
+                                                                                                                                                                                                                                                                                                                                                                                                  "",
+                                                                                                                                                                                                                                                                                                                                                                                                  "Enable solver recording in a physics scene." },
+                                                          { "Show the selected object's recorded path.",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                     "",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                     "",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                     "Select a path target and capture at least two solver samples." },
+                                                          { "Save the retained solver recording through the existing recording writer.",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          "",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          "",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          "Capture at least two solver samples in the live scene before saving." },
+                                                          { "Choose and load a saved recording through the existing replay loader." },
+                                                          { "Drag to inspect recorded history or the available prediction. Layout changes keep the cursor.",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   "Seconds relative to the live sample",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   "",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   "Capture at least two solver samples, produce a prediction, or load a recording." } };
     ReplayScrubberSurface surface;
     BuildReplayScrubberSurface( DescribePresentationSurface( presentation, viewport, scenePhysicsEnabled ), surface );
     for ( std::size_t index = 0; index < result.size(); ++index )
@@ -944,29 +933,33 @@ ReplayWorkspaceTooltips BuildReplayWorkspaceTooltips( const ReplayOverlayStateVi
     ReplayWorkspaceTooltips result {};
     const ReplayScrubberTooltips scrubber = BuildReplayScrubberTooltips( replay.timeline.ScrubberPresentation(), viewport, scenePhysicsEnabled );
     std::copy( scrubber.begin(), scrubber.end(), result.begin() );
-    const ReplayPlanningLayout planningLayout(
-        viewport.PlanningBounds(),
-        replay.planning.intercept.valid,
-        replay.planning.tripPlanner.visible && replay.planning.tripPlanner.available,
-        replay.planning.porkchop.visible,
-        replay.planning.scroll
-    );
+    const ReplayPlanningLayout planningLayout( viewport.PlanningBounds(),
+                                               replay.planning.intercept.valid,
+                                               replay.planning.tripPlanner.visible && replay.planning.tripPlanner.available,
+                                               replay.planning.porkchop.visible,
+                                               replay.planning.scroll );
     if ( planningLayout.Trip().w > 0.0f )
     {
         ReplayTripPlannerSurface surface;
         BuildReplayTripPlannerSurface( replay.planning.tripPlanner, planningLayout.Trip(), surface, ReplayTripBaselineReady( replay.timeline.prediction ) );
-        constexpr UI::UITooltipText help[] = {
-            { "Decrease time of flight.", "seconds", "", "Finish or cancel the current plan first." },
-            { "Increase time of flight up to the prediction horizon.", "seconds", "", "Finish or cancel the current plan first." },
-            { "Find an intercept using the selected departure and target.",
-              "",
-              "",
-              "Select a valid departure and target, wait for a complete prediction, and finish or cancel the current "
-              "plan." },
-            { "Keep the converged velocity candidate.", "", "", "The plan must converge before committing." },
-            { "Cancel the plan and restore the original velocity.", "", "", "There is no active plan to cancel." },
-            { "Plan a trip to the selected target. Scroll here to reach controls in a small viewport.", "TOF: seconds; miss: scene units", "J: show or hide" }
-        };
+        constexpr UI::UITooltipText help[] = { { "Decrease time of flight.", "seconds", "", "Finish or cancel the current plan first." },
+                                               { "Increase time of flight up to the prediction horizon.",
+                                                                                                                                            "seconds",
+                                                                                                                                            "",
+                                                                                                                                            "Finish or cancel the current plan first." },
+                                               { "Find an intercept using the selected departure and target.",
+                                                                                                                                                                                            "",
+                                                                                                                                                                                            "",
+                                                                                                                                                                                            "Select a valid departure and target, wait for a complete prediction, and finish or cancel the current " "plan." },
+                                               { "Keep the converged velocity candidate.",
+                                                                                                                                                                                                                                                                                                                  "",
+                                                                                                                                                                                                                                                                                                                  "",
+                                                                                                                                                                                                                                                                                                                  "The plan must converge before committing." },
+                                               { "Cancel the plan and restore the original velocity.",
+                                                                                                                                                                                                                                                                                                                                                                   "",
+                                                                                                                                                                                                                                                                                                                                                                   "",
+                                                                                                                                                                                                                                                                                                                                                                   "There is no active plan to cancel." },
+                                               { "Plan a trip to the selected target. Scroll here to reach controls in a small viewport.", "TOF: seconds; miss: scene units", "J: show or hide" } };
         for ( std::size_t index = 0; index < surface.controlCount; ++index )
         {
             const auto& control = surface.controls[index];
@@ -975,13 +968,7 @@ ReplayWorkspaceTooltips BuildReplayWorkspaceTooltips( const ReplayOverlayStateVi
     }
     if ( planningLayout.Porkchop().w > 0.0f )
     {
-        result[30] = {
-            1230,
-            UI::IntersectRect( planningLayout.Porkchop(), planningLayout.Clip() ),
-            { "Choose a valid transfer cell to seed trip time of flight. Scroll to inspect the full grid.",
-              "Horizontal: departure delay (s); vertical: flight time (s); colour: delta-v (u/s)",
-              "I: show or hide" }
-        };
+        result[30] = { 1230, UI::IntersectRect( planningLayout.Porkchop(), planningLayout.Clip() ), { "Choose a valid transfer cell to seed trip time of flight. Scroll to inspect the full grid.", "Horizontal: departure delay (s); vertical: flight time (s); colour: delta-v (u/s)", "I: show or hide" } };
     }
     if ( planningLayout.Intercept().w > 0.0f )
     {
@@ -1136,16 +1123,14 @@ void ReplayScrubberComposer::DrawHeader()
     const bool branchHover = branchEnabled && IsHot( ReplayScrubberControl::Branch );
     const UI::Style::UIColor& branchFill = branchHover ? m_palette.controlHover : m_palette.control;
     m_draw.RoundedRect( branchButton.x, branchButton.y, branchButton.w, branchButton.h, m_radii.smallButton, branchFill.r, branchFill.g, branchFill.b, FadeA( branchEnabled ? 0.94f : 0.42f ) );
-    m_draw.Outline(
-        branchButton.x,
-        branchButton.y,
-        branchButton.w,
-        branchButton.h,
-        m_palette.accent.r,
-        m_palette.accent.g,
-        m_palette.accent.b,
-        FadeA( branchEnabled ? ( branchHover ? 0.84f : 0.42f ) : 0.18f )
-    );
+    m_draw.Outline( branchButton.x,
+                    branchButton.y,
+                    branchButton.w,
+                    branchButton.h,
+                    m_palette.accent.r,
+                    m_palette.accent.g,
+                    m_palette.accent.b,
+                    FadeA( branchEnabled ? ( branchHover ? 0.84f : 0.42f ) : 0.18f ) );
     DrawText( branchButton.x + 12.0f, branchButton.y + 4.5f, 9.5f, branchEnabled ? m_palette.textPrimary : m_palette.textMuted, "BRANCH" );
 
     if ( !m_loadedPresentation )
@@ -1162,27 +1147,23 @@ void ReplayScrubberComposer::DrawEditControls()
     const bool detailChecked = Control( ReplayScrubberControl::HighDetail ).checked;
     const bool detailHover = detailEnabled && IsHot( ReplayScrubberControl::HighDetail );
     const UI::Style::UIColor& detailFill = detailHover ? m_palette.controlHover : m_palette.control;
-    m_draw.RoundedRect(
-        highDetail.x,
-        highDetail.y,
-        highDetail.w,
-        highDetail.h,
-        m_radii.smallButton,
-        detailFill.r,
-        detailFill.g,
-        detailFill.b,
-        FadeA( detailEnabled ? ( detailHover || detailChecked ? 0.94f : 0.78f ) : 0.38f )
-    );
-    m_draw.Outline(
-        highDetail.x,
-        highDetail.y,
-        highDetail.w,
-        highDetail.h,
-        m_palette.accent.r,
-        m_palette.accent.g,
-        m_palette.accent.b,
-        FadeA( detailEnabled ? ( detailHover || detailChecked ? 0.78f : 0.36f ) : 0.14f )
-    );
+    m_draw.RoundedRect( highDetail.x,
+                        highDetail.y,
+                        highDetail.w,
+                        highDetail.h,
+                        m_radii.smallButton,
+                        detailFill.r,
+                        detailFill.g,
+                        detailFill.b,
+                        FadeA( detailEnabled ? ( detailHover || detailChecked ? 0.94f : 0.78f ) : 0.38f ) );
+    m_draw.Outline( highDetail.x,
+                    highDetail.y,
+                    highDetail.w,
+                    highDetail.h,
+                    m_palette.accent.r,
+                    m_palette.accent.g,
+                    m_palette.accent.b,
+                    FadeA( detailEnabled ? ( detailHover || detailChecked ? 0.78f : 0.36f ) : 0.14f ) );
     const float detailCheckX = highDetail.x + 6.0f;
     const float detailCheckY = highDetail.y + 5.0f;
     m_draw.Outline( detailCheckX, detailCheckY, 10.0f, 10.0f, m_palette.accent.r, m_palette.accent.g, m_palette.accent.b, FadeA( detailEnabled ? 0.82f : 0.28f ) );
@@ -1201,27 +1182,23 @@ void ReplayScrubberComposer::DrawEditControls()
     const bool velocityEnabled = m_solverToolsEnabled && m_presentation.velocityEdit.enabled;
     const bool velocityHover = m_solverToolsEnabled && IsHot( ReplayScrubberControl::VelocityEdit );
     const UI::Style::UIColor& velocityFill = velocityHover ? m_palette.controlHover : m_palette.control;
-    m_draw.RoundedRect(
-        velocityEdit.x,
-        velocityEdit.y,
-        velocityEdit.w,
-        velocityEdit.h,
-        m_radii.smallButton,
-        velocityFill.r,
-        velocityFill.g,
-        velocityFill.b,
-        FadeA( m_solverToolsEnabled ? ( velocityHover || velocityEnabled ? 0.94f : 0.78f ) : 0.38f )
-    );
-    m_draw.Outline(
-        velocityEdit.x,
-        velocityEdit.y,
-        velocityEdit.w,
-        velocityEdit.h,
-        m_palette.warningAccent.r,
-        m_palette.warningAccent.g,
-        m_palette.warningAccent.b,
-        FadeA( m_solverToolsEnabled ? ( velocityHover || velocityEnabled ? 0.78f : 0.34f ) : 0.14f )
-    );
+    m_draw.RoundedRect( velocityEdit.x,
+                        velocityEdit.y,
+                        velocityEdit.w,
+                        velocityEdit.h,
+                        m_radii.smallButton,
+                        velocityFill.r,
+                        velocityFill.g,
+                        velocityFill.b,
+                        FadeA( m_solverToolsEnabled ? ( velocityHover || velocityEnabled ? 0.94f : 0.78f ) : 0.38f ) );
+    m_draw.Outline( velocityEdit.x,
+                    velocityEdit.y,
+                    velocityEdit.w,
+                    velocityEdit.h,
+                    m_palette.warningAccent.r,
+                    m_palette.warningAccent.g,
+                    m_palette.warningAccent.b,
+                    FadeA( m_solverToolsEnabled ? ( velocityHover || velocityEnabled ? 0.78f : 0.34f ) : 0.14f ) );
     const float velocityCheckX = velocityEdit.x + 7.0f;
     const float velocityCheckY = velocityEdit.y + 5.0f;
     m_draw.Outline( velocityCheckX, velocityCheckY, 10.0f, 10.0f, m_palette.warningAccent.r, m_palette.warningAccent.g, m_palette.warningAccent.b, FadeA( m_solverToolsEnabled ? 0.82f : 0.28f ) );
@@ -1246,17 +1223,15 @@ void ReplayScrubberComposer::DrawTrack()
     constexpr bool inactive = false;
     const float back = inactive ? 0.11f : 0.16f;
     m_draw.RoundedRect( track.x, track.y, track.w, track.h, track.h * 0.5f, back, back + 0.02f, back + 0.05f, FadeA( inactive ? 0.74f : 0.92f ) );
-    m_draw.RoundedRect(
-        track.x,
-        track.y,
-        fillWidth,
-        track.h,
-        track.h * 0.5f,
-        inactive ? 0.30f : m_palette.accent.r,
-        inactive ? 0.33f : m_palette.accent.g,
-        inactive ? 0.36f : m_palette.accent.b,
-        FadeA( inactive ? 0.40f : ( m_live ? 0.64f : 0.94f ) )
-    );
+    m_draw.RoundedRect( track.x,
+                        track.y,
+                        fillWidth,
+                        track.h,
+                        track.h * 0.5f,
+                        inactive ? 0.30f : m_palette.accent.r,
+                        inactive ? 0.33f : m_palette.accent.g,
+                        inactive ? 0.36f : m_palette.accent.b,
+                        FadeA( inactive ? 0.40f : ( m_live ? 0.64f : 0.94f ) ) );
 
     if ( m_futureTimelineVisible )
     {
@@ -1290,16 +1265,14 @@ void ReplayScrubberComposer::DrawRecordingButtons()
     const float saveG = saveFeedback ? ( saveFailed ? 0.12f : m_palette.accent.g ) : ( saveHover ? m_palette.controlHover.g : m_palette.control.g );
     const float saveB = saveFeedback ? ( saveFailed ? 0.12f : m_palette.accent.b ) : ( saveHover ? m_palette.controlHover.b : m_palette.control.b );
     m_draw.RoundedRect( saveButton.x, saveButton.y, saveButton.w, saveButton.h, 4.0f, saveR, saveG, saveB, FadeA( saveEnabled ? 0.96f : 0.34f ) );
-    m_draw.Outline(
-        saveButton.x,
-        saveButton.y,
-        saveButton.w,
-        saveButton.h,
-        m_palette.accentStrong.r,
-        m_palette.accentStrong.g,
-        m_palette.accentStrong.b,
-        FadeA( saveEnabled ? ( saveHover || saveFeedback ? 0.74f : 0.36f ) : 0.16f )
-    );
+    m_draw.Outline( saveButton.x,
+                    saveButton.y,
+                    saveButton.w,
+                    saveButton.h,
+                    m_palette.accentStrong.r,
+                    m_palette.accentStrong.g,
+                    m_palette.accentStrong.b,
+                    FadeA( saveEnabled ? ( saveHover || saveFeedback ? 0.74f : 0.36f ) : 0.16f ) );
     const float iconX = saveButton.x + 6.0f;
     const float iconY = saveButton.y + 5.0f;
     const float iconAlpha = FadeA( saveEnabled ? 0.96f : 0.34f );
@@ -1355,16 +1328,14 @@ void ReplayScrubberComposer::DrawPredictionToggleAndHorizon()
     const bool enabled = m_predictionToolsEnabled && m_presentation.predictionControls.enabled;
     const UI::Style::UIColor& toggleFill = m_predictionToolsEnabled && IsHot( ReplayScrubberControl::PredictionToggle ) ? m_palette.controlHover : m_palette.control;
     m_draw.RoundedRect( toggle.x, toggle.y, toggle.w, toggle.h, m_radii.smallButton, toggleFill.r, toggleFill.g, toggleFill.b, FadeA( m_predictionToolsEnabled ? 0.88f : 0.38f ) );
-    m_draw.Outline(
-        toggle.x,
-        toggle.y,
-        toggle.w,
-        toggle.h,
-        m_palette.accent.r,
-        m_palette.accent.g,
-        m_palette.accent.b,
-        FadeA( m_predictionToolsEnabled ? ( IsHot( ReplayScrubberControl::PredictionToggle ) || enabled ? 0.72f : 0.34f ) : 0.14f )
-    );
+    m_draw.Outline( toggle.x,
+                    toggle.y,
+                    toggle.w,
+                    toggle.h,
+                    m_palette.accent.r,
+                    m_palette.accent.g,
+                    m_palette.accent.b,
+                    FadeA( m_predictionToolsEnabled ? ( IsHot( ReplayScrubberControl::PredictionToggle ) || enabled ? 0.72f : 0.34f ) : 0.14f ) );
     const float checkX = toggle.x + 7.0f;
     const float checkY = toggle.y + 5.0f;
     m_draw.Outline( checkX, checkY, 10.0f, 10.0f, m_palette.accent.r, m_palette.accent.g, m_palette.accent.b, FadeA( m_predictionToolsEnabled ? 0.82f : 0.28f ) );
@@ -1387,17 +1358,15 @@ void ReplayScrubberComposer::DrawPredictionToggleAndHorizon()
     const float knobX = horizon.x + horizon.w * horizonT;
     m_draw.RoundedRect( horizon.x, horizon.y, horizon.w, horizon.h, 4.0f, 0.10f, 0.14f, 0.15f, FadeA( m_predictionToolsEnabled ? 0.86f : 0.34f ) );
     m_draw.RoundedRect( horizon.x, horizon.y, fillWidth, horizon.h, 4.0f, 0.34f, 0.95f, 0.62f, FadeA( m_predictionToolsEnabled ? ( enabled ? 0.86f : 0.48f ) : 0.20f ) );
-    m_draw.RoundedRect(
-        knobX - 4.0f,
-        horizon.y - 3.0f,
-        8.0f,
-        14.0f,
-        3.0f,
-        enabled ? 0.88f : 0.56f,
-        enabled ? 1.0f : 0.62f,
-        enabled ? 0.82f : 0.64f,
-        FadeA( m_predictionToolsEnabled ? ( hover ? 0.98f : 0.86f ) : 0.34f )
-    );
+    m_draw.RoundedRect( knobX - 4.0f,
+                        horizon.y - 3.0f,
+                        8.0f,
+                        14.0f,
+                        3.0f,
+                        enabled ? 0.88f : 0.56f,
+                        enabled ? 1.0f : 0.62f,
+                        enabled ? 0.82f : 0.64f,
+                        FadeA( m_predictionToolsEnabled ? ( hover ? 0.98f : 0.86f ) : 0.34f ) );
     DrawText( horizon.x + horizon.w + 8.0f, panel.y + 4.5f, 8.5f, !m_predictionToolsEnabled ? m_palette.textMuted : ( enabled ? m_palette.accentStrong : m_palette.textSecondary ), secondsLabel );
 }
 
@@ -1427,13 +1396,11 @@ void ReplayScrubberComposer::DrawCheckControl( const UI::UIRect& bounds, ReplayS
         m_draw.Rect( checkX + 2.0f, checkY + 2.0f, 6.0f, 6.0f, m_palette.accentStrong.r, m_palette.accentStrong.g, m_palette.accentStrong.b, FadeA( 0.95f ) );
     }
 
-    DrawText(
-        bounds.x + 23.0f,
-        bounds.y + 4.5f,
-        m_viewport.transportBounds.w > 0.0f ? 11.0f : 9.0f,
-        !enabled ? m_palette.textMuted : ( checked ? m_palette.accentStrong : m_palette.textSecondary ),
-        label
-    );
+    DrawText( bounds.x + 23.0f,
+              bounds.y + 4.5f,
+              m_viewport.transportBounds.w > 0.0f ? 11.0f : 9.0f,
+              !enabled ? m_palette.textMuted : ( checked ? m_palette.accentStrong : m_palette.textSecondary ),
+              label );
 }
 
 
@@ -1470,15 +1437,13 @@ void ReplayScrubberComposer::DrawPredictionStatus()
         const ReplayPredictionDiagnosticsView& diagnostics = m_presentation.predictionDiagnostics;
         const char* buildMode = diagnostics.buildMode == ReplayPredictionBuildMode::Instant ? "Instant" : diagnostics.buildMode == ReplayPredictionBuildMode::Amortized ? "Amortized" : "Measuring";
         char scheduling[128] = {};
-        sprintf_s(
-            scheduling,
-            sizeof( scheduling ),
-            "Prediction: %s | Color: %s | %.0f ticks/ms | %.1f ms rebuild",
-            buildMode,
-            colorMode,
-            diagnostics.measuredTicksPerMs,
-            diagnostics.lastBuildWallMs
-        );
+        sprintf_s( scheduling,
+                   sizeof( scheduling ),
+                   "Prediction: %s | Color: %s | %.0f ticks/ms | %.1f ms rebuild",
+                   buildMode,
+                   colorMode,
+                   diagnostics.measuredTicksPerMs,
+                   diagnostics.lastBuildWallMs );
         DrawText( panel.x, panel.y + 27.0f, 8.0f, m_palette.textSecondary, scheduling );
     }
 
@@ -1627,14 +1592,12 @@ static void ComposeReplayContactFlash( UI::UIDrawList& drawList, const ReplayCau
 // Input code owns mutations such as dragging, toggling prediction, and branch
 // creation. This pass samples the current state and turns it into UI quads and
 // text so rendering cannot accidentally advance or rewrite replay timelines.
-const UI::UIDrawList& ReplayOverlayDrawOwner::Compose(
-    const ReplayOverlayStateView& replay,
-    bool gameUiSurfaceActive,
-    bool scenePhysicsEnabled,
-    ReplayOverlayGestureView gesture,
-    ReplayOverlayViewport viewport,
-    double nowSeconds
-)
+const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateView& replay,
+                                                       bool gameUiSurfaceActive,
+                                                       bool scenePhysicsEnabled,
+                                                       ReplayOverlayGestureView gesture,
+                                                       ReplayOverlayViewport viewport,
+                                                       double nowSeconds )
 {
     m_drawList.Clear();
     m_positionGates = {};
@@ -1648,13 +1611,11 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose(
     m_positionGates = ComposeReplayPositionGates( m_drawList, replay.timeline, replay.causality, viewport );
     ComposeReplayContactFlash( m_drawList, replay.causality.inspection, viewport );
 
-    const ReplayPlanningLayout planningLayout(
-        viewport.PlanningBounds(),
-        replay.planning.intercept.valid,
-        replay.planning.tripPlanner.visible && replay.planning.tripPlanner.available,
-        replay.planning.porkchop.visible,
-        replay.planning.scroll
-    );
+    const ReplayPlanningLayout planningLayout( viewport.PlanningBounds(),
+                                               replay.planning.intercept.valid,
+                                               replay.planning.tripPlanner.visible && replay.planning.tripPlanner.available,
+                                               replay.planning.porkchop.visible,
+                                               replay.planning.scroll );
     for ( ReplayOverlaySurfaceKind surface : REPLAY_OVERLAY_COMPOSITION_ORDER )
     {
         switch ( surface )
@@ -1813,17 +1774,15 @@ static void ComposeReplayTripPlannerOverlay( UI::UIDrawList& drawList, const Rep
 
     if ( planner.iteration > 0 )
     {
-        sprintf_s(
-            title,
-            sizeof( title ),
-            "TRIP: %s  TOF %.1fs  ITER %u/%zu  MISS %.2fu  %s",
-            planner.targetName[0] != '\0' ? planner.targetName : "TARGET",
-            planner.timeOfFlightSeconds,
-            planner.iteration,
-            REPLAY_TRIP_PLANNER_MAX_ITERATIONS,
-            planner.missDistance,
-            stateLabel
-        );
+        sprintf_s( title,
+                   sizeof( title ),
+                   "TRIP: %s  TOF %.1fs  ITER %u/%zu  MISS %.2fu  %s",
+                   planner.targetName[0] != '\0' ? planner.targetName : "TARGET",
+                   planner.timeOfFlightSeconds,
+                   planner.iteration,
+                   REPLAY_TRIP_PLANNER_MAX_ITERATIONS,
+                   planner.missDistance,
+                   stateLabel );
     }
     else
     {
@@ -1860,14 +1819,12 @@ static void ComposeReplayPorkchopOverlay( UI::UIDrawList& drawList, const Replay
     }
     else if ( porkchop.complete )
     {
-        sprintf_s(
-            title,
-            sizeof( title ),
-            "PORKCHOP  64x48  MIN %.3f u/s  TOTAL %.2f ms  MAX %.2f ms",
-            porkchop.minimumDeltaV,
-            porkchop.refreshComputeMilliseconds,
-            porkchop.maximumFrameComputeMilliseconds
-        );
+        sprintf_s( title,
+                   sizeof( title ),
+                   "PORKCHOP  64x48  MIN %.3f u/s  TOTAL %.2f ms  MAX %.2f ms",
+                   porkchop.minimumDeltaV,
+                   porkchop.refreshComputeMilliseconds,
+                   porkchop.maximumFrameComputeMilliseconds );
     }
     else if ( porkchop.evaluated )
     {
@@ -1947,14 +1904,12 @@ static void ComposeReplayPorkchopOverlay( UI::UIDrawList& drawList, const Replay
         const std::size_t index = static_cast<std::size_t>( readoutCell );
         const float remainingWait = (std::max)( 0.0f, ReplayPorkchopPanel::DepartureDelaySeconds( index % REPLAY_PORKCHOP_COLUMNS ) - porkchop.sweepAgeSeconds );
 
-        sprintf_s(
-            readout,
-            sizeof( readout ),
-            "WAIT %.2fs NOW   TOF %.2fs   DV %.3f u/s   CLICK TO SEED TRIP TOF",
-            remainingWait,
-            ReplayPorkchopPanel::TimeOfFlightSeconds( index / REPLAY_PORKCHOP_COLUMNS ),
-            porkchop.deltaV[index]
-        );
+        sprintf_s( readout,
+                   sizeof( readout ),
+                   "WAIT %.2fs NOW   TOF %.2fs   DV %.3f u/s   CLICK TO SEED TRIP TOF",
+                   remainingWait,
+                   ReplayPorkchopPanel::TimeOfFlightSeconds( index / REPLAY_PORKCHOP_COLUMNS ),
+                   porkchop.deltaV[index] );
     }
     else if ( readoutCell >= 0 )
     {
@@ -1963,14 +1918,12 @@ static void ComposeReplayPorkchopOverlay( UI::UIDrawList& drawList, const Replay
 
     if ( porkchop.selectedCell >= 0 )
     {
-        sprintf_s(
-            readout,
-            sizeof( readout ),
-            "RECOMMENDED WAIT %.2fs   SEEDED TOF %.2fs   DV %.3f u/s",
-            porkchop.selectedDepartureDelaySeconds,
-            porkchop.selectedTimeOfFlightSeconds,
-            porkchop.selectedDeltaV
-        );
+        sprintf_s( readout,
+                   sizeof( readout ),
+                   "RECOMMENDED WAIT %.2fs   SEEDED TOF %.2fs   DV %.3f u/s",
+                   porkchop.selectedDepartureDelaySeconds,
+                   porkchop.selectedTimeOfFlightSeconds,
+                   porkchop.selectedDeltaV );
     }
 
     CauseInspectorDrawing( draw, panel ).WrappedText( { panel.x + 8.0f, panel.y + panel.h - 52.0f, panel.w - 16.0f, 48.0f }, palette.accentStrong, 10.0f, readout );
@@ -2012,15 +1965,13 @@ static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const Repla
             emptyDraw.Text( emptyBounds.x + 12.0f, emptyBounds.y + 12.0f, 14.0f, emptyPalette.textPrimary.r, emptyPalette.textPrimary.g, emptyPalette.textPrimary.b, "Causes" );
             emptyDraw
                 .Text( emptyBounds.x + 12.0f, emptyBounds.y + 43.0f, 11.0f, emptyPalette.textMuted.r, emptyPalette.textMuted.g, emptyPalette.textMuted.b, "No evidence for the current selection." );
-            emptyDraw.Text(
-                emptyBounds.x + 12.0f,
-                emptyBounds.y + 63.0f,
-                11.0f,
-                emptyPalette.textMuted.r,
-                emptyPalette.textMuted.g,
-                emptyPalette.textMuted.b,
-                "Use High detail prediction to inspect contacts."
-            );
+            emptyDraw.Text( emptyBounds.x + 12.0f,
+                            emptyBounds.y + 63.0f,
+                            11.0f,
+                            emptyPalette.textMuted.r,
+                            emptyPalette.textMuted.g,
+                            emptyPalette.textMuted.b,
+                            "Use High detail prediction to inspect contacts." );
         }
         return;
     }
@@ -2074,27 +2025,23 @@ static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const Repla
     {
         const char* sourceLabel = predictionRows ? "PREDICT" : "REPLAY";
         const float sourceW = UI::UIFontMetrics::MeasureText( 9.5f, sourceLabel );
-        draw.RoundedRect(
-            panel.x + panel.w - sourceW - 14.0f,
-            panel.y + 8.0f,
-            sourceW + 10.0f,
-            20.0f,
-            4.0f,
-            predictionRows ? CAUSE_SELECTED.r : CAUSE_NAVY_ALT.r,
-            predictionRows ? CAUSE_SELECTED.g : CAUSE_NAVY_ALT.g,
-            predictionRows ? CAUSE_SELECTED.b : CAUSE_NAVY_ALT.b,
-            1.0f
-        );
+        draw.RoundedRect( panel.x + panel.w - sourceW - 14.0f,
+                          panel.y + 8.0f,
+                          sourceW + 10.0f,
+                          20.0f,
+                          4.0f,
+                          predictionRows ? CAUSE_SELECTED.r : CAUSE_NAVY_ALT.r,
+                          predictionRows ? CAUSE_SELECTED.g : CAUSE_NAVY_ALT.g,
+                          predictionRows ? CAUSE_SELECTED.b : CAUSE_NAVY_ALT.b,
+                          1.0f );
 
-        draw.Text(
-            panel.x + panel.w - sourceW - 9.0f,
-            panel.y + 13.0f,
-            10.0f,
-            predictionRows ? CAUSE_PREDICTION.r : CAUSE_RULE.r,
-            predictionRows ? CAUSE_PREDICTION.g : CAUSE_RULE.g,
-            predictionRows ? CAUSE_PREDICTION.b : CAUSE_RULE.b,
-            sourceLabel
-        );
+        draw.Text( panel.x + panel.w - sourceW - 9.0f,
+                   panel.y + 13.0f,
+                   10.0f,
+                   predictionRows ? CAUSE_PREDICTION.r : CAUSE_RULE.r,
+                   predictionRows ? CAUSE_PREDICTION.g : CAUSE_RULE.g,
+                   predictionRows ? CAUSE_PREDICTION.b : CAUSE_RULE.b,
+                   sourceLabel );
     }
 
     if ( causality.loading.active )
@@ -2103,28 +2050,24 @@ static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const Repla
         return;
     }
 
-    draw.RoundedRect(
-        filterField.x,
-        filterField.y,
-        filterField.w,
-        filterField.h,
-        4.0f,
-        causality.tree.filterFocused ? CAUSE_SELECTED.r : CAUSE_NAVY_ALT.r,
-        causality.tree.filterFocused ? CAUSE_SELECTED.g : CAUSE_NAVY_ALT.g,
-        causality.tree.filterFocused ? CAUSE_SELECTED.b : CAUSE_NAVY_ALT.b,
-        1.0f
-    );
+    draw.RoundedRect( filterField.x,
+                      filterField.y,
+                      filterField.w,
+                      filterField.h,
+                      4.0f,
+                      causality.tree.filterFocused ? CAUSE_SELECTED.r : CAUSE_NAVY_ALT.r,
+                      causality.tree.filterFocused ? CAUSE_SELECTED.g : CAUSE_NAVY_ALT.g,
+                      causality.tree.filterFocused ? CAUSE_SELECTED.b : CAUSE_NAVY_ALT.b,
+                      1.0f );
     const char* filterText = causality.tree.filterText[0] != '\0' ? causality.tree.filterText : "Filter evidence...";
     CauseInspectorDrawing( draw, filterField )
-        .Text(
-            filterField.x + 9.0f,
-            filterField.y + 6.0f,
-            10.0f,
-            causality.tree.filterText[0] != '\0' ? palette.textPrimary.r : palette.textMuted.r,
-            causality.tree.filterText[0] != '\0' ? palette.textPrimary.g : palette.textMuted.g,
-            causality.tree.filterText[0] != '\0' ? palette.textPrimary.b : palette.textMuted.b,
-            filterText
-        );
+        .Text( filterField.x + 9.0f,
+               filterField.y + 6.0f,
+               10.0f,
+               causality.tree.filterText[0] != '\0' ? palette.textPrimary.r : palette.textMuted.r,
+               causality.tree.filterText[0] != '\0' ? palette.textPrimary.g : palette.textMuted.g,
+               causality.tree.filterText[0] != '\0' ? palette.textPrimary.b : palette.textMuted.b,
+               filterText );
     draw.RoundedRect( filterFunnel.x, filterFunnel.y, filterFunnel.w, filterFunnel.h, 4.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
     draw.Rect( filterFunnel.x + 6.0f, filterFunnel.y + 7.0f, 14.0f, 2.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.86f );
     draw.Rect( filterFunnel.x + 9.0f, filterFunnel.y + 11.0f, 8.0f, 2.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.86f );
@@ -2143,15 +2086,13 @@ static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const Repla
         draw.RoundedRect( chip.x, chip.y, chip.w - 4.0f, chip.h, 4.0f, chipFill.r, chipFill.g, chipFill.b, active ? 1.0f : 0.76f );
         const char* compactLabels[] = { "A", "P", "C" };
         CauseInspectorDrawing( draw, chip )
-            .Text(
-                chip.x + 6.0f,
-                chip.y + 6.0f,
-                9.5f,
-                active ? chipText.r : palette.textMuted.r,
-                active ? chipText.g : palette.textMuted.g,
-                active ? chipText.b : palette.textMuted.b,
-                chip.w < 75.0f ? compactLabels[filterIndex] : FILTER_LABELS[filterIndex]
-            );
+            .Text( chip.x + 6.0f,
+                   chip.y + 6.0f,
+                   9.5f,
+                   active ? chipText.r : palette.textMuted.r,
+                   active ? chipText.g : palette.textMuted.g,
+                   active ? chipText.b : palette.textMuted.b,
+                   chip.w < 75.0f ? compactLabels[filterIndex] : FILTER_LABELS[filterIndex] );
     }
 
     draw.RoundedRect( content.x, content.y, content.w, content.h, 6.0f, CAUSE_NAVY.r, CAUSE_NAVY.g, CAUSE_NAVY.b, 1.0f );
@@ -2341,15 +2282,13 @@ static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const Repla
         const float markerX = rowRect.x + 8.0f + indent;
         const float markerY = rowRect.y + 8.0f;
         draw.Rect( markerX, markerY, 6.0f, 6.0f, markerR, markerG, markerB, 0.92f );
-        draw.Text(
-            markerX + 11.0f,
-            rowRect.y + 4.0f,
-            12.0f,
-            row.kind == RunReplayCauseTreeRowKind::Body ? palette.textPrimary.r : palette.textSecondary.r,
-            row.kind == RunReplayCauseTreeRowKind::Body ? palette.textPrimary.g : palette.textSecondary.g,
-            row.kind == RunReplayCauseTreeRowKind::Body ? palette.textPrimary.b : palette.textSecondary.b,
-            clippedLabel
-        );
+        draw.Text( markerX + 11.0f,
+                   rowRect.y + 4.0f,
+                   12.0f,
+                   row.kind == RunReplayCauseTreeRowKind::Body ? palette.textPrimary.r : palette.textSecondary.r,
+                   row.kind == RunReplayCauseTreeRowKind::Body ? palette.textPrimary.g : palette.textSecondary.g,
+                   row.kind == RunReplayCauseTreeRowKind::Body ? palette.textPrimary.b : palette.textSecondary.b,
+                   clippedLabel );
 
         if ( clippedDetail[0] != '\0' )
         {

@@ -29,11 +29,8 @@ SupportVertex LocalSupport( const BoundingSphere& sphere, const Vector3& )
 SupportVertex LocalSupport( const BoundingBox& box, const Vector3& direction )
 {
     const Vector3 extent = box.GetHalfExtents();
-    const uint32_t index = ( direction.x > 0.0f ? 1u : 0u ) | ( direction.y > 0.0f ? 2u : 0u ) |
-                           ( direction.z > 0.0f ? 4u : 0u );
-    return { box.GetPosition() + Vector3( index & 1u ? extent.x : -extent.x, index & 2u ? extent.y : -extent.y,
-                                          index & 4u ? extent.z : -extent.z ),
-             index };
+    const uint32_t index = ( direction.x > 0.0f ? 1u : 0u ) | ( direction.y > 0.0f ? 2u : 0u ) | ( direction.z > 0.0f ? 4u : 0u );
+    return { box.GetPosition() + Vector3( index & 1u ? extent.x : -extent.x, index & 2u ? extent.y : -extent.y, index & 4u ? extent.z : -extent.z ), index };
 }
 
 SupportVertex LocalSupport( const ConvexHullShape& hull, const Vector3& direction )
@@ -53,12 +50,10 @@ SupportVertex LocalSupport( const ConvexHullShape& hull, const Vector3& directio
     return result;
 }
 
-SupportVertex WorldSupport( const ObjectContactBodyView& body, const CollisionShapeReference& shape,
-                            const Vector3& direction )
+SupportVertex WorldSupport( const ObjectContactBodyView& body, const CollisionShapeReference& shape, const Vector3& direction )
 {
     const auto rotation = body.orientation.GetOrientationMatrix();
-    SupportVertex result = VisitCollisionShape( shape, [&]( const auto& value )
-                                                { return LocalSupport( value, rotation.TransposeMultiply( direction ) ); } );
+    SupportVertex result = VisitCollisionShape( shape, [&]( const auto& value ) { return LocalSupport( value, rotation.TransposeMultiply( direction ) ); } );
     result.point = body.position + rotation * result.point;
     return result;
 }
@@ -93,8 +88,7 @@ double PreciseTriple( const Vector3& a, const Vector3& b, const Vector3& c )
 // Invariant: weights describe the closest point within the selected simplex
 // face. Negative barycentric coordinates reject its plane projection; its
 // edges and vertices are considered separately, including degenerate faces.
-bool ProjectFace( const std::array<DistanceVertex, 4>& vertices, const std::array<int, 4>& indices, int count,
-                  std::array<double, 4>& weights )
+bool ProjectFace( const std::array<DistanceVertex, 4>& vertices, const std::array<int, 4>& indices, int count, std::array<double, 4>& weights )
 {
     weights = {};
     weights[0] = 1.0f;
@@ -238,8 +232,7 @@ class DistanceSimplex
 };
 } // namespace
 
-ConvexDistanceResult ComputeConvexDistance( const ObjectContactBodyView& a, const CollisionShapeReference& shapeA,
-                                            const ObjectContactBodyView& b, const CollisionShapeReference& shapeB )
+ConvexDistanceResult ComputeConvexDistance( const ObjectContactBodyView& a, const CollisionShapeReference& shapeA, const ObjectContactBodyView& b, const CollisionShapeReference& shapeB )
 {
     // CATTO REF: https://box2d.org/files/ErinCatto_GJK_GDC2010.pdf
     // Distance GJK retains paired support witnesses while approaching the
@@ -265,17 +258,14 @@ ConvexDistanceResult ComputeConvexDistance( const ObjectContactBodyView& a, cons
         result.iterations = iteration + 1;
         const SupportVertex supportA = WorldSupport( localA, shapeA, closest );
         const SupportVertex supportB = WorldSupport( localB, shapeB, -closest );
-        const DistanceVertex vertex { supportA.point, supportB.point, supportB.point - supportA.point, supportA.index,
-                                      supportB.index };
+        const DistanceVertex vertex { supportA.point, supportB.point, supportB.point - supportA.point, supportA.index, supportB.index };
         const float distanceSquared = Dot( closest, closest );
         // Invariant: support identities include both shapes. Retain discarded
         // vertices too: roundoff at an edge can alternate between two faces
         // after simplex reduction, without improving the closest distance.
         const uint64_t supportIdentity = ( static_cast<uint64_t>( vertex.indexA ) << 32u ) | vertex.indexB;
-        const bool duplicate = std::find( visitedSupports.begin(), visitedSupports.begin() + visitedCount,
-                                          supportIdentity ) != visitedSupports.begin() + visitedCount;
-        if ( simplex.count > 0 && ( duplicate || distanceSquared - Dot( closest, vertex.difference ) <=
-                                                     1.0e-6f * (std::max)( 1.0f, distanceSquared ) ) )
+        const bool duplicate = std::find( visitedSupports.begin(), visitedSupports.begin() + visitedCount, supportIdentity ) != visitedSupports.begin() + visitedCount;
+        if ( simplex.count > 0 && ( duplicate || distanceSquared - Dot( closest, vertex.difference ) <= 1.0e-6f * (std::max)( 1.0f, distanceSquared ) ) )
         {
             result.converged = true;
             break;

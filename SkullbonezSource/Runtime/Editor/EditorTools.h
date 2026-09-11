@@ -358,22 +358,18 @@ class EditorToolsOwner
     bool PrepareSelectionCommand( const RuntimeInteractionCommand& command, const SceneWorld& world, RuntimeInteractionSelectionPlan& outPlan );
     bool CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent );
     bool ApplySelectionCommand( const RuntimeInteractionCommand& command, const SceneWorld& world );
-    bool PrepareEditorPointerSelection(
-        const EditorPointerSelectionInput& input,
-        const SceneWorld& world,
-        RuntimeInteractionSelectionPlan& outPlan,
-        WorldInteractionOwner& outOwner,
-        InteractionExitReason& outReason
-    );
-    EditorPlacementScalePointerResult RouteEditorPlacementScalePointer(
-        bool leftReleased,
-        bool suppressWorldAction,
-        SceneWorld& world,
-        SceneSessionState& scene,
-        Assets::AssetSystem& assets,
-        int activeModelCapacity,
-        RuntimeInteractionController& interaction
-    );
+    bool PrepareEditorPointerSelection( const EditorPointerSelectionInput& input,
+                                        const SceneWorld& world,
+                                        RuntimeInteractionSelectionPlan& outPlan,
+                                        WorldInteractionOwner& outOwner,
+                                        InteractionExitReason& outReason );
+    EditorPlacementScalePointerResult RouteEditorPlacementScalePointer( bool leftReleased,
+                                                                        bool suppressWorldAction,
+                                                                        SceneWorld& world,
+                                                                        SceneSessionState& scene,
+                                                                        Assets::AssetSystem& assets,
+                                                                        int activeModelCapacity,
+                                                                        RuntimeInteractionController& interaction );
     EditorGizmoDragPointerResult RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input, SceneWorld& world, RuntimeInteractionController& interaction );
     void RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmoDragKind gizmoKind, int selectedModelIndex );
     void RecordEditorPlacementHistory( SceneWorld& world, int modelCountBefore, int modelCountAfter );
@@ -382,19 +378,17 @@ class EditorToolsOwner
     bool DuplicateEditorSelection( SceneWorld& world, SceneSessionState& scene );
     bool DeleteEditorSelection( SceneWorld& world, SceneSessionState& scene );
     void ClearEditorHistory();
-    bool PrepareEditorGizmoGesture(
-        bool inspectGizmoActive,
-        bool scaleMode,
-        int selectedModelIndex,
-        bool hasWorldRay,
-        const Math::Vector::Vector3& rayOrigin,
-        const Math::Vector::Vector3& rayDirection,
-        int clientX,
-        int clientY,
-        SceneWorld& world,
-        RuntimeInteractionController& interaction,
-        EditorGizmoGesturePlan& outPlan
-    );
+    bool PrepareEditorGizmoGesture( bool inspectGizmoActive,
+                                    bool scaleMode,
+                                    int selectedModelIndex,
+                                    bool hasWorldRay,
+                                    const Math::Vector::Vector3& rayOrigin,
+                                    const Math::Vector::Vector3& rayDirection,
+                                    int clientX,
+                                    int clientY,
+                                    SceneWorld& world,
+                                    RuntimeInteractionController& interaction,
+                                    EditorGizmoGesturePlan& outPlan );
     EditorGizmoGestureResult CommitEditorGizmoGesture( const EditorGizmoGesturePlan& plan, SceneWorld& world, RuntimeInteractionController& interaction );
     EditorPlacementScaleStartResult BeginEditorPlacementScalePointer( bool inspectGizmoActive, bool hasClientPosition, int clientX, int clientY, RuntimeInteractionController& interaction );
     EditorViewportPlacementResult RouteEditorViewportPlacement( const EditorViewportPlacementInput& input );
@@ -422,35 +416,29 @@ Math::Vector::Vector3 EditorDefaultPlacementScale( int objectType );
 Math::Vector::Vector3 EditorClampPlacementScale( int objectType, const Math::Vector::Vector3& scale );
 Math::Vector::Vector3 EditorPlacementScaleFromGesture( int objectType, const Math::Vector::Vector3& startScale, float dragPixelsX, float dragPixelsY, int wheelSteps );
 bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, EditorTerrainPlacement& outPlacement );
-bool TryComputeEditorObjectCenter(
-    SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-    int objectType,
-    const Math::Vector::Vector3& terrainPoint,
-    const Math::Vector::Vector3& placementScale,
-    const Math::Orientation::Quaternion& orientation,
-    const Assets::AssetSystem& assets,
-    Math::Vector::Vector3& outCenter
-);
-bool TryUpdateEditorPlacementPreview(
-    SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-    RunEditorPlacementState& editor,
-    Geometry::Terrain* terrain,
-    const Assets::AssetSystem& assets,
-    bool scaleGestureActive,
-    int objectType,
-    const EditorTerrainPlacement* mousePlacement
-);
+bool TryComputeEditorObjectCenter( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                   int objectType,
+                                   const Math::Vector::Vector3& terrainPoint,
+                                   const Math::Vector::Vector3& placementScale,
+                                   const Math::Orientation::Quaternion& orientation,
+                                   const Assets::AssetSystem& assets,
+                                   Math::Vector::Vector3& outCenter );
+bool TryUpdateEditorPlacementPreview( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                      RunEditorPlacementState& editor,
+                                      Geometry::Terrain* terrain,
+                                      const Assets::AssetSystem& assets,
+                                      bool scaleGestureActive,
+                                      int objectType,
+                                      const EditorTerrainPlacement* mousePlacement );
 bool CanPlaceEditorObjectAtTerrainPoint( SceneWorld& world, const Assets::AssetSystem& assets, int activeModelCapacity, EditorObjectPlacementRequest request );
-bool PlaceEditorObjectAtTerrainPoint(
-    SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-    RunEditorPlacementState& editor,
-    SceneWorld& world,
-    SceneSessionState& scene,
-    const Assets::AssetSystem& assets,
-    int activeModelCapacity,
-    EditorObjectPlacementRequest request,
-    EditorObjectPlacementResult& outResult
-);
+bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                      RunEditorPlacementState& editor,
+                                      SceneWorld& world,
+                                      SceneSessionState& scene,
+                                      const Assets::AssetSystem& assets,
+                                      int activeModelCapacity,
+                                      EditorObjectPlacementRequest request,
+                                      EditorObjectPlacementResult& outResult );
 bool BeginEditorGizmoDragGesture( SceneWorld& world, RuntimeInteractionController& interaction, int modelIndex, int axis, RuntimeGizmoDragKind gizmoKind, int clientX, int clientY );
 void EndEditorGizmoDragGesture( RuntimeInteractionController& interaction );
 void EndEditorPlacementScaleGesture( RuntimeInteractionController& interaction );
@@ -475,23 +463,19 @@ float EditorGizmoAxisLength( float modelRadius );
 float EditorGizmoRotationRadius( float modelRadius );
 const Physics::PhysicsBodyRecord* TryResolveEditorBodyRecord( const Physics::PhysicsBodyStore& bodyStore, Physics::PhysicsBodyHandle bodyHandle, int modelIndex );
 const Physics::PhysicsBodyRecord* TryResolveEditorBodyRecord( const Physics::PhysicsBodyStore& bodyStore, int modelIndex );
-bool TryResolveEditorBodyCollider(
-    const Physics::PhysicsBodyStore& bodyStore,
-    const Physics::ColliderStore& colliderStore,
-    Physics::PhysicsBodyHandle bodyHandle,
-    Physics::PhysicsColliderHandle colliderHandle,
-    int modelIndex,
-    const Physics::PhysicsBodyRecord*& outBody,
-    const Physics::ColliderRecord*& outCollider
-);
-bool TryGetEditorSelectionFrame(
-    const SceneWorld& world,
-    Physics::PhysicsBodyHandle selectedBodyHandle,
-    Physics::PhysicsColliderHandle selectedColliderHandle,
-    int selectedIndex,
-    Math::Vector::Vector3& outOrigin,
-    float& outRadius
-);
+bool TryResolveEditorBodyCollider( const Physics::PhysicsBodyStore& bodyStore,
+                                   const Physics::ColliderStore& colliderStore,
+                                   Physics::PhysicsBodyHandle bodyHandle,
+                                   Physics::PhysicsColliderHandle colliderHandle,
+                                   int modelIndex,
+                                   const Physics::PhysicsBodyRecord*& outBody,
+                                   const Physics::ColliderRecord*& outCollider );
+bool TryGetEditorSelectionFrame( const SceneWorld& world,
+                                 Physics::PhysicsBodyHandle selectedBodyHandle,
+                                 Physics::PhysicsColliderHandle selectedColliderHandle,
+                                 int selectedIndex,
+                                 Math::Vector::Vector3& outOrigin,
+                                 float& outRadius );
 void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor, const SceneWorld& world, bool allowRagdollGroup );
 int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, int modelCount );
 void WakeEditorPhysicsBody( SceneWorld& world, int modelIndex );
@@ -518,47 +502,37 @@ int HitEditorGizmoAxis( RunEditorPlacementState& editor, SceneWorld& world, cons
 int HitEditorRotationGizmoAxis( RunEditorPlacementState& editor, SceneWorld& world, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );
 bool TryEditorAxisRayParameter( RunEditorPlacementState& editor, SceneWorld& world, int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAxisT );
 Math::Vector::Vector3 EditorAxisDragPlaneNormal( int axis, const Math::Vector::Vector3& rayDirection );
-bool TryEditorAxisPlaneRayParameter(
-    int axis,
-    const Math::Vector::Vector3& planeOrigin,
-    const Math::Vector::Vector3& planeNormal,
-    const Math::Vector::Vector3& rayOrigin,
-    const Math::Vector::Vector3& rayDirection,
-    float& outAxisT
-);
+bool TryEditorAxisPlaneRayParameter( int axis,
+                                     const Math::Vector::Vector3& planeOrigin,
+                                     const Math::Vector::Vector3& planeNormal,
+                                     const Math::Vector::Vector3& rayOrigin,
+                                     const Math::Vector::Vector3& rayDirection,
+                                     float& outAxisT );
 bool TryEditorRotationRayAngle( RunEditorPlacementState& editor, SceneWorld& world, int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAngle );
-void MoveSelectedEditorObjectAlongAxis(
-    RunEditorPlacementState& editor,
-    SceneWorld& world,
-    RuntimeInteractionController& interaction,
-    const Math::Vector::Vector3& rayOrigin,
-    const Math::Vector::Vector3& rayDirection
-);
-void RotateSelectedEditorObjectAroundAxis(
-    RunEditorPlacementState& editor,
-    SceneWorld& world,
-    RuntimeInteractionController& interaction,
-    const Math::Vector::Vector3& rayOrigin,
-    const Math::Vector::Vector3& rayDirection
-);
-void ScaleSelectedEditorObjectAlongAxis(
-    RunEditorPlacementState& editor,
-    SceneWorld& world,
-    RuntimeInteractionController& interaction,
-    const Math::Vector::Vector3& rayOrigin,
-    const Math::Vector::Vector3& rayDirection
-);
+void MoveSelectedEditorObjectAlongAxis( RunEditorPlacementState& editor,
+                                        SceneWorld& world,
+                                        RuntimeInteractionController& interaction,
+                                        const Math::Vector::Vector3& rayOrigin,
+                                        const Math::Vector::Vector3& rayDirection );
+void RotateSelectedEditorObjectAroundAxis( RunEditorPlacementState& editor,
+                                           SceneWorld& world,
+                                           RuntimeInteractionController& interaction,
+                                           const Math::Vector::Vector3& rayOrigin,
+                                           const Math::Vector::Vector3& rayDirection );
+void ScaleSelectedEditorObjectAlongAxis( RunEditorPlacementState& editor,
+                                         SceneWorld& world,
+                                         RuntimeInteractionController& interaction,
+                                         const Math::Vector::Vector3& rayOrigin,
+                                         const Math::Vector::Vector3& rayDirection );
 void UpdateEditorGizmoHotAxes( RunEditorPlacementState& editor, SceneWorld& world, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, bool scaleMode );
 
 // InputController owns keybinding data. Editor tools keep the two unrelated
 // cold side effects separate so scene-save authority never travels with capture.
-void HandleEditorSceneSaveHotkey(
-    SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-    SceneWorld& world,
-    const SceneSessionState& scene,
-    const GameObjects::PresentationSaveState& presentation,
-    bool wasPressed
-);
+void HandleEditorSceneSaveHotkey( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                  SceneWorld& world,
+                                  const SceneSessionState& scene,
+                                  const GameObjects::PresentationSaveState& presentation,
+                                  bool wasPressed );
 std::string BuildEditorScreenshotPath();
 } // namespace Runtime
 } // namespace SkullbonezCore

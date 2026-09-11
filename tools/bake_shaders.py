@@ -352,18 +352,13 @@ def generated_reflection_header(entries: list[dict[str, object]]) -> bytes:
 
 
 def format_generated_header(repo: Path, header_path: Path, source: bytes) -> bytes:
+    from format_cpp import format_source
+
     clang_format = find_clang_format()
-    result = subprocess.run(
-        [str(clang_format), "-style=file", f"--assume-filename={header_path}"],
-        cwd=repo,
-        input=source,
-        capture_output=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        message = result.stderr.decode("utf-8", errors="replace").strip()
-        raise SystemExit(f"clang-format failed for generated shader reflection metadata: {message}")
-    return result.stdout
+    try:
+        return format_source(source, header_path, str(clang_format))
+    except (OSError, UnicodeError, ValueError, RuntimeError) as error:
+        raise SystemExit(f"Formatting failed for generated shader reflection metadata: {error}") from error
 
 
 def build_manifest(repo: Path, dxc: Path, version_text: str, check_only: bool) -> dict[str, object]:

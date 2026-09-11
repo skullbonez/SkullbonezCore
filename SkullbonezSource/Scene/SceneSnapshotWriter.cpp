@@ -129,19 +129,11 @@ bool ShouldSaveRenderMaterial( const SkullbonezCore::Rendering::RenderMaterial& 
 
 Json RenderMaterialJson( const char* target, const SkullbonezCore::Rendering::RenderMaterial& material )
 {
-    Json materialJson = {
-        { "target", target ? target : "" },
+    Json materialJson = { { "target", target ? target : "" },
 
         // Empty is meaningful: omitting the field lets the parser replace it
         // with the material-kind spelling and mutates the live material.
-        { "name", material.name },
-        { "color", Vec3Json( material.baseColor[0], material.baseColor[1], material.baseColor[2] ) },
-        { "alpha", material.baseColor[3] },
-        { "roughness", material.roughness },
-        { "metallic", material.metallic },
-        { "specular", material.specular },
-        { "transmission", material.transmission },
-        { "stylization", material.stylization },
+        { "name", material.name }, { "color", Vec3Json( material.baseColor[0], material.baseColor[1], material.baseColor[2] ) }, { "alpha", material.baseColor[3] }, { "roughness", material.roughness }, { "metallic", material.metallic }, { "specular", material.specular }, { "transmission", material.transmission }, { "stylization", material.stylization },
     };
 
     if ( material.kind == SkullbonezCore::Rendering::RenderMaterialKind::Textured )
@@ -196,11 +188,7 @@ void AddSceneObjectGroupJson( Json& object, const SceneWorldSaveState& scene, in
         SB_FATAL( "Scene/SceneSnapshotWriter", "Invalid releasable-tree group at save. row=%d root_id=%u part=%d", entityIndex, group.rootObjectId.value, group.partIndex );
     }
 
-    object["objectGroup"] = {
-        { "kind", "releasableTree" },
-        { "root", scene.entities.At( rootIndex ).displayName },
-        { "part", group.partIndex },
-    };
+    object["objectGroup"] = { { "kind", "releasableTree" }, { "root", scene.entities.At( rootIndex ).displayName }, { "part", group.partIndex }, };
 }
 
 struct LiveSceneRow
@@ -239,19 +227,17 @@ Json BuildLiveStateJson( const SceneWorldSaveState& scene, int entityIndex )
     const LiveSceneRow row = ResolveLiveSceneRow( scene, entityIndex );
     const char* contactMaterial = row.colliderAuthoring.contactMaterialName[0] != '\0' ? row.colliderAuthoring.contactMaterialName : "default";
 
-    Json state = {
-        { "sceneObjectId", row.entity.sceneObjectId.value },
-        { "name", row.entity.displayName },
-        { "position", Vec3Json( row.hotState.position ) },
-        { "velocity", Vec3Json( row.hotState.linearVelocity ) },
-        { "angularVelocity", Vec3Json( row.hotState.angularVelocity ) },
-        { "orientation", OrientationJson( row.hotState.orientation ) },
-        { "mass", row.body.mass },
-        { "restitution", row.collider.restitution },
-        { "contactMaterial", contactMaterial },
-        { "inertia", Vec3Json( row.body.rotationalInertia ) },
-        { "fixed", row.hotState.fixed },
-    };
+    Json state = { { "sceneObjectId", row.entity.sceneObjectId.value },
+                   { "name", row.entity.displayName },
+                   { "position", Vec3Json( row.hotState.position ) },
+                   { "velocity", Vec3Json( row.hotState.linearVelocity ) },
+                   { "angularVelocity", Vec3Json( row.hotState.angularVelocity ) },
+                   { "orientation", OrientationJson( row.hotState.orientation ) },
+                   { "mass", row.body.mass },
+                   { "restitution", row.collider.restitution },
+                   { "contactMaterial", contactMaterial },
+                   { "inertia", Vec3Json( row.body.rotationalInertia ) },
+                   { "fixed", row.hotState.fixed }, };
 
     // Invariant: part state overrides asset-recipe defaults in both
     // directions. Explicit false values are required so a live awake/release-
@@ -308,21 +294,15 @@ SbResult AppendSimulationJson( SkullbonezCore::Core::SbDiagnosticStore& diagnost
         scene["simulation"]["predictionPathPresentation"] = "allBodiesSpace";
     }
 
-    scene["simulation"]["world"] = {
-        { "gravity", sceneView.gravity },
-        { "fluidHeight", sceneView.fluidSurfaceHeight },
-        { "fluidDensity", sceneView.fluidDensity },
-    };
+    scene["simulation"]["world"] = { { "gravity", sceneView.gravity }, { "fluidHeight", sceneView.fluidSurfaceHeight }, { "fluidDensity", sceneView.fluidDensity }, };
 
     const auto& mutualGravity = sceneView.mutualGravity;
     if ( mutualGravity.enabled )
     {
-        scene["simulation"]["world"]["mutualGravity"] = {
-            { "enabled", true },
-            { "gravitationalConstant", mutualGravity.gravitationalConstant },
-            { "softeningLength", mutualGravity.softeningLength },
-            { "elasticCollisions", mutualGravity.elasticCollisions },
-        };
+        scene["simulation"]["world"]["mutualGravity"] = { { "enabled", true },
+                                                          { "gravitationalConstant", mutualGravity.gravitationalConstant },
+                                                          { "softeningLength", mutualGravity.softeningLength },
+                                                          { "elasticCollisions", mutualGravity.elasticCollisions }, };
     }
 
     const auto& stability = sceneView.orbitalStability;
@@ -344,10 +324,7 @@ SbResult AppendSimulationJson( SkullbonezCore::Core::SbDiagnosticStore& diagnost
         const char* role = member.role == SkullbonezCore::Scene::OrbitalStabilityMemberRole::Primary
                                ? "primary"
                                : ( member.role == SkullbonezCore::Scene::OrbitalStabilityMemberRole::CoreOrbiter ? "core" : "auxiliary" );
-        Json memberJson = {
-            { "object", sceneView.entities.At( entityIndex ).displayName },
-            { "role", role },
-        };
+        Json memberJson = { { "object", sceneView.entities.At( entityIndex ).displayName }, { "role", role }, };
         if ( member.role != SkullbonezCore::Scene::OrbitalStabilityMemberRole::Primary )
         {
             memberJson["innerRadius"] = member.innerRadius;
@@ -357,10 +334,7 @@ SbResult AppendSimulationJson( SkullbonezCore::Core::SbDiagnosticStore& diagnost
         members.push_back( std::move( memberJson ) );
     }
 
-    scene["simulation"]["orbitalStability"] = {
-        { "escapeGraceSeconds", stability.escapeGraceSeconds },
-        { "members", std::move( members ) },
-    };
+    scene["simulation"]["orbitalStability"] = { { "escapeGraceSeconds", stability.escapeGraceSeconds }, { "members", std::move( members ) }, };
     return SbResult::Success();
 }
 
@@ -375,9 +349,7 @@ void AppendPresentationJson( const SceneSaveRequest& request, Json& scene )
 
     if ( session.editableScene )
     {
-        scene["editor"] = {
-            { "editableScene", true },
-        };
+        scene["editor"] = { { "editableScene", true }, };
     }
 
     scene["debug"] = Json::object();
@@ -386,23 +358,11 @@ void AppendPresentationJson( const SceneSaveRequest& request, Json& scene )
 
     if ( session.hasFlatSlope )
     {
-        scene["terrain"] = {
-            { "flatSlope",
-              {
-                  { "baseY", session.flatBaseY },
-                  { "slopeX", session.flatSlopeX },
-                  { "slopeZ", session.flatSlopeZ },
-              } },
-        };
+        scene["terrain"] = { { "flatSlope", { { "baseY", session.flatBaseY }, { "slopeX", session.flatSlopeX }, { "slopeZ", session.flatSlopeZ }, } }, };
     }
 
     scene["cameras"] = Json::array();
-    scene["cameras"].push_back( {
-        { "name", "main" },
-        { "position", Vec3Json( sceneView.cameraEye ) },
-        { "view", Vec3Json( sceneView.cameraView ) },
-        { "up", Vec3Json( sceneView.cameraUp ) },
-    } );
+    scene["cameras"].push_back( { { "name", "main" }, { "position", Vec3Json( sceneView.cameraEye ) }, { "view", Vec3Json( sceneView.cameraView ) }, { "up", Vec3Json( sceneView.cameraUp ) }, } );
 }
 
 void AppendSceneObjectsJson( const SceneWorldSaveState& sceneView, Json& scene )
@@ -452,25 +412,21 @@ void AppendSceneObjectsJson( const SceneWorldSaveState& sceneView, Json& scene )
                 SB_FATAL( "Scene/SceneSnapshotWriter", "Asset root has no parts. root_id=%u", entity.sceneObjectId.value );
             }
 
-            Json instance = {
-                { "asset", entity.asset.assetName },
-                { "name", entity.asset.instanceName },
-                { "position", Vec3Json( SkullbonezCore::Math::Vector::ZERO_VECTOR ) },
-                { "parts", Json::array() },
-            };
+            Json instance = { { "asset", entity.asset.assetName },
+                              { "name", entity.asset.instanceName },
+                              { "position", Vec3Json( SkullbonezCore::Math::Vector::ZERO_VECTOR ) },
+                              { "parts", Json::array() }, };
             for ( std::size_t partOrdinal = 0; partOrdinal < partRows.size(); ++partOrdinal )
             {
                 const int partRow = partRows[partOrdinal];
                 const SceneEntityRecord& partEntity = sceneView.entities.At( partRow );
                 if ( partEntity.asset.partIndex != partOrdinal || emittedAssetRows[static_cast<std::size_t>( partRow )] )
                 {
-                    SB_FATAL(
-                        "Scene/SceneSnapshotWriter",
-                        "Asset part order is not unique and contiguous. root_id=%u expected=%zu actual=%u",
-                        entity.sceneObjectId.value,
-                        partOrdinal,
-                        partEntity.asset.partIndex
-                    );
+                    SB_FATAL( "Scene/SceneSnapshotWriter",
+                              "Asset part order is not unique and contiguous. root_id=%u expected=%zu actual=%u",
+                              entity.sceneObjectId.value,
+                              partOrdinal,
+                              partEntity.asset.partIndex );
                 }
 
                 Json partState = BuildLiveStateJson( sceneView, partRow );
@@ -545,16 +501,14 @@ void AppendPointJointsJson( const SceneWorldSaveState& sceneView, Json& scene )
             SB_FATAL( "Scene/SceneSnapshotWriter", "Point joint references a missing scene body. joint=%d", jointIndex );
         }
 
-        Json jointJson = {
-            { "bodyA", sceneView.entities.At( bodyAIndex ).displayName },
-            { "bodyB", sceneView.entities.At( bodyBIndex ).displayName },
-            { "localAnchorA", Vec3Json( joint.localAnchorA ) },
-            { "localAnchorB", Vec3Json( joint.localAnchorB ) },
-            { "slack", joint.slack },
-            { "frequencyHz", joint.frequencyHz },
-            { "dampingRatio", joint.dampingRatio },
-            { "groupId", joint.groupId },
-        };
+        Json jointJson = { { "bodyA", sceneView.entities.At( bodyAIndex ).displayName },
+                           { "bodyB", sceneView.entities.At( bodyBIndex ).displayName },
+                           { "localAnchorA", Vec3Json( joint.localAnchorA ) },
+                           { "localAnchorB", Vec3Json( joint.localAnchorB ) },
+                           { "slack", joint.slack },
+                           { "frequencyHz", joint.frequencyHz },
+                           { "dampingRatio", joint.dampingRatio },
+                           { "groupId", joint.groupId }, };
         if ( joint.flags != 0 )
         {
             jointJson["flags"] = static_cast<int>( joint.flags );

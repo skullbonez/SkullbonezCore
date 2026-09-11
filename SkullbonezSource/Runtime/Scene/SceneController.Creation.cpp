@@ -143,52 +143,25 @@ bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string
     scene["format"] = "skullbonez.scene.json";
     scene["version"] = 1;
     scene["name"] = displayName;
-    scene["simulation"] = {
-        { "physics", true },
-        { "text", true },
-        { "world",
-          {
-              { "gravity", -9.81f },
-              { "fluidHeight", 0.0f },
-              { "fluidDensity", 0.0f },
-          } },
-    };
+    scene["simulation"] = { { "physics", true }, { "text", true }, { "world", { { "gravity", -9.81f }, { "fluidHeight", 0.0f }, { "fluidDensity", 0.0f }, } }, };
 
-    scene["editor"] = {
-        { "editableScene", true },
-    };
+    scene["editor"] = { { "editableScene", true }, };
 
-    scene["playback"] = {
-        { "frames", "unlimited" },
-        { "fixedStep", true },
-    };
+    scene["playback"] = { { "frames", "unlimited" }, { "fixedStep", true }, };
 
-    scene["debug"] = {
-        { "waterHidden", true },
-    };
+    scene["debug"] = { { "waterHidden", true }, };
 
-    scene["terrain"] = {
-        { "flatSlope",
-          {
-              { "baseY", 30.0f },
-              { "slopeX", 0.0f },
-              { "slopeZ", 0.0f },
-          } },
-    };
+    scene["terrain"] = { { "flatSlope", { { "baseY", 30.0f }, { "slopeX", 0.0f }, { "slopeZ", 0.0f }, } }, };
 
     if ( heightMap && *heightMap )
     {
         scene["terrain"] = { { "heightMap", std::filesystem::absolute( heightMap ).lexically_normal().generic_string() } };
     }
 
-    scene["cameras"] = Json::array( {
-        {
-            { "name", "main" },
-            { "position", Json::array( { 500.0f, 120.0f, 760.0f } ) },
-            { "view", Json::array( { 500.0f, 45.0f, 500.0f } ) },
-            { "up", Json::array( { 0.0f, 1.0f, 0.0f } ) },
-        },
-    } );
+    scene["cameras"] = Json::array( { { { "name", "main" },
+                                        { "position", Json::array( { 500.0f, 120.0f, 760.0f } ) },
+                                        { "view", Json::array( { 500.0f, 45.0f, 500.0f } ) },
+                                        { "up", Json::array( { 0.0f, 1.0f, 0.0f } ) }, }, } );
 
     scene["objects"] = Json::array();
     output << scene.dump( 2 ) << '\n';

@@ -127,15 +127,13 @@ void RequestNewScene( SkullbonezCore::UI::SceneTab::UISceneTabState& state, Skul
     result.commands.ui.userInteracted = true;
 }
 
-void SetSceneHeaderBounds(
-    SkullbonezCore::UI::UIComboBox& combo,
-    SkullbonezCore::UI::UIButton& resetSceneButton,
-    SkullbonezCore::UI::UIButton& resetDefaultsButton,
-    SkullbonezCore::UI::UIButton& saveDefaultsButton,
-    float contentX,
-    float rowBase,
-    float contentW
-)
+void SetSceneHeaderBounds( SkullbonezCore::UI::UIComboBox& combo,
+                           SkullbonezCore::UI::UIButton& resetSceneButton,
+                           SkullbonezCore::UI::UIButton& resetDefaultsButton,
+                           SkullbonezCore::UI::UIButton& saveDefaultsButton,
+                           float contentX,
+                           float rowBase,
+                           float contentW )
 {
     const SceneHeaderWidths widths = ResolveSceneHeaderWidths( contentW );
     combo.SetBounds( contentX, rowBase, widths.combo, 24.0f );
@@ -583,17 +581,15 @@ bool HandleComboWheel( UISceneTabState& state, const char* const* sceneOptions, 
 }
 
 
-bool HandleOpenComboClick(
-    UISceneTabState& state,
-    InGameUIInputResult& result,
-    const char* const* sceneOptions,
-    int sceneOptionCount,
-    int mouseX,
-    int mouseY,
-    float contentX,
-    float rowBase,
-    float contentW
-)
+bool HandleOpenComboClick( UISceneTabState& state,
+                           InGameUIInputResult& result,
+                           const char* const* sceneOptions,
+                           int sceneOptionCount,
+                           int mouseX,
+                           int mouseY,
+                           float contentX,
+                           float rowBase,
+                           float contentW )
 {
     if ( !state.combo.IsOpen() )
     {
@@ -682,15 +678,13 @@ bool HandleHeaderClick( UISceneTabState& state, InGameUIInputResult& result, int
 }
 
 
-bool HandleClosedComboClick(
-    UISceneTabState& state,
-    const InputControl::UIInputSnapshot& input,
-    const char* const* sceneOptions,
-    int sceneOptionCount,
-    int selectedSceneOption,
-    int mouseX,
-    int mouseY
-)
+bool HandleClosedComboClick( UISceneTabState& state,
+                             const InputControl::UIInputSnapshot& input,
+                             const char* const* sceneOptions,
+                             int sceneOptionCount,
+                             int selectedSceneOption,
+                             int mouseX,
+                             int mouseY )
 {
     UIComboBox& combo = state.combo;
 
@@ -1096,29 +1090,25 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
         snprintf( buf, sizeof( buf ), "%.2fs", forecast.rollingWindowAgeSeconds );
         DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 404.0f, "Window age", buf, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
         snprintf( buf, sizeof( buf ), "%s / %s", forecast.available ? "available" : "unavailable", forecast.failed ? "failed" : ( forecast.workerInFlight ? "running" : "idle" ) );
-        DrawLabelValueAt(
-            draw,
-            contentY,
-            contentH,
-            forecastCol2,
-            scrolledY + 404.0f,
-            "Producer",
-            buf,
-            forecast.failed ? palette.warningAccent.r : palette.textPrimary.r,
-            forecast.failed ? palette.warningAccent.g : palette.textPrimary.g,
-            forecast.failed ? palette.warningAccent.b : palette.textPrimary.b
-        );
+        DrawLabelValueAt( draw,
+                          contentY,
+                          contentH,
+                          forecastCol2,
+                          scrolledY + 404.0f,
+                          "Producer",
+                          buf,
+                          forecast.failed ? palette.warningAccent.r : palette.textPrimary.r,
+                          forecast.failed ? palette.warningAccent.g : palette.textPrimary.g,
+                          forecast.failed ? palette.warningAccent.b : palette.textPrimary.b );
 
         if ( forecast.configured )
         {
-            snprintf(
-                buf,
-                sizeof( buf ),
-                "numeric %s / system %s / auxiliary %s",
-                forecast.numericalHealthy ? "ok" : "fail",
-                forecast.systemOrbitalHealthy ? "ok" : "fail",
-                forecast.auxiliaryOrbitalHealthy ? "ok" : "fail"
-            );
+            snprintf( buf,
+                      sizeof( buf ),
+                      "numeric %s / system %s / auxiliary %s",
+                      forecast.numericalHealthy ? "ok" : "fail",
+                      forecast.systemOrbitalHealthy ? "ok" : "fail",
+                      forecast.auxiliaryOrbitalHealthy ? "ok" : "fail" );
         }
         else
         {
@@ -1133,15 +1123,13 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
         }
         else
         {
-            snprintf(
-                buf,
-                sizeof( buf ),
-                "%s @ %.2fs (%u/%u)",
-                OperatorEditorForecastCauseName( forecast.firstFailureCause ),
-                forecast.firstFailureSeconds,
-                forecast.firstFailureSubject,
-                forecast.firstFailureOther
-            );
+            snprintf( buf,
+                      sizeof( buf ),
+                      "%s @ %.2fs (%u/%u)",
+                      OperatorEditorForecastCauseName( forecast.firstFailureCause ),
+                      forecast.firstFailureSeconds,
+                      forecast.firstFailureSubject,
+                      forecast.firstFailureOther );
         }
 
         DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 456.0f, "First cause", buf, palette.warningAccent.r, palette.warningAccent.g, palette.warningAccent.b );
@@ -1164,12 +1152,10 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
 
     if ( IsRowVisible( contentY, contentH, scrolledY + 42.0f, 24.0f ) )
     {
-        state.combo.Draw(
-            draw,
-            "Load scene",
-            { std::span<const char* const>( visibleSceneOptions, static_cast<std::size_t>( sceneDrawCount ) ), sceneSelectedInSlice, 0u, selectedSceneName },
-            { mouseX, mouseY }
-        );
+        state.combo.Draw( draw,
+                          "Load scene",
+                          { std::span<const char* const>( visibleSceneOptions, static_cast<std::size_t>( sceneDrawCount ) ), sceneSelectedInSlice, 0u, selectedSceneName },
+                          { mouseX, mouseY } );
     }
 
 
@@ -1179,22 +1165,21 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
                                             data.selectedInteractionRecordingOption < state.recordingComboScroll + recordingVisibleCount
                                         ? data.selectedInteractionRecordingOption - state.recordingComboScroll
                                         : -1;
-        state.recordingCombo.Draw(
-            draw,
-            "Replay",
-            { std::span<const char* const>( visibleRecordingOptions, static_cast<std::size_t>( recordingVisibleCount ) ), selectedInSlice, 0u, selectedRecordingName },
-            { mouseX, mouseY }
-        );
+        state.recordingCombo.Draw( draw,
+                                   "Replay",
+                                   { std::span<const char* const>( visibleRecordingOptions, static_cast<std::size_t>( recordingVisibleCount ) ), selectedInSlice, 0u, selectedRecordingName },
+                                   { mouseX, mouseY } );
     }
 
     if ( !state.combo.IsOpen() && !state.recordingCombo.IsOpen() && IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_SOLVER_LAB_COMBO_Y, 24.0f ) )
     {
-        state.solverLabCombo.Draw(
-            draw,
-            "Solver Lab",
-            { std::span<const char* const>( SOLVER_LAB_OPTIONS ), state.selectedSolverLab, 0u, state.selectedSolverLab >= 0 ? SOLVER_LAB_OPTIONS[state.selectedSolverLab] : "Choose a comparison" },
-            { mouseX, mouseY }
-        );
+        state.solverLabCombo.Draw( draw,
+                                   "Solver Lab",
+                                   { std::span<const char* const>( SOLVER_LAB_OPTIONS ),
+                                                   state.selectedSolverLab,
+                                                   0u,
+                                                   state.selectedSolverLab >= 0 ? SOLVER_LAB_OPTIONS[state.selectedSolverLab] : "Choose a comparison" },
+                                   { mouseX, mouseY } );
     }
 
     if ( IsRowVisible( contentY, contentH, scrolledY + 42.0f, 24.0f ) )

@@ -42,9 +42,7 @@ const char* UIComboPresentationView::SelectedText() const noexcept
         return selectedTextOverride;
     }
 
-    return selectedIndex >= 0 && selectedIndex < OptionCount() && options[static_cast<std::size_t>( selectedIndex )]
-               ? options[static_cast<std::size_t>( selectedIndex )]
-               : "";
+    return selectedIndex >= 0 && selectedIndex < OptionCount() && options[static_cast<std::size_t>( selectedIndex )] ? options[static_cast<std::size_t>( selectedIndex )] : "";
 }
 
 
@@ -67,9 +65,7 @@ UIRect UIComboBox::Bounds() const
 
 UIRect UIComboBox::DropdownBounds( int optionCount ) const
 {
-    return Widgets::ResolveComboLayout( m_bounds, m_labelVisible, ResolveDropUp( optionCount ),
-                                        VisibleOptionCount( optionCount ) )
-        .popupBounds;
+    return Widgets::ResolveComboLayout( m_bounds, m_labelVisible, ResolveDropUp( optionCount ), VisibleOptionCount( optionCount ) ).popupBounds;
 }
 
 void UIComboBox::SetPopupViewport( const UIRect& viewport )
@@ -122,17 +118,14 @@ int UIComboBox::VisibleOptionCount( int optionCount ) const
 
 int UIComboBox::FirstVisibleOption( int optionCount ) const
 {
-    return m_scrollable
-               ? std::clamp( m_firstVisibleOption, 0, (std::max)( 0, optionCount - VisibleOptionCount( optionCount ) ) )
-               : 0;
+    return m_scrollable ? std::clamp( m_firstVisibleOption, 0, (std::max)( 0, optionCount - VisibleOptionCount( optionCount ) ) ) : 0;
 }
 
 void UIComboBox::ScrollOptions( int rows, int optionCount )
 {
     if ( m_scrollable )
     {
-        m_firstVisibleOption = std::clamp( FirstVisibleOption( optionCount ) + rows, 0,
-                                           (std::max)( 0, optionCount - VisibleOptionCount( optionCount ) ) );
+        m_firstVisibleOption = std::clamp( FirstVisibleOption( optionCount ) + rows, 0, (std::max)( 0, optionCount - VisibleOptionCount( optionCount ) ) );
     }
 }
 
@@ -193,14 +186,12 @@ void UIComboBox::Close()
 }
 
 
-void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const UIComboPresentationView& presentation,
-                       UIPointerPosition pointer ) const
+void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const UIComboPresentationView& presentation, UIPointerPosition pointer ) const
 {
     const int optionCount = presentation.OptionCount();
     const int visible = VisibleOptionCount( optionCount );
     const int first = FirstVisibleOption( optionCount );
-    const Widgets::ComboLayout layout = Widgets::ResolveComboLayout( m_bounds, m_labelVisible, ResolveDropUp( optionCount ),
-                                                                     visible );
+    const Widgets::ComboLayout layout = Widgets::ResolveComboLayout( m_bounds, m_labelVisible, ResolveDropUp( optionCount ), visible );
     UIVisualState state = UIVisualState::Visible | UIVisualState::Enabled;
 
     if ( Widgets::ContainsComponent( layout.fieldBounds, state, pointer.x, pointer.y ) )
@@ -208,8 +199,7 @@ void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const UICom
         state |= UIVisualState::Hovered;
     }
 
-    Widgets::DrawComboField( draw, layout, label, presentation.SelectedText(), m_labelVisible, m_isOpen, state,
-                             presentation.SelectedOptionEnabled(), Widgets::ComponentAppearance::Established );
+    Widgets::DrawComboField( draw, layout, label, presentation.SelectedText(), m_labelVisible, m_isOpen, state, presentation.SelectedOptionEnabled(), Widgets::ComponentAppearance::Established );
 
     if ( !m_isOpen )
     {
@@ -217,10 +207,7 @@ void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const UICom
     }
 
     const int hoveredOption = Widgets::ComboOptionAtPointer( layout.popupBounds, state, pointer.x, pointer.y, visible );
-    const UIComboPresentationView visibleOptions { presentation.options.subspan( static_cast<std::size_t>( first ),
-                                                                                 static_cast<std::size_t>( visible ) ),
-                                                   presentation.selectedIndex - first,
-                                                   first < 32 ? presentation.disabledOptionMask >> first : 0u };
+    const UIComboPresentationView visibleOptions { presentation.options.subspan( static_cast<std::size_t>( first ), static_cast<std::size_t>( visible ) ), presentation.selectedIndex - first, first < 32 ? presentation.disabledOptionMask >> first : 0u };
     draw.BeginForeground();
     if ( m_popupViewport.h > 0.0f )
     {
@@ -230,10 +217,8 @@ void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const UICom
     if ( visible < optionCount )
     {
         const float thumbHeight = layout.popupBounds.h * static_cast<float>( visible ) / static_cast<float>( optionCount );
-        const float thumbY = layout.popupBounds.y + ( layout.popupBounds.h - thumbHeight ) * static_cast<float>( first ) /
-                                                        static_cast<float>( optionCount - visible );
-        draw.RoundedRect( layout.popupBounds.x + layout.popupBounds.w - 4.0f, thumbY, 3.0f, thumbHeight, 1.0f, 0.55f, 0.58f,
-                          0.62f, 1.0f );
+        const float thumbY = layout.popupBounds.y + ( layout.popupBounds.h - thumbHeight ) * static_cast<float>( first ) / static_cast<float>( optionCount - visible );
+        draw.RoundedRect( layout.popupBounds.x + layout.popupBounds.w - 4.0f, thumbY, 3.0f, thumbHeight, 1.0f, 0.55f, 0.58f, 0.62f, 1.0f );
     }
     if ( m_popupViewport.h > 0.0f )
     {

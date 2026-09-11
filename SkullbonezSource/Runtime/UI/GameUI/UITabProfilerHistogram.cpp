@@ -199,12 +199,10 @@ void ClampHistogramPanelToScreen( SkullbonezCore::UI::ProfilerTab::UIProfilerTab
         state.histogramPanelH = HISTOGRAM_PANEL_DEFAULT_H;
         state.histogramPanelInitialized = true;
     }
-    const auto bounds = SkullbonezCore::UI::Layout::ClampFloatingRect(
-        { state.histogramPanelX, state.histogramPanelY, state.histogramPanelW, state.histogramPanelH },
-        viewport,
-        HISTOGRAM_PANEL_MIN_W,
-        HISTOGRAM_PANEL_MIN_H
-    );
+    const auto bounds = SkullbonezCore::UI::Layout::ClampFloatingRect( { state.histogramPanelX, state.histogramPanelY, state.histogramPanelW, state.histogramPanelH },
+                                                                       viewport,
+                                                                       HISTOGRAM_PANEL_MIN_W,
+                                                                       HISTOGRAM_PANEL_MIN_H );
     state.histogramPanelX = bounds.x;
     state.histogramPanelY = bounds.y;
     state.histogramPanelW = bounds.w;
@@ -663,18 +661,16 @@ void CancelPerformanceHistogramInteraction( UIProfilerTabState& state )
     state.histogramSelectorOpen = false;
 }
 
-bool HandlePerformanceHistogramInput(
-    UIProfilerTabState& state,
-    InGameUIInputResult& result,
-    int screenW,
-    int screenH,
-    int mouseX,
-    int mouseY,
-    bool leftDown,
-    bool leftPressed,
-    bool leftReleased,
-    int wheelDelta
-)
+bool HandlePerformanceHistogramInput( UIProfilerTabState& state,
+                                      InGameUIInputResult& result,
+                                      int screenW,
+                                      int screenH,
+                                      int mouseX,
+                                      int mouseY,
+                                      bool leftDown,
+                                      bool leftPressed,
+                                      bool leftReleased,
+                                      int wheelDelta )
 {
     if ( !PerformanceHistogramEnabled( state ) )
     {
@@ -1052,32 +1048,28 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
     FitHistogramText( text, sizeof( text ), 10.0f, selector.w - 26.0f );
     draw.Text( selector.x + 9.0f, selector.y + 6.0f, 10.0f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, text );
 
-    draw.Triangle(
-        selector.x + selector.w - 15.0f,
-        selector.y + 9.0f,
-        selector.x + selector.w - 7.0f,
-        selector.y + 9.0f,
-        selector.x + selector.w - 11.0f,
-        selector.y + 15.0f,
-        palette.textSecondary.r,
-        palette.textSecondary.g,
-        palette.textSecondary.b,
-        0.88f
-    );
+    draw.Triangle( selector.x + selector.w - 15.0f,
+                   selector.y + 9.0f,
+                   selector.x + selector.w - 7.0f,
+                   selector.y + 9.0f,
+                   selector.x + selector.w - 11.0f,
+                   selector.y + 15.0f,
+                   palette.textSecondary.r,
+                   palette.textSecondary.g,
+                   palette.textSecondary.b,
+                   0.88f );
 
     draw.Rect( plot.x, plot.y, plot.w, plot.h, palette.window.r, palette.window.g, palette.window.b, 0.58f );
     const float budgetY = mainSelected ? baseY - std::clamp( HISTOGRAM_FRAME_CPU_BUDGET_MS / axisMs, 0.0f, 1.0f ) * plot.h : plot.y + plot.h * 0.50f;
 
-    draw.Rect(
-        plot.x,
-        budgetY,
-        plot.w,
-        1.0f,
-        mainSelected ? palette.warningAccent.r : palette.lineSoft.r,
-        mainSelected ? palette.warningAccent.g : palette.lineSoft.g,
-        mainSelected ? palette.warningAccent.b : palette.lineSoft.b,
-        mainSelected ? 0.58f : 0.14f
-    );
+    draw.Rect( plot.x,
+               budgetY,
+               plot.w,
+               1.0f,
+               mainSelected ? palette.warningAccent.r : palette.lineSoft.r,
+               mainSelected ? palette.warningAccent.g : palette.lineSoft.g,
+               mainSelected ? palette.warningAccent.b : palette.lineSoft.b,
+               mainSelected ? 0.58f : 0.14f );
 
     draw.Rect( plot.x, plot.y, plot.w, 1.0f, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.18f );
     draw.Rect( plot.x, plot.y, 1.0f, plot.h, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.28f );
@@ -1307,15 +1299,13 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
             DrawHistogramCheckbox( draw, palette, dropdown.x + 8.0f, rowY + 5.0f, selected, rowR, rowG, rowB );
             snprintf( text, sizeof( text ), "%s", HistogramOptionDisplayName( rowOption ) );
             FitHistogramText( text, sizeof( text ), 9.4f, dropdown.w - 120.0f );
-            draw.Text(
-                dropdown.x + 39.0f,
-                rowY + 6.0f,
-                9.4f,
-                selected ? palette.textPrimary.r : palette.textSecondary.r,
-                selected ? palette.textPrimary.g : palette.textSecondary.g,
-                selected ? palette.textPrimary.b : palette.textSecondary.b,
-                text
-            );
+            draw.Text( dropdown.x + 39.0f,
+                       rowY + 6.0f,
+                       9.4f,
+                       selected ? palette.textPrimary.r : palette.textSecondary.r,
+                       selected ? palette.textPrimary.g : palette.textSecondary.g,
+                       selected ? palette.textPrimary.b : palette.textSecondary.b,
+                       text );
 
             // Why: the selector value must match the line the row plots, or a
             // worker-owned marker reads 0.000 here and an operator never finds

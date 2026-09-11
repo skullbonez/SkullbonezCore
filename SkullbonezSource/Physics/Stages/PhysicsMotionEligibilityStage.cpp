@@ -48,8 +48,7 @@ bool ResolveAngularEligibility( bool wasEligible, float travelSquared, float min
         return true;
     }
 
-    const float finiteThickness = std::isfinite( minimumCollisionThickness ) ? (std::max)( 0.0f, minimumCollisionThickness )
-                                                                             : 0.0f;
+    const float finiteThickness = std::isfinite( minimumCollisionThickness ) ? (std::max)( 0.0f, minimumCollisionThickness ) : 0.0f;
     const float threshold = finiteThickness * PHYSICS_ANGULAR_EXPANSION_THRESHOLD_THICKNESS_FACTOR;
     const float thresholdSquared = threshold * threshold;
 
@@ -66,8 +65,7 @@ struct DirectionalEligibilityFacts
     bool finite = true;
 };
 
-void IncludeDirectionalAxis( DirectionalEligibilityFacts& facts, float projectedTravelSquared, float axisBoundarySquared,
-                             float travelSquared )
+void IncludeDirectionalAxis( DirectionalEligibilityFacts& facts, float projectedTravelSquared, float axisBoundarySquared, float travelSquared )
 {
     if ( !std::isfinite( projectedTravelSquared ) || !std::isfinite( axisBoundarySquared ) )
     {
@@ -84,12 +82,10 @@ void IncludeDirectionalAxis( DirectionalEligibilityFacts& facts, float projected
     facts.equal = facts.equal || projectedTravelSquared == axisBoundarySquared;
 
     const float rayBoundarySquared = travelSquared * axisBoundarySquared / projectedTravelSquared;
-    facts.boundarySquared = std::isfinite( facts.boundarySquared ) ? (std::min)( facts.boundarySquared, rayBoundarySquared )
-                                                                   : rayBoundarySquared;
+    facts.boundarySquared = std::isfinite( facts.boundarySquared ) ? (std::min)( facts.boundarySquared, rayBoundarySquared ) : rayBoundarySquared;
 }
 
-DirectionalEligibilityFacts DirectionalFacts( const Math::CollisionDetection::BoundingSphere& sphere,
-                                              const Math::Vector::Vector3&, float travelSquared )
+DirectionalEligibilityFacts DirectionalFacts( const Math::CollisionDetection::BoundingSphere& sphere, const Math::Vector::Vector3&, float travelSquared )
 {
     const float radius = (std::max)( 0.0f, sphere.GetRadius() );
     DirectionalEligibilityFacts facts;
@@ -97,8 +93,7 @@ DirectionalEligibilityFacts DirectionalFacts( const Math::CollisionDetection::Bo
     return facts;
 }
 
-DirectionalEligibilityFacts LocalAxisFacts( const Math::Vector::Vector3& halfExtents,
-                                            const Math::Vector::Vector3& localTravel, float travelSquared )
+DirectionalEligibilityFacts LocalAxisFacts( const Math::Vector::Vector3& halfExtents, const Math::Vector::Vector3& localTravel, float travelSquared )
 {
     DirectionalEligibilityFacts facts;
     const auto includeAxis = [&]( float travel, float halfExtent )
@@ -115,14 +110,12 @@ DirectionalEligibilityFacts LocalAxisFacts( const Math::Vector::Vector3& halfExt
     return facts;
 }
 
-DirectionalEligibilityFacts DirectionalFacts( const Math::CollisionDetection::BoundingBox& box,
-                                              const Math::Vector::Vector3& localTravel, float travelSquared )
+DirectionalEligibilityFacts DirectionalFacts( const Math::CollisionDetection::BoundingBox& box, const Math::Vector::Vector3& localTravel, float travelSquared )
 {
     return LocalAxisFacts( box.GetHalfExtents(), localTravel, travelSquared );
 }
 
-DirectionalEligibilityFacts DirectionalFacts( const Math::CollisionDetection::ConvexHullShape& hull,
-                                              const Math::Vector::Vector3& localTravel, float travelSquared )
+DirectionalEligibilityFacts DirectionalFacts( const Math::CollisionDetection::ConvexHullShape& hull, const Math::Vector::Vector3& localTravel, float travelSquared )
 {
     DirectionalEligibilityFacts facts;
 
@@ -136,27 +129,22 @@ DirectionalEligibilityFacts DirectionalFacts( const Math::CollisionDetection::Co
     return facts;
 }
 
-DirectionalEligibilityFacts ComputeDirectionalFacts( const ColliderRecord& collider,
-                                                     const Math::Orientation::Quaternion& orientation,
-                                                     const Math::Vector::Vector3& worldTravel, float travelSquared )
+DirectionalEligibilityFacts ComputeDirectionalFacts( const ColliderRecord& collider, const Math::Orientation::Quaternion& orientation, const Math::Vector::Vector3& worldTravel, float travelSquared )
 {
-    return Math::CollisionDetection::
-        VisitCollisionShape( collider.shape,
-                             [&]( const auto& shape )
-                             {
-                                 using Shape = std::decay_t<decltype( shape )>;
+    return Math::CollisionDetection::VisitCollisionShape( collider.shape, [&]( const auto& shape )
+                                                          {
+                                                              using Shape = std::decay_t<decltype( shape )>;
 
-                                 if constexpr ( std::is_same_v<Shape, Math::CollisionDetection::BoundingSphere> )
-                                 {
-                                     return DirectionalFacts( shape, worldTravel, travelSquared );
-                                 }
-                                 else
-                                 {
-                                     const Math::Vector::Vector3 localTravel = orientation.GetOrientationMatrix()
-                                                                                   .TransposeMultiply( worldTravel );
-                                     return DirectionalFacts( shape, localTravel, travelSquared );
-                                 }
-                             } );
+                                                              if constexpr ( std::is_same_v<Shape, Math::CollisionDetection::BoundingSphere> )
+                                                              {
+                                                                  return DirectionalFacts( shape, worldTravel, travelSquared );
+                                                              }
+                                                              else
+                                                              {
+                                                                  const Math::Vector::Vector3 localTravel = orientation.GetOrientationMatrix().TransposeMultiply( worldTravel );
+                                                                  return DirectionalFacts( shape, localTravel, travelSquared );
+                                                              }
+                                                          } );
 }
 
 bool ResolveDirectionalEligibility( bool wasEligible, float travelSquared, const DirectionalEligibilityFacts& facts )
@@ -220,9 +208,12 @@ void PhysicsMotionEligibilityStage::CommitReplayRestoreState( bool hasVersionedS
     m_topologyInvalidated = !hasVersionedState;
 }
 
-void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                         std::span<const uint8_t> sleepState, float dt,
-                                         std::span<const PointJointConstraint> joints, bool speculativeEnabled )
+void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore,
+                                         const ColliderStore& colliderStore,
+                                         std::span<const uint8_t> sleepState,
+                                         float dt,
+                                         std::span<const PointJointConstraint> joints,
+                                         bool speculativeEnabled )
 {
     const auto begin = std::chrono::steady_clock::now();
     m_stats = {};
@@ -236,14 +227,12 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, cons
         const int b = joint.BodyBIndex( bodyStore );
         if ( a >= 0 && b >= 0 && a != b && a < modelCount && b < modelCount )
         {
-            const uint8_t path = PhysicsMotionEligibilityArticulated |
-                                 ( speculativeEnabled ? 0u : PhysicsMotionEligibilitySpeculativeDisabled );
+            const uint8_t path = PhysicsMotionEligibilityArticulated | ( speculativeEnabled ? 0u : PhysicsMotionEligibilitySpeculativeDisabled );
             m_collisionPathState[a] = path;
             m_collisionPathState[b] = path;
         }
     }
-    m_stats.articulationDurationNanoseconds = static_cast<uint64_t>(
-        std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::steady_clock::now() - begin ).count() );
+    m_stats.articulationDurationNanoseconds = static_cast<uint64_t>( std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::steady_clock::now() - begin ).count() );
 
     if ( m_topologyInvalidated || m_state.size() != rowCount )
     {
@@ -306,20 +295,15 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, cons
         const Math::Vector::Vector3 angular = PhysicsBodyAngularVelocity( hot, row );
         const Math::Vector::Vector3 linearTravel = linear * dt;
         const float linearTravelSquared = Math::Vector::VectorMagSquared( linear ) * dtSquared;
-        const float angularTravelSquared = Math::Vector::VectorMagSquared( angular ) * collider.maximumCenterOfMassRadius *
-                                           collider.maximumCenterOfMassRadius * dtSquared;
+        const float angularTravelSquared = Math::Vector::VectorMagSquared( angular ) * collider.maximumCenterOfMassRadius * collider.maximumCenterOfMassRadius * dtSquared;
         m_linearTravelSquared[row] = linearTravelSquared;
         m_angularTravelSquared[row] = angularTravelSquared;
 
         uint8_t resolved = 0u;
 
-        const DirectionalEligibilityFacts directionalFacts = ComputeDirectionalFacts( collider,
-                                                                                      PhysicsBodyOrientation( hot, row ),
-                                                                                      linearTravel, linearTravelSquared );
+        const DirectionalEligibilityFacts directionalFacts = ComputeDirectionalFacts( collider, PhysicsBodyOrientation( hot, row ), linearTravel, linearTravelSquared );
         m_linearDirectionalBoundary[row] = directionalFacts.boundarySquared;
-        const bool linearEligible = ResolveDirectionalEligibility( ( previous & PhysicsMotionEligibilityLinearPromoted ) !=
-                                                                       0u,
-                                                                   linearTravelSquared, directionalFacts );
+        const bool linearEligible = ResolveDirectionalEligibility( ( previous & PhysicsMotionEligibilityLinearPromoted ) != 0u, linearTravelSquared, directionalFacts );
 
         if ( linearEligible )
         {
@@ -343,8 +327,7 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, cons
             ++m_stats.demotionsThisStep;
         }
 
-        if ( ResolveAngularEligibility( ( previous & PhysicsMotionEligibilityAngularExpanded ) != 0u, angularTravelSquared,
-                                        collider.minimumCollisionThickness ) )
+        if ( ResolveAngularEligibility( ( previous & PhysicsMotionEligibilityAngularExpanded ) != 0u, angularTravelSquared, collider.minimumCollisionThickness ) )
         {
             resolved |= PhysicsMotionEligibilityAngularExpanded;
             ++m_stats.angularExpandedBodies;
@@ -352,9 +335,7 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, cons
             // Why: the sum of absolute angular components is a square-root-free
             // upper bound on angular speed. Multiplying by the farthest-point
             // radius yields a conservative broadphase tip-distance envelope.
-            m_angularBroadphaseExpansion[row] = ( std::fabs( angular.x ) + std::fabs( angular.y ) +
-                                                  std::fabs( angular.z ) ) *
-                                                collider.maximumCenterOfMassRadius * dt;
+            m_angularBroadphaseExpansion[row] = ( std::fabs( angular.x ) + std::fabs( angular.y ) + std::fabs( angular.z ) ) * collider.maximumCenterOfMassRadius * dt;
         }
 
         m_state[row] = resolved;
@@ -363,9 +344,7 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, cons
         {
             // Even a below-threshold angular arc can cross a nearby surface.
             // Preserve its complete conservative reach for speculative pairs.
-            m_angularBroadphaseExpansion[row] = ( std::fabs( angular.x ) + std::fabs( angular.y ) +
-                                                  std::fabs( angular.z ) ) *
-                                                collider.maximumCenterOfMassRadius * dt;
+            m_angularBroadphaseExpansion[row] = ( std::fabs( angular.x ) + std::fabs( angular.y ) + std::fabs( angular.z ) ) * collider.maximumCenterOfMassRadius * dt;
             if ( !speculativeEnabled )
             {
                 m_angularBroadphaseExpansion[row] = 0.0f;
@@ -373,8 +352,7 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, cons
         }
     }
 
-    m_stats.passDurationNanoseconds = static_cast<uint64_t>(
-        std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::steady_clock::now() - begin ).count() );
+    m_stats.passDurationNanoseconds = static_cast<uint64_t>( std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::steady_clock::now() - begin ).count() );
 }
 
 std::span<const uint8_t> PhysicsMotionEligibilityStage::State() const
@@ -421,8 +399,7 @@ std::size_t PhysicsMotionEligibilityStage::StateCapacityForReplay() const noexce
 
 uint64_t PhysicsMotionEligibilityStage::CollectDynamicMemoryBytes() const
 {
-    return ListCapacityBytes( m_state ) + ListCapacityBytes( m_collisionPathState ) +
-           ListCapacityBytes( m_linearTravelSquared ) + ListCapacityBytes( m_linearDirectionalBoundary ) +
+    return ListCapacityBytes( m_state ) + ListCapacityBytes( m_collisionPathState ) + ListCapacityBytes( m_linearTravelSquared ) + ListCapacityBytes( m_linearDirectionalBoundary ) +
            ListCapacityBytes( m_angularTravelSquared ) + ListCapacityBytes( m_angularBroadphaseExpansion );
 }
 } // namespace SkullbonezCore::Physics

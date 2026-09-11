@@ -71,8 +71,7 @@ struct ReplayTripPlannerSurface
 class ReplayPlanningLayout
 {
   public:
-    ReplayPlanningLayout( const UI::UIRect& viewport, bool interceptVisible, bool tripVisible, bool porkchopVisible,
-                          float scroll = 0.0f );
+    ReplayPlanningLayout( const UI::UIRect& viewport, bool interceptVisible, bool tripVisible, bool porkchopVisible, float scroll = 0.0f );
     UI::UIRect Clip() const noexcept
     {
         return m_clip;
@@ -110,6 +109,5 @@ class ReplayPlanningLayout
 UI::UIRect ReplayPorkchopGridRect( const UI::UIRect& panel );
 UI::UIRect ReplayPorkchopCellRect( const UI::UIRect& panel, std::size_t cellIndex );
 bool ReplayPorkchopCellAtPointer( const UI::UIRect& panel, int pointerX, int pointerY, std::size_t& outCellIndex );
-void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner, const UI::UIRect& panel,
-                                    ReplayTripPlannerSurface& outSurface, bool baselineReady );
+void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner, const UI::UIRect& panel, ReplayTripPlannerSurface& outSurface, bool baselineReady );
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

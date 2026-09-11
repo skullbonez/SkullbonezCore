@@ -139,18 +139,16 @@ bool HandleContentClick( UIEditorTabState& state, InGameUIInputResult& result, i
 }
 
 
-void Draw(
-    UIEditorTabState& state,
-    const UIDrawContext& draw,
-    const UIEditorTabFrameView& data,
-    float contentX,
-    float contentY,
-    float contentW,
-    float contentH,
-    float scrolledY,
-    int mouseX,
-    int mouseY
-)
+void Draw( UIEditorTabState& state,
+           const UIDrawContext& draw,
+           const UIEditorTabFrameView& data,
+           float contentX,
+           float contentY,
+           float contentW,
+           float contentH,
+           float scrolledY,
+           int mouseX,
+           int mouseY )
 {
     const Style::UIPalette& palette = Style::Palette();
     state.placementModeAvailable = data.editorModeEnabled;

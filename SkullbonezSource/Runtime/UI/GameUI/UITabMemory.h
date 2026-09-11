@@ -109,19 +109,17 @@ bool OverlayEnabled( const UIMemoryOverlayState& state );
 void SetOverlayEnabled( UIMemoryOverlayState& state, bool enabled );
 void PushOverlayFrame( UIMemoryOverlayState& state, const UIMemoryTabFrameView& data );
 void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const UIMemoryTabFrameView& data, float preferredX, float preferredY );
-void Draw(
-    const UIDrawContext& draw,
-    UIMemoryOverlayState& state,
-    const UIMemoryTabFrameView& data,
-    float contentX,
-    float contentY,
-    float contentW,
-    float contentH,
-    float scrolledY,
-    int activeSlider,
-    int mouseX,
-    int mouseY
-);
+void Draw( const UIDrawContext& draw,
+           UIMemoryOverlayState& state,
+           const UIMemoryTabFrameView& data,
+           float contentX,
+           float contentY,
+           float contentW,
+           float contentH,
+           float scrolledY,
+           int activeSlider,
+           int mouseX,
+           int mouseY );
 bool HandleContentClick( UIMemoryOverlayState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY, float contentX, float scrolledY, float contentW );
 bool UpdateActiveSlider( UIMemoryOverlayState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 bool CommitActiveSlider( UIMemoryOverlayState& state, int activeSlider, InGameUIInputResult& result );

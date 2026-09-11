@@ -374,22 +374,26 @@ void ProjectOperatorRenderingParameters( UI::OperatorEditorRenderingView& view, 
 void ProjectOperatorEditorRendering( UI::OperatorEditorFrameView& view, const OperatorUiRenderingFacts& facts );
 void ProjectOperatorEditorForecast( UI::OperatorEditorFrameView& view, const OperatorUiForecastFacts& facts );
 void ProjectOperatorEditorLookLab( UI::OperatorEditorFrameView& view, const UI::OperatorEditorLookLabView& lookLab );
-void ProjectOperatorEditorReplay(
-    UI::OperatorEditorFrameView& view,
-    int memoryPreset,
-    int requestedRetentionSeconds,
-    int requestedBudgetMiB,
-    int presentationRetentionSeconds,
-    int solverRetentionSeconds,
-    bool memoryBudgetClamped,
-    bool solverWindowReduced
-);
+void ProjectOperatorEditorReplay( UI::OperatorEditorFrameView& view,
+                                  int memoryPreset,
+                                  int requestedRetentionSeconds,
+                                  int requestedBudgetMiB,
+                                  int presentationRetentionSeconds,
+                                  int solverRetentionSeconds,
+                                  bool memoryBudgetClamped,
+                                  bool solverWindowReduced );
 void ProjectOperatorEditorSurfaces( UI::OperatorEditorFrameView& view, bool primaryVisible, bool secondaryVisible );
 inline void BeginOperatorEditorHierarchy( UI::OperatorEditorFrameView& view, const OperatorUiHierarchyFacts& facts )
 {
     view.scene.dirty = facts.sceneDirty;
-    view.tools =
-        { facts.editorModeEnabled, facts.placementModeEnabled, facts.placeStaticObject, facts.crossScenePauseLocked, facts.fixedStep, facts.autoTerrainAlign, facts.undoDepth, facts.redoDepth };
+    view.tools = { facts.editorModeEnabled,
+                   facts.placementModeEnabled,
+                   facts.placeStaticObject,
+                   facts.crossScenePauseLocked,
+                   facts.fixedStep,
+                   facts.autoTerrainAlign,
+                   facts.undoDepth,
+                   facts.redoDepth };
     view.hierarchy.totalRowCount = facts.totalRowCount;
     view.hierarchy.rowCount = (std::min)( view.hierarchy.totalRowCount, UI::OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY );
     view.hierarchy.truncated = view.hierarchy.totalRowCount > view.hierarchy.rowCount;

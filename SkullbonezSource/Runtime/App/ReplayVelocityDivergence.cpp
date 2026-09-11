@@ -107,19 +107,17 @@ bool RestorePredictionSeed( Physics::PhysicsEngine& physics, const ReplayPredict
     }
     for ( const auto& body : seed.predictionBodies )
     {
-        const Physics::PhysicsBodyRestoreState restore {
-            store.HandleForModelIndex( body.modelRow.value ),
-            body.id,
-            body.fixed,
-            body.position,
-            body.orientation,
-            body.linearVelocity,
-            body.angularVelocity,
-            body.mass,
-            body.inverseMass,
-            body.rotationalInertia,
-            body.inverseRotationalInertia
-        };
+        const Physics::PhysicsBodyRestoreState restore { store.HandleForModelIndex( body.modelRow.value ),
+                                                         body.id,
+                                                         body.fixed,
+                                                         body.position,
+                                                         body.orientation,
+                                                         body.linearVelocity,
+                                                         body.angularVelocity,
+                                                         body.mass,
+                                                         body.inverseMass,
+                                                         body.rotationalInertia,
+                                                         body.inverseRotationalInertia };
         if ( !physics.RestoreReplayBodyState( restore ) )
         {
             return false;

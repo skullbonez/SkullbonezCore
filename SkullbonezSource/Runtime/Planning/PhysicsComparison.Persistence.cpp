@@ -42,8 +42,7 @@ bool MatchesFileHash( const fs::path& path, const std::string& expected, Compari
     NTSTATUS status = BCryptOpenAlgorithmProvider( &algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0 );
     if ( status >= 0 )
     {
-        status = BCryptGetProperty( algorithm, BCRYPT_OBJECT_LENGTH, reinterpret_cast<PUCHAR>( &size ), sizeof( size ),
-                                    &written, 0 );
+        status = BCryptGetProperty( algorithm, BCRYPT_OBJECT_LENGTH, reinterpret_cast<PUCHAR>( &size ), sizeof( size ), &written, 0 );
     }
     if ( status >= 0 && size > object.size() )
     {
@@ -141,8 +140,7 @@ bool ValidFields( const Json& json, std::initializer_list<const char*> keys, Jso
 }
 bool ValidFindingFields( const Json& json )
 {
-    if ( !ValidFields( json, { "format", "bundle", "note" }, Json::value_t::string ) ||
-         !ValidFields( json, { "version", "tick", "event" }, Json::value_t::number_integer ) )
+    if ( !ValidFields( json, { "format", "bundle", "note" }, Json::value_t::string ) || !ValidFields( json, { "version", "tick", "event" }, Json::value_t::number_integer ) )
     {
         return false;
     }
@@ -171,19 +169,12 @@ bool ValidFindingFields( const Json& json )
     }
     const auto& settings = json["settings"];
     return ValidFields( settings, { "display" }, Json::value_t::number_integer ) &&
-           ValidFields( settings,
-                        { "showA", "stackedViews", "orbitSelected", "angularHeatmap", "occludedOutline", "followA",
-                          "selectedOnly", "differencesOnly" },
-                        Json::value_t::boolean ) &&
-           ValidFields( settings,
-                        { "outlineAlpha", "heatScale", "pixelGain", "positionThreshold", "angleThreshold",
-                          "impulseThreshold", "speed" },
-                        Json::value_t::number_float );
+           ValidFields( settings, { "showA", "stackedViews", "orbitSelected", "angularHeatmap", "occludedOutline", "followA", "selectedOnly", "differencesOnly" }, Json::value_t::boolean ) &&
+           ValidFields( settings, { "outlineAlpha", "heatScale", "pixelGain", "positionThreshold", "angleThreshold", "impulseThreshold", "speed" }, Json::value_t::number_float );
 }
 bool VerifyInputs( const Json& manifest, const fs::path& directory, ComparisonLoadProgress& progress )
 {
-    if ( !manifest.contains( "inputs" ) || !manifest["inputs"].is_object() || !manifest["inputs"].contains( "files" ) ||
-         !manifest["inputs"]["files"].is_object() )
+    if ( !manifest.contains( "inputs" ) || !manifest["inputs"].is_object() || !manifest["inputs"].contains( "files" ) || !manifest["inputs"]["files"].is_object() )
     {
         return false;
     }
@@ -219,8 +210,7 @@ bool VerifyInputs( const Json& manifest, const fs::path& directory, ComparisonLo
         }
         // These scene asset readers use the viewer's normal runtime root.
         // Refuse an inspection with changed geometry/material assets.
-        if ( entry.key().starts_with( "SkullbonezData/assets/" ) || entry.key().starts_with( "SkullbonezData/hulls/" ) ||
-             entry.key().starts_with( "SkullbonezData/styles/" ) )
+        if ( entry.key().starts_with( "SkullbonezData/assets/" ) || entry.key().starts_with( "SkullbonezData/hulls/" ) || entry.key().starts_with( "SkullbonezData/styles/" ) )
         {
             if ( !MatchesFileHash( fs::current_path() / relative, expected ) )
             {
@@ -230,14 +220,11 @@ bool VerifyInputs( const Json& manifest, const fs::path& directory, ComparisonLo
     }
     return true;
 }
-bool ResolveBinaryDiagnosticFile( const Json& metadata, const fs::path& directory, ComparisonLoadProgress& progress,
-                                  fs::path& result )
+bool ResolveBinaryDiagnosticFile( const Json& metadata, const fs::path& directory, ComparisonLoadProgress& progress, fs::path& result )
 {
     const auto& binary = metadata["diagnosticsBinary"];
-    if ( !binary.is_object() || !binary.contains( "path" ) || !binary["path"].is_string() || !binary.contains( "sha256" ) ||
-         !binary["sha256"].is_string() || !binary.contains( "sourceSha256" ) || !binary["sourceSha256"].is_string() ||
-         !metadata.contains( "diagnosticsSha256" ) || !metadata["diagnosticsSha256"].is_string() ||
-         binary["sourceSha256"] != metadata["diagnosticsSha256"] )
+    if ( !binary.is_object() || !binary.contains( "path" ) || !binary["path"].is_string() || !binary.contains( "sha256" ) || !binary["sha256"].is_string() || !binary.contains( "sourceSha256" ) ||
+         !binary["sourceSha256"].is_string() || !metadata.contains( "diagnosticsSha256" ) || !metadata["diagnosticsSha256"].is_string() || binary["sourceSha256"] != metadata["diagnosticsSha256"] )
     {
         return false;
     }
@@ -251,12 +238,10 @@ bool ResolveBinaryDiagnosticFile( const Json& metadata, const fs::path& director
     // Invariant: a binary is admitted only with its own full hash and the
     // original diagnostic identity. Corrupt declared binaries never fall back
     // to a different stream that could hide changed comparison evidence.
-    return input.ReadIndex() && input.SourceHash() == binary["sourceSha256"].get<std::string>() &&
-           MatchesFileHash( result, binary["sha256"].get<std::string>(), &progress );
+    return input.ReadIndex() && input.SourceHash() == binary["sourceSha256"].get<std::string>() && MatchesFileHash( result, binary["sha256"].get<std::string>(), &progress );
 }
 
-bool ResolveDiagnosticFile( const Json& metadata, const fs::path& directory, ComparisonLoadProgress& progress,
-                            fs::path& result )
+bool ResolveDiagnosticFile( const Json& metadata, const fs::path& directory, ComparisonLoadProgress& progress, fs::path& result )
 {
     if ( metadata.is_object() && metadata.contains( "diagnosticsBinary" ) )
     {
@@ -268,16 +253,14 @@ bool ResolveDiagnosticFile( const Json& metadata, const fs::path& directory, Com
         return metadata.is_object();
     }
     const auto& parts = metadata["diagnosticsArchive"];
-    if ( !parts.is_array() || parts.empty() || parts.size() > 64 || !metadata.contains( "diagnosticsSha256" ) ||
-         !metadata["diagnosticsSha256"].is_string() || !metadata.contains( "diagnosticsBytes" ) ||
-         !metadata["diagnosticsBytes"].is_number_unsigned() )
+    if ( !parts.is_array() || parts.empty() || parts.size() > 64 || !metadata.contains( "diagnosticsSha256" ) || !metadata["diagnosticsSha256"].is_string() ||
+         !metadata.contains( "diagnosticsBytes" ) || !metadata["diagnosticsBytes"].is_number_unsigned() )
     {
         return false;
     }
     const auto hash = metadata["diagnosticsSha256"].get<std::string>();
     const auto bytes = metadata["diagnosticsBytes"].get<uint64_t>();
-    if ( hash.size() != 64 || hash.find_first_not_of( "0123456789abcdef" ) != std::string::npos ||
-         bytes > 2ull * 1024 * 1024 * 1024 )
+    if ( hash.size() != 64 || hash.find_first_not_of( "0123456789abcdef" ) != std::string::npos || bytes > 2ull * 1024 * 1024 * 1024 )
     {
         return false;
     }
@@ -314,8 +297,7 @@ bool ResolveDiagnosticFile( const Json& metadata, const fs::path& directory, Com
     const auto temporary = cache / ( hash + "." + std::to_string( GetCurrentProcessId() ) + ".tmp" );
     // Lifetime: only fully reconstructed, hash-verified evidence enters the
     // reusable cache. Cancellation and failed decoding leave no partial file.
-    const bool restored = RestoreComparisonDiagnostics( directory, names, temporary, progress ) &&
-                          fs::file_size( temporary, error ) == bytes && !error &&
+    const bool restored = RestoreComparisonDiagnostics( directory, names, temporary, progress ) && fs::file_size( temporary, error ) == bytes && !error &&
                           MatchesFileHash( temporary, hash, &progress );
     if ( restored && !progress.cancelled.load( std::memory_order_relaxed ) )
     {
@@ -331,8 +313,7 @@ bool ResolveDiagnosticFile( const Json& metadata, const fs::path& directory, Com
     return false;
 }
 
-bool PreflightMemory( const Json& manifest, const fs::path& directory, const std::array<fs::path, 2>& diagnostics,
-                      ComparisonLoadProgress& progress, uint64_t& bytes, std::size_t& events )
+bool PreflightMemory( const Json& manifest, const fs::path& directory, const std::array<fs::path, 2>& diagnostics, ComparisonLoadProgress& progress, uint64_t& bytes, std::size_t& events )
 {
     // V3-V5 write complete body/contact records, not compressed deltas. Charge
     // four times artifact bytes for decoded fields, alignment and transient
@@ -345,8 +326,7 @@ bool PreflightMemory( const Json& manifest, const fs::path& directory, const std
     {
         progress.Begin( side ? "B: checking diagnostic capacity" : "A: checking diagnostic capacity", 15 + side * 5, 5 );
         const auto& metadata = manifest["sides"][side];
-        if ( !metadata.is_object() || !metadata.contains( "path" ) || !metadata["path"].is_string() ||
-             !metadata.contains( "version" ) || !metadata["version"].is_number_integer() )
+        if ( !metadata.is_object() || !metadata.contains( "path" ) || !metadata["path"].is_string() || !metadata.contains( "version" ) || !metadata["version"].is_number_integer() )
         {
             return false;
         }
@@ -370,8 +350,7 @@ bool PreflightMemory( const Json& manifest, const fs::path& directory, const std
         {
             return false;
         }
-        bytes += size * 4 + ticks * ( sizeof( ReplayPresentationSample ) + sizeof( ReplaySolverFrameSample ) +
-                                      sizeof( ComparisonRecording::Observations ) );
+        bytes += size * 4 + ticks * ( sizeof( ReplayPresentationSample ) + sizeof( ReplaySolverFrameSample ) + sizeof( ComparisonRecording::Observations ) );
         events += static_cast<std::size_t>( size / 64 );
         if ( diagnostics[side].extension() == ".skobs" )
         {
@@ -382,12 +361,10 @@ bool PreflightMemory( const Json& manifest, const fs::path& directory, const std
             }
             // The directory replaces the full text counting pass. Charge its
             // bounded decode scratch as well as retained contacts and events.
-            bytes += binary.Contacts() * sizeof( ComparisonRecording::ContactSummary ) +
-                     binary.Iterations() * sizeof( ComparisonRecording::IterationSummary ) + binary.ScratchBytes() +
+            bytes += binary.Contacts() * sizeof( ComparisonRecording::ContactSummary ) + binary.Iterations() * sizeof( ComparisonRecording::IterationSummary ) + binary.ScratchBytes() +
                      sizeof( ComparisonRecording::Observations );
             events += static_cast<std::size_t>( binary.Contacts() + binary.Iterations() );
-            if ( progress.cancelled.load( std::memory_order_relaxed ) ||
-                 bytes + events * sizeof( ComparisonEvent ) > progress.availableBytes )
+            if ( progress.cancelled.load( std::memory_order_relaxed ) || bytes + events * sizeof( ComparisonEvent ) > progress.availableBytes )
             {
                 return false;
             }
@@ -457,8 +434,7 @@ bool ValidFrames( ComparisonRecording& side, int ticks, uint64_t& bytes )
     for ( int tick = 0; tick < ticks; ++tick )
     {
         auto& frame = side.frames[static_cast<std::size_t>( tick )];
-        if ( frame.sceneFrame != tick || !std::isfinite( frame.physicsDt ) ||
-             ( tick && std::abs( frame.physicsDt - 1.0f / 120.0f ) > 1.0e-7f ) )
+        if ( frame.sceneFrame != tick || !std::isfinite( frame.physicsDt ) || ( tick && std::abs( frame.physicsDt - 1.0f / 120.0f ) > 1.0e-7f ) )
         {
             return false;
         }
@@ -467,13 +443,11 @@ bool ValidFrames( ComparisonRecording& side, int ticks, uint64_t& bytes )
         {
             return false;
         }
-        std::sort( frame.bodies.begin(), frame.bodies.end(),
-                   []( const auto& a, const auto& b ) { return a.id.value < b.id.value; } );
+        std::sort( frame.bodies.begin(), frame.bodies.end(), []( const auto& a, const auto& b ) { return a.id.value < b.id.value; } );
         uint64_t previous = 0;
         for ( const auto& body : frame.bodies )
         {
-            if ( !body.id.value || body.id.value == previous || !std::isfinite( body.position.x ) ||
-                 !std::isfinite( body.position.y ) || !std::isfinite( body.position.z ) )
+            if ( !body.id.value || body.id.value == previous || !std::isfinite( body.position.x ) || !std::isfinite( body.position.y ) || !std::isfinite( body.position.z ) )
             {
                 return false;
             }
@@ -511,11 +485,9 @@ bool PhysicsComparison::Load( const char* bundlePath, ComparisonLoadProgress* pr
     m_error.clear();
     const fs::path path( bundlePath );
     const auto manifest = ReadJson( path );
-    if ( !manifest.is_object() || !ValidFields( manifest, { "format", "status" }, Json::value_t::string ) ||
-         !ValidFields( manifest, { "version", "ticks" }, Json::value_t::number_integer ) ||
-         manifest.value( "format", "" ) != "skullbonez.physics-comparison" || manifest.value( "version", 0 ) != 1 ||
-         manifest.value( "status", "" ) != "complete" || !manifest.contains( "sides" ) || !manifest["sides"].is_array() ||
-         manifest["sides"].size() != 2 || !manifest.contains( "ticks" ) || !manifest["ticks"].is_number_integer() )
+    if ( !manifest.is_object() || !ValidFields( manifest, { "format", "status" }, Json::value_t::string ) || !ValidFields( manifest, { "version", "ticks" }, Json::value_t::number_integer ) ||
+         manifest.value( "format", "" ) != "skullbonez.physics-comparison" || manifest.value( "version", 0 ) != 1 || manifest.value( "status", "" ) != "complete" || !manifest.contains( "sides" ) ||
+         !manifest["sides"].is_array() || manifest["sides"].size() != 2 || !manifest.contains( "ticks" ) || !manifest["ticks"].is_number_integer() )
     {
         m_error = "Unsupported or incomplete comparison bundle";
         return false;
@@ -540,8 +512,7 @@ bool PhysicsComparison::Load( const char* bundlePath, ComparisonLoadProgress* pr
     for ( int side = 0; side < 2; ++side )
     {
         admission.Begin( side ? "B: verifying diagnostic evidence" : "A: verifying diagnostic evidence", 5 + side * 5, 5 );
-        if ( !ResolveDiagnosticFile( manifest["sides"][side], path.parent_path() / ( side ? "B" : "A" ), admission,
-                                     diagnostics[side] ) )
+        if ( !ResolveDiagnosticFile( manifest["sides"][side], path.parent_path() / ( side ? "B" : "A" ), admission, diagnostics[side] ) )
         {
             m_error = "Cannot restore archived diagnostics: invalid evidence, insufficient disk space, or cancelled";
             return false;
@@ -558,10 +529,8 @@ bool PhysicsComparison::Load( const char* bundlePath, ComparisonLoadProgress* pr
     {
         admission.Begin( side ? "B: reading recorded motion" : "A: reading recorded motion", side ? 55 : 25, 5 );
         const auto& metadata = manifest["sides"][side];
-        if ( !metadata.is_object() ||
-             !ValidFields( metadata, { "path", "sha256", "executable", "executableSha256", "diagnosticsSha256" },
-                           Json::value_t::string ) ||
-             !metadata.contains( "path" ) || !metadata["path"].is_string() )
+        if ( !metadata.is_object() || !ValidFields( metadata, { "path", "sha256", "executable", "executableSha256", "diagnosticsSha256" }, Json::value_t::string ) || !metadata.contains( "path" ) ||
+             !metadata["path"].is_string() )
         {
             m_error = "Recording path missing";
             return false;
@@ -585,8 +554,7 @@ bool PhysicsComparison::Load( const char* bundlePath, ComparisonLoadProgress* pr
             m_error = "Recording hash does not match the comparison bundle";
             return false;
         }
-        if ( !ReplayV2Artifact::LoadPresentation( recording.string().c_str(), candidate[side].frames ) ||
-             !ValidFrames( candidate[side], ticks, bytes ) )
+        if ( !ReplayV2Artifact::LoadPresentation( recording.string().c_str(), candidate[side].frames ) || !ValidFrames( candidate[side], ticks, bytes ) )
         {
             m_error = "Recording contains missing ticks, invalid identities or unsupported data";
             return false;
@@ -601,8 +569,7 @@ bool PhysicsComparison::Load( const char* bundlePath, ComparisonLoadProgress* pr
         candidate[side].executableHash = metadata.value( "executableSha256", "" );
         // Archived diagnostics were already fully hash-verified during cache
         // admission. Avoid reading the same gigabyte stream a second time here.
-        if ( metadata.contains( "diagnosticsSha256" ) && !metadata.contains( "diagnosticsArchive" ) &&
-             !metadata.contains( "diagnosticsBinary" ) &&
+        if ( metadata.contains( "diagnosticsSha256" ) && !metadata.contains( "diagnosticsArchive" ) && !metadata.contains( "diagnosticsBinary" ) &&
              !MatchesFileHash( diagnostics[side], metadata["diagnosticsSha256"].get<std::string>() ) )
         {
             m_error = "Diagnostic hash does not match the comparison bundle";
@@ -654,27 +621,23 @@ bool PhysicsComparison::SaveFinding( const char* path, const ReplayCameraSample&
                         { "event", m_selectedEvent },
                         { "loop", { m_loopStart, m_loopEnd, m_loop ? 1 : 0 } },
                         { "note", note ? note : "" },
-                        { "camera",
-                          { { "eye", VectorJson( camera.eye ) },
-                            { "view", VectorJson( camera.view ) },
-                            { "up", VectorJson( camera.up ) } } },
-                        { "settings",
-                          { { "display", static_cast<int>( s.display ) },
-                            { "showA", s.showA },
-                            { "stackedViews", s.stackedViews },
-                            { "orbitSelected", s.orbitSelected },
-                            { "angularHeatmap", s.angularHeatmap },
-                            { "occludedOutline", s.occludedOutline },
-                            { "followA", s.followA },
-                            { "selectedOnly", s.selectedOnly },
-                            { "differencesOnly", s.differencesOnly },
-                            { "outlineAlpha", s.outlineAlpha },
-                            { "heatScale", s.heatScale },
-                            { "pixelGain", s.pixelGain },
-                            { "positionThreshold", s.positionThreshold },
-                            { "angleThreshold", s.angleThreshold },
-                            { "impulseThreshold", s.impulseThreshold },
-                            { "speed", s.speed } } } };
+                        { "camera", { { "eye", VectorJson( camera.eye ) }, { "view", VectorJson( camera.view ) }, { "up", VectorJson( camera.up ) } } },
+                        { "settings", { { "display", static_cast<int>( s.display ) },
+                                        { "showA", s.showA },
+                                        { "stackedViews", s.stackedViews },
+                                        { "orbitSelected", s.orbitSelected },
+                                        { "angularHeatmap", s.angularHeatmap },
+                                        { "occludedOutline", s.occludedOutline },
+                                        { "followA", s.followA },
+                                        { "selectedOnly", s.selectedOnly },
+                                        { "differencesOnly", s.differencesOnly },
+                                        { "outlineAlpha", s.outlineAlpha },
+                                        { "heatScale", s.heatScale },
+                                        { "pixelGain", s.pixelGain },
+                                        { "positionThreshold", s.positionThreshold },
+                                        { "angleThreshold", s.angleThreshold },
+                                        { "impulseThreshold", s.impulseThreshold },
+                                        { "speed", s.speed } } } };
     return WriteJson( path, json );
 }
 
@@ -684,17 +647,15 @@ bool PhysicsComparison::LoadFinding( const char* path, ReplayCameraSample& camer
     RuntimeAllocationScope loading( RuntimeAllocationPhase::Capture );
     m_error = "Invalid comparison finding";
     const auto json = ReadJson( path );
-    if ( !json.is_object() || !ValidFindingFields( json ) || json.value( "format", "" ) != "skullbonez.physics-finding" ||
-         json.value( "version", 0 ) != 1 || !json.contains( "camera" ) || !json["camera"].is_object() ||
-         !json.contains( "settings" ) || !json["settings"].is_object() || !json.contains( "bundle" ) ||
-         !json["bundle"].is_string() )
+    if ( !json.is_object() || !ValidFindingFields( json ) || json.value( "format", "" ) != "skullbonez.physics-finding" || json.value( "version", 0 ) != 1 || !json.contains( "camera" ) ||
+         !json["camera"].is_object() || !json.contains( "settings" ) || !json["settings"].is_object() || !json.contains( "bundle" ) || !json["bundle"].is_string() )
     {
         return false;
     }
     ReplayCameraSample candidate;
     const auto& c = json["camera"];
-    if ( !c.contains( "eye" ) || !c.contains( "view" ) || !c.contains( "up" ) || !ReadVector( c["eye"], candidate.eye ) ||
-         !ReadVector( c["view"], candidate.view ) || !ReadVector( c["up"], candidate.up ) )
+    if ( !c.contains( "eye" ) || !c.contains( "view" ) || !c.contains( "up" ) || !ReadVector( c["eye"], candidate.eye ) || !ReadVector( c["view"], candidate.view ) ||
+         !ReadVector( c["up"], candidate.up ) )
     {
         return false;
     }
@@ -702,8 +663,8 @@ bool PhysicsComparison::LoadFinding( const char* path, ReplayCameraSample& camer
     {
         return false;
     }
-    if ( !json.contains( "builds" ) || !json["builds"].is_array() || json["builds"].size() != 2 ||
-         json["builds"][0] != m_recordings[0].executableHash || json["builds"][1] != m_recordings[1].executableHash )
+    if ( !json.contains( "builds" ) || !json["builds"].is_array() || json["builds"].size() != 2 || json["builds"][0] != m_recordings[0].executableHash ||
+         json["builds"][1] != m_recordings[1].executableHash )
     {
         m_error = "Finding build identities do not match the comparison bundle";
         return false;
@@ -758,20 +719,16 @@ bool PhysicsComparisonLoadJob::Start( const char* path, bool finding, uint64_t r
     m_error.clear();
     m_finding = finding;
     m_success = false;
-    m_progress.availableBytes = retainedBytes < PhysicsComparison::MEMORY_BUDGET
-                                    ? PhysicsComparison::MEMORY_BUDGET - retainedBytes
-                                    : 0;
+    m_progress.availableBytes = retainedBytes < PhysicsComparison::MEMORY_BUDGET ? PhysicsComparison::MEMORY_BUDGET - retainedBytes : 0;
     m_progress.percent.store( 0 );
     m_progress.phase.store( "Starting" );
     m_progress.phaseStarted = {};
     m_progress.cancelled.store( false );
     m_ready.store( false );
     m_pending = true;
-    m_worker = std::thread(
-        [this, path = std::string( path )]
+    m_worker = std::thread( [this, path = std::string( path )]
         {
-            m_success = m_finding ? m_candidate.LoadFinding( path.c_str(), m_camera, &m_progress )
-                                  : m_candidate.Load( path.c_str(), &m_progress );
+            m_success = m_finding ? m_candidate.LoadFinding( path.c_str(), m_camera, &m_progress ) : m_candidate.Load( path.c_str(), &m_progress );
             m_ready.store( true, std::memory_order_release );
         } );
     return true;

@@ -63,8 +63,11 @@ ObjectContactBodyView ObjectContactBodyViewAtTime( const PhysicsBodyHotFieldsCon
     return body;
 }
 
-bool HasPersistentWakeContact( SkullbonezCore::Core::Profiler* profiler, const PhysicsBodyHotFieldsConstView& hotFields,
-                               std::span<const ColliderRecord> colliderRecords, int awakeIndex, int sleepingIndex,
+bool HasPersistentWakeContact( SkullbonezCore::Core::Profiler* profiler,
+                               const PhysicsBodyHotFieldsConstView& hotFields,
+                               std::span<const ColliderRecord> colliderRecords,
+                               int awakeIndex,
+                               int sleepingIndex,
                                float contactEpsilon )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/WakePersistentContact" );
@@ -73,28 +76,34 @@ bool HasPersistentWakeContact( SkullbonezCore::Core::Profiler* profiler, const P
     // awake body's correction step. This fresh manifold test catches that
     // persistent contact so the sleeper cannot remain frozen inside the
     // awake body until a later frame happens to generate a swept hit.
-    if ( awakeIndex < 0 || sleepingIndex < 0 || awakeIndex >= static_cast<int>( colliderRecords.size() ) ||
-         sleepingIndex >= static_cast<int>( colliderRecords.size() ) )
+    if ( awakeIndex < 0 || sleepingIndex < 0 || awakeIndex >= static_cast<int>( colliderRecords.size() ) || sleepingIndex >= static_cast<int>( colliderRecords.size() ) )
     {
         return false;
     }
 
     ObjectContactManifold manifold;
-    return BuildObjectContactManifold( profiler, ObjectContactBodyViewAtTime( hotFields, awakeIndex, 0.0f ),
+    return BuildObjectContactManifold( profiler,
+                                       ObjectContactBodyViewAtTime( hotFields, awakeIndex, 0.0f ),
                                        colliderRecords[static_cast<size_t>( awakeIndex )].shape,
                                        ObjectContactBodyViewAtTime( hotFields, sleepingIndex, 0.0f ),
-                                       colliderRecords[static_cast<size_t>( sleepingIndex )].shape, awakeIndex,
-                                       sleepingIndex, contactEpsilon, manifold );
+                                       colliderRecords[static_cast<size_t>( sleepingIndex )].shape,
+                                       awakeIndex,
+                                       sleepingIndex,
+                                       contactEpsilon,
+                                       manifold );
 }
 
-bool HasObjectContactAtTime( SkullbonezCore::Core::Profiler* profiler, const PhysicsBodyHotFieldsConstView& hotFields,
-                             std::span<const ColliderRecord> colliderRecords, int bodyA, int bodyB, float time,
+bool HasObjectContactAtTime( SkullbonezCore::Core::Profiler* profiler,
+                             const PhysicsBodyHotFieldsConstView& hotFields,
+                             std::span<const ColliderRecord> colliderRecords,
+                             int bodyA,
+                             int bodyB,
+                             float time,
                              float contactEpsilon )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/ExactContactAtTime" );
 
-    if ( bodyA < 0 || bodyB < 0 || bodyA >= static_cast<int>( colliderRecords.size() ) ||
-         bodyB >= static_cast<int>( colliderRecords.size() ) )
+    if ( bodyA < 0 || bodyB < 0 || bodyA >= static_cast<int>( colliderRecords.size() ) || bodyB >= static_cast<int>( colliderRecords.size() ) )
     {
         return false;
     }
@@ -103,16 +112,25 @@ bool HasObjectContactAtTime( SkullbonezCore::Core::Profiler* profiler, const Phy
     // owner-side presentation rows. CCD refinement only needs temporary pose
     // views plus borrowed references to ColliderStore's per-kind shape payloads.
     ObjectContactManifold manifold;
-    return BuildObjectContactManifold( profiler, ObjectContactBodyViewAtTime( hotFields, bodyA, time ),
+    return BuildObjectContactManifold( profiler,
+                                       ObjectContactBodyViewAtTime( hotFields, bodyA, time ),
                                        colliderRecords[static_cast<size_t>( bodyA )].shape,
                                        ObjectContactBodyViewAtTime( hotFields, bodyB, time ),
-                                       colliderRecords[static_cast<size_t>( bodyB )].shape, bodyA, bodyB, contactEpsilon,
+                                       colliderRecords[static_cast<size_t>( bodyB )].shape,
+                                       bodyA,
+                                       bodyB,
+                                       contactEpsilon,
                                        manifold );
 }
 
-float RefineObjectSweepContactTime( SkullbonezCore::Core::Profiler* profiler, const PhysicsBodyHotFieldsConstView& hotFields,
-                                    std::span<const ColliderRecord> colliderRecords, int bodyA, int bodyB, float coarseTime,
-                                    float availableTime, float contactEpsilon )
+float RefineObjectSweepContactTime( SkullbonezCore::Core::Profiler* profiler,
+                                    const PhysicsBodyHotFieldsConstView& hotFields,
+                                    std::span<const ColliderRecord> colliderRecords,
+                                    int bodyA,
+                                    int bodyB,
+                                    float coarseTime,
+                                    float availableTime,
+                                    float contactEpsilon )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/RefineContactTime" );
 
@@ -170,16 +188,14 @@ float RefineObjectSweepContactTime( SkullbonezCore::Core::Profiler* profiler, co
     return hi;
 }
 
-ObjectContactSweepResult SweepObjectPair( SkullbonezCore::Core::Profiler*, const PhysicsBodyHotFieldsConstView& hotFields,
-                                          std::span<const ColliderRecord> colliderRecords, int bodyA, int bodyB,
-                                          float availableTime )
+ObjectContactSweepResult
+SweepObjectPair( SkullbonezCore::Core::Profiler*, const PhysicsBodyHotFieldsConstView& hotFields, std::span<const ColliderRecord> colliderRecords, int bodyA, int bodyB, float availableTime )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/SweepPairs" );
     ObjectContactSweepResult result;
     result.collisionTime = availableTime;
 
-    if ( bodyA < 0 || bodyB < 0 || bodyA >= static_cast<int>( colliderRecords.size() ) ||
-         bodyB >= static_cast<int>( colliderRecords.size() ) )
+    if ( bodyA < 0 || bodyB < 0 || bodyA >= static_cast<int>( colliderRecords.size() ) || bodyB >= static_cast<int>( colliderRecords.size() ) )
     {
         return result;
     }
@@ -189,7 +205,8 @@ ObjectContactSweepResult SweepObjectPair( SkullbonezCore::Core::Profiler*, const
                                PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( bodyA ) ),
                                ObjectContactBodyViewAtTime( hotFields, bodyB, 0.0f ),
                                colliderRecords[static_cast<size_t>( bodyB )].shape,
-                               PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( bodyB ) ), availableTime );
+                               PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( bodyB ) ),
+                               availableTime );
 }
 
 bool BodyRequiresSweptTranslation( std::span<const uint8_t> motionEligibilityState, int bodyIndex )
@@ -201,24 +218,21 @@ bool BodyRequiresSweptTranslation( std::span<const uint8_t> motionEligibilitySta
            ( motionEligibilityState[static_cast<std::size_t>( bodyIndex )] & PhysicsMotionEligibilityLinearPromoted ) != 0u;
 }
 
-bool ObjectPairNeedsSweptCcd( std::span<const uint8_t> motionEligibilityState, int bodyAIndex, int bodyBIndex,
-                              float availableTime )
+bool ObjectPairNeedsSweptCcd( std::span<const uint8_t> motionEligibilityState, int bodyAIndex, int bodyBIndex, float availableTime )
 {
     if ( availableTime <= TOLERANCE )
     {
         return false;
     }
 
-    if ( UsesArticulatedContacts( motionEligibilityState, bodyAIndex ) ||
-         UsesArticulatedContacts( motionEligibilityState, bodyBIndex ) )
+    if ( UsesArticulatedContacts( motionEligibilityState, bodyAIndex ) || UsesArticulatedContacts( motionEligibilityState, bodyBIndex ) )
     {
         // A pair touching an articulation must not advance one limb to TOI.
         // Its gap constraint and every connected joint share the full tick.
         return false;
     }
 
-    if ( BodyRequiresSweptTranslation( motionEligibilityState, bodyAIndex ) ||
-         BodyRequiresSweptTranslation( motionEligibilityState, bodyBIndex ) )
+    if ( BodyRequiresSweptTranslation( motionEligibilityState, bodyAIndex ) || BodyRequiresSweptTranslation( motionEligibilityState, bodyBIndex ) )
     {
         return true;
     }
@@ -237,15 +251,13 @@ void PhysicsNarrowphaseStage::ObserveObjectNarrowphaseEvent( ObjectNarrowphaseEv
     event.hasPipelineEvent = 1;
 }
 
-void PhysicsNarrowphaseStage::RecordObjectNarrowphaseEvent( ObjectNarrowphaseEvent& event, ObjectNarrowphaseEventKind kind,
-                                                            const Physics::PhysicsPipelineRecord& record )
+void PhysicsNarrowphaseStage::RecordObjectNarrowphaseEvent( ObjectNarrowphaseEvent& event, ObjectNarrowphaseEventKind kind, const Physics::PhysicsPipelineRecord& record )
 {
     ObserveObjectNarrowphaseEvent( event, kind );
     event.pipelineRecord = record;
 }
 
-void PhysicsNarrowphaseStage::EmitObjectCollisionTimeEvent( ObjectNarrowphaseEvent& event, int bodyA, int bodyB,
-                                                            float collisionTime, float availableTime )
+void PhysicsNarrowphaseStage::EmitObjectCollisionTimeEvent( ObjectNarrowphaseEvent& event, int bodyA, int bodyB, float collisionTime, float availableTime )
 {
     event.emitCollisionTime = 1;
     event.collisionTimeBodyA = bodyA;
@@ -261,13 +273,9 @@ void PhysicsNarrowphaseStage::MarkObjectVisualEvent( ObjectNarrowphaseEvent& eve
     event.visualBodyB = bodyB;
 }
 
-void PhysicsNarrowphaseStage::WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event,
-                                                             const PhysicsBodyHotFieldsConstView& hotFields, int bodyA,
-                                                             int bodyB, float invCellSize )
+void PhysicsNarrowphaseStage::WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event, const PhysicsBodyHotFieldsConstView& hotFields, int bodyA, int bodyB, float invCellSize )
 {
-    const Vector3 midpoint = ( PhysicsBodyPosition( hotFields, static_cast<size_t>( bodyA ) ) +
-                               PhysicsBodyPosition( hotFields, static_cast<size_t>( bodyB ) ) ) *
-                             0.5f;
+    const Vector3 midpoint = ( PhysicsBodyPosition( hotFields, static_cast<size_t>( bodyA ) ) + PhysicsBodyPosition( hotFields, static_cast<size_t>( bodyB ) ) ) * 0.5f;
 
     // Invariant: diagnostics and Runtime visualization retain the same exact
     // supported cell identity as SpatialGrid. No publication or presentation
@@ -281,26 +289,22 @@ void PhysicsNarrowphaseStage::WriteObjectCollisionCellEvent( ObjectNarrowphaseEv
 }
 
 template <bool RetainPipelineRecords>
-void PhysicsNarrowphaseStage::ProcessSleepingObjectPair( const ObjectNarrowphaseIslandStage& step, int bodyA, int bodyB,
-                                                         int awakeIndex, int sleepingIndex, ObjectNarrowphaseEvent& event )
+void PhysicsNarrowphaseStage::ProcessSleepingObjectPair( const ObjectNarrowphaseIslandStage& step, int bodyA, int bodyB, int awakeIndex, int sleepingIndex, ObjectNarrowphaseEvent& event )
 {
     const PhysicsBodyHotFieldsConstView hotFields = step.bodyStore.HotFields();
     const std::span<const ColliderRecord> colliderRecords = step.colliderStore.Records();
     const bool sleepingLocked = step.wakeAccess.IsUnderwaterSleepLocked( sleepingIndex );
     bool wokeBySweptImpact = false;
 
-    if ( step.timeRemaining[awakeIndex] > 0.0f &&
-         ObjectPairNeedsSweptCcd( step.motionEligibilityState, awakeIndex, sleepingIndex, step.timeRemaining[awakeIndex] ) )
+    if ( step.timeRemaining[awakeIndex] > 0.0f && ObjectPairNeedsSweptCcd( step.motionEligibilityState, awakeIndex, sleepingIndex, step.timeRemaining[awakeIndex] ) )
     {
-        const ObjectContactSweepResult sweep = SweepObjectPair( step.profiler, hotFields, colliderRecords, awakeIndex,
-                                                                sleepingIndex, step.timeRemaining[awakeIndex] );
+        const ObjectContactSweepResult sweep = SweepObjectPair( step.profiler, hotFields, colliderRecords, awakeIndex, sleepingIndex, step.timeRemaining[awakeIndex] );
 
         if ( sweep.hit )
         {
             const float availableTime = step.timeRemaining[awakeIndex];
-            const float collisionTime = RefineObjectSweepContactTime( step.profiler, hotFields, colliderRecords, awakeIndex,
-                                                                      sleepingIndex, sweep.collisionTime, availableTime,
-                                                                      step.policy.contactEpsilon );
+            const float
+                collisionTime = RefineObjectSweepContactTime( step.profiler, hotFields, colliderRecords, awakeIndex, sleepingIndex, sweep.collisionTime, availableTime, step.policy.contactEpsilon );
 
             if constexpr ( RetainPipelineRecords )
             {
@@ -308,9 +312,7 @@ void PhysicsNarrowphaseStage::ProcessSleepingObjectPair( const ObjectNarrowphase
                 record.stage = PhysicsPipelineStage::SweptObjectHit;
                 record.bodyA = awakeIndex;
                 record.bodyB = sleepingIndex;
-                record.point = ( PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyA ) ) +
-                                 PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyB ) ) ) *
-                               0.5f;
+                record.point = ( PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyA ) ) + PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyB ) ) ) * 0.5f;
                 record.scalarA = collisionTime;
                 record.scalarB = availableTime;
                 RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
@@ -321,9 +323,7 @@ void PhysicsNarrowphaseStage::ProcessSleepingObjectPair( const ObjectNarrowphase
             }
 
             EmitObjectCollisionTimeEvent( event, awakeIndex, sleepingIndex, collisionTime, availableTime );
-            (void)step.bodyStore.IntegrateBodyPose( step.profiler, step.colliderStore, step.terrain,
-                                                    step.buoyancyFacts[static_cast<std::size_t>( awakeIndex )], awakeIndex,
-                                                    collisionTime );
+            (void)step.bodyStore.IntegrateBodyPose( step.profiler, step.colliderStore, step.terrain, step.buoyancyFacts[static_cast<std::size_t>( awakeIndex )], awakeIndex, collisionTime );
             step.timeRemaining[awakeIndex] = (std::max)( 0.0f, step.timeRemaining[awakeIndex] - collisionTime );
 
             if ( !sleepingLocked )
@@ -341,16 +341,12 @@ void PhysicsNarrowphaseStage::ProcessSleepingObjectPair( const ObjectNarrowphase
     {
         return;
     }
-    const bool physicalContact = HasPersistentWakeContact( step.profiler, hotFields, colliderRecords, awakeIndex,
-                                                           sleepingIndex, step.policy.contactEpsilon );
+    const bool physicalContact = HasPersistentWakeContact( step.profiler, hotFields, colliderRecords, awakeIndex, sleepingIndex, step.policy.contactEpsilon );
     bool predictedContact = false;
-    if ( !physicalContact && ( UsesSpeculativeContacts( step.motionEligibilityState, awakeIndex ) ||
-                               UsesSpeculativeContacts( step.motionEligibilityState, sleepingIndex ) ) )
+    if ( !physicalContact && ( UsesSpeculativeContacts( step.motionEligibilityState, awakeIndex ) || UsesSpeculativeContacts( step.motionEligibilityState, sleepingIndex ) ) )
     {
         ObjectContactManifold predicted;
-        predictedContact = BuildArticulatedContactManifold( step.bodyStore, step.colliderStore,
-                                                            step.timeRemaining[awakeIndex], step.policy.contactEpsilon,
-                                                            awakeIndex, sleepingIndex, predicted );
+        predictedContact = BuildArticulatedContactManifold( step.bodyStore, step.colliderStore, step.timeRemaining[awakeIndex], step.policy.contactEpsilon, awakeIndex, sleepingIndex, predicted );
     }
     if ( !physicalContact && !predictedContact )
     {
@@ -363,9 +359,7 @@ void PhysicsNarrowphaseStage::ProcessSleepingObjectPair( const ObjectNarrowphase
         record.stage = PhysicsPipelineStage::WakeDecision;
         record.bodyA = awakeIndex;
         record.bodyB = sleepingIndex;
-        record.point = ( PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyA ) ) +
-                         PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyB ) ) ) *
-                       0.5f;
+        record.point = ( PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyA ) ) + PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyB ) ) ) * 0.5f;
         record.scalarA = sleepingLocked ? 0.0f : 1.0f;
         RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::WakeDecision, record );
     }
@@ -386,9 +380,7 @@ void PhysicsNarrowphaseStage::ProcessSleepingObjectPair( const ObjectNarrowphase
     }
 }
 
-template <bool RetainPipelineRecords>
-void PhysicsNarrowphaseStage::ProcessAwakeObjectPair( const ObjectNarrowphaseIslandStage& step, int bodyA, int bodyB,
-                                                      ObjectNarrowphaseEvent& event )
+template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessAwakeObjectPair( const ObjectNarrowphaseIslandStage& step, int bodyA, int bodyB, ObjectNarrowphaseEvent& event )
 {
     if ( step.timeRemaining[bodyA] <= 0.0f || step.timeRemaining[bodyB] <= 0.0f )
     {
@@ -404,8 +396,7 @@ void PhysicsNarrowphaseStage::ProcessAwakeObjectPair( const ObjectNarrowphaseIsl
 
     const PhysicsBodyHotFieldsConstView hotFields = step.bodyStore.HotFields();
     const std::span<const ColliderRecord> colliderRecords = step.colliderStore.Records();
-    const ObjectContactSweepResult sweep = SweepObjectPair( step.profiler, hotFields, colliderRecords, bodyA, bodyB,
-                                                            availableTime );
+    const ObjectContactSweepResult sweep = SweepObjectPair( step.profiler, hotFields, colliderRecords, bodyA, bodyB, availableTime );
 
     if ( !sweep.hit )
     {
@@ -415,9 +406,7 @@ void PhysicsNarrowphaseStage::ProcessAwakeObjectPair( const ObjectNarrowphaseIsl
             record.stage = PhysicsPipelineStage::SweptObjectMiss;
             record.bodyA = bodyA;
             record.bodyB = bodyB;
-            record.point = ( PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyA ) ) +
-                             PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyB ) ) ) *
-                           0.5f;
+            record.point = ( PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyA ) ) + PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyB ) ) ) * 0.5f;
             record.scalarA = availableTime;
             RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectMiss, record );
         }
@@ -428,9 +417,7 @@ void PhysicsNarrowphaseStage::ProcessAwakeObjectPair( const ObjectNarrowphaseIsl
         return;
     }
 
-    const float collisionTime = RefineObjectSweepContactTime( step.profiler, hotFields, colliderRecords, bodyA, bodyB,
-                                                              sweep.collisionTime, availableTime,
-                                                              step.policy.contactEpsilon );
+    const float collisionTime = RefineObjectSweepContactTime( step.profiler, hotFields, colliderRecords, bodyA, bodyB, sweep.collisionTime, availableTime, step.policy.contactEpsilon );
 
     if constexpr ( RetainPipelineRecords )
     {
@@ -438,9 +425,7 @@ void PhysicsNarrowphaseStage::ProcessAwakeObjectPair( const ObjectNarrowphaseIsl
         record.stage = PhysicsPipelineStage::SweptObjectHit;
         record.bodyA = bodyA;
         record.bodyB = bodyB;
-        record.point = ( PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyA ) ) +
-                         PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyB ) ) ) *
-                       0.5f;
+        record.point = ( PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyA ) ) + PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyB ) ) ) * 0.5f;
         record.scalarA = collisionTime;
         record.scalarB = availableTime;
         RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
@@ -451,19 +436,15 @@ void PhysicsNarrowphaseStage::ProcessAwakeObjectPair( const ObjectNarrowphaseIsl
     }
 
     EmitObjectCollisionTimeEvent( event, bodyA, bodyB, collisionTime, availableTime );
-    (void)step.bodyStore.IntegrateBodyPose( step.profiler, step.colliderStore, step.terrain,
-                                            step.buoyancyFacts[static_cast<std::size_t>( bodyA )], bodyA, collisionTime );
-    (void)step.bodyStore.IntegrateBodyPose( step.profiler, step.colliderStore, step.terrain,
-                                            step.buoyancyFacts[static_cast<std::size_t>( bodyB )], bodyB, collisionTime );
+    (void)step.bodyStore.IntegrateBodyPose( step.profiler, step.colliderStore, step.terrain, step.buoyancyFacts[static_cast<std::size_t>( bodyA )], bodyA, collisionTime );
+    (void)step.bodyStore.IntegrateBodyPose( step.profiler, step.colliderStore, step.terrain, step.buoyancyFacts[static_cast<std::size_t>( bodyB )], bodyB, collisionTime );
     step.timeRemaining[bodyA] = (std::max)( 0.0f, step.timeRemaining[bodyA] - collisionTime );
     step.timeRemaining[bodyB] = (std::max)( 0.0f, step.timeRemaining[bodyB] - collisionTime );
     MarkObjectVisualEvent( event, bodyA, bodyB );
     WriteObjectCollisionCellEvent( event, hotFields, bodyA, bodyB, step.policy.invCellSize );
 }
 
-template <bool RetainPipelineRecords>
-void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowphaseIslandStage& step, int pairIndex,
-                                                            ObjectNarrowphaseEvent& event )
+template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowphaseIslandStage& step, int pairIndex, ObjectNarrowphaseEvent& event )
 {
     const auto& pair = step.candidatePairs[static_cast<std::size_t>( pairIndex )];
     const int bodyA = pair.first;
@@ -489,12 +470,10 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowph
     ProcessAwakeObjectPair<RetainPipelineRecords>( step, bodyA, bodyB, event );
 }
 
-template <bool RetainPipelineRecords>
-void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::ProcessPair( int pairIndex, ObjectNarrowphaseEvent& event ) const
+template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::ProcessPair( int pairIndex, ObjectNarrowphaseEvent& event ) const
 {
     stage.ProcessObjectNarrowphasePair<RetainPipelineRecords>( *this, pairIndex, event );
 }
 
 template void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::ProcessPair<true>( int, ObjectNarrowphaseEvent& ) const;
-template void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::ProcessPair<false>( int,
-                                                                                         ObjectNarrowphaseEvent& ) const;
+template void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::ProcessPair<false>( int, ObjectNarrowphaseEvent& ) const;

@@ -83,8 +83,7 @@ int TripControlColumns( float width )
 }
 } // namespace
 
-ReplayPlanningLayout::ReplayPlanningLayout( const UI::UIRect& viewport, bool interceptVisible, bool tripVisible,
-                                            bool porkchopVisible, float scroll )
+ReplayPlanningLayout::ReplayPlanningLayout( const UI::UIRect& viewport, bool interceptVisible, bool tripVisible, bool porkchopVisible, float scroll )
 {
     m_clip = viewport;
     const float width = (std::max)( 0.0f, viewport.w - 16.0f );
@@ -119,8 +118,7 @@ ReplayPlanningLayout::ReplayPlanningLayout( const UI::UIRect& viewport, bool int
 UI::UIRect ReplayPorkchopGridRect( const UI::UIRect& panel )
 {
     const float margin = (std::min)( REPLAY_PORKCHOP_GRID_MARGIN_X, panel.w * 0.15f );
-    return { panel.x + margin, panel.y + REPLAY_PORKCHOP_GRID_TOP, (std::max)( 0.0f, panel.w - 2.0f * margin ),
-             REPLAY_PORKCHOP_GRID_HEIGHT };
+    return { panel.x + margin, panel.y + REPLAY_PORKCHOP_GRID_TOP, (std::max)( 0.0f, panel.w - 2.0f * margin ), REPLAY_PORKCHOP_GRID_HEIGHT };
 }
 
 UI::UIRect ReplayPorkchopCellRect( const UI::UIRect& panel, std::size_t cellIndex )
@@ -131,8 +129,7 @@ UI::UIRect ReplayPorkchopCellRect( const UI::UIRect& panel, std::size_t cellInde
     const std::size_t row = bounded / REPLAY_PORKCHOP_COLUMNS;
     const float cellWidth = grid.w / static_cast<float>( REPLAY_PORKCHOP_COLUMNS );
     const float cellHeight = grid.h / static_cast<float>( REPLAY_PORKCHOP_ROWS );
-    return { grid.x + static_cast<float>( column ) * cellWidth, grid.y + static_cast<float>( row ) * cellHeight, cellWidth,
-             cellHeight };
+    return { grid.x + static_cast<float>( column ) * cellWidth, grid.y + static_cast<float>( row ) * cellHeight, cellWidth, cellHeight };
 }
 
 bool ReplayPorkchopCellAtPointer( const UI::UIRect& panel, int pointerX, int pointerY, std::size_t& outCellIndex )
@@ -148,45 +145,33 @@ bool ReplayPorkchopCellAtPointer( const UI::UIRect& panel, int pointerX, int poi
 
     const float normalizedX = ( x - grid.x ) / grid.w;
     const float normalizedY = ( y - grid.y ) / grid.h;
-    const std::size_t column = (std::min)( REPLAY_PORKCHOP_COLUMNS - 1u,
-                                           static_cast<std::size_t>( normalizedX *
-                                                                     static_cast<float>( REPLAY_PORKCHOP_COLUMNS ) ) );
+    const std::size_t column = (std::min)( REPLAY_PORKCHOP_COLUMNS - 1u, static_cast<std::size_t>( normalizedX * static_cast<float>( REPLAY_PORKCHOP_COLUMNS ) ) );
 
-    const std::size_t row = (std::min)( REPLAY_PORKCHOP_ROWS - 1u,
-                                        static_cast<std::size_t>( normalizedY *
-                                                                  static_cast<float>( REPLAY_PORKCHOP_ROWS ) ) );
+    const std::size_t row = (std::min)( REPLAY_PORKCHOP_ROWS - 1u, static_cast<std::size_t>( normalizedY * static_cast<float>( REPLAY_PORKCHOP_ROWS ) ) );
 
     outCellIndex = row * REPLAY_PORKCHOP_COLUMNS + column;
     return true;
 }
 
-void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner, const UI::UIRect& panel,
-                                    ReplayTripPlannerSurface& outSurface, bool baselineReady )
+void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner, const UI::UIRect& panel, ReplayTripPlannerSurface& outSurface, bool baselineReady )
 {
     outSurface.Reset();
     const int columns = TripControlColumns( panel.w );
     const float width = (std::max)( 0.0f, panel.w - 16.0f ) / columns;
     const auto button = [&]( int index ) -> UI::UIRect
-    {
-        return { panel.x + 8.0f + ( index % columns ) * width, panel.y + 52.0f + ( index / columns ) * 30.0f,
-                 (std::max)( 0.0f, width - 4.0f ), 26.0f };
-    };
+    { return { panel.x + 8.0f + ( index % columns ) * width, panel.y + 52.0f + ( index / columns ) * 30.0f, (std::max)( 0.0f, width - 4.0f ), 26.0f }; };
     const UI::UIRect decrease = button( 0 );
     const UI::UIRect increase = button( 1 );
     const UI::UIRect plan = button( 2 );
     const UI::UIRect commit = button( 3 );
     const UI::UIRect cancel = button( 4 );
 
-    const bool awaiting = planner.state == ReplayTripPlannerState::Seeding ||
-                          planner.state == ReplayTripPlannerState::AwaitingPrediction ||
-                          planner.state == ReplayTripPlannerState::Correcting;
+    const bool awaiting = planner.state == ReplayTripPlannerState::Seeding || planner.state == ReplayTripPlannerState::AwaitingPrediction || planner.state == ReplayTripPlannerState::Correcting;
 
     const bool idle = planner.state == ReplayTripPlannerState::Idle;
-    const bool canCancel = awaiting || planner.state == ReplayTripPlannerState::Converged ||
-                           planner.state == ReplayTripPlannerState::Failed;
+    const bool canCancel = awaiting || planner.state == ReplayTripPlannerState::Converged || planner.state == ReplayTripPlannerState::Failed;
 
-    const auto add =
-        [&]( ReplayTripPlannerControl id, ReplayTripPlannerCommandKind action, const UI::UIRect& rect, bool enabled )
+    const auto add = [&]( ReplayTripPlannerControl id, ReplayTripPlannerCommandKind action, const UI::UIRect& rect, bool enabled )
     {
         ReplayTripPlannerControlRow control;
 
@@ -198,22 +183,17 @@ void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner, const 
 
         if ( !outSurface.TryAdd( control ) )
         {
-            SB_FATAL( "ReplayTripPlannerSurface", "Cannot publish trip-planner control id=%u.",
-                      static_cast<uint32_t>( id ) );
+            SB_FATAL( "ReplayTripPlannerSurface", "Cannot publish trip-planner control id=%u.", static_cast<uint32_t>( id ) );
         }
     };
 
-    add( ReplayTripPlannerControl::TimeOfFlightDecrease, ReplayTripPlannerCommandKind::DecreaseTimeOfFlight, decrease,
-         idle );
+    add( ReplayTripPlannerControl::TimeOfFlightDecrease, ReplayTripPlannerCommandKind::DecreaseTimeOfFlight, decrease, idle );
 
-    add( ReplayTripPlannerControl::TimeOfFlightIncrease, ReplayTripPlannerCommandKind::IncreaseTimeOfFlight, increase,
-         idle );
+    add( ReplayTripPlannerControl::TimeOfFlightIncrease, ReplayTripPlannerCommandKind::IncreaseTimeOfFlight, increase, idle );
 
-    add( ReplayTripPlannerControl::Plan, ReplayTripPlannerCommandKind::Plan, plan,
-         planner.available && idle && baselineReady && !planner.liveAdvancing );
+    add( ReplayTripPlannerControl::Plan, ReplayTripPlannerCommandKind::Plan, plan, planner.available && idle && baselineReady && !planner.liveAdvancing );
 
-    add( ReplayTripPlannerControl::Commit, ReplayTripPlannerCommandKind::Commit, commit,
-         planner.state == ReplayTripPlannerState::Converged );
+    add( ReplayTripPlannerControl::Commit, ReplayTripPlannerCommandKind::Commit, commit, planner.state == ReplayTripPlannerState::Converged );
 
     add( ReplayTripPlannerControl::Cancel, ReplayTripPlannerCommandKind::Cancel, cancel, canCancel );
 

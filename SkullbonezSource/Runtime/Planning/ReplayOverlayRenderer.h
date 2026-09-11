@@ -32,11 +32,9 @@ Related:
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 using ReplayScrubberTooltips = std::array<UI::UITooltipTarget, 10>;
-ReplayScrubberTooltips BuildReplayScrubberTooltips( const ReplayScrubberPresentationView& presentation,
-                                                    const ReplayOverlayViewport& viewport, bool scenePhysicsEnabled );
+ReplayScrubberTooltips BuildReplayScrubberTooltips( const ReplayScrubberPresentationView& presentation, const ReplayOverlayViewport& viewport, bool scenePhysicsEnabled );
 using ReplayWorkspaceTooltips = std::array<UI::UITooltipTarget, 32>;
-ReplayWorkspaceTooltips BuildReplayWorkspaceTooltips( const ReplayOverlayStateView& replay,
-                                                      const ReplayOverlayViewport& viewport, bool scenePhysicsEnabled );
+ReplayWorkspaceTooltips BuildReplayWorkspaceTooltips( const ReplayOverlayStateView& replay, const ReplayOverlayViewport& viewport, bool scenePhysicsEnabled );
 enum class ReplayOverlaySurfaceKind : uint8_t
 {
     Intercept,
@@ -46,9 +44,11 @@ enum class ReplayOverlaySurfaceKind : uint8_t
     Scrubber
 };
 
-inline constexpr std::array<ReplayOverlaySurfaceKind, 5> REPLAY_OVERLAY_COMPOSITION_ORDER =
-    { ReplayOverlaySurfaceKind::Intercept, ReplayOverlaySurfaceKind::TripPlanner, ReplayOverlaySurfaceKind::Porkchop,
-      ReplayOverlaySurfaceKind::CauseTree, ReplayOverlaySurfaceKind::Scrubber };
+inline constexpr std::array<ReplayOverlaySurfaceKind, 5> REPLAY_OVERLAY_COMPOSITION_ORDER = { ReplayOverlaySurfaceKind::Intercept,
+                                                                                              ReplayOverlaySurfaceKind::TripPlanner,
+                                                                                              ReplayOverlaySurfaceKind::Porkchop,
+                                                                                              ReplayOverlaySurfaceKind::CauseTree,
+                                                                                              ReplayOverlaySurfaceKind::Scrubber };
 
 inline constexpr bool ShouldComposeReplayOverlay( bool gameUiSurfaceActive ) noexcept
 {
@@ -66,8 +66,7 @@ struct ReplayPositionGate
     bool visible = false;
 };
 
-inline bool ProjectReplayGatePoint( const Math::Vector::Vector3& position, const ReplayOverlayViewport& viewport,
-                                    UI::UIPoint& screen ) noexcept
+inline bool ProjectReplayGatePoint( const Math::Vector::Vector3& position, const ReplayOverlayViewport& viewport, UI::UIPoint& screen ) noexcept
 {
     const float* matrix = viewport.viewProjection.Data();
     const float x = matrix[0] * position.x + matrix[4] * position.y + matrix[8] * position.z + matrix[12];
@@ -77,8 +76,7 @@ inline bool ProjectReplayGatePoint( const Math::Vector::Vector3& position, const
 
     // Hazard: dividing a point behind the eye or near plane can place a false
     // gate over an unrelated visible object. DX12 clip depth is [0,w].
-    if ( viewport.width <= 0 || viewport.height <= 0 || !std::isfinite( x ) || !std::isfinite( y ) || !std::isfinite( z ) ||
-         !std::isfinite( w ) || w <= 0.0001f || z < 0.0f || z > w )
+    if ( viewport.width <= 0 || viewport.height <= 0 || !std::isfinite( x ) || !std::isfinite( y ) || !std::isfinite( z ) || !std::isfinite( w ) || w <= 0.0001f || z < 0.0f || z > w )
     {
         return false;
     }
@@ -88,9 +86,7 @@ inline bool ProjectReplayGatePoint( const Math::Vector::Vector3& position, const
     return std::isfinite( screen.x ) && std::isfinite( screen.y );
 }
 
-inline ReplayPositionGate BuildReplayPositionGate( const RunReplayPredictionFrame& frame,
-                                                   Physics::PhysicsSceneObjectId selectedId,
-                                                   const ReplayOverlayViewport& viewport ) noexcept
+inline ReplayPositionGate BuildReplayPositionGate( const RunReplayPredictionFrame& frame, Physics::PhysicsSceneObjectId selectedId, const ReplayOverlayViewport& viewport ) noexcept
 {
     ReplayPositionGate gate;
 
@@ -109,8 +105,7 @@ inline ReplayPositionGate BuildReplayPositionGate( const RunReplayPredictionFram
         gate.id = body.id;
         gate.frame = frame.frameIndex;
         const UI::UIRect bounds = viewport.SceneBounds();
-        gate.visible = ProjectReplayGatePoint( body.position, viewport, gate.center ) && gate.center.x >= bounds.x &&
-                       gate.center.x < bounds.x + bounds.w && gate.center.y >= bounds.y &&
+        gate.visible = ProjectReplayGatePoint( body.position, viewport, gate.center ) && gate.center.x >= bounds.x && gate.center.x < bounds.x + bounds.w && gate.center.y >= bounds.y &&
                        gate.center.y < bounds.y + bounds.h;
         UI::UIPoint ahead;
 
@@ -133,8 +128,7 @@ inline ReplayPositionGate BuildReplayPositionGate( const RunReplayPredictionFram
     return gate;
 }
 
-inline std::array<Physics::PhysicsSceneObjectId, 2>
-ReplayPositionGateSelection( const ReplayOverlayCausalityView& causality, Physics::PhysicsSceneObjectId pathTarget ) noexcept
+inline std::array<Physics::PhysicsSceneObjectId, 2> ReplayPositionGateSelection( const ReplayOverlayCausalityView& causality, Physics::PhysicsSceneObjectId pathTarget ) noexcept
 {
     const ReplayCauseInspectionMode mode = causality.inspection.Transport().mode;
     const int row = causality.inspection.Selection().selectedRow;
@@ -150,8 +144,7 @@ ReplayPositionGateSelection( const ReplayOverlayCausalityView& causality, Physic
     }
 
     const RunReplayCauseTreeRow& selected = causality.tree.rows[static_cast<std::size_t>( row )];
-    return { selected.id,
-             selected.counterpartId == selected.id ? Physics::PhysicsSceneObjectId {} : selected.counterpartId };
+    return { selected.id, selected.counterpartId == selected.id ? Physics::PhysicsSceneObjectId {} : selected.counterpartId };
 }
 
 class ReplayOverlayDrawOwner
@@ -174,8 +167,8 @@ class ReplayOverlayDrawOwner
         m_positionGates = {};
         return gates;
     }
-    const UI::UIDrawList& Compose( const ReplayOverlayStateView& replay, bool gameUiSurfaceActive, bool scenePhysicsEnabled,
-                                   ReplayOverlayGestureView gesture, ReplayOverlayViewport viewport, double nowSeconds );
+    const UI::UIDrawList&
+    Compose( const ReplayOverlayStateView& replay, bool gameUiSurfaceActive, bool scenePhysicsEnabled, ReplayOverlayGestureView gesture, ReplayOverlayViewport viewport, double nowSeconds );
 
   private:
     friend struct ReplayOverlayDrawOwnerTestAccess;

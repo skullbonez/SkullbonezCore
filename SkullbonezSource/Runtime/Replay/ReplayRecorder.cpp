@@ -94,8 +94,7 @@ struct ReplayRecorderCapacities
 ReplayRecorderCapacities ReplayCapacitiesFromConfig( const ReplayRecorderConfig& config )
 {
     const int seconds = std::clamp( config.retentionSeconds, REPLAY_MIN_SECONDS, REPLAY_MAX_SECONDS );
-    const std::size_t samples = static_cast<std::size_t>( seconds ) *
-                                static_cast<std::size_t>( REPLAY_CAPTURE_TICKS_PER_SECOND );
+    const std::size_t samples = static_cast<std::size_t>( seconds ) * static_cast<std::size_t>( REPLAY_CAPTURE_TICKS_PER_SECOND );
     const std::size_t interval = static_cast<std::size_t>( (std::max)( 1, config.checkpointIntervalFrames ) );
     return { samples, (std::max)( static_cast<std::size_t>( 2 ), samples / interval + 2 ) };
 }
@@ -107,11 +106,14 @@ int ReplayRuntimeBodyCapacity( const ReplayRecorderConfig& config )
 
 CoreAllocation::RuntimeReserveOwnerHandle ReplayRecorderSampleReserveOwner()
 {
-    static const CoreAllocation::RuntimeReserveOwnerHandle owner = CoreAllocation::RuntimeReserveAllocator::RegisterOwner(
-        { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER, CoreAllocation::RuntimeReserveSubsystem::Replay,
-          CoreAllocation::RuntimeReservePhase::Replay, 0, REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES,
-          REPLAY_RECORDER_SAMPLE_RESERVE_GROWTH_LIMIT, true,
-          "replay recorder body and delta payloads plus fixed launcher rings share one retained-memory budget" } );
+    static const CoreAllocation::RuntimeReserveOwnerHandle owner = CoreAllocation::RuntimeReserveAllocator::RegisterOwner( { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
+                                                                                                                             CoreAllocation::RuntimeReserveSubsystem::Replay,
+                                                                                                                             CoreAllocation::RuntimeReservePhase::Replay,
+                                                                                                                             0,
+                                                                                                                             REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES,
+                                                                                                                             REPLAY_RECORDER_SAMPLE_RESERVE_GROWTH_LIMIT,
+                                                                                                                             true,
+                                                                                                                             "replay recorder body and delta payloads plus fixed launcher rings share one retained-memory budget" } );
 
     return owner;
 }
@@ -136,8 +138,7 @@ std::size_t ReplayRecorderReserveCapacity( std::size_t currentCapacity, std::siz
 
     const std::size_t doubled = currentCapacity > 0u ? currentCapacity * 2u : REPLAY_RECORDER_SAMPLE_INITIAL_CAPACITY;
     const std::size_t remainder = requestedCapacity % REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK;
-    const std::size_t chunked = remainder == 0u ? requestedCapacity
-                                                : requestedCapacity + ( REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK - remainder );
+    const std::size_t chunked = remainder == 0u ? requestedCapacity : requestedCapacity + ( REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK - remainder );
 
     const std::size_t reserveCapacity = (std::max)( doubled, chunked );
     return (std::min)( reserveCapacity, static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) );
@@ -155,8 +156,7 @@ std::size_t ReplayRecorderDeltaReserveCapacity( std::size_t currentCapacity, std
 
     const std::size_t doubled = currentCapacity > 0u ? currentCapacity * 2u : REPLAY_RECORDER_SAMPLE_INITIAL_CAPACITY;
     const std::size_t remainder = requestedCapacity % REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK;
-    const std::size_t chunked = remainder == 0u ? requestedCapacity
-                                                : requestedCapacity + ( REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK - remainder );
+    const std::size_t chunked = remainder == 0u ? requestedCapacity : requestedCapacity + ( REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK - remainder );
 
     return (std::max)( doubled, chunked );
 }
@@ -170,8 +170,10 @@ template <typename T> uint64_t ReplayRecorderVectorBytes( std::size_t capacity )
     {
         // Fatal invariant: a capacity arithmetic overflow means the replay retention
         // contract can no longer bound its sample storage.
-        SB_FATAL( "Runtime/Replay", "Replay sample reserve byte overflow. capacity=%llu element_bytes=%llu",
-                  static_cast<unsigned long long>( capacity ), static_cast<unsigned long long>( elementBytes ) );
+        SB_FATAL( "Runtime/Replay",
+                  "Replay sample reserve byte overflow. capacity=%llu element_bytes=%llu",
+                  static_cast<unsigned long long>( capacity ),
+                  static_cast<unsigned long long>( elementBytes ) );
     }
 
     return static_cast<uint64_t>( capacity ) * elementBytes;
@@ -183,13 +185,13 @@ void ReportReplayRecorderReserveFailure( const char* targetName, std::size_t req
     // continuing would make scrub/restore state partial and nondeterministic.
     SB_FATAL( "Runtime/Replay",
               "Replay recorder reserve denied. target=%s requested_capacity=%llu requested_bytes=%llu hard_bytes=%d",
-              targetName ? targetName : "unknown", static_cast<unsigned long long>( requestedCapacity ),
-              static_cast<unsigned long long>( requestedBytes ), REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES );
+              targetName ? targetName : "unknown",
+              static_cast<unsigned long long>( requestedCapacity ),
+              static_cast<unsigned long long>( requestedBytes ),
+              REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES );
 }
 
-template <typename T>
-void ReserveReplayRecorderSampleVector( std::vector<T>& values, std::size_t requestedCapacity, ReplayFrameIndex frameIndex,
-                                        const char* targetName )
+template <typename T> void ReserveReplayRecorderSampleVector( std::vector<T>& values, std::size_t requestedCapacity, ReplayFrameIndex frameIndex, const char* targetName )
 {
     if ( requestedCapacity <= values.capacity() )
     {
@@ -206,8 +208,7 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values, std::size_t requ
     const uint64_t requestedBytes = ReplayRecorderVectorBytes<T>( reserveCapacity );
     const uint64_t allocationBytes = CoreAllocation::RuntimeReserveDefaultVectorAllocationUpperBound( requestedBytes );
 
-    if ( allocationBytes > static_cast<uint64_t>( REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES ) ||
-         oldBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) ||
+    if ( allocationBytes > static_cast<uint64_t>( REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES ) || oldBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) ||
          allocationBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
     {
         ReportReplayRecorderReserveFailure( targetName, reserveCapacity, allocationBytes );
@@ -240,16 +241,14 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values, std::size_t requ
                                                                   1,
                                                                   allocationBytes };
 
-    CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner,
-                                                                                                                request );
+    CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
 
     if ( !result.granted )
     {
         ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
     }
 
-    CoreAllocation::RuntimeReserveAllocationScope allocationScope( owner, CoreAllocation::RuntimeReservePhase::Replay,
-                                                                   result );
+    CoreAllocation::RuntimeReserveAllocationScope allocationScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
     values.reserve( reserveCapacity );
 
     if ( requestedCapacity > values.capacity() )
@@ -258,9 +257,7 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values, std::size_t requ
     }
 }
 
-template <typename T>
-void ReserveReplayRecorderDeltaVector( std::vector<T>& values, std::size_t requestedCapacity, ReplayFrameIndex frameIndex,
-                                       const char* targetName )
+template <typename T> void ReserveReplayRecorderDeltaVector( std::vector<T>& values, std::size_t requestedCapacity, ReplayFrameIndex frameIndex, const char* targetName )
 {
     if ( requestedCapacity <= values.capacity() )
     {
@@ -272,8 +269,7 @@ void ReserveReplayRecorderDeltaVector( std::vector<T>& values, std::size_t reque
     const uint64_t requestedBytes = ReplayRecorderVectorBytes<T>( reserveCapacity );
     const uint64_t allocationBytes = CoreAllocation::RuntimeReserveDefaultVectorAllocationUpperBound( requestedBytes );
 
-    if ( allocationBytes > static_cast<uint64_t>( REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES ) ||
-         oldBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) ||
+    if ( allocationBytes > static_cast<uint64_t>( REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES ) || oldBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) ||
          allocationBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
     {
         ReportReplayRecorderReserveFailure( targetName, reserveCapacity, allocationBytes );
@@ -307,16 +303,14 @@ void ReserveReplayRecorderDeltaVector( std::vector<T>& values, std::size_t reque
                                                                   1,
                                                                   allocationBytes };
 
-    CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner,
-                                                                                                                request );
+    CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
 
     if ( !result.granted )
     {
         ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
     }
 
-    CoreAllocation::RuntimeReserveAllocationScope allocationScope( owner, CoreAllocation::RuntimeReservePhase::Replay,
-                                                                   result );
+    CoreAllocation::RuntimeReserveAllocationScope allocationScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
     values.reserve( reserveCapacity );
 
     if ( requestedCapacity > values.capacity() )
@@ -347,16 +341,14 @@ template <typename T> void ReserveReplayLauncherRing( std::vector<T>& values, st
                                                                   static_cast<int>( allocationBytes ),
                                                                   1,
                                                                   allocationBytes };
-    CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner,
-                                                                                                                request );
+    CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
 
     if ( !result.granted )
     {
         ReportReplayRecorderReserveFailure( targetName, capacity, requestedBytes );
     }
 
-    CoreAllocation::RuntimeReserveAllocationScope allocationScope( owner, CoreAllocation::RuntimeReservePhase::Replay,
-                                                                   result );
+    CoreAllocation::RuntimeReserveAllocationScope allocationScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
     values.reserve( capacity );
 }
 
@@ -374,8 +366,7 @@ void ReserveReplaySolverFrameSample( ReplaySolverFrameSample& sample )
     ReserveReplayLauncherVisualSample( sample.launcherVisual );
 }
 
-void ReserveReplayRecorderScratch( std::vector<uint16_t>& contactCountScratch, std::vector<float>& maxPenetrationScratch,
-                                   std::vector<float>& normalImpulseSumScratch, int bodyCapacity )
+void ReserveReplayRecorderScratch( std::vector<uint16_t>& contactCountScratch, std::vector<float>& maxPenetrationScratch, std::vector<float>& normalImpulseSumScratch, int bodyCapacity )
 {
     const std::size_t bodyCapacitySize = static_cast<std::size_t>( bodyCapacity );
     contactCountScratch.reserve( bodyCapacitySize );
@@ -391,50 +382,47 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
 // Invariant: these lists mirror the composed Physics and Gameplay snapshot
 // vectors. Dense artifact reconstruction, delta storage, and memory accounting
 // all iterate the same lists so adding owner state cannot silently miss a path.
-#define REPLAY_SOLVER_PHYSICS_VECTOR_FIELDS( VISIT )                                                                        \
-    VISIT( timeRemaining )                                                                                                  \
-    VISIT( sleepSupportedThisFrame )                                                                                        \
-    VISIT( sleepInhibitedThisFrame )                                                                                        \
-    VISIT( sleepState )                                                                                                     \
-    VISIT( sleepCounter )                                                                                                   \
-    VISIT( sleepPoseAnchorPosition )                                                                                        \
-    VISIT( sleepPoseAnchorOrientation )                                                                                     \
-    VISIT( sleepPoseAnchorValid )                                                                                           \
-    VISIT( underwaterSleepLocked )                                                                                          \
-    VISIT( collisionVisualContacts )                                                                                        \
-    VISIT( sleepIslandVisualId )                                                                                            \
-    VISIT( sleepIslandAssignedVisualId )                                                                                    \
-    VISIT( sleepSupportEdges )                                                                                              \
-    VISIT( sleepIslandParent )                                                                                              \
-    VISIT( sleepIslandRank )                                                                                                \
-    VISIT( sleepIslandHasAwake )                                                                                            \
-    VISIT( sleepIslandHasSupportAnchor )                                                                                    \
-    VISIT( sleepIslandEligible )                                                                                            \
-    VISIT( sleepIslandCanSleep )                                                                                            \
-    VISIT( persistentContacts )                                                                                             \
-    VISIT( persistentContactCache )                                                                                         \
-    VISIT( pointJoints )                                                                                                    \
-    VISIT( motionEligibilityState )                                                                                         \
-    VISIT( persistentContactCounts )                                                                                        \
-    VISIT( persistentRestingContactCounts )                                                                                 \
-    VISIT( debugContacts )                                                                                                  \
-    VISIT( pipelineTrace )                                                                                                  \
+#define REPLAY_SOLVER_PHYSICS_VECTOR_FIELDS( VISIT )                                                                                                                                                   \
+    VISIT( timeRemaining )                                                                                                                                                                             \
+    VISIT( sleepSupportedThisFrame )                                                                                                                                                                   \
+    VISIT( sleepInhibitedThisFrame )                                                                                                                                                                   \
+    VISIT( sleepState )                                                                                                                                                                                \
+    VISIT( sleepCounter )                                                                                                                                                                              \
+    VISIT( sleepPoseAnchorPosition )                                                                                                                                                                   \
+    VISIT( sleepPoseAnchorOrientation )                                                                                                                                                                \
+    VISIT( sleepPoseAnchorValid )                                                                                                                                                                      \
+    VISIT( underwaterSleepLocked )                                                                                                                                                                     \
+    VISIT( collisionVisualContacts )                                                                                                                                                                   \
+    VISIT( sleepIslandVisualId )                                                                                                                                                                       \
+    VISIT( sleepIslandAssignedVisualId )                                                                                                                                                               \
+    VISIT( sleepSupportEdges )                                                                                                                                                                         \
+    VISIT( sleepIslandParent )                                                                                                                                                                         \
+    VISIT( sleepIslandRank )                                                                                                                                                                           \
+    VISIT( sleepIslandHasAwake )                                                                                                                                                                       \
+    VISIT( sleepIslandHasSupportAnchor )                                                                                                                                                               \
+    VISIT( sleepIslandEligible )                                                                                                                                                                       \
+    VISIT( sleepIslandCanSleep )                                                                                                                                                                       \
+    VISIT( persistentContacts )                                                                                                                                                                        \
+    VISIT( persistentContactCache )                                                                                                                                                                    \
+    VISIT( pointJoints )                                                                                                                                                                               \
+    VISIT( motionEligibilityState )                                                                                                                                                                    \
+    VISIT( persistentContactCounts )                                                                                                                                                                   \
+    VISIT( persistentRestingContactCounts )                                                                                                                                                            \
+    VISIT( debugContacts )                                                                                                                                                                             \
+    VISIT( pipelineTrace )                                                                                                                                                                             \
     VISIT( collisionCellKeys )
 
-#define REPLAY_SOLVER_GAMEPLAY_VECTOR_FIELDS( VISIT )                                                                       \
-    VISIT( tornadoCaptureSeconds )                                                                                          \
+#define REPLAY_SOLVER_GAMEPLAY_VECTOR_FIELDS( VISIT )                                                                                                                                                  \
+    VISIT( tornadoCaptureSeconds )                                                                                                                                                                     \
     VISIT( tornadoEjectCooldownSeconds )
 
-#define REPLAY_SOLVER_WORLD_VECTOR_FIELDS( VISIT )                                                                          \
-    REPLAY_SOLVER_PHYSICS_VECTOR_FIELDS( VISIT )                                                                            \
+#define REPLAY_SOLVER_WORLD_VECTOR_FIELDS( VISIT )                                                                                                                                                     \
+    REPLAY_SOLVER_PHYSICS_VECTOR_FIELDS( VISIT )                                                                                                                                                       \
     REPLAY_SOLVER_GAMEPLAY_VECTOR_FIELDS( VISIT )
 
-uint64_t ReplayRecorderScratchMemoryBytes( const std::vector<uint16_t>& contactCountScratch,
-                                           const std::vector<float>& maxPenetrationScratch,
-                                           const std::vector<float>& normalImpulseSumScratch )
+uint64_t ReplayRecorderScratchMemoryBytes( const std::vector<uint16_t>& contactCountScratch, const std::vector<float>& maxPenetrationScratch, const std::vector<float>& normalImpulseSumScratch )
 {
-    return VectorCapacityBytes( contactCountScratch ) + VectorCapacityBytes( maxPenetrationScratch ) +
-           VectorCapacityBytes( normalImpulseSumScratch );
+    return VectorCapacityBytes( contactCountScratch ) + VectorCapacityBytes( maxPenetrationScratch ) + VectorCapacityBytes( normalImpulseSumScratch );
 }
 
 uint64_t LauncherVisualMemoryBytes( const ReplayLauncherVisualSample& visual )
@@ -518,8 +506,7 @@ uint32_t CheckedVisualMetadataIndex( std::size_t index )
 {
     if ( index > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
     {
-        SB_FATAL( "Runtime/Replay", "Replay visual metadata index overflow. index=%llu",
-                  static_cast<unsigned long long>( index ) );
+        SB_FATAL( "Runtime/Replay", "Replay visual metadata index overflow. index=%llu", static_cast<unsigned long long>( index ) );
     }
 
     return static_cast<uint32_t>( index );
@@ -529,8 +516,7 @@ uint32_t CheckedSolverMetadataIndex( std::size_t index )
 {
     if ( index > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
     {
-        SB_FATAL( "Runtime/Replay", "Replay solver metadata index overflow. index=%llu",
-                  static_cast<unsigned long long>( index ) );
+        SB_FATAL( "Runtime/Replay", "Replay solver metadata index overflow. index=%llu", static_cast<unsigned long long>( index ) );
     }
 
     return static_cast<uint32_t>( index );
@@ -578,8 +564,7 @@ void AppendReplayEventVectorHex( char*& cursor, std::size_t& remaining, const Ve
     AppendReplayEventFloatHex( cursor, remaining, value.z );
 }
 
-void AppendReplayEventQuaternionHex( char*& cursor, std::size_t& remaining,
-                                     const SkullbonezCore::Math::Orientation::Quaternion& value )
+void AppendReplayEventQuaternionHex( char*& cursor, std::size_t& remaining, const SkullbonezCore::Math::Orientation::Quaternion& value )
 {
     float x = 0.0f;
     float y = 0.0f;
@@ -604,8 +589,7 @@ bool SameVectorBits( const Vector3& a, const Vector3& b )
 
 bool SameOrientationBits( const float ( &a )[4], const float ( &b )[4] )
 {
-    return SameFloatBits( a[0], b[0] ) && SameFloatBits( a[1], b[1] ) && SameFloatBits( a[2], b[2] ) &&
-           SameFloatBits( a[3], b[3] );
+    return SameFloatBits( a[0], b[0] ) && SameFloatBits( a[1], b[1] ) && SameFloatBits( a[2], b[2] ) && SameFloatBits( a[3], b[3] );
 }
 
 ReplayVisualBodyMetadata VisualMetadataFromBody( const ReplayBodyPresentationSample& body )
@@ -643,17 +627,15 @@ ReplayVisualBodyState VisualStateFromBody( const ReplayBodyPresentationSample& b
 
 bool SameVisualMetadata( const ReplayVisualBodyMetadata& a, const ReplayVisualBodyMetadata& b )
 {
-    return a.id.value == b.id.value && a.modelRow.value == b.modelRow.value && a.shapeKind == b.shapeKind &&
-           SameFloatBits( a.mass, b.mass ) && a.fixed == b.fixed && std::memcmp( a.name, b.name, sizeof( a.name ) ) == 0;
+    return a.id.value == b.id.value && a.modelRow.value == b.modelRow.value && a.shapeKind == b.shapeKind && SameFloatBits( a.mass, b.mass ) && a.fixed == b.fixed &&
+           std::memcmp( a.name, b.name, sizeof( a.name ) ) == 0;
 }
 
 bool SameVisualState( const ReplayVisualBodyState& a, const ReplayVisualBodyState& b )
 {
-    return SameVectorBits( a.position, b.position ) && SameVectorBits( a.linearVelocity, b.linearVelocity ) &&
-           SameVectorBits( a.angularVelocity, b.angularVelocity ) && SameOrientationBits( a.orientation, b.orientation ) &&
-           a.sleeping == b.sleeping && a.sleepSupported == b.sleepSupported && a.sleepInhibited == b.sleepInhibited &&
-           a.collisionContact == b.collisionContact && a.sleepIslandVisualId == b.sleepIslandVisualId &&
-           a.contactCount == b.contactCount && SameFloatBits( a.maxPenetration, b.maxPenetration ) &&
+    return SameVectorBits( a.position, b.position ) && SameVectorBits( a.linearVelocity, b.linearVelocity ) && SameVectorBits( a.angularVelocity, b.angularVelocity ) &&
+           SameOrientationBits( a.orientation, b.orientation ) && a.sleeping == b.sleeping && a.sleepSupported == b.sleepSupported && a.sleepInhibited == b.sleepInhibited &&
+           a.collisionContact == b.collisionContact && a.sleepIslandVisualId == b.sleepIslandVisualId && a.contactCount == b.contactCount && SameFloatBits( a.maxPenetration, b.maxPenetration ) &&
            SameFloatBits( a.normalImpulseSum, b.normalImpulseSum );
 }
 
@@ -673,8 +655,7 @@ void CopyPresentationHeader( const ReplayPresentationSample& source, ReplayPrese
     out.checkpointBoundary = source.checkpointBoundary;
 }
 
-void BuildPresentationBodyFromVisual( const ReplayVisualBodyMetadata& metadata, const ReplayVisualBodyState& state,
-                                      ReplayBodyPresentationSample& out )
+void BuildPresentationBodyFromVisual( const ReplayVisualBodyMetadata& metadata, const ReplayVisualBodyState& state, ReplayBodyPresentationSample& out )
 {
     out = ReplayBodyPresentationSample {};
     out.id = metadata.id;
@@ -738,25 +719,20 @@ ReplaySolverBodyState SolverStateFromBody( const ReplaySolverBodySample& body )
 
 bool SameSolverMetadata( const ReplaySolverBodyMetadata& a, const ReplaySolverBodyMetadata& b )
 {
-    return a.id.value == b.id.value && a.modelRow.value == b.modelRow.value && a.shapeKind == b.shapeKind &&
-           SameFloatBits( a.mass, b.mass ) && SameFloatBits( a.inverseMass, b.inverseMass ) &&
-           SameVectorBits( a.rotationalInertia, b.rotationalInertia ) &&
-           SameVectorBits( a.inverseRotationalInertia, b.inverseRotationalInertia ) &&
+    return a.id.value == b.id.value && a.modelRow.value == b.modelRow.value && a.shapeKind == b.shapeKind && SameFloatBits( a.mass, b.mass ) && SameFloatBits( a.inverseMass, b.inverseMass ) &&
+           SameVectorBits( a.rotationalInertia, b.rotationalInertia ) && SameVectorBits( a.inverseRotationalInertia, b.inverseRotationalInertia ) &&
            std::memcmp( a.name, b.name, sizeof( a.name ) ) == 0;
 }
 
 bool SameSolverState( const ReplaySolverBodyState& a, const ReplaySolverBodyState& b )
 {
-    return SameVectorBits( a.position, b.position ) && SameVectorBits( a.linearVelocity, b.linearVelocity ) &&
-           SameVectorBits( a.angularVelocity, b.angularVelocity ) && SameOrientationBits( a.orientation, b.orientation ) &&
-           a.fixed == b.fixed && a.sleeping == b.sleeping && a.sleepSupported == b.sleepSupported &&
-           a.sleepInhibited == b.sleepInhibited && a.collisionContact == b.collisionContact &&
-           a.sleepIslandVisualId == b.sleepIslandVisualId && a.contactCount == b.contactCount &&
-           SameFloatBits( a.maxPenetration, b.maxPenetration ) && SameFloatBits( a.normalImpulseSum, b.normalImpulseSum );
+    return SameVectorBits( a.position, b.position ) && SameVectorBits( a.linearVelocity, b.linearVelocity ) && SameVectorBits( a.angularVelocity, b.angularVelocity ) &&
+           SameOrientationBits( a.orientation, b.orientation ) && a.fixed == b.fixed && a.sleeping == b.sleeping && a.sleepSupported == b.sleepSupported && a.sleepInhibited == b.sleepInhibited &&
+           a.collisionContact == b.collisionContact && a.sleepIslandVisualId == b.sleepIslandVisualId && a.contactCount == b.contactCount && SameFloatBits( a.maxPenetration, b.maxPenetration ) &&
+           SameFloatBits( a.normalImpulseSum, b.normalImpulseSum );
 }
 
-void BuildSolverBodyFromCompact( const ReplaySolverBodyMetadata& metadata, const ReplaySolverBodyState& state,
-                                 ReplaySolverBodySample& out )
+void BuildSolverBodyFromCompact( const ReplaySolverBodyMetadata& metadata, const ReplaySolverBodyState& state, ReplaySolverBodySample& out )
 {
     out = ReplaySolverBodySample {};
     out.id = metadata.id;
@@ -785,16 +761,13 @@ void BuildSolverBodyFromCompact( const ReplaySolverBodyMetadata& metadata, const
     out.normalImpulseSum = state.normalImpulseSum;
 }
 
-void CopyTornadoSystemConfigWithReserve( Gameplay::TornadoSystemConfig& target, const Gameplay::TornadoSystemConfig& source,
-                                         ReplayFrameIndex frameIndex, const char* targetName )
+void CopyTornadoSystemConfigWithReserve( Gameplay::TornadoSystemConfig& target, const Gameplay::TornadoSystemConfig& source, ReplayFrameIndex frameIndex, const char* targetName )
 {
     ReserveReplayRecorderDeltaVector( target.vortices, source.vortices.size(), frameIndex, targetName );
     target = source;
 }
 
-void CopySolverWorldScalarsFromSnapshot( ReplaySolverWorldScalarState& target,
-                                         const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& source,
-                                         ReplayFrameIndex frameIndex, const char* targetName )
+void CopySolverWorldScalarsFromSnapshot( ReplaySolverWorldScalarState& target, const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& source, ReplayFrameIndex frameIndex, const char* targetName )
 {
     target.version = source.physics.version;
     target.modelCount = source.physics.modelCount;
@@ -808,9 +781,7 @@ void CopySolverWorldScalarsFromSnapshot( ReplaySolverWorldScalarState& target,
     target.solverStats = source.physics.solverStats;
 }
 
-void ApplySolverWorldScalarsToSnapshot( const ReplaySolverWorldScalarState& source,
-                                        SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& target,
-                                        ReplayFrameIndex frameIndex, const char* targetName )
+void ApplySolverWorldScalarsToSnapshot( const ReplaySolverWorldScalarState& source, SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& target, ReplayFrameIndex frameIndex, const char* targetName )
 {
     target.physics.version = source.version;
     target.physics.modelCount = source.modelCount;
@@ -858,8 +829,7 @@ void ClearSolverWorldDeltaFrame( ReplaySolverWorldDeltaFrame& frame )
 }
 
 template <typename T>
-void StoreSolverVectorDelta( ReplaySolverVectorDelta<T>& delta, const std::vector<T>& source, const std::vector<T>& previous,
-                             bool forceFull, ReplayFrameIndex frameIndex, const char* targetName )
+void StoreSolverVectorDelta( ReplaySolverVectorDelta<T>& delta, const std::vector<T>& source, const std::vector<T>& previous, bool forceFull, ReplayFrameIndex frameIndex, const char* targetName )
 {
     ClearSolverVectorDelta( delta );
 
@@ -889,7 +859,8 @@ void StoreSolverVectorDelta( ReplaySolverVectorDelta<T>& delta, const std::vecto
 
 void CopySolverWorldSnapshotWithReserve( SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& target,
                                          const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& source,
-                                         ReplayFrameIndex frameIndex, const char* targetName )
+                                         ReplayFrameIndex frameIndex,
+                                         const char* targetName )
 {
     target.physics.version = source.physics.version;
     target.physics.modelCount = source.physics.modelCount;
@@ -901,14 +872,14 @@ void CopySolverWorldSnapshotWithReserve( SkullbonezCore::Runtime::ReplaySolverWo
 
     target.tornadoSystemElapsedSeconds = source.tornadoSystemElapsedSeconds;
     target.physics.solverStats = source.physics.solverStats;
-#define COPY_SOLVER_PHYSICS_VECTOR_FIELD( field )                                                                           \
-    ReserveReplayRecorderDeltaVector( target.physics.field, source.physics.field.size(), frameIndex, targetName );          \
+#define COPY_SOLVER_PHYSICS_VECTOR_FIELD( field )                                                                                                                                                      \
+    ReserveReplayRecorderDeltaVector( target.physics.field, source.physics.field.size(), frameIndex, targetName );                                                                                     \
     target.physics.field = source.physics.field;
 
     REPLAY_SOLVER_PHYSICS_VECTOR_FIELDS( COPY_SOLVER_PHYSICS_VECTOR_FIELD )
 #undef COPY_SOLVER_PHYSICS_VECTOR_FIELD
-#define COPY_SOLVER_GAMEPLAY_VECTOR_FIELD( field )                                                                          \
-    ReserveReplayRecorderDeltaVector( target.field, source.field.size(), frameIndex, targetName );                          \
+#define COPY_SOLVER_GAMEPLAY_VECTOR_FIELD( field )                                                                                                                                                     \
+    ReserveReplayRecorderDeltaVector( target.field, source.field.size(), frameIndex, targetName );                                                                                                     \
     target.field = source.field;
 
     REPLAY_SOLVER_GAMEPLAY_VECTOR_FIELDS( COPY_SOLVER_GAMEPLAY_VECTOR_FIELD )
@@ -938,7 +909,8 @@ void ClearSolverWorldSnapshotValues( SkullbonezCore::Runtime::ReplaySolverWorldS
 
 void StoreSolverWorldDeltaFrame( ReplaySolverWorldDeltaFrame& frame,
                                  const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot,
-                                 const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& previous, bool forceKeyframe,
+                                 const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& previous,
+                                 bool forceKeyframe,
                                  ReplayFrameIndex frameIndex )
 {
     // Concept: world-snapshot vectors are compacted independently. A solver
@@ -946,36 +918,31 @@ void StoreSolverWorldDeltaFrame( ReplaySolverWorldDeltaFrame& frame,
     // other vectors stay as sparse indexed edits.
     ClearSolverWorldDeltaFrame( frame );
     CopySolverWorldScalarsFromSnapshot( frame.scalarState, snapshot, frameIndex, "ReplaySolverWorldDelta::scalar" );
-#define STORE_SOLVER_PHYSICS_DELTA_FIELD( field )                                                                           \
-    StoreSolverVectorDelta( frame.field, snapshot.physics.field, previous.physics.field, forceKeyframe, frameIndex,         \
-                            "ReplaySolverWorldDelta::" #field );
+#define STORE_SOLVER_PHYSICS_DELTA_FIELD( field ) StoreSolverVectorDelta( frame.field, snapshot.physics.field, previous.physics.field, forceKeyframe, frameIndex, "ReplaySolverWorldDelta::" #field );
 
     REPLAY_SOLVER_PHYSICS_VECTOR_FIELDS( STORE_SOLVER_PHYSICS_DELTA_FIELD )
 #undef STORE_SOLVER_PHYSICS_DELTA_FIELD
-#define STORE_SOLVER_GAMEPLAY_DELTA_FIELD( field )                                                                          \
-    StoreSolverVectorDelta( frame.field, snapshot.field, previous.field, forceKeyframe, frameIndex,                         \
-                            "ReplaySolverWorldDelta::" #field );
+#define STORE_SOLVER_GAMEPLAY_DELTA_FIELD( field ) StoreSolverVectorDelta( frame.field, snapshot.field, previous.field, forceKeyframe, frameIndex, "ReplaySolverWorldDelta::" #field );
 
     REPLAY_SOLVER_GAMEPLAY_VECTOR_FIELDS( STORE_SOLVER_GAMEPLAY_DELTA_FIELD )
 #undef STORE_SOLVER_GAMEPLAY_DELTA_FIELD
 }
 
-bool ApplySolverWorldDeltaFrame( const ReplaySolverWorldDeltaFrame& frame,
-                                 SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot, ReplayFrameIndex frameIndex )
+bool ApplySolverWorldDeltaFrame( const ReplaySolverWorldDeltaFrame& frame, SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot, ReplayFrameIndex frameIndex )
 {
     ApplySolverWorldScalarsToSnapshot( frame.scalarState, snapshot, frameIndex, "ReplaySolverWorldResolve::scalar" );
-#define APPLY_SOLVER_PHYSICS_DELTA_FIELD( field )                                                                           \
-    if ( !frame.field.ApplyTo( snapshot.physics.field, frameIndex, "ReplaySolverWorldResolve::" #field ) )                  \
-    {                                                                                                                       \
-        return false;                                                                                                       \
+#define APPLY_SOLVER_PHYSICS_DELTA_FIELD( field )                                                                                                                                                      \
+    if ( !frame.field.ApplyTo( snapshot.physics.field, frameIndex, "ReplaySolverWorldResolve::" #field ) )                                                                                             \
+    {                                                                                                                                                                                                  \
+        return false;                                                                                                                                                                                  \
     }
 
     REPLAY_SOLVER_PHYSICS_VECTOR_FIELDS( APPLY_SOLVER_PHYSICS_DELTA_FIELD )
 #undef APPLY_SOLVER_PHYSICS_DELTA_FIELD
-#define APPLY_SOLVER_GAMEPLAY_DELTA_FIELD( field )                                                                          \
-    if ( !frame.field.ApplyTo( snapshot.field, frameIndex, "ReplaySolverWorldResolve::" #field ) )                          \
-    {                                                                                                                       \
-        return false;                                                                                                       \
+#define APPLY_SOLVER_GAMEPLAY_DELTA_FIELD( field )                                                                                                                                                     \
+    if ( !frame.field.ApplyTo( snapshot.field, frameIndex, "ReplaySolverWorldResolve::" #field ) )                                                                                                     \
+    {                                                                                                                                                                                                  \
+        return false;                                                                                                                                                                                  \
     }
 
     REPLAY_SOLVER_GAMEPLAY_VECTOR_FIELDS( APPLY_SOLVER_GAMEPLAY_DELTA_FIELD )
@@ -993,11 +960,9 @@ void CopySolverHeader( const ReplaySolverFrameSample& source, ReplaySolverFrameS
     out.physicsDt = source.physicsDt;
     out.camera = source.camera;
     out.world = source.world;
-    ReserveReplayRecorderDeltaVector( out.launcherVisual.rayLines, source.launcherVisual.rayLines.size(), source.frameIndex,
-                                      "ReplaySolverResolve::launcherRayLines" );
+    ReserveReplayRecorderDeltaVector( out.launcherVisual.rayLines, source.launcherVisual.rayLines.size(), source.frameIndex, "ReplaySolverResolve::launcherRayLines" );
 
-    ReserveReplayRecorderDeltaVector( out.launcherVisual.laserShots, source.launcherVisual.laserShots.size(),
-                                      source.frameIndex, "ReplaySolverResolve::launcherLaserShots" );
+    ReserveReplayRecorderDeltaVector( out.launcherVisual.laserShots, source.launcherVisual.laserShots.size(), source.frameIndex, "ReplaySolverResolve::launcherLaserShots" );
 
     out.launcherVisual = source.launcherVisual;
     out.presentationHash = source.presentationHash;
@@ -1009,8 +974,7 @@ void CopySolverHeader( const ReplaySolverFrameSample& source, ReplaySolverFrameS
 
 uint64_t SolverFrameSampleMemoryBytes( const ReplaySolverFrameSample& sample )
 {
-    return LauncherVisualMemoryBytes( sample.launcherVisual ) + SolverWorldSnapshotMemoryBytes( sample.worldSnapshot ) +
-           VectorCapacityBytes( sample.bodies );
+    return LauncherVisualMemoryBytes( sample.launcherVisual ) + SolverWorldSnapshotMemoryBytes( sample.worldSnapshot ) + VectorCapacityBytes( sample.bodies );
 }
 
 uint64_t HashByte( uint64_t hash, uint8_t value )
@@ -1317,8 +1281,11 @@ ReplayBranchInfo NormalizeBranchInfo( const ReplayBranchInfo& branch )
     return normalized;
 }
 
-void IncrementBodyContactSummary( int bodyIndex, float penetration, float normalImpulse,
-                                  std::vector<uint16_t>& contactCounts, std::vector<float>& maxPenetrations,
+void IncrementBodyContactSummary( int bodyIndex,
+                                  float penetration,
+                                  float normalImpulse,
+                                  std::vector<uint16_t>& contactCounts,
+                                  std::vector<float>& maxPenetrations,
                                   std::vector<float>& normalImpulseSums )
 {
     if ( bodyIndex < 0 || bodyIndex >= static_cast<int>( contactCounts.size() ) )
@@ -1424,9 +1391,11 @@ uint64_t HashPersistentContact( uint64_t hash, const SkullbonezCore::Physics::Ph
 
 // Concept: App projects stable display-name pointers for this synchronous
 // capture. Physics values still come from the dense stores.
-bool BuildReplayPresentationBodySample( int modelIndex, std::span<const char* const> entityDisplayNames,
+bool BuildReplayPresentationBodySample( int modelIndex,
+                                        std::span<const char* const> entityDisplayNames,
                                         const Physics::PhysicsBodyStore& bodyStore,
-                                        const Physics::ColliderStore& colliderStore, ReplayBodyPresentationSample& outBody )
+                                        const Physics::ColliderStore& colliderStore,
+                                        ReplayBodyPresentationSample& outBody )
 {
     if ( modelIndex < 0 || modelIndex >= bodyStore.Count() || modelIndex >= colliderStore.Count() )
     {
@@ -1457,16 +1426,17 @@ bool BuildReplayPresentationBodySample( int modelIndex, std::span<const char* co
     outBody.position = Physics::PhysicsBodyPosition( hotFields, bodyIndex );
     outBody.linearVelocity = Physics::PhysicsBodyLinearVelocity( hotFields, bodyIndex );
     outBody.angularVelocity = Physics::PhysicsBodyAngularVelocity( hotFields, bodyIndex );
-    Physics::PhysicsBodyOrientation( hotFields, bodyIndex )
-        .GetComponents( outBody.orientation[0], outBody.orientation[1], outBody.orientation[2], outBody.orientation[3] );
+    Physics::PhysicsBodyOrientation( hotFields, bodyIndex ).GetComponents( outBody.orientation[0], outBody.orientation[1], outBody.orientation[2], outBody.orientation[3] );
 
     outBody.mass = bodyRecord.mass;
     outBody.fixed = hotFields.fixed[bodyIndex] != 0u;
     return true;
 }
 
-bool BuildReplaySolverBodySample( int modelIndex, std::span<const char* const> entityDisplayNames,
-                                  const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
+bool BuildReplaySolverBodySample( int modelIndex,
+                                  std::span<const char* const> entityDisplayNames,
+                                  const Physics::PhysicsBodyStore& bodyStore,
+                                  const Physics::ColliderStore& colliderStore,
                                   ReplaySolverBodySample& outBody )
 {
     ReplayBodyPresentationSample presentationBody;
@@ -1511,8 +1481,7 @@ uint64_t HashContactCache( uint64_t hash, const SkullbonezCore::Physics::Physics
 
 // Invariant: hash exactly the persisted durable joint identity, descriptor, and
 // cached impulse. Process-local handle generations are intentionally excluded.
-uint64_t HashPointJoint( uint64_t hash, const SkullbonezCore::Physics::PhysicsSolverPointJointSample& joint,
-                         uint32_t snapshotVersion )
+uint64_t HashPointJoint( uint64_t hash, const SkullbonezCore::Physics::PhysicsSolverPointJointSample& joint, uint32_t snapshotVersion )
 {
     hash = HashUint32( hash, joint.topologyOrdinal );
     hash = HashUint32( hash, joint.bodyASceneObjectId.value );
@@ -1522,8 +1491,7 @@ uint64_t HashPointJoint( uint64_t hash, const SkullbonezCore::Physics::PhysicsSo
     hash = HashFloat( hash, joint.slack );
     hash = HashFloat( hash, joint.frequencyHz );
     hash = HashFloat( hash, joint.dampingRatio );
-    hash = snapshotVersion >= 7u ? HashVector( hash, joint.accumulatedImpulse )
-                                 : HashFloat( hash, joint.accumulatedImpulse.x );
+    hash = snapshotVersion >= 7u ? HashVector( hash, joint.accumulatedImpulse ) : HashFloat( hash, joint.accumulatedImpulse.x );
     hash = HashUint32( hash, joint.groupId );
     hash = HashUint32( hash, static_cast<uint32_t>( joint.flags ) );
     return hash;
@@ -1585,8 +1553,7 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const SkullbonezCore::Runtime::
     if ( physics.version >= 2 )
     {
         hash = HashTornadoSystemConfig( hash, snapshot.tornadoSystemConfig );
-        hash = physics.version >= 5u ? HashDouble( hash, snapshot.tornadoSystemElapsedSeconds )
-                                     : HashFloat( hash, static_cast<float>( snapshot.tornadoSystemElapsedSeconds ) );
+        hash = physics.version >= 5u ? HashDouble( hash, snapshot.tornadoSystemElapsedSeconds ) : HashFloat( hash, static_cast<float>( snapshot.tornadoSystemElapsedSeconds ) );
     }
 
     hash = HashFloatVector( hash, physics.timeRemaining );
@@ -1683,8 +1650,10 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const SkullbonezCore::Runtime::
     return hash;
 }
 
-ReplaySolverHashBreakdown BuildSolverHashBreakdown( const ReplayWorldPresentationSample& world, int modelCount,
-                                                    uint16_t contactCount, uint16_t pipelineRecordCount,
+ReplaySolverHashBreakdown BuildSolverHashBreakdown( const ReplayWorldPresentationSample& world,
+                                                    int modelCount,
+                                                    uint16_t contactCount,
+                                                    uint16_t pipelineRecordCount,
                                                     const ReplayLauncherVisualSample& launcherVisual,
                                                     const ReplaySolverWorldSnapshot& worldSnapshot,
                                                     const std::vector<ReplaySolverBodySample>& bodies )
@@ -1707,9 +1676,7 @@ ReplaySolverHashBreakdown BuildSolverHashBreakdown( const ReplayWorldPresentatio
 }
 } // namespace
 
-template <typename T>
-bool SkullbonezCore::Runtime::ReplaySolverVectorDelta<T>::ApplyTo( std::vector<T>& target, ReplayFrameIndex frameIndex,
-                                                                   const char* targetName ) const
+template <typename T> bool SkullbonezCore::Runtime::ReplaySolverVectorDelta<T>::ApplyTo( std::vector<T>& target, ReplayFrameIndex frameIndex, const char* targetName ) const
 {
     if ( full )
     {
@@ -1738,17 +1705,27 @@ uint64_t SkullbonezCore::Runtime::ReplaySolverHashForSample( const ReplaySolverF
     return ReplaySolverHashBreakdownForSample( sample ).bodies;
 }
 
-ReplaySolverHashBreakdown
-SkullbonezCore::Runtime::ReplaySolverHashBreakdownForSample( const ReplaySolverFrameSample& sample ) noexcept
+ReplaySolverHashBreakdown SkullbonezCore::Runtime::ReplaySolverHashBreakdownForSample( const ReplaySolverFrameSample& sample ) noexcept
 {
-    return BuildSolverHashBreakdown( sample.world, sample.worldSnapshot.physics.modelCount, sample.contactCount,
-                                     sample.pipelineRecordCount, sample.launcherVisual, sample.worldSnapshot,
+    return BuildSolverHashBreakdown( sample.world,
+                                     sample.worldSnapshot.physics.modelCount,
+                                     sample.contactCount,
+                                     sample.pipelineRecordCount,
+                                     sample.launcherVisual,
+                                     sample.worldSnapshot,
                                      sample.bodies );
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildCommand(
-    ReplayEventKind kind, ReplayFrameIndex frameIndex, bool useNextFrame, uint32_t flags, int32_t value0, int32_t value1,
-    int32_t value2, int32_t value3, uint64_t data0, const char* text )
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildCommand( ReplayEventKind kind,
+                                                                                        ReplayFrameIndex frameIndex,
+                                                                                        bool useNextFrame,
+                                                                                        uint32_t flags,
+                                                                                        int32_t value0,
+                                                                                        int32_t value1,
+                                                                                        int32_t value2,
+                                                                                        int32_t value3,
+                                                                                        uint64_t data0,
+                                                                                        const char* text )
 {
     ReplayEventCommand command;
     command.frameIndex = frameIndex;
@@ -1769,9 +1746,13 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildC
     return command;
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildGeneratedSceneConfig(
-    uint32_t flags, int modelCount, int solverBallCount, int solverBoxCount, uint32_t rngSeed, int sceneObjectCapacity,
-    uint32_t generatedObjectTypeOverride )
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildGeneratedSceneConfig( uint32_t flags,
+                                                                                                     int modelCount,
+                                                                                                     int solverBallCount,
+                                                                                                     int solverBoxCount,
+                                                                                                     uint32_t rngSeed,
+                                                                                                     int sceneObjectCapacity,
+                                                                                                     uint32_t generatedObjectTypeOverride )
 {
     uint64_t hash = FNV64_OFFSET;
     hash = HashInt( hash, modelCount );
@@ -1780,14 +1761,15 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildG
     hash = HashInt( hash, static_cast<int32_t>( rngSeed ) );
     hash = HashInt( hash, sceneObjectCapacity );
     hash = HashInt( hash, static_cast<int32_t>( generatedObjectTypeOverride ) );
-    return BuildCommand( ReplayEventKind::GeneratedSceneConfig, 0, false, flags, modelCount, solverBallCount, solverBoxCount,
-                         static_cast<int32_t>( rngSeed ), hash, "generated_scene_config" );
+    return BuildCommand( ReplayEventKind::GeneratedSceneConfig, 0, false, flags, modelCount, solverBallCount, solverBoxCount, static_cast<int32_t>( rngSeed ), hash, "generated_scene_config" );
 }
 
-ReplayEventCommand
-SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildWorldOverride( float previousGravity, float previousFluidHeight,
-                                                                           float previousFluidDensity, float gravity,
-                                                                           float fluidHeight, float fluidDensity )
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildWorldOverride( float previousGravity,
+                                                                                              float previousFluidHeight,
+                                                                                              float previousFluidDensity,
+                                                                                              float gravity,
+                                                                                              float fluidHeight,
+                                                                                              float fluidDensity )
 {
     uint32_t flags = 0;
     flags |= previousGravity != gravity ? REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED : 0u;
@@ -1803,13 +1785,10 @@ SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildWorldOverride( float
     hash = HashFloat( hash, gravity );
     hash = HashFloat( hash, fluidHeight );
     hash = HashFloat( hash, fluidDensity );
-    return BuildCommand( ReplayEventKind::WorldOverride, 0, true, flags, SignedFloatBits( gravity ),
-                         SignedFloatBits( fluidHeight ), SignedFloatBits( fluidDensity ), 0, hash, "world_override" );
+    return BuildCommand( ReplayEventKind::WorldOverride, 0, true, flags, SignedFloatBits( gravity ), SignedFloatBits( fluidHeight ), SignedFloatBits( fluidDensity ), 0, hash, "world_override" );
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildLauncherConfig( uint32_t changedFlags,
-                                                                                               float impulseStrength,
-                                                                                               float projectileSpeed )
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildLauncherConfig( uint32_t changedFlags, float impulseStrength, float projectileSpeed )
 {
     if ( changedFlags == 0 )
     {
@@ -1819,13 +1798,16 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildL
     uint64_t hash = FNV64_OFFSET;
     hash = HashFloat( hash, impulseStrength );
     hash = HashFloat( hash, projectileSpeed );
-    return BuildCommand( ReplayEventKind::LauncherConfig, 0, true, changedFlags, SignedFloatBits( impulseStrength ),
-                         SignedFloatBits( projectileSpeed ), 0, 0, hash, "launcher_config" );
+    return BuildCommand( ReplayEventKind::LauncherConfig, 0, true, changedFlags, SignedFloatBits( impulseStrength ), SignedFloatBits( projectileSpeed ), 0, 0, hash, "launcher_config" );
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildLauncherFire(
-    const Vector3& rayOrigin, const Vector3& rayDirection, const Vector3& cameraUp, bool projectile, float impulseStrength,
-    float projectileSpeed, int modelCount )
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildLauncherFire( const Vector3& rayOrigin,
+                                                                                             const Vector3& rayDirection,
+                                                                                             const Vector3& cameraUp,
+                                                                                             bool projectile,
+                                                                                             float impulseStrength,
+                                                                                             float projectileSpeed,
+                                                                                             int modelCount )
 {
     char payload[96] = {};
     char* cursor = payload;
@@ -1834,8 +1816,7 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildL
 
     if ( prefixWritten > 0 )
     {
-        const std::size_t consumed = (std::min)( static_cast<std::size_t>( prefixWritten ),
-                                                 remaining > 0 ? remaining - 1 : 0 );
+        const std::size_t consumed = (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
 
         cursor += consumed;
         remaining -= consumed;
@@ -1849,14 +1830,25 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildL
     hash = HashVector( hash, rayOrigin );
     hash = HashVector( hash, rayDirection );
     hash = HashVector( hash, cameraUp );
-    return BuildCommand( ReplayEventKind::LauncherFire, 0, true, projectile ? REPLAY_LAUNCHER_FIRE_PROJECTILE : 0u,
-                         projectile ? 1 : 0, SignedFloatBits( impulseStrength ), SignedFloatBits( projectileSpeed ),
-                         modelCount, hash, payload );
+    return BuildCommand( ReplayEventKind::LauncherFire,
+                         0,
+                         true,
+                         projectile ? REPLAY_LAUNCHER_FIRE_PROJECTILE : 0u,
+                         projectile ? 1 : 0,
+                         SignedFloatBits( impulseStrength ),
+                         SignedFloatBits( projectileSpeed ),
+                         modelCount,
+                         hash,
+                         payload );
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildEditorPlace(
-    int objectType, bool fixedObject, bool terrainAlign, int modelCountBefore, const Vector3& terrainPoint,
-    const Vector3& placementScale, float placementYawRadians )
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildEditorPlace( int objectType,
+                                                                                            bool fixedObject,
+                                                                                            bool terrainAlign,
+                                                                                            int modelCountBefore,
+                                                                                            const Vector3& terrainPoint,
+                                                                                            const Vector3& placementScale,
+                                                                                            float placementYawRadians )
 {
     char payload[80] = {};
     char* cursor = payload;
@@ -1865,8 +1857,7 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildE
 
     if ( prefixWritten > 0 )
     {
-        const std::size_t consumed = (std::min)( static_cast<std::size_t>( prefixWritten ),
-                                                 remaining > 0 ? remaining - 1 : 0 );
+        const std::size_t consumed = (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
 
         cursor += consumed;
         remaining -= consumed;
@@ -1887,13 +1878,17 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildE
     uint32_t flags = 0;
     flags |= fixedObject ? REPLAY_EDITOR_PLACE_FIXED : 0u;
     flags |= terrainAlign ? REPLAY_EDITOR_PLACE_TERRAIN_ALIGN : 0u;
-    return BuildCommand( ReplayEventKind::EditorPlace, 0, true, flags, objectType, fixedObject ? 1 : 0, terrainAlign ? 1 : 0,
-                         modelCountBefore, hash, payload );
+    return BuildCommand( ReplayEventKind::EditorPlace, 0, true, flags, objectType, fixedObject ? 1 : 0, terrainAlign ? 1 : 0, modelCountBefore, hash, payload );
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildEditorTransform(
-    int modelIndex, uint32_t changedFlags, Physics::PhysicsSceneObjectId sceneObjectId, const Vector3& position,
-    const SkullbonezCore::Math::Orientation::Quaternion& orientation, int modelCount, int scaleAxis, float scaleFactor )
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildEditorTransform( int modelIndex,
+                                                                                                uint32_t changedFlags,
+                                                                                                Physics::PhysicsSceneObjectId sceneObjectId,
+                                                                                                const Vector3& position,
+                                                                                                const SkullbonezCore::Math::Orientation::Quaternion& orientation,
+                                                                                                int modelCount,
+                                                                                                int scaleAxis,
+                                                                                                float scaleFactor )
 {
     changedFlags &= REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
 
@@ -1915,13 +1910,11 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildE
     char payload[96] = {};
     char* cursor = payload;
     std::size_t remaining = sizeof( payload );
-    const int prefixWritten = std::snprintf( cursor, remaining,
-                                             ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE ) ? "xform8:" : "xform7:" );
+    const int prefixWritten = std::snprintf( cursor, remaining, ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE ) ? "xform8:" : "xform7:" );
 
     if ( prefixWritten > 0 )
     {
-        const std::size_t consumed = (std::min)( static_cast<std::size_t>( prefixWritten ),
-                                                 remaining > 0 ? remaining - 1 : 0 );
+        const std::size_t consumed = (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
 
         cursor += consumed;
         remaining -= consumed;
@@ -1952,12 +1945,10 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildE
     hash = HashFloat( hash, qz );
     hash = HashFloat( hash, qw );
     hash = HashFloat( hash, scaleFactor );
-    return BuildCommand( ReplayEventKind::EditorTransform, 0, true, changedFlags, modelIndex,
-                         static_cast<int32_t>( sceneObjectId.value ), modelCount, scaleAxis, hash, payload );
+    return BuildCommand( ReplayEventKind::EditorTransform, 0, true, changedFlags, modelIndex, static_cast<int32_t>( sceneObjectId.value ), modelCount, scaleAxis, hash, payload );
 }
 
-uint64_t SkullbonezCore::Runtime::ReplayRecorderOperations::ComputePresentationStateHash(
-    const ReplayPresentationSample& sample ) noexcept
+uint64_t SkullbonezCore::Runtime::ReplayRecorderOperations::ComputePresentationStateHash( const ReplayPresentationSample& sample ) noexcept
 {
     uint64_t hash = FNV64_OFFSET;
     hash = HashWorld( hash, sample.world );
@@ -2050,8 +2041,7 @@ bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
     m_promotedPresentationSample.bodies.reserve( bodyCapacity );
     m_resolveStateScratch.reserve( bodyCapacity );
     m_resolveActiveScratch.reserve( bodyCapacity );
-    ReserveReplayRecorderScratch( m_contactCountScratch, m_maxPenetrationScratch, m_normalImpulseSumScratch,
-                                  m_config.runtimeBodyCapacity );
+    ReserveReplayRecorderScratch( m_contactCountScratch, m_maxPenetrationScratch, m_normalImpulseSumScratch, m_config.runtimeBodyCapacity );
 
     return true;
 }
@@ -2070,8 +2060,7 @@ void ReplayRecorder::ResetTimeline( const char* sceneLabel )
     m_nextFrameIndex = 0;
     m_latestStateHash = 0;
     m_visualBodyMetadata.clear();
-    std::fill( m_visualMetadataIndexByModelRow.begin(), m_visualMetadataIndexByModelRow.end(),
-               REPLAY_INVALID_METADATA_INDEX );
+    std::fill( m_visualMetadataIndexByModelRow.begin(), m_visualMetadataIndexByModelRow.end(), REPLAY_INVALID_METADATA_INDEX );
 
     m_visualCarryStates.clear();
     m_visualCarryActive.clear();
@@ -2101,9 +2090,14 @@ void ReplayRecorder::ResetTimeline( const char* sceneLabel )
     (void)sceneLabel;
 }
 
-void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame, float physicsDt,
-                                   const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera,
-                                   Physics::PhysicsEngine& physics, std::span<const char* const> entityDisplayNames )
+void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch,
+                                   uint32_t eventCursor,
+                                   int sceneFrame,
+                                   float physicsDt,
+                                   const ReplayWorldPresentationSample& world,
+                                   const ReplayCameraSample& camera,
+                                   Physics::PhysicsEngine& physics,
+                                   std::span<const char* const> entityDisplayNames )
 {
     if ( !m_config.enabled )
     {
@@ -2134,9 +2128,7 @@ void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t even
     sample.world = world;
     sample.contactCount = 0;
     sample.pipelineRecordCount = 0;
-    sample.checkpointBoundary = ( sample.frameIndex == 0 ) ||
-                                ( sample.frameIndex % static_cast<ReplayFrameIndex>( m_config.checkpointIntervalFrames ) ==
-                                  0 );
+    sample.checkpointBoundary = ( sample.frameIndex == 0 ) || ( sample.frameIndex % static_cast<ReplayFrameIndex>( m_config.checkpointIntervalFrames ) == 0 );
 
     sample.camera = camera;
     const Physics::PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( physics );
@@ -2144,8 +2136,7 @@ void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t even
     const int modelCount = bodyStore.Count();
     const std::size_t modelCountSize = static_cast<std::size_t>( modelCount );
     m_captureBodyScratch.clear();
-    ReserveReplayRecorderSampleVector( m_captureBodyScratch, modelCountSize, sample.frameIndex,
-                                       "ReplayPresentationCapture::bodies" );
+    ReserveReplayRecorderSampleVector( m_captureBodyScratch, modelCountSize, sample.frameIndex, "ReplayPresentationCapture::bodies" );
 
     m_contactCountScratch.assign( modelCountSize, 0 );
     m_maxPenetrationScratch.assign( modelCountSize, 0.0f );
@@ -2156,11 +2147,9 @@ void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t even
 
     for ( const PhysicsDebugContact& contact : contacts )
     {
-        IncrementBodyContactSummary( contact.bodyA, contact.penetration, contact.normalImpulse, m_contactCountScratch,
-                                     m_maxPenetrationScratch, m_normalImpulseSumScratch );
+        IncrementBodyContactSummary( contact.bodyA, contact.penetration, contact.normalImpulse, m_contactCountScratch, m_maxPenetrationScratch, m_normalImpulseSumScratch );
 
-        IncrementBodyContactSummary( contact.bodyB, contact.penetration, contact.normalImpulse, m_contactCountScratch,
-                                     m_maxPenetrationScratch, m_normalImpulseSumScratch );
+        IncrementBodyContactSummary( contact.bodyB, contact.penetration, contact.normalImpulse, m_contactCountScratch, m_maxPenetrationScratch, m_normalImpulseSumScratch );
     }
 
     sample.pipelineRecordCount = SaturatingUint16( Physics::PhysicsEngine::ReadPipelineRecordCount( physics ) );
@@ -2209,8 +2198,7 @@ void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t even
     StoreVisualFramePayload( sampleSlot, sample, m_captureBodyScratch, forceVisualKeyframe, true );
     ReplayPresentationSample& latestCapture = m_latestResolvedPresentationSample;
     CopyPresentationHeader( sample, latestCapture );
-    ReserveReplayRecorderSampleVector( latestCapture.bodies, m_captureBodyScratch.size(), sample.frameIndex,
-                                       "ReplayPresentationLatestCapture::bodies" );
+    ReserveReplayRecorderSampleVector( latestCapture.bodies, m_captureBodyScratch.size(), sample.frameIndex, "ReplayPresentationLatestCapture::bodies" );
 
     latestCapture.bodies = m_captureBodyScratch;
     m_latestStateHash = hash;
@@ -2247,13 +2235,10 @@ void ReplayRecorder::CaptureFrameFromSolverSample( const ReplaySolverFrameSample
     sample.world = solverSample.world;
     sample.contactCount = solverSample.contactCount;
     sample.pipelineRecordCount = solverSample.pipelineRecordCount;
-    sample.checkpointBoundary = ( sample.frameIndex == 0 ) ||
-                                ( sample.frameIndex % static_cast<ReplayFrameIndex>( m_config.checkpointIntervalFrames ) ==
-                                  0 );
+    sample.checkpointBoundary = ( sample.frameIndex == 0 ) || ( sample.frameIndex % static_cast<ReplayFrameIndex>( m_config.checkpointIntervalFrames ) == 0 );
 
     m_captureBodyScratch.clear();
-    ReserveReplayRecorderSampleVector( m_captureBodyScratch, solverSample.bodies.size(), sample.frameIndex,
-                                       "ReplayPresentationMirror::bodies" );
+    ReserveReplayRecorderSampleVector( m_captureBodyScratch, solverSample.bodies.size(), sample.frameIndex, "ReplayPresentationMirror::bodies" );
 
     for ( const ReplaySolverBodySample& solverBody : solverSample.bodies )
     {
@@ -2291,8 +2276,7 @@ void ReplayRecorder::CaptureFrameFromSolverSample( const ReplaySolverFrameSample
     // instead of replaying up to a checkpoint interval of compact deltas.
     ReplayPresentationSample& latestCapture = m_latestResolvedPresentationSample;
     CopyPresentationHeader( sample, latestCapture );
-    ReserveReplayRecorderSampleVector( latestCapture.bodies, m_captureBodyScratch.size(), sample.frameIndex,
-                                       "ReplayPresentationLatestMirror::bodies" );
+    ReserveReplayRecorderSampleVector( latestCapture.bodies, m_captureBodyScratch.size(), sample.frameIndex, "ReplayPresentationLatestMirror::bodies" );
 
     latestCapture.bodies = m_captureBodyScratch;
     m_latestStateHash = sample.stateHash;
@@ -2328,69 +2312,34 @@ uint64_t ReplayRecorder::CollectMemoryBytes() const
 {
     SkullbonezCore::Core::MainMemoryReplayCategoryBytes categories;
     CollectMemoryCategoryBytes( categories );
-    return SkullbonezCore::Core::
-        MainMemoryReplayCategoryRangeBytes( categories,
-                                            SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationOwner,
-                                            SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverOwner );
+    return SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationOwner, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverOwner );
 }
 
 void ReplayRecorder::CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const
 {
-    SkullbonezCore::Core::
-        MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationOwner,
-                                          static_cast<uint64_t>( sizeof( *this ) ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationOwner, static_cast<uint64_t>( sizeof( *this ) ) );
 
-    SkullbonezCore::Core::
-        MainMemoryAddReplayCategoryBytes( categories,
-                                          SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationSampleRecords,
-                                          VectorCapacityBytes( m_samples ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationSampleRecords, VectorCapacityBytes( m_samples ) );
 
-    SkullbonezCore::Core::
-        MainMemoryAddReplayCategoryBytes( categories,
-                                          SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationCheckpoints,
-                                          VectorCapacityBytes( m_checkpoints ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationCheckpoints, VectorCapacityBytes( m_checkpoints ) );
 
-    SkullbonezCore::Core::
-        MainMemoryAddReplayCategoryBytes( categories,
-                                          SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationScratch,
-                                          ReplayRecorderScratchMemoryBytes( m_contactCountScratch, m_maxPenetrationScratch,
-                                                                            m_normalImpulseSumScratch ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationScratch, ReplayRecorderScratchMemoryBytes( m_contactCountScratch, m_maxPenetrationScratch, m_normalImpulseSumScratch ) );
 
     for ( const ReplayPresentationSample& sample : m_samples )
     {
-        SkullbonezCore::Core::
-            MainMemoryAddReplayCategoryBytes( categories,
-                                              SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies,
-                                              PresentationSampleMemoryBytes( sample ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies, PresentationSampleMemoryBytes( sample ) );
     }
 
     for ( const ReplayVisualDeltaFrame& frame : m_visualFrames )
     {
-        SkullbonezCore::Core::
-            MainMemoryAddReplayCategoryBytes( categories,
-                                              SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies,
-                                              VisualDeltaFrameMemoryBytes( frame ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies, VisualDeltaFrameMemoryBytes( frame ) );
     }
 
-    SkullbonezCore::Core::
-        MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies,
-                                          VectorCapacityBytes( m_visualBodyMetadata ) +
-                                              VectorCapacityBytes( m_visualMetadataIndexByModelRow ) +
-                                              VectorCapacityBytes( m_visualCarryStates ) +
-                                              VectorCapacityBytes( m_visualCarryActive ) +
-                                              VectorCapacityBytes( m_visualCarrySeenScratch ) +
-                                              VectorCapacityBytes( m_captureBodyScratch ) +
-                                              PresentationSampleMemoryBytes( m_latestResolvedPresentationSample ) +
-                                              VectorCapacityBytes( m_promotedPresentationSample.bodies ) +
-                                              VectorCapacityBytes( m_resolveStateScratch ) +
-                                              VectorCapacityBytes( m_resolveActiveScratch ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies, VectorCapacityBytes( m_visualBodyMetadata ) + VectorCapacityBytes( m_visualMetadataIndexByModelRow ) + VectorCapacityBytes( m_visualCarryStates ) + VectorCapacityBytes( m_visualCarryActive ) + VectorCapacityBytes( m_visualCarrySeenScratch ) + VectorCapacityBytes( m_captureBodyScratch ) + PresentationSampleMemoryBytes( m_latestResolvedPresentationSample ) + VectorCapacityBytes( m_promotedPresentationSample.bodies ) + VectorCapacityBytes( m_resolveStateScratch ) + VectorCapacityBytes( m_resolveActiveScratch ) );
 
     for ( const ReplayPresentationSample& resolved : m_resolvedPresentationSamples )
     {
-        SkullbonezCore::Core::
-            MainMemoryAddReplayCategoryBytes( categories,
-                                              SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies,
-                                              PresentationSampleMemoryBytes( resolved ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies, PresentationSampleMemoryBytes( resolved ) );
     }
 }
 
@@ -2409,8 +2358,7 @@ const ReplayPresentationSample* ReplayRecorder::LatestSample() const
         return &m_latestResolvedPresentationSample;
     }
 
-    return ResolveSampleAtOffset( offset, m_latestResolvedPresentationSample ) ? &m_latestResolvedPresentationSample
-                                                                               : nullptr;
+    return ResolveSampleAtOffset( offset, m_latestResolvedPresentationSample ) ? &m_latestResolvedPresentationSample : nullptr;
 }
 
 
@@ -2425,8 +2373,7 @@ const ReplayPresentationSample* ReplayRecorder::SampleAtNormalized( float normal
     const std::size_t maxOffset = m_sampleCount - 1;
     const std::size_t offset = static_cast<std::size_t>( static_cast<float>( maxOffset ) * t + 0.5f );
     const std::size_t resolvedOffset = (std::min)( offset, maxOffset );
-    ReplayPresentationSample&
-        resolved = m_resolvedPresentationSamples[m_nextResolvedPresentationSample % m_resolvedPresentationSamples.size()];
+    ReplayPresentationSample& resolved = m_resolvedPresentationSamples[m_nextResolvedPresentationSample % m_resolvedPresentationSamples.size()];
 
     m_nextResolvedPresentationSample = ( m_nextResolvedPresentationSample + 1u ) % m_resolvedPresentationSamples.size();
     return ResolveSampleAtOffset( resolvedOffset, resolved ) ? &resolved : nullptr;
@@ -2458,28 +2405,24 @@ std::size_t ReplayRecorder::AcquireSampleSlotIndex()
     return index;
 }
 
-std::size_t ReplayRecorder::FindOrAddVisualBodyMetadata( const ReplayBodyPresentationSample& body,
-                                                         ReplayFrameIndex frameIndex )
+std::size_t ReplayRecorder::FindOrAddVisualBodyMetadata( const ReplayBodyPresentationSample& body, ReplayFrameIndex frameIndex )
 {
     const ReplayVisualBodyMetadata metadata = VisualMetadataFromBody( body );
     const int modelRow = body.modelRow.value;
-    const bool rowLookupValid = modelRow >= 0 &&
-                                static_cast<std::size_t>( modelRow ) < m_visualMetadataIndexByModelRow.size();
+    const bool rowLookupValid = modelRow >= 0 && static_cast<std::size_t>( modelRow ) < m_visualMetadataIndexByModelRow.size();
 
     if ( rowLookupValid )
     {
         const uint32_t cachedIndex = m_visualMetadataIndexByModelRow[static_cast<std::size_t>( modelRow )];
 
-        if ( cachedIndex != REPLAY_INVALID_METADATA_INDEX &&
-             static_cast<std::size_t>( cachedIndex ) < m_visualBodyMetadata.size() &&
+        if ( cachedIndex != REPLAY_INVALID_METADATA_INDEX && static_cast<std::size_t>( cachedIndex ) < m_visualBodyMetadata.size() &&
              SameVisualMetadata( m_visualBodyMetadata[static_cast<std::size_t>( cachedIndex )], metadata ) )
         {
             return static_cast<std::size_t>( cachedIndex );
         }
     }
 
-    ReserveReplayRecorderSampleVector( m_visualBodyMetadata, m_visualBodyMetadata.size() + 1u, frameIndex,
-                                       "ReplayVisualBodyMetadata" );
+    ReserveReplayRecorderSampleVector( m_visualBodyMetadata, m_visualBodyMetadata.size() + 1u, frameIndex, "ReplayVisualBodyMetadata" );
 
     m_visualBodyMetadata.push_back( metadata );
 
@@ -2502,8 +2445,10 @@ std::size_t ReplayRecorder::FindOrAddVisualBodyMetadata( const ReplayBodyPresent
     return metadataIndex;
 }
 
-void ReplayRecorder::StoreVisualFramePayload( std::size_t slotIndex, const ReplayPresentationSample& sample,
-                                              const std::vector<ReplayBodyPresentationSample>& bodies, bool forceKeyframe,
+void ReplayRecorder::StoreVisualFramePayload( std::size_t slotIndex,
+                                              const ReplayPresentationSample& sample,
+                                              const std::vector<ReplayBodyPresentationSample>& bodies,
+                                              bool forceKeyframe,
                                               bool updateCarry )
 {
     if ( slotIndex >= m_visualFrames.size() )
@@ -2515,8 +2460,7 @@ void ReplayRecorder::StoreVisualFramePayload( std::size_t slotIndex, const Repla
     frame.keyframe = forceKeyframe;
     frame.bodyMetadataIndices.clear();
     frame.changedBodies.clear();
-    ReserveReplayRecorderSampleVector( frame.bodyMetadataIndices, bodies.size(), sample.frameIndex,
-                                       "ReplayVisualFrame::bodyOrder" );
+    ReserveReplayRecorderSampleVector( frame.bodyMetadataIndices, bodies.size(), sample.frameIndex, "ReplayVisualFrame::bodyOrder" );
 
     if ( updateCarry )
     {
@@ -2532,13 +2476,11 @@ void ReplayRecorder::StoreVisualFramePayload( std::size_t slotIndex, const Repla
         const ReplayVisualBodyState state = VisualStateFromBody( body );
         const bool previousActive = metadataIndex < m_visualCarryActive.size() && m_visualCarryActive[metadataIndex] != 0u;
 
-        const bool changed = forceKeyframe || !previousActive ||
-                             !SameVisualState( m_visualCarryStates[metadataIndex], state );
+        const bool changed = forceKeyframe || !previousActive || !SameVisualState( m_visualCarryStates[metadataIndex], state );
 
         if ( changed )
         {
-            ReserveReplayRecorderSampleVector( frame.changedBodies, frame.changedBodies.size() + 1u, sample.frameIndex,
-                                               "ReplayVisualFrame::bodyDeltas" );
+            ReserveReplayRecorderSampleVector( frame.changedBodies, frame.changedBodies.size() + 1u, sample.frameIndex, "ReplayVisualFrame::bodyDeltas" );
 
             ReplayVisualBodyDelta delta;
             delta.metadataIndex = packedMetadataIndex;
@@ -2625,15 +2567,13 @@ bool ReplayRecorder::ResolveSampleAtOffset( std::size_t offset, ReplayPresentati
     const ReplayVisualDeltaFrame& targetFrame = m_visualFrames[targetIndex];
     CopyPresentationHeader( source, outSample );
     outSample.bodies.clear();
-    ReserveReplayRecorderSampleVector( outSample.bodies, targetFrame.bodyMetadataIndices.size(), source.frameIndex,
-                                       "ReplayPresentationResolve::bodies" );
+    ReserveReplayRecorderSampleVector( outSample.bodies, targetFrame.bodyMetadataIndices.size(), source.frameIndex, "ReplayPresentationResolve::bodies" );
 
     for ( uint32_t packedMetadataIndex : targetFrame.bodyMetadataIndices )
     {
         const std::size_t metadataIndex = static_cast<std::size_t>( packedMetadataIndex );
 
-        if ( metadataIndex >= m_visualBodyMetadata.size() || metadataIndex >= m_resolveActiveScratch.size() ||
-             m_resolveActiveScratch[metadataIndex] == 0u )
+        if ( metadataIndex >= m_visualBodyMetadata.size() || metadataIndex >= m_resolveActiveScratch.size() || m_resolveActiveScratch[metadataIndex] == 0u )
         {
             return false;
         }
@@ -2768,8 +2708,7 @@ bool ReplaySolverRecorder::Configure( const ReplayRecorderConfig& config )
     m_promotedSolverSample.bodies.reserve( bodyCapacity );
     m_solverResolveStateScratch.reserve( bodyCapacity );
     m_solverResolveActiveScratch.reserve( bodyCapacity );
-    ReserveReplayRecorderScratch( m_contactCountScratch, m_maxPenetrationScratch, m_normalImpulseSumScratch,
-                                  m_config.runtimeBodyCapacity );
+    ReserveReplayRecorderScratch( m_contactCountScratch, m_maxPenetrationScratch, m_normalImpulseSumScratch, m_config.runtimeBodyCapacity );
 
     for ( ReplaySolverFrameSample& sample : m_samples )
     {
@@ -2793,8 +2732,7 @@ void ReplaySolverRecorder::ResetTimeline( const char* sceneLabel )
     m_nextFrameIndex = 0;
     m_latestSolverHash = 0;
     m_solverBodyMetadata.clear();
-    std::fill( m_solverMetadataIndexByModelRow.begin(), m_solverMetadataIndexByModelRow.end(),
-               REPLAY_INVALID_METADATA_INDEX );
+    std::fill( m_solverMetadataIndexByModelRow.begin(), m_solverMetadataIndexByModelRow.end(), REPLAY_INVALID_METADATA_INDEX );
 
     m_solverCarryStates.clear();
     m_solverCarryActive.clear();
@@ -2823,10 +2761,15 @@ void ReplaySolverRecorder::ResetTimeline( const char* sceneLabel )
     (void)sceneLabel;
 }
 
-void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame,
-                                         float physicsDt, const ReplayWorldPresentationSample& world,
-                                         const ReplayCameraSample& camera, const ReplayLauncherVisualSample& launcherVisual,
-                                         Physics::PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay,
+void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch,
+                                         uint32_t eventCursor,
+                                         int sceneFrame,
+                                         float physicsDt,
+                                         const ReplayWorldPresentationSample& world,
+                                         const ReplayCameraSample& camera,
+                                         const ReplayLauncherVisualSample& launcherVisual,
+                                         Physics::PhysicsEngine& physics,
+                                         const Gameplay::TornadoGameplay& tornadoGameplay,
                                          std::span<const char* const> entityDisplayNames )
 {
     if ( !m_config.enabled )
@@ -2857,9 +2800,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_
     sample.pipelineRecordCount = 0;
     sample.launcherVisual = launcherVisual;
 
-    sample.checkpointBoundary = ( sample.frameIndex == 0 ) ||
-                                ( sample.frameIndex % static_cast<ReplayFrameIndex>( m_config.checkpointIntervalFrames ) ==
-                                  0 );
+    sample.checkpointBoundary = ( sample.frameIndex == 0 ) || ( sample.frameIndex % static_cast<ReplayFrameIndex>( m_config.checkpointIntervalFrames ) == 0 );
 
     sample.camera = camera;
     const Physics::PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( physics );
@@ -2867,8 +2808,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_
     const int modelCount = bodyStore.Count();
     const std::size_t modelCountSize = static_cast<std::size_t>( modelCount );
     m_solverCaptureBodies.clear();
-    ReserveReplayRecorderSampleVector( m_solverCaptureBodies, modelCountSize, sample.frameIndex,
-                                       "ReplaySolverCapture::bodies" );
+    ReserveReplayRecorderSampleVector( m_solverCaptureBodies, modelCountSize, sample.frameIndex, "ReplaySolverCapture::bodies" );
 
     m_contactCountScratch.assign( modelCountSize, 0 );
     m_maxPenetrationScratch.assign( modelCountSize, 0.0f );
@@ -2879,29 +2819,24 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_
 
     for ( const PhysicsDebugContact& contact : contacts )
     {
-        IncrementBodyContactSummary( contact.bodyA, contact.penetration, contact.normalImpulse, m_contactCountScratch,
-                                     m_maxPenetrationScratch, m_normalImpulseSumScratch );
+        IncrementBodyContactSummary( contact.bodyA, contact.penetration, contact.normalImpulse, m_contactCountScratch, m_maxPenetrationScratch, m_normalImpulseSumScratch );
 
-        IncrementBodyContactSummary( contact.bodyB, contact.penetration, contact.normalImpulse, m_contactCountScratch,
-                                     m_maxPenetrationScratch, m_normalImpulseSumScratch );
+        IncrementBodyContactSummary( contact.bodyB, contact.penetration, contact.normalImpulse, m_contactCountScratch, m_maxPenetrationScratch, m_normalImpulseSumScratch );
     }
 
     sample.pipelineRecordCount = SaturatingUint16( Physics::PhysicsEngine::ReadPipelineRecordCount( physics ) );
-    physics.CaptureReplaySolverSnapshot( m_solverCaptureWorldSnapshot.physics,
-                                         Physics::MakePhysicsBodyCountFromNonNegativeInt( static_cast<int>( modelCount ) ) );
+    physics.CaptureReplaySolverSnapshot( m_solverCaptureWorldSnapshot.physics, Physics::MakePhysicsBodyCountFromNonNegativeInt( static_cast<int>( modelCount ) ) );
 
     m_solverCaptureWorldSnapshot.tornadoConfig = tornadoGameplay.GetFieldConfig();
-    CopyTornadoSystemConfigWithReserve( m_solverCaptureWorldSnapshot.tornadoSystemConfig, tornadoGameplay.GetSystemConfig(),
-                                        sample.frameIndex, "ReplaySolverCapture::tornadoSystem" );
+    CopyTornadoSystemConfigWithReserve( m_solverCaptureWorldSnapshot.tornadoSystemConfig, tornadoGameplay.GetSystemConfig(), sample.frameIndex, "ReplaySolverCapture::tornadoSystem" );
 
     m_solverCaptureWorldSnapshot.tornadoSystemElapsedSeconds = tornadoGameplay.GetSystemElapsedSeconds();
-    ReserveReplayRecorderDeltaVector( m_solverCaptureWorldSnapshot.tornadoCaptureSeconds,
-                                      tornadoGameplay.CaptureSeconds().size(), sample.frameIndex,
-                                      "ReplaySolverCapture::tornadoCapture" );
+    ReserveReplayRecorderDeltaVector( m_solverCaptureWorldSnapshot.tornadoCaptureSeconds, tornadoGameplay.CaptureSeconds().size(), sample.frameIndex, "ReplaySolverCapture::tornadoCapture" );
 
     m_solverCaptureWorldSnapshot.tornadoCaptureSeconds = tornadoGameplay.CaptureSeconds();
     ReserveReplayRecorderDeltaVector( m_solverCaptureWorldSnapshot.tornadoEjectCooldownSeconds,
-                                      tornadoGameplay.EjectCooldownSeconds().size(), sample.frameIndex,
+                                      tornadoGameplay.EjectCooldownSeconds().size(),
+                                      sample.frameIndex,
                                       "ReplaySolverCapture::tornadoCooldown" );
 
     m_solverCaptureWorldSnapshot.tornadoEjectCooldownSeconds = tornadoGameplay.EjectCooldownSeconds();
@@ -2941,16 +2876,19 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_
         m_solverCaptureBodies.push_back( body );
     }
 
-    const uint64_t solverHash = BuildSolverHashBreakdown( sample.world, static_cast<int>( modelCount ), sample.contactCount,
-                                                          sample.pipelineRecordCount, sample.launcherVisual,
-                                                          m_solverCaptureWorldSnapshot, m_solverCaptureBodies )
+    const uint64_t solverHash = BuildSolverHashBreakdown( sample.world,
+                                                          static_cast<int>( modelCount ),
+                                                          sample.contactCount,
+                                                          sample.pipelineRecordCount,
+                                                          sample.launcherVisual,
+                                                          m_solverCaptureWorldSnapshot,
+                                                          m_solverCaptureBodies )
                                     .bodies;
 
     sample.presentationHash = presentationHash;
     sample.solverHash = solverHash;
     const bool forceSolverKeyframe = sample.checkpointBoundary || m_sampleCount == 1u;
-    StoreSolverFramePayload( sampleSlot, sample, m_solverCaptureBodies, m_solverCaptureWorldSnapshot, forceSolverKeyframe,
-                             true );
+    StoreSolverFramePayload( sampleSlot, sample, m_solverCaptureBodies, m_solverCaptureWorldSnapshot, forceSolverKeyframe, true );
 
     // Why: the paired presentation capture asks for LatestSample immediately.
     // Reconstructing the sample we just captured from as many as 60 compact
@@ -2958,12 +2896,10 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_
     // Cache one dense latest sample; arbitrary historical reads still rebuild
     // through ResolveSolverSampleAtOffset and compact retention remains bounded.
     CopySolverHeader( sample, m_latestResolvedSolverSample );
-    ReserveReplayRecorderSampleVector( m_latestResolvedSolverSample.bodies, m_solverCaptureBodies.size(), sample.frameIndex,
-                                       "ReplaySolverLatestCapture::bodies" );
+    ReserveReplayRecorderSampleVector( m_latestResolvedSolverSample.bodies, m_solverCaptureBodies.size(), sample.frameIndex, "ReplaySolverLatestCapture::bodies" );
 
     m_latestResolvedSolverSample.bodies = m_solverCaptureBodies;
-    CopySolverWorldSnapshotWithReserve( m_latestResolvedSolverSample.worldSnapshot, m_solverCaptureWorldSnapshot,
-                                        sample.frameIndex, "ReplaySolverLatestCapture::worldSnapshot" );
+    CopySolverWorldSnapshotWithReserve( m_latestResolvedSolverSample.worldSnapshot, m_solverCaptureWorldSnapshot, sample.frameIndex, "ReplaySolverLatestCapture::worldSnapshot" );
 
     m_latestSolverHash = solverHash;
     ++m_totalFramesCaptured;
@@ -3001,89 +2937,40 @@ uint64_t ReplaySolverRecorder::CollectMemoryBytes() const
 {
     SkullbonezCore::Core::MainMemoryReplayCategoryBytes categories;
     CollectMemoryCategoryBytes( categories );
-    return SkullbonezCore::Core::
-        MainMemoryReplayCategoryRangeBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverOwner,
-                                            SkullbonezCore::Core::MainMemoryReplayByteCategory::EventsOwner );
+    return SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverOwner, SkullbonezCore::Core::MainMemoryReplayByteCategory::EventsOwner );
 }
 
-void ReplaySolverRecorder::CollectMemoryCategoryBytes(
-    SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const
+void ReplaySolverRecorder::CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const
 {
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories,
-                                                            SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverOwner,
-                                                            static_cast<uint64_t>( sizeof( *this ) ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverOwner, static_cast<uint64_t>( sizeof( *this ) ) );
 
-    SkullbonezCore::Core::
-        MainMemoryAddReplayCategoryBytes( categories,
-                                          SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverSampleRecords,
-                                          VectorCapacityBytes( m_samples ) + VectorCapacityBytes( m_solverFrames ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverSampleRecords, VectorCapacityBytes( m_samples ) + VectorCapacityBytes( m_solverFrames ) );
 
-    SkullbonezCore::Core::
-        MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverCheckpoints,
-                                          VectorCapacityBytes( m_checkpoints ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverCheckpoints, VectorCapacityBytes( m_checkpoints ) );
 
-    SkullbonezCore::Core::
-        MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverScratch,
-                                          ReplayRecorderScratchMemoryBytes( m_contactCountScratch, m_maxPenetrationScratch,
-                                                                            m_normalImpulseSumScratch ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverScratch, ReplayRecorderScratchMemoryBytes( m_contactCountScratch, m_maxPenetrationScratch, m_normalImpulseSumScratch ) );
 
     for ( const ReplaySolverFrameSample& sample : m_samples )
     {
-        SkullbonezCore::Core::
-            MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverBodies,
-                                              VectorCapacityBytes( sample.bodies ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverBodies, VectorCapacityBytes( sample.bodies ) );
 
-        SkullbonezCore::Core::
-            MainMemoryAddReplayCategoryBytes( categories,
-                                              SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverWorldState,
-                                              SolverWorldSnapshotMemoryBytes( sample.worldSnapshot ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverWorldState, SolverWorldSnapshotMemoryBytes( sample.worldSnapshot ) );
 
-        SkullbonezCore::Core::
-            MainMemoryAddReplayCategoryBytes( categories,
-                                              SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverLauncherVisuals,
-                                              LauncherVisualMemoryBytes( sample.launcherVisual ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverLauncherVisuals, LauncherVisualMemoryBytes( sample.launcherVisual ) );
     }
 
     for ( const ReplaySolverDeltaFrame& frame : m_solverFrames )
     {
-        SkullbonezCore::Core::
-            MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverBodies,
-                                              SolverDeltaFrameMemoryBytes( frame ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverBodies, SolverDeltaFrameMemoryBytes( frame ) );
 
-        SkullbonezCore::Core::
-            MainMemoryAddReplayCategoryBytes( categories,
-                                              SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverWorldState,
-                                              SolverWorldDeltaFrameMemoryBytes( frame.world ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverWorldState, SolverWorldDeltaFrameMemoryBytes( frame.world ) );
     }
 
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories,
-                                                            SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverBodies,
-                                                            VectorCapacityBytes( m_solverBodyMetadata ) +
-                                                                VectorCapacityBytes( m_solverMetadataIndexByModelRow ) +
-                                                                VectorCapacityBytes( m_solverCarryStates ) +
-                                                                VectorCapacityBytes( m_solverCarryActive ) +
-                                                                VectorCapacityBytes( m_solverCarrySeenScratch ) +
-                                                                VectorCapacityBytes( m_solverCaptureBodies ) +
-                                                                VectorCapacityBytes( m_resolvedSolverSample.bodies ) +
-                                                                VectorCapacityBytes( m_latestResolvedSolverSample.bodies ) +
-                                                                VectorCapacityBytes( m_promotedSolverSample.bodies ) +
-                                                                VectorCapacityBytes( m_solverResolveStateScratch ) +
-                                                                VectorCapacityBytes( m_solverResolveActiveScratch ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverBodies, VectorCapacityBytes( m_solverBodyMetadata ) + VectorCapacityBytes( m_solverMetadataIndexByModelRow ) + VectorCapacityBytes( m_solverCarryStates ) + VectorCapacityBytes( m_solverCarryActive ) + VectorCapacityBytes( m_solverCarrySeenScratch ) + VectorCapacityBytes( m_solverCaptureBodies ) + VectorCapacityBytes( m_resolvedSolverSample.bodies ) + VectorCapacityBytes( m_latestResolvedSolverSample.bodies ) + VectorCapacityBytes( m_promotedSolverSample.bodies ) + VectorCapacityBytes( m_solverResolveStateScratch ) + VectorCapacityBytes( m_solverResolveActiveScratch ) );
 
-    SkullbonezCore::Core::
-        MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverWorldState,
-                                          SolverWorldSnapshotMemoryBytes( m_solverCaptureWorldSnapshot ) +
-                                              SolverWorldSnapshotMemoryBytes( m_solverWorldCarrySnapshot ) +
-                                              SolverWorldSnapshotMemoryBytes( m_resolvedSolverSample.worldSnapshot ) +
-                                              SolverWorldSnapshotMemoryBytes( m_latestResolvedSolverSample.worldSnapshot ) +
-                                              SolverWorldSnapshotMemoryBytes( m_promotedSolverSample.worldSnapshot ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverWorldState, SolverWorldSnapshotMemoryBytes( m_solverCaptureWorldSnapshot ) + SolverWorldSnapshotMemoryBytes( m_solverWorldCarrySnapshot ) + SolverWorldSnapshotMemoryBytes( m_resolvedSolverSample.worldSnapshot ) + SolverWorldSnapshotMemoryBytes( m_latestResolvedSolverSample.worldSnapshot ) + SolverWorldSnapshotMemoryBytes( m_promotedSolverSample.worldSnapshot ) );
 
-    SkullbonezCore::Core::
-        MainMemoryAddReplayCategoryBytes( categories,
-                                          SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverLauncherVisuals,
-                                          LauncherVisualMemoryBytes( m_resolvedSolverSample.launcherVisual ) +
-                                              LauncherVisualMemoryBytes( m_latestResolvedSolverSample.launcherVisual ) +
-                                              LauncherVisualMemoryBytes( m_promotedSolverSample.launcherVisual ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverLauncherVisuals, LauncherVisualMemoryBytes( m_resolvedSolverSample.launcherVisual ) + LauncherVisualMemoryBytes( m_latestResolvedSolverSample.launcherVisual ) + LauncherVisualMemoryBytes( m_promotedSolverSample.launcherVisual ) );
 }
 
 const ReplaySolverFrameSample* ReplaySolverRecorder::LatestSample() const
@@ -3116,8 +3003,7 @@ const ReplaySolverFrameSample* ReplaySolverRecorder::SampleAtNormalized( float n
     const std::size_t offset = static_cast<std::size_t>( static_cast<float>( maxOffset ) * t + 0.5f );
     const std::size_t resolvedOffset = (std::min)( offset, maxOffset );
 
-    if ( m_scrubResolveCacheValid && m_scrubResolveCacheOffset == resolvedOffset &&
-         m_scrubResolveCacheRevision == m_contentRevision )
+    if ( m_scrubResolveCacheValid && m_scrubResolveCacheOffset == resolvedOffset && m_scrubResolveCacheRevision == m_contentRevision )
     {
         return &m_resolvedSolverSample;
     }
@@ -3158,28 +3044,24 @@ std::size_t ReplaySolverRecorder::AcquireSampleSlotIndex()
     return index;
 }
 
-std::size_t ReplaySolverRecorder::FindOrAddSolverBodyMetadata( const ReplaySolverBodySample& body,
-                                                               ReplayFrameIndex frameIndex )
+std::size_t ReplaySolverRecorder::FindOrAddSolverBodyMetadata( const ReplaySolverBodySample& body, ReplayFrameIndex frameIndex )
 {
     const ReplaySolverBodyMetadata metadata = SolverMetadataFromBody( body );
     const int modelRow = body.modelRow.value;
-    const bool rowLookupValid = modelRow >= 0 &&
-                                static_cast<std::size_t>( modelRow ) < m_solverMetadataIndexByModelRow.size();
+    const bool rowLookupValid = modelRow >= 0 && static_cast<std::size_t>( modelRow ) < m_solverMetadataIndexByModelRow.size();
 
     if ( rowLookupValid )
     {
         const uint32_t cachedIndex = m_solverMetadataIndexByModelRow[static_cast<std::size_t>( modelRow )];
 
-        if ( cachedIndex != REPLAY_INVALID_METADATA_INDEX &&
-             static_cast<std::size_t>( cachedIndex ) < m_solverBodyMetadata.size() &&
+        if ( cachedIndex != REPLAY_INVALID_METADATA_INDEX && static_cast<std::size_t>( cachedIndex ) < m_solverBodyMetadata.size() &&
              SameSolverMetadata( m_solverBodyMetadata[static_cast<std::size_t>( cachedIndex )], metadata ) )
         {
             return static_cast<std::size_t>( cachedIndex );
         }
     }
 
-    ReserveReplayRecorderSampleVector( m_solverBodyMetadata, m_solverBodyMetadata.size() + 1u, frameIndex,
-                                       "ReplaySolverBodyMetadata" );
+    ReserveReplayRecorderSampleVector( m_solverBodyMetadata, m_solverBodyMetadata.size() + 1u, frameIndex, "ReplaySolverBodyMetadata" );
 
     m_solverBodyMetadata.push_back( metadata );
 
@@ -3204,10 +3086,12 @@ std::size_t ReplaySolverRecorder::FindOrAddSolverBodyMetadata( const ReplaySolve
     return metadataIndex;
 }
 
-void ReplaySolverRecorder::StoreSolverFramePayload( std::size_t slotIndex, const ReplaySolverFrameSample& sample,
+void ReplaySolverRecorder::StoreSolverFramePayload( std::size_t slotIndex,
+                                                    const ReplaySolverFrameSample& sample,
                                                     const std::vector<ReplaySolverBodySample>& bodies,
                                                     const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& worldSnapshot,
-                                                    bool forceKeyframe, bool updateCarry )
+                                                    bool forceKeyframe,
+                                                    bool updateCarry )
 {
     // Invariant: slotIndex addresses both the retained sample header and the
     // compact solver payload. Saved replay artifacts still see a dense sample
@@ -3221,8 +3105,7 @@ void ReplaySolverRecorder::StoreSolverFramePayload( std::size_t slotIndex, const
     frame.keyframe = forceKeyframe;
     frame.bodyMetadataIndices.clear();
     frame.changedBodies.clear();
-    ReserveReplayRecorderSampleVector( frame.bodyMetadataIndices, bodies.size(), sample.frameIndex,
-                                       "ReplaySolverFrame::bodyOrder" );
+    ReserveReplayRecorderSampleVector( frame.bodyMetadataIndices, bodies.size(), sample.frameIndex, "ReplaySolverFrame::bodyOrder" );
 
     if ( updateCarry )
     {
@@ -3238,13 +3121,11 @@ void ReplaySolverRecorder::StoreSolverFramePayload( std::size_t slotIndex, const
         const ReplaySolverBodyState state = SolverStateFromBody( body );
         const bool previousActive = metadataIndex < m_solverCarryActive.size() && m_solverCarryActive[metadataIndex] != 0u;
 
-        const bool changed = forceKeyframe || !previousActive ||
-                             !SameSolverState( m_solverCarryStates[metadataIndex], state );
+        const bool changed = forceKeyframe || !previousActive || !SameSolverState( m_solverCarryStates[metadataIndex], state );
 
         if ( changed )
         {
-            ReserveReplayRecorderSampleVector( frame.changedBodies, frame.changedBodies.size() + 1u, sample.frameIndex,
-                                               "ReplaySolverFrame::bodyDeltas" );
+            ReserveReplayRecorderSampleVector( frame.changedBodies, frame.changedBodies.size() + 1u, sample.frameIndex, "ReplaySolverFrame::bodyDeltas" );
 
             ReplaySolverBodyDelta delta;
             delta.metadataIndex = packedMetadataIndex;
@@ -3276,8 +3157,7 @@ void ReplaySolverRecorder::StoreSolverFramePayload( std::size_t slotIndex, const
 
     if ( updateCarry )
     {
-        CopySolverWorldSnapshotWithReserve( m_solverWorldCarrySnapshot, worldSnapshot, sample.frameIndex,
-                                            "ReplaySolverWorldCarry" );
+        CopySolverWorldSnapshotWithReserve( m_solverWorldCarrySnapshot, worldSnapshot, sample.frameIndex, "ReplaySolverWorldCarry" );
 
         m_solverWorldCarryActive = true;
     }
@@ -3355,15 +3235,13 @@ bool ReplaySolverRecorder::ResolveSolverSampleAtOffset( std::size_t offset, Repl
     const ReplaySolverDeltaFrame& targetFrame = m_solverFrames[targetIndex];
     CopySolverHeader( source, outSample );
     outSample.bodies.clear();
-    ReserveReplayRecorderSampleVector( outSample.bodies, targetFrame.bodyMetadataIndices.size(), source.frameIndex,
-                                       "ReplaySolverResolve::bodies" );
+    ReserveReplayRecorderSampleVector( outSample.bodies, targetFrame.bodyMetadataIndices.size(), source.frameIndex, "ReplaySolverResolve::bodies" );
 
     for ( uint32_t packedMetadataIndex : targetFrame.bodyMetadataIndices )
     {
         const std::size_t metadataIndex = static_cast<std::size_t>( packedMetadataIndex );
 
-        if ( metadataIndex >= m_solverBodyMetadata.size() || metadataIndex >= m_solverResolveActiveScratch.size() ||
-             m_solverResolveActiveScratch[metadataIndex] == 0u )
+        if ( metadataIndex >= m_solverBodyMetadata.size() || metadataIndex >= m_solverResolveActiveScratch.size() || m_solverResolveActiveScratch[metadataIndex] == 0u )
         {
             return false;
         }
@@ -3393,8 +3271,7 @@ void ReplaySolverRecorder::PromoteSolverFrameToKeyframe( std::size_t offset )
 
     if ( ResolveSolverSampleAtOffset( offset, m_promotedSolverSample ) )
     {
-        StoreSolverFramePayload( index, m_promotedSolverSample, m_promotedSolverSample.bodies,
-                                 m_promotedSolverSample.worldSnapshot, true, false );
+        StoreSolverFramePayload( index, m_promotedSolverSample, m_promotedSolverSample.bodies, m_promotedSolverSample.worldSnapshot, true, false );
     }
 }
 
@@ -3511,20 +3388,14 @@ uint64_t ReplayEventRecorder::CollectMemoryBytes() const
 {
     SkullbonezCore::Core::MainMemoryReplayCategoryBytes categories;
     CollectMemoryCategoryBytes( categories );
-    return SkullbonezCore::Core::
-        MainMemoryReplayCategoryRangeBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::EventsOwner,
-                                            SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner );
+    return SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::EventsOwner, SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner );
 }
 
 void ReplayEventRecorder::CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const
 {
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories,
-                                                            SkullbonezCore::Core::MainMemoryReplayByteCategory::EventsOwner,
-                                                            static_cast<uint64_t>( sizeof( *this ) ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::EventsOwner, static_cast<uint64_t>( sizeof( *this ) ) );
 
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories,
-                                                            SkullbonezCore::Core::MainMemoryReplayByteCategory::Events,
-                                                            VectorCapacityBytes( m_events ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::Events, VectorCapacityBytes( m_events ) );
 }
 
 ReplayEventSample& ReplayEventRecorder::AcquireEventSlot()

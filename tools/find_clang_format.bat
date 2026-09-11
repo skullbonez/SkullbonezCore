@@ -28,6 +28,11 @@ REM ===============================================================
 
 if exist "%CLANG_FMT%" exit /b 0
 
+if exist "%SKULLBONEZ_CLANG_FORMAT%" (
+    set "CLANG_FMT=%SKULLBONEZ_CLANG_FORMAT%"
+    exit /b 0
+)
+
 for /f "usebackq tokens=*" %%i in (`"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -find VC\Tools\Llvm\x64\bin\clang-format.exe`) do (
     set "CLANG_FMT=%%i"
     goto :found

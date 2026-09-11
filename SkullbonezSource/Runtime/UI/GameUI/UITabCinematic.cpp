@@ -65,74 +65,71 @@ struct GameCinematicFeatureSpec
     SkullbonezCore::UI::UICinematicFeature feature;
 };
 
-constexpr GameCinematicSliderSpec kGameCinematicSliderSpecs[] = {
-    { "Tonemap", "Exposure", SkullbonezCore::UI::UICinematicParam::Exposure },
-    { nullptr, "Gamma", SkullbonezCore::UI::UICinematicParam::Gamma },
-    { "Style", "Sky mode", SkullbonezCore::UI::UICinematicParam::SkyMode },
-    { nullptr, "Terrain mode", SkullbonezCore::UI::UICinematicParam::TerrainMode },
-    { nullptr, "Object style", SkullbonezCore::UI::UICinematicParam::ObjectStyle },
-    { nullptr, "Water mode", SkullbonezCore::UI::UICinematicParam::WaterMode },
-    { nullptr, "Saturation", SkullbonezCore::UI::UICinematicParam::StyleSaturation },
-    { nullptr, "Contrast", SkullbonezCore::UI::UICinematicParam::StyleContrast },
-    { nullptr, "Vignette", SkullbonezCore::UI::UICinematicParam::StyleVignette },
-    { "Sun", "Azimuth", SkullbonezCore::UI::UICinematicParam::SunAzimuth },
-    { nullptr, "Elevation", SkullbonezCore::UI::UICinematicParam::SunElevation },
-    { nullptr, "Brightness", SkullbonezCore::UI::UICinematicParam::SunBrightness },
-    { nullptr, "Sun R", SkullbonezCore::UI::UICinematicParam::SunRed },
-    { nullptr, "Sun G", SkullbonezCore::UI::UICinematicParam::SunGreen },
-    { nullptr, "Sun B", SkullbonezCore::UI::UICinematicParam::SunBlue },
-    { "Sky", "Glow", SkullbonezCore::UI::UICinematicParam::SkyGlow },
-    { nullptr, "Horizon R", SkullbonezCore::UI::UICinematicParam::HorizonRed },
-    { nullptr, "Horizon G", SkullbonezCore::UI::UICinematicParam::HorizonGreen },
-    { nullptr, "Horizon B", SkullbonezCore::UI::UICinematicParam::HorizonBlue },
-    { nullptr, "Zenith R", SkullbonezCore::UI::UICinematicParam::ZenithRed },
-    { nullptr, "Zenith G", SkullbonezCore::UI::UICinematicParam::ZenithGreen },
-    { nullptr, "Zenith B", SkullbonezCore::UI::UICinematicParam::ZenithBlue },
-    { "Clouds", "Coverage", SkullbonezCore::UI::UICinematicParam::CloudCoverage },
-    { nullptr, "Softness", SkullbonezCore::UI::UICinematicParam::CloudSoftness },
-    { nullptr, "Scale", SkullbonezCore::UI::UICinematicParam::CloudScale },
-    { nullptr, "Intensity", SkullbonezCore::UI::UICinematicParam::CloudIntensity },
-    { "Shafts", "Strength", SkullbonezCore::UI::UICinematicParam::ShaftStrength },
-    { nullptr, "Falloff", SkullbonezCore::UI::UICinematicParam::ShaftFalloff },
-    { "Volume", "Strength", SkullbonezCore::UI::UICinematicParam::VolumetricStrength },
-    { nullptr, "Density", SkullbonezCore::UI::UICinematicParam::VolumetricDensity },
-    { nullptr, "Decay", SkullbonezCore::UI::UICinematicParam::VolumetricDecay },
-    { "Bloom", "Threshold", SkullbonezCore::UI::UICinematicParam::BloomThreshold },
-    { nullptr, "Knee", SkullbonezCore::UI::UICinematicParam::BloomKnee },
-    { nullptr, "Strength", SkullbonezCore::UI::UICinematicParam::BloomStrength },
-    { nullptr, "Radius", SkullbonezCore::UI::UICinematicParam::BloomRadius },
-    { "Terrain", "Relief", SkullbonezCore::UI::UICinematicParam::TerrainRelief },
-    { nullptr, "Ground R", SkullbonezCore::UI::UICinematicParam::TerrainTintRed },
-    { nullptr, "Ground G", SkullbonezCore::UI::UICinematicParam::TerrainTintGreen },
-    { nullptr, "Ground B", SkullbonezCore::UI::UICinematicParam::TerrainTintBlue },
-    { nullptr, "Accent R", SkullbonezCore::UI::UICinematicParam::TerrainAccentRed },
-    { nullptr, "Accent G", SkullbonezCore::UI::UICinematicParam::TerrainAccentGreen },
-    { nullptr, "Accent B", SkullbonezCore::UI::UICinematicParam::TerrainAccentBlue },
-    { nullptr, "Grid scale", SkullbonezCore::UI::UICinematicParam::TerrainGridScale },
-    { nullptr, "Grid strength", SkullbonezCore::UI::UICinematicParam::TerrainGridStrength },
-    { "Water", "Water R", SkullbonezCore::UI::UICinematicParam::WaterTintRed },
-    { nullptr, "Water G", SkullbonezCore::UI::UICinematicParam::WaterTintGreen },
-    { nullptr, "Water B", SkullbonezCore::UI::UICinematicParam::WaterTintBlue },
-    { nullptr, "Alpha", SkullbonezCore::UI::UICinematicParam::WaterAlpha },
-    { nullptr, "Reflection", SkullbonezCore::UI::UICinematicParam::WaterReflection },
-    { nullptr, "Glint", SkullbonezCore::UI::UICinematicParam::WaterGlint },
-    { "Basin", "Center X", SkullbonezCore::UI::UICinematicParam::BasinCenterX },
-    { nullptr, "Center Z", SkullbonezCore::UI::UICinematicParam::BasinCenterZ },
-    { nullptr, "Radius X", SkullbonezCore::UI::UICinematicParam::BasinRadiusX },
-    { nullptr, "Radius Z", SkullbonezCore::UI::UICinematicParam::BasinRadiusZ },
-    { nullptr, "Feather", SkullbonezCore::UI::UICinematicParam::BasinFeather },
-    { nullptr, "Basin Depth", SkullbonezCore::UI::UICinematicParam::BasinDepth },
-    { nullptr, "Rim Lift", SkullbonezCore::UI::UICinematicParam::BasinRimLift },
-    { "Fog", "Density", SkullbonezCore::UI::UICinematicParam::FogDensity },
-    { nullptr, "Opacity", SkullbonezCore::UI::UICinematicParam::FogOpacity },
-    { nullptr, "Start", SkullbonezCore::UI::UICinematicParam::FogStart },
-    { nullptr, "End", SkullbonezCore::UI::UICinematicParam::FogEnd },
-    { nullptr, "Fog R", SkullbonezCore::UI::UICinematicParam::FogRed },
-    { nullptr, "Fog G", SkullbonezCore::UI::UICinematicParam::FogGreen },
-    { nullptr, "Fog B", SkullbonezCore::UI::UICinematicParam::FogBlue },
-};
-static_assert( sizeof( kGameCinematicSliderSpecs ) / sizeof( kGameCinematicSliderSpecs[0] ) ==
-                   static_cast<int>( SkullbonezCore::UI::UICinematicParam::Count ),
+constexpr GameCinematicSliderSpec kGameCinematicSliderSpecs[] = { { "Tonemap", "Exposure", SkullbonezCore::UI::UICinematicParam::Exposure },
+                                                                  { nullptr, "Gamma", SkullbonezCore::UI::UICinematicParam::Gamma },
+                                                                  { "Style", "Sky mode", SkullbonezCore::UI::UICinematicParam::SkyMode },
+                                                                  { nullptr, "Terrain mode", SkullbonezCore::UI::UICinematicParam::TerrainMode },
+                                                                  { nullptr, "Object style", SkullbonezCore::UI::UICinematicParam::ObjectStyle },
+                                                                  { nullptr, "Water mode", SkullbonezCore::UI::UICinematicParam::WaterMode },
+                                                                  { nullptr, "Saturation", SkullbonezCore::UI::UICinematicParam::StyleSaturation },
+                                                                  { nullptr, "Contrast", SkullbonezCore::UI::UICinematicParam::StyleContrast },
+                                                                  { nullptr, "Vignette", SkullbonezCore::UI::UICinematicParam::StyleVignette },
+                                                                  { "Sun", "Azimuth", SkullbonezCore::UI::UICinematicParam::SunAzimuth },
+                                                                  { nullptr, "Elevation", SkullbonezCore::UI::UICinematicParam::SunElevation },
+                                                                  { nullptr, "Brightness", SkullbonezCore::UI::UICinematicParam::SunBrightness },
+                                                                  { nullptr, "Sun R", SkullbonezCore::UI::UICinematicParam::SunRed },
+                                                                  { nullptr, "Sun G", SkullbonezCore::UI::UICinematicParam::SunGreen },
+                                                                  { nullptr, "Sun B", SkullbonezCore::UI::UICinematicParam::SunBlue },
+                                                                  { "Sky", "Glow", SkullbonezCore::UI::UICinematicParam::SkyGlow },
+                                                                  { nullptr, "Horizon R", SkullbonezCore::UI::UICinematicParam::HorizonRed },
+                                                                  { nullptr, "Horizon G", SkullbonezCore::UI::UICinematicParam::HorizonGreen },
+                                                                  { nullptr, "Horizon B", SkullbonezCore::UI::UICinematicParam::HorizonBlue },
+                                                                  { nullptr, "Zenith R", SkullbonezCore::UI::UICinematicParam::ZenithRed },
+                                                                  { nullptr, "Zenith G", SkullbonezCore::UI::UICinematicParam::ZenithGreen },
+                                                                  { nullptr, "Zenith B", SkullbonezCore::UI::UICinematicParam::ZenithBlue },
+                                                                  { "Clouds", "Coverage", SkullbonezCore::UI::UICinematicParam::CloudCoverage },
+                                                                  { nullptr, "Softness", SkullbonezCore::UI::UICinematicParam::CloudSoftness },
+                                                                  { nullptr, "Scale", SkullbonezCore::UI::UICinematicParam::CloudScale },
+                                                                  { nullptr, "Intensity", SkullbonezCore::UI::UICinematicParam::CloudIntensity },
+                                                                  { "Shafts", "Strength", SkullbonezCore::UI::UICinematicParam::ShaftStrength },
+                                                                  { nullptr, "Falloff", SkullbonezCore::UI::UICinematicParam::ShaftFalloff },
+                                                                  { "Volume", "Strength", SkullbonezCore::UI::UICinematicParam::VolumetricStrength },
+                                                                  { nullptr, "Density", SkullbonezCore::UI::UICinematicParam::VolumetricDensity },
+                                                                  { nullptr, "Decay", SkullbonezCore::UI::UICinematicParam::VolumetricDecay },
+                                                                  { "Bloom", "Threshold", SkullbonezCore::UI::UICinematicParam::BloomThreshold },
+                                                                  { nullptr, "Knee", SkullbonezCore::UI::UICinematicParam::BloomKnee },
+                                                                  { nullptr, "Strength", SkullbonezCore::UI::UICinematicParam::BloomStrength },
+                                                                  { nullptr, "Radius", SkullbonezCore::UI::UICinematicParam::BloomRadius },
+                                                                  { "Terrain", "Relief", SkullbonezCore::UI::UICinematicParam::TerrainRelief },
+                                                                  { nullptr, "Ground R", SkullbonezCore::UI::UICinematicParam::TerrainTintRed },
+                                                                  { nullptr, "Ground G", SkullbonezCore::UI::UICinematicParam::TerrainTintGreen },
+                                                                  { nullptr, "Ground B", SkullbonezCore::UI::UICinematicParam::TerrainTintBlue },
+                                                                  { nullptr, "Accent R", SkullbonezCore::UI::UICinematicParam::TerrainAccentRed },
+                                                                  { nullptr, "Accent G", SkullbonezCore::UI::UICinematicParam::TerrainAccentGreen },
+                                                                  { nullptr, "Accent B", SkullbonezCore::UI::UICinematicParam::TerrainAccentBlue },
+                                                                  { nullptr, "Grid scale", SkullbonezCore::UI::UICinematicParam::TerrainGridScale },
+                                                                  { nullptr, "Grid strength", SkullbonezCore::UI::UICinematicParam::TerrainGridStrength },
+                                                                  { "Water", "Water R", SkullbonezCore::UI::UICinematicParam::WaterTintRed },
+                                                                  { nullptr, "Water G", SkullbonezCore::UI::UICinematicParam::WaterTintGreen },
+                                                                  { nullptr, "Water B", SkullbonezCore::UI::UICinematicParam::WaterTintBlue },
+                                                                  { nullptr, "Alpha", SkullbonezCore::UI::UICinematicParam::WaterAlpha },
+                                                                  { nullptr, "Reflection", SkullbonezCore::UI::UICinematicParam::WaterReflection },
+                                                                  { nullptr, "Glint", SkullbonezCore::UI::UICinematicParam::WaterGlint },
+                                                                  { "Basin", "Center X", SkullbonezCore::UI::UICinematicParam::BasinCenterX },
+                                                                  { nullptr, "Center Z", SkullbonezCore::UI::UICinematicParam::BasinCenterZ },
+                                                                  { nullptr, "Radius X", SkullbonezCore::UI::UICinematicParam::BasinRadiusX },
+                                                                  { nullptr, "Radius Z", SkullbonezCore::UI::UICinematicParam::BasinRadiusZ },
+                                                                  { nullptr, "Feather", SkullbonezCore::UI::UICinematicParam::BasinFeather },
+                                                                  { nullptr, "Basin Depth", SkullbonezCore::UI::UICinematicParam::BasinDepth },
+                                                                  { nullptr, "Rim Lift", SkullbonezCore::UI::UICinematicParam::BasinRimLift },
+                                                                  { "Fog", "Density", SkullbonezCore::UI::UICinematicParam::FogDensity },
+                                                                  { nullptr, "Opacity", SkullbonezCore::UI::UICinematicParam::FogOpacity },
+                                                                  { nullptr, "Start", SkullbonezCore::UI::UICinematicParam::FogStart },
+                                                                  { nullptr, "End", SkullbonezCore::UI::UICinematicParam::FogEnd },
+                                                                  { nullptr, "Fog R", SkullbonezCore::UI::UICinematicParam::FogRed },
+                                                                  { nullptr, "Fog G", SkullbonezCore::UI::UICinematicParam::FogGreen },
+                                                                  { nullptr, "Fog B", SkullbonezCore::UI::UICinematicParam::FogBlue }, };
+static_assert( sizeof( kGameCinematicSliderSpecs ) / sizeof( kGameCinematicSliderSpecs[0] ) == static_cast<int>( SkullbonezCore::UI::UICinematicParam::Count ),
                "Cinematic slider specs must match UICinematicParam." );
 
 constexpr bool CinematicTabSpecsAreEnumIndexed()
@@ -149,22 +146,18 @@ constexpr bool CinematicTabSpecsAreEnumIndexed()
 }
 static_assert( CinematicTabSpecsAreEnumIndexed(), "Cinematic tab rows must remain enum-indexed." );
 
-constexpr GameCinematicFeatureSpec kGameCinematicFeatureSpecs[] = {
-    { "Sky", SkullbonezCore::UI::UICinematicFeature::Sky },
-    { "Clouds", SkullbonezCore::UI::UICinematicFeature::Clouds },
-    { "God rays", SkullbonezCore::UI::UICinematicFeature::GodRays },
-    { "Volume", SkullbonezCore::UI::UICinematicFeature::VolumetricLight },
-    { "Bloom", SkullbonezCore::UI::UICinematicFeature::Bloom },
-    { "Fog", SkullbonezCore::UI::UICinematicFeature::Fog },
-    { "Relief", SkullbonezCore::UI::UICinematicFeature::TerrainRelief },
-    { "Shadows", SkullbonezCore::UI::UICinematicFeature::Shadows },
-};
-static_assert( sizeof( kGameCinematicFeatureSpecs ) / sizeof( kGameCinematicFeatureSpecs[0] ) ==
-                   static_cast<int>( SkullbonezCore::UI::UICinematicFeature::Count ),
+constexpr GameCinematicFeatureSpec kGameCinematicFeatureSpecs[] = { { "Sky", SkullbonezCore::UI::UICinematicFeature::Sky },
+                                                                    { "Clouds", SkullbonezCore::UI::UICinematicFeature::Clouds },
+                                                                    { "God rays", SkullbonezCore::UI::UICinematicFeature::GodRays },
+                                                                    { "Volume", SkullbonezCore::UI::UICinematicFeature::VolumetricLight },
+                                                                    { "Bloom", SkullbonezCore::UI::UICinematicFeature::Bloom },
+                                                                    { "Fog", SkullbonezCore::UI::UICinematicFeature::Fog },
+                                                                    { "Relief", SkullbonezCore::UI::UICinematicFeature::TerrainRelief },
+                                                                    { "Shadows", SkullbonezCore::UI::UICinematicFeature::Shadows }, };
+static_assert( sizeof( kGameCinematicFeatureSpecs ) / sizeof( kGameCinematicFeatureSpecs[0] ) == static_cast<int>( SkullbonezCore::UI::UICinematicFeature::Count ),
                "Cinematic feature specs must match UICinematicFeature." );
 
-void DrawHitboxRect( const SkullbonezCore::UI::UIDrawContext& draw, const SkullbonezCore::UI::UIRect& bounds, float r,
-                     float g, float b, float fillA = 0.060f, float outlineA = 0.94f )
+void DrawHitboxRect( const SkullbonezCore::UI::UIDrawContext& draw, const SkullbonezCore::UI::UIRect& bounds, float r, float g, float b, float fillA = 0.060f, float outlineA = 0.94f )
 {
     if ( bounds.w <= 0.0f || bounds.h <= 0.0f )
     {
@@ -180,8 +173,7 @@ void DrawHitboxRect( const SkullbonezCore::UI::UIDrawContext& draw, const Skullb
     }
 }
 
-void DrawComboHitboxes( const SkullbonezCore::UI::UIDrawContext& draw, const SkullbonezCore::UI::UIComboBox& combo,
-                        int optionCount, float r, float g, float b )
+void DrawComboHitboxes( const SkullbonezCore::UI::UIDrawContext& draw, const SkullbonezCore::UI::UIComboBox& combo, int optionCount, float r, float g, float b )
 {
     DrawHitboxRect( draw, combo.Bounds(), r, g, b );
 
@@ -198,12 +190,10 @@ bool IsCineSceneOptionName( const char* name )
         return false;
     }
 
-    return strncmp( name, "concept_", 8 ) == 0 || strncmp( name, "cinematic_", 10 ) == 0 ||
-           strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
+    return strncmp( name, "concept_", 8 ) == 0 || strncmp( name, "cinematic_", 10 ) == 0 || strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
 }
 
-int BuildCineSceneOptions( const char* const* sceneOptions, int sceneOptionCount,
-                           const char* labels[UI_CINE_SCENE_MAX_OPTIONS], int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS] )
+int BuildCineSceneOptions( const char* const* sceneOptions, int sceneOptionCount, const char* labels[UI_CINE_SCENE_MAX_OPTIONS], int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS] )
 {
     int count = 0;
     labels[count] = SkullbonezCore::UI::SceneTab::DEMO_SCENE_OPTION;
@@ -223,8 +213,7 @@ int BuildCineSceneOptions( const char* const* sceneOptions, int sceneOptionCount
     return count;
 }
 
-int SelectedCineSceneOption( const int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS], int cineOptionCount,
-                             int selectedSceneOption )
+int SelectedCineSceneOption( const int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS], int cineOptionCount, int selectedSceneOption )
 {
     for ( int i = 0; i < cineOptionCount; ++i )
     {
@@ -269,8 +258,7 @@ float CinematicSliderY( int index, float baseY )
     return y;
 }
 
-float CinematicValueForParam( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                              SkullbonezCore::UI::UICinematicParam param )
+float CinematicValueForParam( const SkullbonezCore::Core::CinematicRenderConfig& cinematic, SkullbonezCore::UI::UICinematicParam param )
 {
     // Read the live value for a Cine slider. This is the inverse of the command
     // application in InputRouter.Interactions.cpp.
@@ -409,14 +397,11 @@ float CinematicValueForParam( const SkullbonezCore::Core::CinematicRenderConfig&
     }
 }
 
-void SetCinematicSliderResult( SkullbonezCore::UI::InGameUIInputResult& result, const SkullbonezCore::UI::UISlider& slider,
-                               int mouseX, const GameCinematicSliderSpec& spec )
+void SetCinematicSliderResult( SkullbonezCore::UI::InGameUIInputResult& result, const SkullbonezCore::UI::UISlider& slider, int mouseX, const GameCinematicSliderSpec& spec )
 {
-    const SkullbonezCore::UI::CinematicSliderSpec&
-        policy = SkullbonezCore::UI::kCinematicSliderSpecs[static_cast<int>( spec.param )];
+    const SkullbonezCore::UI::CinematicSliderSpec& policy = SkullbonezCore::UI::kCinematicSliderSpecs[static_cast<int>( spec.param )];
     result.commands.cinematic.requestedParam = spec.param;
-    result.commands.cinematic.requestedValue = slider.ValueFromMouse( mouseX, policy.minValue, policy.maxValue,
-                                                                      policy.step );
+    result.commands.cinematic.requestedValue = slider.ValueFromMouse( mouseX, policy.minValue, policy.maxValue, policy.step );
 }
 
 float CinematicFeatureY( int index, float baseY )
@@ -429,8 +414,7 @@ float CinematicFeatureX( int index, float contentX, float colW )
     return ( index % 2 == 0 ) ? contentX : contentX + colW + 18.0f;
 }
 
-bool CinematicFeatureEnabled( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                              SkullbonezCore::UI::UICinematicFeature feature )
+bool CinematicFeatureEnabled( const SkullbonezCore::Core::CinematicRenderConfig& cinematic, SkullbonezCore::UI::UICinematicFeature feature )
 {
     switch ( feature )
     {
@@ -491,14 +475,12 @@ void CloseCombo( UICinematicTabState& state )
     state.modeCombo.Close();
 }
 
-bool HandleOpenComboClick( UICinematicTabState& state, InGameUIInputResult& result, const char* const* sceneOptions,
-                           int sceneOptionCount, int mouseX, int mouseY )
+bool HandleOpenComboClick( UICinematicTabState& state, InGameUIInputResult& result, const char* const* sceneOptions, int sceneOptionCount, int mouseX, int mouseY )
 {
     const char* cineSceneOptions[UI_CINE_SCENE_MAX_OPTIONS] = {};
     int cineSceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
 
-    const int cineSceneOptionCount = BuildCineSceneOptions( sceneOptions, sceneOptionCount, cineSceneOptions,
-                                                            cineSceneIndices );
+    const int cineSceneOptionCount = BuildCineSceneOptions( sceneOptions, sceneOptionCount, cineSceneOptions, cineSceneIndices );
 
     const int option = state.modeCombo.HitOption( mouseX, mouseY, cineSceneOptionCount );
 
@@ -519,8 +501,7 @@ bool HandleOpenComboClick( UICinematicTabState& state, InGameUIInputResult& resu
     return false;
 }
 
-bool HandleContentClick( UICinematicTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
-                         float contentX, float scrolledY, float contentW )
+bool HandleContentClick( UICinematicTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY, float contentX, float scrolledY, float contentW )
 {
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
 
@@ -585,8 +566,7 @@ bool CommitActiveSlider( UICinematicTabState& state, int activeSlider, int mouse
     return UpdateActiveSlider( state, activeSlider, mouseX, result );
 }
 
-void DrawHitboxes( const UICinematicTabState& state, const UIDrawContext& draw, const UICinematicTabFrameView& data,
-                   float contentR, float contentG, float contentB )
+void DrawHitboxes( const UICinematicTabState& state, const UIDrawContext& draw, const UICinematicTabFrameView& data, float contentR, float contentG, float contentB )
 {
     const char* labels[UI_CINE_SCENE_MAX_OPTIONS] = {};
     int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
@@ -606,8 +586,16 @@ void DrawHitboxes( const UICinematicTabState& state, const UIDrawContext& draw, 
     }
 }
 
-void Draw( UICinematicTabState& state, const UIDrawContext& draw, const UICinematicTabFrameView& data, float contentX,
-           float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
+void Draw( UICinematicTabState& state,
+           const UIDrawContext& draw,
+           const UICinematicTabFrameView& data,
+           float contentX,
+           float contentY,
+           float contentW,
+           float contentH,
+           float scrolledY,
+           int mouseX,
+           int mouseY )
 {
     char buf[128];
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
@@ -615,22 +603,16 @@ void Draw( UICinematicTabState& state, const UIDrawContext& draw, const UICinema
 
     int cineSceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
 
-    const int cineSceneOptionCount = BuildCineSceneOptions( data.sceneOptions, data.sceneOptionCount, cineSceneOptions,
-                                                            cineSceneIndices );
+    const int cineSceneOptionCount = BuildCineSceneOptions( data.sceneOptions, data.sceneOptionCount, cineSceneOptions, cineSceneIndices );
 
-    const int selectedCineSceneOption = SelectedCineSceneOption( cineSceneIndices, cineSceneOptionCount,
-                                                                 data.selectedCineModeSceneOption );
+    const int selectedCineSceneOption = SelectedCineSceneOption( cineSceneIndices, cineSceneOptionCount, data.selectedCineModeSceneOption );
 
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 16.0f, 16.0f, "Cine" );
     state.modeCombo.SetBounds( contentX, scrolledY + UI_CINEMATIC_SCENE_Y, contentW, 24.0f );
 
     if ( IsRowVisible( contentY, contentH, scrolledY + UI_CINEMATIC_SCENE_Y, 24.0f ) )
     {
-        state.modeCombo.Draw( draw, "Mode",
-                              { std::span<const char* const>( cineSceneOptions,
-                                                              static_cast<std::size_t>( cineSceneOptionCount ) ),
-                                selectedCineSceneOption },
-                              { mouseX, mouseY } );
+        state.modeCombo.Draw( draw, "Mode", { std::span<const char* const>( cineSceneOptions, static_cast<std::size_t>( cineSceneOptionCount ) ), selectedCineSceneOption }, { mouseX, mouseY } );
     }
 
     if ( IsRowVisible( contentY, contentH, scrolledY + UI_CINEMATIC_FEATURE_START_Y, 18.0f ) )
@@ -644,7 +626,13 @@ void Draw( UICinematicTabState& state, const UIDrawContext& draw, const UICinema
     {
         const float tx = CinematicFeatureX( i, contentX, colW );
         const float toggleY = CinematicFeatureY( i, featureBaseY );
-        DrawContentToggle( draw, contentY, contentH, state.featureToggles[i], tx, toggleY, colW,
+        DrawContentToggle( draw,
+                           contentY,
+                           contentH,
+                           state.featureToggles[i],
+                           tx,
+                           toggleY,
+                           colW,
                            kGameCinematicFeatureSpecs[i].label,
                            CinematicFeatureEnabled( data.cinematic, kGameCinematicFeatureSpecs[i].feature ) );
     }
@@ -654,18 +642,15 @@ void Draw( UICinematicTabState& state, const UIDrawContext& draw, const UICinema
     for ( int i = 0; i < static_cast<int>( UICinematicParam::Count ); ++i )
     {
         const GameCinematicSliderSpec& spec = kGameCinematicSliderSpecs[i];
-        const SkullbonezCore::UI::CinematicSliderSpec&
-            policy = SkullbonezCore::UI::kCinematicSliderSpecs[static_cast<int>( spec.param )];
+        const SkullbonezCore::UI::CinematicSliderSpec& policy = SkullbonezCore::UI::kCinematicSliderSpecs[static_cast<int>( spec.param )];
         const float sliderY = CinematicSliderY( i, baseY );
 
         if ( spec.section && IsRowVisible( contentY, contentH, sliderY - UI_CINEMATIC_SECTION_H + 4.0f, 18.0f ) )
         {
-            DrawSectionTitle( draw, contentX, contentY, contentH, sliderY - UI_CINEMATIC_SECTION_H + 4.0f, 12.0f,
-                              spec.section );
+            DrawSectionTitle( draw, contentX, contentY, contentH, sliderY - UI_CINEMATIC_SECTION_H + 4.0f, 12.0f, spec.section );
         }
 
-        const float value = std::clamp( CinematicValueForParam( data.cinematic, spec.param ), policy.minValue,
-                                        policy.maxValue );
+        const float value = std::clamp( CinematicValueForParam( data.cinematic, spec.param ), policy.minValue, policy.maxValue );
 
         snprintf( buf, sizeof( buf ), policy.valueFormat, value );
         state.sliders[i].SetBounds( contentX, sliderY, contentW, 34.0f );
@@ -692,8 +677,7 @@ UITooltipTarget TooltipAt( const UICinematicTabState& state, int mouseX, int mou
         if ( state.featureToggles[index].HitTest( mouseX, mouseY ) )
         {
             const int feature = static_cast<int>( kGameCinematicFeatureSpecs[index].feature );
-            return { static_cast<uint32_t>( 3301 + feature ), state.featureToggles[index].Bounds(),
-                     kCinematicFeatureTooltipText[feature], true };
+            return { static_cast<uint32_t>( 3301 + feature ), state.featureToggles[index].Bounds(), kCinematicFeatureTooltipText[feature], true };
         }
     }
     for ( int index = 0; index < static_cast<int>( UICinematicParam::Count ); ++index )
@@ -701,8 +685,7 @@ UITooltipTarget TooltipAt( const UICinematicTabState& state, int mouseX, int mou
         if ( state.sliders[index].HitTest( mouseX, mouseY ) )
         {
             const int parameter = static_cast<int>( kGameCinematicSliderSpecs[index].param );
-            return { static_cast<uint32_t>( 3320 + parameter ), state.sliders[index].Bounds(),
-                     kCinematicTooltipText[parameter], true };
+            return { static_cast<uint32_t>( 3320 + parameter ), state.sliders[index].Bounds(), kCinematicTooltipText[parameter], true };
         }
     }
     return {};

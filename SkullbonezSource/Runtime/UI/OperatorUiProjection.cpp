@@ -196,17 +196,15 @@ void ProjectOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRende
 }
 void ProjectOperatorEditorScene( UI::OperatorEditorFrameView& view, const OperatorUiSceneFacts& facts )
 {
-    view.scene = {
-        facts.currentScenePath ? facts.currentScenePath : "",
-        facts.sceneOptions,
-        facts.currentSceneBrowserIndex,
-        facts.sceneOptionCount,
-        facts.runtime.frame,
-        facts.entityCount,
-        facts.runtime.timeScale,
-        facts.currentScenePath && facts.currentScenePath[0] != '\0',
-        false
-    };
+    view.scene = { facts.currentScenePath ? facts.currentScenePath : "",
+                   facts.sceneOptions,
+                   facts.currentSceneBrowserIndex,
+                   facts.sceneOptionCount,
+                   facts.runtime.frame,
+                   facts.entityCount,
+                   facts.runtime.timeScale,
+                   facts.currentScenePath && facts.currentScenePath[0] != '\0',
+                   false };
     view.property = { facts.worldGravity, facts.worldFluidHeight, facts.worldFluidDensity };
 }
 
@@ -276,16 +274,14 @@ void ProjectOperatorEditorLookLab( UI::OperatorEditorFrameView& view, const UI::
     view.lookLab = lookLab;
 }
 
-void ProjectOperatorEditorReplay(
-    UI::OperatorEditorFrameView& view,
-    int memoryPreset,
-    int requestedRetentionSeconds,
-    int requestedBudgetMiB,
-    int presentationRetentionSeconds,
-    int solverRetentionSeconds,
-    bool memoryBudgetClamped,
-    bool solverWindowReduced
-)
+void ProjectOperatorEditorReplay( UI::OperatorEditorFrameView& view,
+                                  int memoryPreset,
+                                  int requestedRetentionSeconds,
+                                  int requestedBudgetMiB,
+                                  int presentationRetentionSeconds,
+                                  int solverRetentionSeconds,
+                                  bool memoryBudgetClamped,
+                                  bool solverWindowReduced )
 {
     view.replay = { memoryPreset, requestedRetentionSeconds, requestedBudgetMiB, presentationRetentionSeconds, solverRetentionSeconds, memoryBudgetClamped, solverWindowReduced };
 }
@@ -336,10 +332,8 @@ void ProjectOperatorUiProfilerFrame( UI::InGameUIFrameData& uiData, std::span<co
 {
     static_assert( SkullbonezCore::UI::ProfilerTab::MAX_MARKERS == SkullbonezCore::Core::Profiler::MAX_MARKERS, "UI profiler snapshot capacity must match SkullbonezCore::Core::Profiler markers" );
 
-    static_assert(
-        SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES == SkullbonezCore::Core::Profiler::MAX_WORKER_CORES,
-        "UI worker sample snapshot capacity must match SkullbonezCore::Core::Profiler samples"
-    );
+    static_assert( SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES == SkullbonezCore::Core::Profiler::MAX_WORKER_CORES,
+                   "UI worker sample snapshot capacity must match SkullbonezCore::Core::Profiler samples" );
 
     SkullbonezCore::UI::ProfilerTab::FrameSnapshot& profilerFrame = uiData.diagnostics.profiler;
     profilerFrame.markerCount = (std::min)( static_cast<int>( markers.size() ), SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
@@ -464,51 +458,45 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const Operator
         }
 #endif
         const SkullbonezCore::UI::Style::UIColor& mainColor = SkullbonezCore::UI::Style::Palette().accent;
-        addMarkerOption( SkullbonezCore::UI::UIProfilerMarkerOption {
-                .name = "Frame Total",
-                .leafName = "Frame Total",
-                .hash = SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
-                .cpuMs = UIData.surface.cpuFrameMs,
-                .cpuAverageMs = frameAverageMs,
-                .gpuMs = UIData.surface.gpuFrameMs,
-                .colorR = mainColor.r,
-                .colorG = mainColor.g,
-                .colorB = mainColor.b,
-                .hasGpu = true,
-                .sampleValid = true,
-                .isFrameTotal = true
-            } );
+        addMarkerOption( SkullbonezCore::UI::UIProfilerMarkerOption { .name = "Frame Total",
+                                                                      .leafName = "Frame Total",
+                                                                      .hash = SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
+                                                                      .cpuMs = UIData.surface.cpuFrameMs,
+                                                                      .cpuAverageMs = frameAverageMs,
+                                                                      .gpuMs = UIData.surface.gpuFrameMs,
+                                                                      .colorR = mainColor.r,
+                                                                      .colorG = mainColor.g,
+                                                                      .colorB = mainColor.b,
+                                                                      .hasGpu = true,
+                                                                      .sampleValid = true,
+                                                                      .isFrameTotal = true } );
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
         auto addProfilerMarker = [&]( const OperatorUiProfilerMarkerFacts& marker )
         {
             const SkullbonezCore::Core::Profiler::BarColor& color = SkullbonezCore::Core::Profiler::BAR_PALETTE[marker.colorIndex % SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE];
 
-            addMarkerOption( SkullbonezCore::UI::UIProfilerMarkerOption {
-                    .name = marker.name,
-                    .leafName = marker.leafName,
-                    .hash = marker.hash,
-                    .cpuMs = marker.lastFrameMs,
-                    .cpuAverageMs = marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs,
-                    .workerMs = marker.lastFrameWorkerMs,
-                    .workerAverageMs = marker.workerAvgMs > 0.0f ? marker.workerAvgMs : marker.lastFrameWorkerMs,
-                    .gpuMs = marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
-                    .colorR = color.r,
-                    .colorG = color.g,
-                    .colorB = color.b,
-                    .hasGpu = marker.hasGpu,
-                    .sampleValid = true,
-                    .isFrameTotal = false
-                } );
+            addMarkerOption( SkullbonezCore::UI::UIProfilerMarkerOption { .name = marker.name,
+                                                                          .leafName = marker.leafName,
+                                                                          .hash = marker.hash,
+                                                                          .cpuMs = marker.lastFrameMs,
+                                                                          .cpuAverageMs = marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs,
+                                                                          .workerMs = marker.lastFrameWorkerMs,
+                                                                          .workerAverageMs = marker.workerAvgMs > 0.0f ? marker.workerAvgMs : marker.lastFrameWorkerMs,
+                                                                          .gpuMs = marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
+                                                                          .colorR = color.r,
+                                                                          .colorG = color.g,
+                                                                          .colorB = color.b,
+                                                                          .hasGpu = marker.hasGpu,
+                                                                          .sampleValid = true,
+                                                                          .isFrameTotal = false } );
         };
 
-        static constexpr uint32_t kPinnedMarkerHashes[] = {
-            ::HashStr( "Frame/Physics" ),
-            ::HashStr( "Frame/Physics/Step" ),
-            ::HashStr( "Frame/Physics/Narrowphase/PersistentContacts/" "SolveRows" ),
-            ::HashStr( "Frame/Render" ),
-            ::HashStr( "Frame/UI" )
-        };
+        static constexpr uint32_t kPinnedMarkerHashes[] = { ::HashStr( "Frame/Physics" ),
+                                                            ::HashStr( "Frame/Physics/Step" ),
+                                                            ::HashStr( "Frame/Physics/Narrowphase/PersistentContacts/" "SolveRows" ),
+                                                            ::HashStr( "Frame/Render" ),
+                                                            ::HashStr( "Frame/UI" ) };
 
         for ( uint32_t pinnedHash : kPinnedMarkerHashes )
         {

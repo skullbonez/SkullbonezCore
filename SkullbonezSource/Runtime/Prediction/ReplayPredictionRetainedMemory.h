@@ -39,11 +39,9 @@ inline constexpr const char* REPLAY_PREDICTION_RESERVE_OWNER = "replay_predictio
 // for acceptance. The cap and Replay-only growth privilege do not expand.
 inline constexpr int REPLAY_PREDICTION_RESERVE_HARD_BYTES = 960 * 1024 * 1024;
 
-inline constexpr ReplayGrowthOwnerPolicy REPLAY_PREDICTION_GROWTH_OWNER_POLICY {
-    REPLAY_PREDICTION_RESERVE_OWNER,
-    SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-    REPLAY_PREDICTION_RESERVE_HARD_BYTES,
-    653016512u,
-    ReplayGrowthExhaustionRule::CancelPredictionBuild
-};
+inline constexpr ReplayGrowthOwnerPolicy REPLAY_PREDICTION_GROWTH_OWNER_POLICY { REPLAY_PREDICTION_RESERVE_OWNER,
+                                                                                 SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
+                                                                                 REPLAY_PREDICTION_RESERVE_HARD_BYTES,
+                                                                                 653016512u,
+                                                                                 ReplayGrowthExhaustionRule::CancelPredictionBuild };
 } // namespace SkullbonezCore::Runtime

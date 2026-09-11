@@ -183,8 +183,10 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `bake_hulls.bat --check\|--write` | Check or rewrite serialized convex hull v2 runtime data from source geometry |
 | `migrate_data_formats.py --check\|--write` | Check or upgrade asset-library, hull, and engine-config files to their current owned versions |
 | `generate_physics_scale_sleepy_scene.py --check\|--write` | Check or deterministically regenerate the 5,000-body sleeping-heavy scale fixture |
-| `validate_format.bat` | Check changed first-party C++ source directly with the pinned clang-format binary |
-| `format_fix.bat` | Apply the pinned clang-format binary to changed first-party C++ source |
+| `validate_format.bat` | Check changed first-party C++ source with clang-format and argument-count wrapping |
+| `format_fix.bat` | Apply clang-format and argument-count wrapping to changed first-party C++ source |
+| `format_cpp.py` | Shared formatter for calls and brace initializers: up to three items stay together at any width; longer lists wrap beneath the first item, with delimiters beside the first and last items |
+| `test_format_cpp.py` | Wrapping regression checks run by `validate_format.bat`; also supports `python tools/test_format_cpp.py` with clang-format on PATH or in `CLANG_FMT` |
 | `check_plain_language.py --repo . [--self-test]` | Scan Git-tracked first-party source and documentation for retired wording; the self-test carries one failing source fixture, one failing documentation fixture, and a clean fixture |
 | `check_related_paths.py [--self-test]` | Advisory report for unresolved repository-relative paths in existing source `Related:` blocks; never blocks validation |
 | `check_build_config_consistency.py --repo . [--format text\|json] [--self-test]` | Inventory effective C++ metadata across the six first-party projects; fail on dropped per-file inheritance or shared-source divergence without an exact current-setting ruling |

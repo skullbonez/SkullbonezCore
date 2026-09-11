@@ -427,13 +427,11 @@ EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( R
 }
 
 
-void HandleEditorSceneSaveHotkey(
-    SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-    SceneWorld& world,
-    const SceneSessionState& scene,
-    const GameObjects::PresentationSaveState& presentation,
-    bool wasPressed
-)
+void HandleEditorSceneSaveHotkey( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                  SceneWorld& world,
+                                  const SceneSessionState& scene,
+                                  const GameObjects::PresentationSaveState& presentation,
+                                  bool wasPressed )
 {
     if ( !wasPressed )
     {
@@ -556,12 +554,10 @@ bool EditorToolsOwner::CommitSelectionCommand( const RuntimeInteractionSelection
         outEvent.previousCollider = plan.previousCollider;
         outEvent.collider = plan.collider;
         outEvent.selectionScope = plan.selectionScope;
-        SkullbonezCore::Core::Log().WriteEventf(
-            "runtime_interaction_command_event type=selection_changed scope=%s previous_model=%d model=%d",
-            outEvent.selectionScope == RuntimeInteractionSelectionScope::Inspect ? "inspect" : "editor",
-            outEvent.previousModelRow.value,
-            outEvent.modelRow.value
-        );
+        SkullbonezCore::Core::Log().WriteEventf( "runtime_interaction_command_event type=selection_changed scope=%s previous_model=%d model=%d",
+                                                 outEvent.selectionScope == RuntimeInteractionSelectionScope::Inspect ? "inspect" : "editor",
+                                                 outEvent.previousModelRow.value,
+                                                 outEvent.modelRow.value );
     }
 
     return true;

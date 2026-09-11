@@ -30,8 +30,7 @@ namespace SkullbonezCore::Runtime
 {
 namespace
 {
-const RunReplayPredictionBodySample* FindPredictionBody( const RunReplayPredictionFrame& frame,
-                                                         Physics::PhysicsSceneObjectId id ) noexcept
+const RunReplayPredictionBodySample* FindPredictionBody( const RunReplayPredictionFrame& frame, Physics::PhysicsSceneObjectId id ) noexcept
 {
     for ( const RunReplayPredictionBodySample& body : frame.bodies )
     {
@@ -114,8 +113,7 @@ void ReplayInterceptReadout::ResetScan() noexcept
 
 void ReplayInterceptReadout::Update( const ReplayInterceptUpdateInput& input ) noexcept
 {
-    if ( !input.enabled || input.shipId.value == 0 || input.targetId.value == 0 ||
-         input.shipId.value == input.targetId.value || input.frames.empty() || input.shipRadius <= 0.0f ||
+    if ( !input.enabled || input.shipId.value == 0 || input.targetId.value == 0 || input.shipId.value == input.targetId.value || input.frames.empty() || input.shipRadius <= 0.0f ||
          input.targetRadius <= 0.0f )
     {
         ResetScan();
@@ -125,11 +123,9 @@ void ReplayInterceptReadout::Update( const ReplayInterceptUpdateInput& input ) n
     // Lifetime: the borrowed address is an identity token only, never dereferenced.
     // A completed replacement can swap banks without changing the currently published
     // generation/topology values; its closest approach must be rescanned from zero.
-    const bool keyChanged = !m_scanKeyValid || m_scanFrameBank != input.frames.data() ||
-                            m_scanShipId.value != input.shipId.value || m_scanTargetId.value != input.targetId.value ||
-                            m_scanGeneration != input.generation || m_scanTopologyVersion != input.topologyVersion ||
-                            m_scanUsingBuildFrames != input.usingBuildFrames || m_scanShipRadius != input.shipRadius ||
-                            m_scanTargetRadius != input.targetRadius || input.frames.size() < m_scannedFrameCount;
+    const bool keyChanged = !m_scanKeyValid || m_scanFrameBank != input.frames.data() || m_scanShipId.value != input.shipId.value || m_scanTargetId.value != input.targetId.value ||
+                            m_scanGeneration != input.generation || m_scanTopologyVersion != input.topologyVersion || m_scanUsingBuildFrames != input.usingBuildFrames ||
+                            m_scanShipRadius != input.shipRadius || m_scanTargetRadius != input.targetRadius || input.frames.size() < m_scannedFrameCount;
 
     if ( keyChanged )
     {

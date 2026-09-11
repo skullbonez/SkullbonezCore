@@ -61,8 +61,10 @@ void UIWindowInteractionOwner::UpdateDiagnosticViewport()
     m_memoryOverlay.floatingViewport = viewport;
     if ( m_profilerTab.histogramPanelInitialized )
     {
-        const UIRect
-            bounds = Layout::ClampFloatingRect( { m_profilerTab.histogramPanelX, m_profilerTab.histogramPanelY, m_profilerTab.histogramPanelW, m_profilerTab.histogramPanelH }, viewport, 80, 80 );
+        const UIRect bounds = Layout::ClampFloatingRect( { m_profilerTab.histogramPanelX, m_profilerTab.histogramPanelY, m_profilerTab.histogramPanelW, m_profilerTab.histogramPanelH },
+                                                         viewport,
+                                                         80,
+                                                         80 );
         m_profilerTab.histogramPanelX = bounds.x;
         m_profilerTab.histogramPanelY = bounds.y;
         m_profilerTab.histogramPanelW = bounds.w;
@@ -194,18 +196,17 @@ void UIWindowInteractionOwner::UpdatePresentationInput( const InputControl::UIIn
                               : m_presentationRects.memoryWaterline.h > 0.0f ? m_presentationRects.memoryWaterline.y
                                                                              : static_cast<float>( height );
     const UIRect popupViewport { 0.0f, m_presentationRects.header.h, static_cast<float>( width ), popupBottom - m_presentationRects.header.h };
-    for ( UIComboBox* combo :
-          { &m_sceneTab.combo,
-            &m_sceneTab.recordingCombo,
-            &m_sceneTab.solverLabCombo,
-            &m_rendererCombo,
-            &m_reflectionCombo,
-            &m_renderTargetCombo,
-            &m_cameraModeCombo,
-            &m_editorTab.objectCombo,
-            &m_cinematicTab.modeCombo,
-            &m_toolsTabCombo,
-            &m_toolsDisplayCombo } )
+    for ( UIComboBox* combo : { &m_sceneTab.combo,
+                                &m_sceneTab.recordingCombo,
+                                &m_sceneTab.solverLabCombo,
+                                &m_rendererCombo,
+                                &m_reflectionCombo,
+                                &m_renderTargetCombo,
+                                &m_cameraModeCombo,
+                                &m_editorTab.objectCombo,
+                                &m_cinematicTab.modeCombo,
+                                &m_toolsTabCombo,
+                                &m_toolsDisplayCombo } )
     {
         combo->SetPopupViewport( popupViewport );
     }
@@ -386,15 +387,13 @@ EditorMiniPaletteLayout UIWindowInteractionOwner::PresentedEditorPalette() const
     {
         return {};
     }
-    return BuildEditorMiniPaletteLayout(
-        m_lastScreenW,
-        m_lastScreenH,
-        {},
-        m_editorMiniPalettePressedEntry,
-        m_editorMiniPaletteFlyoutOpen,
-        { content.x, content.y + EDITOR_PALETTE_TOP - scroll, content.w, content.h },
-        content
-    );
+    return BuildEditorMiniPaletteLayout( m_lastScreenW,
+                                         m_lastScreenH,
+                                         {},
+                                         m_editorMiniPalettePressedEntry,
+                                         m_editorMiniPaletteFlyoutOpen,
+                                         { content.x, content.y + EDITOR_PALETTE_TOP - scroll, content.w, content.h },
+                                         content );
 }
 
 bool UIWindowInteractionOwner::HandleEditorDockInput( const InputControl::UIInputSnapshot& input, InGameUIInputResult& result )
@@ -964,13 +963,11 @@ InputControl::UIPointerOverride UIWindowInteractionOwner::InputOverride() const
 }
 
 
-UIWindowInteractionOwner::MinimizedControlResult UIWindowInteractionOwner::HandleMinimizedCameraMode(
-    const InputControl::UIInputSnapshot& input,
-    const UIRect& minimized,
-    bool showEditorMiniPalette,
-    uint32_t cameraModeEnabledMask,
-    InGameUIInputResult& result
-)
+UIWindowInteractionOwner::MinimizedControlResult UIWindowInteractionOwner::HandleMinimizedCameraMode( const InputControl::UIInputSnapshot& input,
+                                                                                                      const UIRect& minimized,
+                                                                                                      bool showEditorMiniPalette,
+                                                                                                      uint32_t cameraModeEnabledMask,
+                                                                                                      InGameUIInputResult& result )
 {
     MinimizedControlResult control;
     if ( m_presentationEnabled && m_presentation.preferences.layout == LayoutMode::Canvas && !m_presentationHeaderHovered && !m_cameraModeCombo.IsOpen() )
@@ -1035,14 +1032,12 @@ UIWindowInteractionOwner::MinimizedControlResult UIWindowInteractionOwner::Handl
     return control;
 }
 
-UIWindowInteractionOwner::MinimizedControlResult UIWindowInteractionOwner::HandleMinimizedEditorStatus(
-    const InputControl::UIInputSnapshot& input,
-    const UIRect& minimized,
-    bool editorPlacementMode,
-    bool editorPlaceStatic,
-    bool editorTerrainAlign,
-    InGameUIInputResult& result
-)
+UIWindowInteractionOwner::MinimizedControlResult UIWindowInteractionOwner::HandleMinimizedEditorStatus( const InputControl::UIInputSnapshot& input,
+                                                                                                        const UIRect& minimized,
+                                                                                                        bool editorPlacementMode,
+                                                                                                        bool editorPlaceStatic,
+                                                                                                        bool editorTerrainAlign,
+                                                                                                        InGameUIInputResult& result )
 {
     MinimizedControlResult control;
     const EditorMinimizedStatusLayout layout = BuildEditorMinimizedStatusLayout( minimized, editorPlacementMode, editorPlaceStatic, editorTerrainAlign );
@@ -1125,9 +1120,8 @@ void UIWindowInteractionOwner::FinishEditorMiniPalettePress( const EditorMiniPal
             selectedObjectType = EditorMiniRagdollObjectType( option );
         }
     }
-    else if (
-        m_editorMiniPalettePressedEntry >= 0 && m_editorMiniPalettePressedEntry < layout.buttonCount && HitEditorMiniPaletteButton( layout, m_mouseX, m_mouseY ) == m_editorMiniPalettePressedEntry
-    )
+    else if ( m_editorMiniPalettePressedEntry >= 0 && m_editorMiniPalettePressedEntry < layout.buttonCount &&
+              HitEditorMiniPaletteButton( layout, m_mouseX, m_mouseY ) == m_editorMiniPalettePressedEntry )
     {
         selectedObjectType = m_editorMiniPalettePressedObjectType;
     }
@@ -1177,17 +1171,15 @@ UIWindowInteractionOwner::HandleEditorMiniPalette( const InputControl::UIInputSn
     return control;
 }
 
-InGameUIInputResult UIWindowInteractionOwner::HandleMinimizedInput(
-    const InputControl::UIInputSnapshot& input,
-    int screenW,
-    int screenH,
-    double now,
-    bool editorModeEnabled,
-    bool editorPlacementMode,
-    bool editorPlaceStatic,
-    bool editorTerrainAlign,
-    uint32_t cameraModeEnabledMask
-)
+InGameUIInputResult UIWindowInteractionOwner::HandleMinimizedInput( const InputControl::UIInputSnapshot& input,
+                                                                    int screenW,
+                                                                    int screenH,
+                                                                    double now,
+                                                                    bool editorModeEnabled,
+                                                                    bool editorPlacementMode,
+                                                                    bool editorPlaceStatic,
+                                                                    bool editorTerrainAlign,
+                                                                    uint32_t cameraModeEnabledMask )
 {
     InGameUIInputResult result;
     result.unhandledWheelDelta = input.wheelDelta;
@@ -1407,13 +1399,11 @@ UIWindowInteractionOwner::WindowPointerLayout UIWindowInteractionOwner::PrepareW
 }
 
 
-void UIWindowInteractionOwner::HandleWindowWheel(
-    const InputControl::UIInputSnapshot& input,
-    InGameUIInputResult& result,
-    const WindowPointerLayout& layout,
-    const WindowOptionView& options,
-    double now
-)
+void UIWindowInteractionOwner::HandleWindowWheel( const InputControl::UIInputSnapshot& input,
+                                                  InGameUIInputResult& result,
+                                                  const WindowPointerLayout& layout,
+                                                  const WindowOptionView& options,
+                                                  double now )
 {
     const int wheelDelta = input.wheelDelta;
     if ( m_activeTab == InGameUITab::Scene )
@@ -1715,13 +1705,11 @@ bool UIWindowInteractionOwner::HandleOpenControlPress( InGameUIInputResult& resu
     return true;
 }
 
-bool UIWindowInteractionOwner::HandleDiagnosticTabPress(
-    const InputControl::UIInputSnapshot& input,
-    InGameUIInputResult& result,
-    const WindowPointerLayout& layout,
-    const WindowOptionView& options,
-    double now
-)
+bool UIWindowInteractionOwner::HandleDiagnosticTabPress( const InputControl::UIInputSnapshot& input,
+                                                         InGameUIInputResult& result,
+                                                         const WindowPointerLayout& layout,
+                                                         const WindowOptionView& options,
+                                                         double now )
 {
     const bool diagnosticTab = m_activeTab == InGameUITab::Profiler || m_activeTab == InGameUITab::Memory || m_activeTab == InGameUITab::Scene || m_activeTab == InGameUITab::Editor ||
                                m_activeTab == InGameUITab::Physics || m_activeTab == InGameUITab::Options;
@@ -1733,19 +1721,17 @@ bool UIWindowInteractionOwner::HandleDiagnosticTabPress(
     {
         const float contentW = layout.ContentWidth();
 
-        if ( ProfilerTab::HandleContentClick(
-            m_profilerTab,
-            result,
-            m_activeSlider,
-            layout.inputX + 18,
-            layout.contentY,
-            contentW,
-            m_scrollY,
-            m_mouseX,
-            m_mouseY,
-            m_lastWorkerThreadCount,
-            m_lastMaxWorkerThreadCount
-        ) )
+        if ( ProfilerTab::HandleContentClick( m_profilerTab,
+                                              result,
+                                              m_activeSlider,
+                                              layout.inputX + 18,
+                                              layout.contentY,
+                                              contentW,
+                                              m_scrollY,
+                                              m_mouseX,
+                                              m_mouseY,
+                                              m_lastWorkerThreadCount,
+                                              m_lastMaxWorkerThreadCount ) )
         {
             result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             m_scrollbarVisibleUntil = now + 1.2;
@@ -1787,16 +1773,14 @@ bool UIWindowInteractionOwner::HandleDiagnosticTabPress(
 
         if ( !sceneClickHandled )
         {
-            sceneClickHandled = SceneTab::HandleClosedRecordingComboClick(
-                m_sceneTab,
-                static_cast<int>( options.recordings.size() ),
-                options.selectedRecording,
-                m_mouseX,
-                m_mouseY,
-                contentX,
-                rowBase,
-                contentW
-            );
+            sceneClickHandled = SceneTab::HandleClosedRecordingComboClick( m_sceneTab,
+                                                                           static_cast<int>( options.recordings.size() ),
+                                                                           options.selectedRecording,
+                                                                           m_mouseX,
+                                                                           m_mouseY,
+                                                                           contentX,
+                                                                           rowBase,
+                                                                           contentW );
         }
 
         if ( !sceneClickHandled )
@@ -2115,15 +2099,13 @@ void UIWindowInteractionOwner::HandleWindowFallbackPress( InGameUIInputResult& r
             }
             return;
         }
-        const bool hits[] = {
-            m_rendererCombo.HitBox( m_mouseX, m_mouseY ),
-            m_reflectionCombo.HitBox( m_mouseX, m_mouseY ),
-            m_blurToggle.HitTest( m_mouseX, m_mouseY ),
-            m_vsyncToggle.HitTest( m_mouseX, m_mouseY ),
-            m_hitboxToggle.HitTest( m_mouseX, m_mouseY ),
-            m_histogramToggle.HitTest( m_mouseX, m_mouseY ),
-            m_timelineToggle.HitTest( m_mouseX, m_mouseY )
-        };
+        const bool hits[] = { m_rendererCombo.HitBox( m_mouseX, m_mouseY ),
+                              m_reflectionCombo.HitBox( m_mouseX, m_mouseY ),
+                              m_blurToggle.HitTest( m_mouseX, m_mouseY ),
+                              m_vsyncToggle.HitTest( m_mouseX, m_mouseY ),
+                              m_hitboxToggle.HitTest( m_mouseX, m_mouseY ),
+                              m_histogramToggle.HitTest( m_mouseX, m_mouseY ),
+                              m_timelineToggle.HitTest( m_mouseX, m_mouseY ) };
         for ( int action = 0; action < 7; ++action )
         {
             if ( hits[action] )
@@ -2143,15 +2125,13 @@ void UIWindowInteractionOwner::HandleWindowFallbackPress( InGameUIInputResult& r
     }
 }
 
-void UIWindowInteractionOwner::HandleWindowPress(
-    const InputControl::UIInputSnapshot& input,
-    InGameUIInputResult& result,
-    const WindowPointerLayout& layout,
-    const WindowOptionView& options,
-    int screenW,
-    int screenH,
-    double now
-)
+void UIWindowInteractionOwner::HandleWindowPress( const InputControl::UIInputSnapshot& input,
+                                                  InGameUIInputResult& result,
+                                                  const WindowPointerLayout& layout,
+                                                  const WindowOptionView& options,
+                                                  int screenW,
+                                                  int screenH,
+                                                  double now )
 {
     // Popups draw above the drawer title and tabs, so their selection or
     // dismissal owns the press before any underlying chrome can act.
@@ -2212,18 +2192,16 @@ bool UIWindowInteractionOwner::HandleMemoryOverlayInput( const InputControl::UII
     return inside || active;
 }
 
-InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
-    const InputControl::UIInputSnapshot& input,
-    const SceneNavigationModel& sceneNavigation,
-    int screenWidth,
-    int screenHeight,
-    double now,
-    bool editorModeEnabled,
-    bool placementModeEnabled,
-    bool placeStaticObject,
-    bool autoTerrainAlign,
-    uint32_t cameraModeEnabledMask
-)
+InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input,
+                                                           const SceneNavigationModel& sceneNavigation,
+                                                           int screenWidth,
+                                                           int screenHeight,
+                                                           double now,
+                                                           bool editorModeEnabled,
+                                                           bool placementModeEnabled,
+                                                           bool placeStaticObject,
+                                                           bool autoTerrainAlign,
+                                                           uint32_t cameraModeEnabledMask )
 {
     InGameUIInputResult result;
     const int screenW = (std::max)( 1, screenWidth );

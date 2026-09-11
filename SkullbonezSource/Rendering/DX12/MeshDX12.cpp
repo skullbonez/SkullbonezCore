@@ -130,13 +130,11 @@ bool MeshDX12::Create( const MeshVertexDataView& vertices, const Dx12MeshUploadS
         // Recoverable error: mesh buffers are backend resources. Factory callers receive
         // a null mesh and skip the dependent draw path while the DX12 gate keeps
         // the HRESULT visible.
-        SkullbonezCore::Core::Log().WriteEventf(
-            "dx12_mesh_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d bytes=%llu",
-            static_cast<unsigned int>( hr ),
-            m_vertexCount,
-            m_stride,
-            static_cast<unsigned long long>( dataSize )
-        );
+        SkullbonezCore::Core::Log().WriteEventf( "dx12_mesh_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d bytes=%llu",
+                                                 static_cast<unsigned int>( hr ),
+                                                 m_vertexCount,
+                                                 m_stride,
+                                                 static_cast<unsigned long long>( dataSize ) );
 
         SkullbonezCore::Core::Log().FlushAll();
         return false;

@@ -10,6 +10,5 @@ class ColliderStore;
 // articulation contact. A negative penetration is a gap, with independent
 // surface witnesses. Both sleep wake-up and the solver use this same admission
 // rule before any contact or joint warm start is applied.
-bool BuildArticulatedContactManifold( const PhysicsBodyStore& bodies, const ColliderStore& colliders, float stepDuration,
-                                      float contactEpsilon, int bodyA, int bodyB, ObjectContactManifold& manifold );
+bool BuildArticulatedContactManifold( const PhysicsBodyStore& bodies, const ColliderStore& colliders, float stepDuration, float contactEpsilon, int bodyA, int bodyB, ObjectContactManifold& manifold );
 } // namespace SkullbonezCore::Physics

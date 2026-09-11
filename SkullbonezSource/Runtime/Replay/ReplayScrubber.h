@@ -377,8 +377,7 @@ class ReplayScrubber
     // the previous update timestamp is part of scrubber presentation state.
     // Invariant: visibility remains published through the fade-out tail and
     // frame stalls contribute at most 250 ms to one opacity step.
-    void UpdateVisibilityFade( bool targetVisible, double now, double fadeInSeconds, double fadeOutSeconds,
-                               float visibleEpsilon ) noexcept
+    void UpdateVisibilityFade( bool targetVisible, double now, double fadeInSeconds, double fadeOutSeconds, float visibleEpsilon ) noexcept
     {
         if ( m_state.fadeUpdatedAt <= 0.0 || now < m_state.fadeUpdatedAt )
         {
@@ -393,11 +392,13 @@ class ReplayScrubber
         m_state.visible = targetVisible || m_state.visibleAlpha > visibleEpsilon;
     }
 
-    bool BuildRestoreRequest( const ReplayScrubberRestoreSources& sources, double now, ReplayLiveRestoreRequest& outRequest,
-                              char* outReason = nullptr, std::size_t reasonSize = 0 );
-    void CompleteRestore( const ReplayLiveRestoreRequest& request, bool restored,
-                          const RunReplayV2TargetRestoreResult& v2Result, const char* reason,
-                          RunReplayV2TargetRestoreResult* outV2Result = nullptr, char* outReason = nullptr,
+    bool BuildRestoreRequest( const ReplayScrubberRestoreSources& sources, double now, ReplayLiveRestoreRequest& outRequest, char* outReason = nullptr, std::size_t reasonSize = 0 );
+    void CompleteRestore( const ReplayLiveRestoreRequest& request,
+                          bool restored,
+                          const RunReplayV2TargetRestoreResult& v2Result,
+                          const char* reason,
+                          RunReplayV2TargetRestoreResult* outV2Result = nullptr,
+                          char* outReason = nullptr,
                           std::size_t reasonSize = 0 );
 
   private:

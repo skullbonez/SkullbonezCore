@@ -164,15 +164,13 @@ Terrain::TryValidateHeightMapDimensions( SkullbonezCore::Core::SbDiagnosticStore
 }
 
 
-SkullbonezCore::Core::SbResult Terrain::TryCreatePhysicsFromHeightMap(
-    SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-    const char* fileName,
-    int mapSize,
-    int stepSize,
-    int textureWrap,
-    const SkullbonezCore::Core::EngineConfig& config,
-    std::unique_ptr<Terrain>& outTerrain
-)
+SkullbonezCore::Core::SbResult Terrain::TryCreatePhysicsFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                       const char* fileName,
+                                                                       int mapSize,
+                                                                       int stepSize,
+                                                                       int textureWrap,
+                                                                       const SkullbonezCore::Core::EngineConfig& config,
+                                                                       std::unique_ptr<Terrain>& outTerrain )
 {
     ValidatedHeightMapGeometry geometry;
     const SkullbonezCore::Core::SbResult shapeResult = TryValidateHeightMapDimensions( diagnostics, mapSize, stepSize, textureWrap, geometry );
@@ -200,17 +198,15 @@ SkullbonezCore::Core::SbResult Terrain::TryCreatePhysicsFromHeightMap(
 
 
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
-SkullbonezCore::Core::SbResult Terrain::TryCreateFromHeightMap(
-    SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-    const char* fileName,
-    int mapSize,
-    int stepSize,
-    int textureWrap,
-    const SkullbonezCore::Core::EngineConfig& config,
-    SkullbonezCore::Assets::AssetSystem& assets,
-    Dx12ResourceBuilder& resources,
-    std::unique_ptr<Terrain>& outTerrain
-)
+SkullbonezCore::Core::SbResult Terrain::TryCreateFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                const char* fileName,
+                                                                int mapSize,
+                                                                int stepSize,
+                                                                int textureWrap,
+                                                                const SkullbonezCore::Core::EngineConfig& config,
+                                                                SkullbonezCore::Assets::AssetSystem& assets,
+                                                                Dx12ResourceBuilder& resources,
+                                                                std::unique_ptr<Terrain>& outTerrain )
 {
     // Concept: RAW terrain files are external asset input. The factory keeps
     // a failed load out of the scene owner and report recoverable error instead of
@@ -653,17 +649,15 @@ SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( SkullbonezCore::Core::S
 
 
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
-void Terrain::Render(
-    const Matrix4& view,
-    const Matrix4& projection,
-    Dx12TextureOwner& textures,
-    const float* lightPosition,
-    const float* clipPlane,
-    const Rendering::PassRasterStateBucket& rasterState,
-    const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride,
-    const ShadowFrameData* shadow,
-    const ShadowFrameData* detailShadow
-)
+void Terrain::Render( const Matrix4& view,
+                      const Matrix4& projection,
+                      Dx12TextureOwner& textures,
+                      const float* lightPosition,
+                      const float* clipPlane,
+                      const Rendering::PassRasterStateBucket& rasterState,
+                      const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride,
+                      const ShadowFrameData* shadow,
+                      const ShadowFrameData* detailShadow )
 {
     RequireClipPlane( clipPlane );
 
@@ -741,13 +735,11 @@ void Terrain::Render(
 }
 
 
-void Terrain::RenderShadowDepth(
-    Core::Profiler*,
-    const Matrix4& lightView,
-    const Matrix4& lightProjection,
-    const Rendering::PassRasterStateBucket& rasterState,
-    const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride
-)
+void Terrain::RenderShadowDepth( Core::Profiler*,
+                                 const Matrix4& lightView,
+                                 const Matrix4& lightProjection,
+                                 const Rendering::PassRasterStateBucket& rasterState,
+                                 const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters/DepthDraw" );
 

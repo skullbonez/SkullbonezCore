@@ -45,8 +45,7 @@ bool UICheckBox::HitTest( int mouseX, int mouseY ) const
 }
 
 
-void UICheckBox::DrawToggle( const UIDrawContext& draw, const char* label, bool checked, float accentR, float accentG,
-                             float accentB, bool enabled ) const
+void UICheckBox::DrawToggle( const UIDrawContext& draw, const char* label, bool checked, float accentR, float accentG, float accentB, bool enabled ) const
 {
     UIVisualState state = UIVisualState::Visible;
     if ( enabled )
@@ -59,8 +58,7 @@ void UICheckBox::DrawToggle( const UIDrawContext& draw, const char* label, bool 
         state |= UIVisualState::Checked;
     }
 
-    Widgets::DrawToggle( draw, m_bounds, label, { accentR, accentG, accentB, 1.0f }, state,
-                         Widgets::ComponentAppearance::Established );
+    Widgets::DrawToggle( draw, m_bounds, label, { accentR, accentG, accentB, 1.0f }, state, Widgets::ComponentAppearance::Established );
 }
 
 } // namespace UI

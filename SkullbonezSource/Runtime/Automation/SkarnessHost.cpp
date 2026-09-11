@@ -313,46 +313,42 @@ struct NamedCommand
 
 CommandParseStatus ParseBasicCommand( const std::string& name, const Json& arguments, SkarnessCommand& command )
 {
-    static constexpr std::array noArgumentCommands = {
-        NamedCommand { "scene.save", SkarnessCommandType::SceneSave },
-        NamedCommand { "scene.reset", SkarnessCommandType::SceneReset },
-        NamedCommand { "scene.load_demo", SkarnessCommandType::SceneLoadDemo },
-        NamedCommand { "scene.object.list", SkarnessCommandType::SceneObjectList },
-        NamedCommand { "replay.jump_to_start", SkarnessCommandType::ReplayJumpToStart },
-        NamedCommand { "replay.jump_to_end", SkarnessCommandType::ReplayJumpToEnd },
-        NamedCommand { "replay.step_backward", SkarnessCommandType::ReplayStepBackward },
-        NamedCommand { "replay.step_forward", SkarnessCommandType::ReplayStepForward },
-        NamedCommand { "replay.velocity_commit", SkarnessCommandType::ReplayVelocityCommit },
-        NamedCommand { "replay.velocity_cancel", SkarnessCommandType::ReplayVelocityCancel },
-        NamedCommand { "prediction.reveal_reset", SkarnessCommandType::PredictionRevealReset },
-        NamedCommand { "replay.restore_branch", SkarnessCommandType::ReplayRestoreBranch },
-        NamedCommand { "replay.return_to_live", SkarnessCommandType::ReplayReturnToLive },
-        NamedCommand { "replay.return_from_cause", SkarnessCommandType::ReplayReturnFromCause },
-        NamedCommand { "replay.copy_cause_record", SkarnessCommandType::ReplayCopyCauseRecord },
-        NamedCommand { "replay.trip_plan", SkarnessCommandType::ReplayTripPlan },
-        NamedCommand { "replay.trip_commit", SkarnessCommandType::ReplayTripCommit },
-        NamedCommand { "replay.trip_cancel", SkarnessCommandType::ReplayTripCancel },
-        NamedCommand { "prediction.forecast_start", SkarnessCommandType::PredictionForecastStart },
-        NamedCommand { "prediction.forecast_reset", SkarnessCommandType::PredictionForecastReset },
-        NamedCommand { "prediction.forecast_stop", SkarnessCommandType::PredictionForecastStop },
-    };
+    static constexpr std::array noArgumentCommands = { NamedCommand { "scene.save", SkarnessCommandType::SceneSave },
+                                                       NamedCommand { "scene.reset", SkarnessCommandType::SceneReset },
+                                                       NamedCommand { "scene.load_demo", SkarnessCommandType::SceneLoadDemo },
+                                                       NamedCommand { "scene.object.list", SkarnessCommandType::SceneObjectList },
+                                                       NamedCommand { "replay.jump_to_start", SkarnessCommandType::ReplayJumpToStart },
+                                                       NamedCommand { "replay.jump_to_end", SkarnessCommandType::ReplayJumpToEnd },
+                                                       NamedCommand { "replay.step_backward", SkarnessCommandType::ReplayStepBackward },
+                                                       NamedCommand { "replay.step_forward", SkarnessCommandType::ReplayStepForward },
+                                                       NamedCommand { "replay.velocity_commit", SkarnessCommandType::ReplayVelocityCommit },
+                                                       NamedCommand { "replay.velocity_cancel", SkarnessCommandType::ReplayVelocityCancel },
+                                                       NamedCommand { "prediction.reveal_reset", SkarnessCommandType::PredictionRevealReset },
+                                                       NamedCommand { "replay.restore_branch", SkarnessCommandType::ReplayRestoreBranch },
+                                                       NamedCommand { "replay.return_to_live", SkarnessCommandType::ReplayReturnToLive },
+                                                       NamedCommand { "replay.return_from_cause", SkarnessCommandType::ReplayReturnFromCause },
+                                                       NamedCommand { "replay.copy_cause_record", SkarnessCommandType::ReplayCopyCauseRecord },
+                                                       NamedCommand { "replay.trip_plan", SkarnessCommandType::ReplayTripPlan },
+                                                       NamedCommand { "replay.trip_commit", SkarnessCommandType::ReplayTripCommit },
+                                                       NamedCommand { "replay.trip_cancel", SkarnessCommandType::ReplayTripCancel },
+                                                       NamedCommand { "prediction.forecast_start", SkarnessCommandType::PredictionForecastStart },
+                                                       NamedCommand { "prediction.forecast_reset", SkarnessCommandType::PredictionForecastReset },
+                                                       NamedCommand { "prediction.forecast_stop", SkarnessCommandType::PredictionForecastStop }, };
     struct BooleanCommand : NamedCommand
     {
         const char* argument;
     };
-    static constexpr std::array booleanCommands = {
-        BooleanCommand { { "editor.set_terrain_brush", SkarnessCommandType::EditorSetTerrainBrush }, "enabled" },
-        BooleanCommand { { "replay.set_recording_enabled", SkarnessCommandType::ReplaySetRecordingEnabled }, "enabled" },
-        BooleanCommand { { "replay.set_playback_paused", SkarnessCommandType::ReplaySetPlaybackPaused }, "paused" },
-        BooleanCommand { { "replay.set_prediction_enabled", SkarnessCommandType::ReplaySetPredictionEnabled }, "enabled" },
-        BooleanCommand { { "replay.set_prediction_detail", SkarnessCommandType::ReplaySetPredictionDetailMode }, "highDetail" },
-        BooleanCommand { { "replay.set_velocity_edit_enabled", SkarnessCommandType::ReplaySetVelocityEditEnabled }, "enabled" },
-        BooleanCommand { { "replay.set_ragdoll_visuals_enabled", SkarnessCommandType::ReplaySetRagdollVisualsEnabled }, "enabled" },
-        BooleanCommand { { "replay.set_past_path_visible", SkarnessCommandType::ReplaySetPastPathVisible }, "visible" },
-        BooleanCommand { { "replay.set_guide_arcs_enabled", SkarnessCommandType::ReplaySetGuideArcsEnabled }, "enabled" },
-        BooleanCommand { { "replay.set_cause_inspector_open", SkarnessCommandType::ReplaySetCauseInspectorOpen }, "open" },
-        BooleanCommand { { "replay.set_porkchop_visible", SkarnessCommandType::ReplaySetPorkchopVisible }, "visible" },
-    };
+    static constexpr std::array booleanCommands = { BooleanCommand { { "editor.set_terrain_brush", SkarnessCommandType::EditorSetTerrainBrush }, "enabled" },
+                                                    BooleanCommand { { "replay.set_recording_enabled", SkarnessCommandType::ReplaySetRecordingEnabled }, "enabled" },
+                                                    BooleanCommand { { "replay.set_playback_paused", SkarnessCommandType::ReplaySetPlaybackPaused }, "paused" },
+                                                    BooleanCommand { { "replay.set_prediction_enabled", SkarnessCommandType::ReplaySetPredictionEnabled }, "enabled" },
+                                                    BooleanCommand { { "replay.set_prediction_detail", SkarnessCommandType::ReplaySetPredictionDetailMode }, "highDetail" },
+                                                    BooleanCommand { { "replay.set_velocity_edit_enabled", SkarnessCommandType::ReplaySetVelocityEditEnabled }, "enabled" },
+                                                    BooleanCommand { { "replay.set_ragdoll_visuals_enabled", SkarnessCommandType::ReplaySetRagdollVisualsEnabled }, "enabled" },
+                                                    BooleanCommand { { "replay.set_past_path_visible", SkarnessCommandType::ReplaySetPastPathVisible }, "visible" },
+                                                    BooleanCommand { { "replay.set_guide_arcs_enabled", SkarnessCommandType::ReplaySetGuideArcsEnabled }, "enabled" },
+                                                    BooleanCommand { { "replay.set_cause_inspector_open", SkarnessCommandType::ReplaySetCauseInspectorOpen }, "open" },
+                                                    BooleanCommand { { "replay.set_porkchop_visible", SkarnessCommandType::ReplaySetPorkchopVisible }, "visible" }, };
 
     for ( const NamedCommand& entry : noArgumentCommands )
     {
@@ -390,13 +386,11 @@ CommandParseStatus ParseNumericCommand( const std::string& name, const Json& arg
         int minimum;
         int maximum;
     };
-    static constexpr std::array integerCommands = {
-        IntegerCommand { { "replay.set_retention_seconds", SkarnessCommandType::ReplaySetRetentionSeconds }, "seconds", 20, 600 },
-        IntegerCommand { { "replay.set_memory_budget_mib", SkarnessCommandType::ReplaySetMemoryBudgetMiB }, "mib", 32, 512 },
-        IntegerCommand { { "prediction.reveal_advance", SkarnessCommandType::PredictionRevealAdvance }, "frames", 1, 100000 },
-        IntegerCommand { { "replay.select_cause_row", SkarnessCommandType::ReplaySelectCauseRow }, "row", 0, INT_MAX },
-        IntegerCommand { { "replay.select_porkchop_cell", SkarnessCommandType::ReplaySelectPorkchopCell }, "cell", 0, 3071 },
-    };
+    static constexpr std::array integerCommands = { IntegerCommand { { "replay.set_retention_seconds", SkarnessCommandType::ReplaySetRetentionSeconds }, "seconds", 20, 600 },
+                                                    IntegerCommand { { "replay.set_memory_budget_mib", SkarnessCommandType::ReplaySetMemoryBudgetMiB }, "mib", 32, 512 },
+                                                    IntegerCommand { { "prediction.reveal_advance", SkarnessCommandType::PredictionRevealAdvance }, "frames", 1, 100000 },
+                                                    IntegerCommand { { "replay.select_cause_row", SkarnessCommandType::ReplaySelectCauseRow }, "row", 0, INT_MAX },
+                                                    IntegerCommand { { "replay.select_porkchop_cell", SkarnessCommandType::ReplaySelectPorkchopCell }, "cell", 0, 3071 }, };
     struct NumberCommand : NamedCommand
     {
         const char* argument;
@@ -404,12 +398,10 @@ CommandParseStatus ParseNumericCommand( const std::string& name, const Json& arg
         double maximum;
         bool minimumExclusive;
     };
-    static constexpr std::array numberCommands = {
-        NumberCommand { { "replay.set_reveal_speed", SkarnessCommandType::ReplaySetRevealSpeed }, "rate", 0.0, DBL_MAX, true },
-        NumberCommand { { "replay.scrub", SkarnessCommandType::ReplayScrub }, "normalized", 0.0, 1.0, false },
-        NumberCommand { { "replay.set_prediction_horizon", SkarnessCommandType::ReplaySetPredictionHorizon }, "seconds", 1.0, 120.0, false },
-        NumberCommand { { "replay.set_trip_time_of_flight", SkarnessCommandType::ReplaySetTripTimeOfFlight }, "seconds", 2.0, 120.0, false },
-    };
+    static constexpr std::array numberCommands = { NumberCommand { { "replay.set_reveal_speed", SkarnessCommandType::ReplaySetRevealSpeed }, "rate", 0.0, DBL_MAX, true },
+                                                   NumberCommand { { "replay.scrub", SkarnessCommandType::ReplayScrub }, "normalized", 0.0, 1.0, false },
+                                                   NumberCommand { { "replay.set_prediction_horizon", SkarnessCommandType::ReplaySetPredictionHorizon }, "seconds", 1.0, 120.0, false },
+                                                   NumberCommand { { "replay.set_trip_time_of_flight", SkarnessCommandType::ReplaySetTripTimeOfFlight }, "seconds", 2.0, 120.0, false }, };
 
     for ( const IntegerCommand& entry : integerCommands )
     {
@@ -884,10 +876,9 @@ SkarnessHost::RememberRequestResult SkarnessHost::RememberRequestId( const std::
         // Reclaim the oldest completed slot, or reject new work while every
         // retained id still has an unresolved command.
         const auto evict = std::find_if( m_recentRequestIds.begin(), m_recentRequestIds.end(), [this]( const std::string& retainedId )
-            {
-                return std::find_if( m_completedRequests.begin(), m_completedRequests.end(), [&retainedId]( const CompletedRequest& result ) { return result.requestId == retainedId; } ) !=
-                       m_completedRequests.end();
-            } );
+                                         {
+                                             return std::find_if( m_completedRequests.begin(), m_completedRequests.end(), [&retainedId]( const CompletedRequest& result ) { return result.requestId == retainedId; } ) != m_completedRequests.end();
+                                         } );
 
         if ( evict == m_recentRequestIds.end() )
         {
@@ -1632,50 +1623,48 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
 
         if ( result->hasComparison )
         {
-            values["comparison"] = {
-                { "tick", result->comparisonTick },
-                { "active", result->comparisonActive },
-                { "bundle", result->comparisonBundle },
-                { "loading", result->comparisonLoading },
-                { "loadPercent", result->comparisonLoadPercent },
-                { "loadPhase", result->comparisonLoadPhase },
-                { "loadError", result->comparisonLoadError },
-                { "lastTick", result->comparisonLastTick },
-                { "direction", result->comparisonDirection },
-                { "mode", result->comparisonMode },
-                { "stackedViews", result->comparisonStacked },
-                { "orbitSelected", result->comparisonOrbit },
-                { "timelineDragging", result->comparisonDragging },
-                { "followA", result->comparisonFollowA },
-                { "showA", result->comparisonShowA },
-                { "xray", result->comparisonXray },
-                { "selectedOnly", result->comparisonSelectedOnly },
-                { "differencesOnly", result->comparisonDifferencesOnly },
-                { "speed", result->comparisonSpeed },
-                { "positionThreshold", result->comparisonPositionThreshold },
-                { "loopEnabled", result->comparisonLoop },
-                { "loopFirst", result->comparisonLoopFirst },
-                { "loopLast", result->comparisonLoopLast },
-                { "viewport", result->comparisonViewport },
-                { "timeline", result->comparisonTimeline },
-                { "libraryPopupOpen", result->comparisonLibraryOpen },
-                { "libraryPopup", result->comparisonLibraryPopup },
-                { "cameraEye", result->comparisonEye },
-                { "cameraView", result->comparisonView },
-                { "selected", result->comparisonSelected },
-                { "coverage", result->comparisonCoverage },
-                { "diagnosticsRecorded", result->comparisonDiagnostics },
-                { "positionA", result->comparisonPositionA },
-                { "positionB", result->comparisonPositionB },
-                { "distanceMetres", result->comparisonDistance },
-                { "angleDegrees", result->comparisonAngle },
-                { "events", result->comparisonEventCount },
-                { "selectedEvent", result->comparisonSelectedEvent },
-                { "eventTick", result->comparisonEventTick },
-                { "contactPoints", result->comparisonContactPoints },
-                { "contactCenter", result->comparisonContactCenter },
-                { "normalLengthScale", result->comparisonNormalScale }
-            };
+            values["comparison"] = { { "tick", result->comparisonTick },
+                                     { "active", result->comparisonActive },
+                                     { "bundle", result->comparisonBundle },
+                                     { "loading", result->comparisonLoading },
+                                     { "loadPercent", result->comparisonLoadPercent },
+                                     { "loadPhase", result->comparisonLoadPhase },
+                                     { "loadError", result->comparisonLoadError },
+                                     { "lastTick", result->comparisonLastTick },
+                                     { "direction", result->comparisonDirection },
+                                     { "mode", result->comparisonMode },
+                                     { "stackedViews", result->comparisonStacked },
+                                     { "orbitSelected", result->comparisonOrbit },
+                                     { "timelineDragging", result->comparisonDragging },
+                                     { "followA", result->comparisonFollowA },
+                                     { "showA", result->comparisonShowA },
+                                     { "xray", result->comparisonXray },
+                                     { "selectedOnly", result->comparisonSelectedOnly },
+                                     { "differencesOnly", result->comparisonDifferencesOnly },
+                                     { "speed", result->comparisonSpeed },
+                                     { "positionThreshold", result->comparisonPositionThreshold },
+                                     { "loopEnabled", result->comparisonLoop },
+                                     { "loopFirst", result->comparisonLoopFirst },
+                                     { "loopLast", result->comparisonLoopLast },
+                                     { "viewport", result->comparisonViewport },
+                                     { "timeline", result->comparisonTimeline },
+                                     { "libraryPopupOpen", result->comparisonLibraryOpen },
+                                     { "libraryPopup", result->comparisonLibraryPopup },
+                                     { "cameraEye", result->comparisonEye },
+                                     { "cameraView", result->comparisonView },
+                                     { "selected", result->comparisonSelected },
+                                     { "coverage", result->comparisonCoverage },
+                                     { "diagnosticsRecorded", result->comparisonDiagnostics },
+                                     { "positionA", result->comparisonPositionA },
+                                     { "positionB", result->comparisonPositionB },
+                                     { "distanceMetres", result->comparisonDistance },
+                                     { "angleDegrees", result->comparisonAngle },
+                                     { "events", result->comparisonEventCount },
+                                     { "selectedEvent", result->comparisonSelectedEvent },
+                                     { "eventTick", result->comparisonEventTick },
+                                     { "contactPoints", result->comparisonContactPoints },
+                                     { "contactCenter", result->comparisonContactCenter },
+                                     { "normalLengthScale", result->comparisonNormalScale } };
         }
         if ( result->hasTextValue )
         {
@@ -1736,17 +1725,15 @@ void SkarnessHost::SendCapabilities( const std::string& requestId )
         topics.push_back( { { "name", topic.name }, { "owner", topic.owner } } );
     }
 
-    Json response = {
-        { "schemaVersion", SKARNESS_SCHEMA_VERSION },
-        { "sequence", ++m_sequence },
-        { "kind", "capabilities" },
-        { "requestId", requestId },
-        { "status", "applied" },
-        { "commands", std::move( commandNames ) },
-        { "catalog", std::move( catalog ) },
-        { "topics", std::move( topics ) },
-        { "stateDetail", { "summary", "normal", "full" } }
-    };
+    Json response = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
+                      { "sequence", ++m_sequence },
+                      { "kind", "capabilities" },
+                      { "requestId", requestId },
+                      { "status", "applied" },
+                      { "commands", std::move( commandNames ) },
+                      { "catalog", std::move( catalog ) },
+                      { "topics", std::move( topics ) },
+                      { "stateDetail", { "summary", "normal", "full" } } };
     const std::string line = response.dump();
     m_trace << line << '\n';
     m_trace.flush();
@@ -1771,23 +1758,21 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state, const Rep
 
     const auto emit = [&]( std::size_t index, const char* kind, const std::string& payload, uint64_t payloadHash )
     {
-        Json event = {
-            { "schemaVersion", SKARNESS_SCHEMA_VERSION },
-            { "sequence", ++m_sequence },
-            { "runId", m_runId },
-            { "runtimeTurn", renderFrame },
-            { "sceneGeneration", state.sceneGeneration },
-            { "simulationTick", state.sceneFrame },
-            { "sceneFrame", state.sceneFrame },
-            { "simulationSeconds", state.simulationSeconds },
-            { "paused", state.paused },
-            { "renderFrame", renderFrame },
-            { "replayFrame", state.presentedReplayFrame },
-            { "topic", SKARNESS_STATE_TOPICS[index].name },
-            { "kind", kind },
-            { "ownerVersion", topics[index].ownerVersion },
-            { "payload", Json::parse( payload ) }
-        };
+        Json event = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
+                       { "sequence", ++m_sequence },
+                       { "runId", m_runId },
+                       { "runtimeTurn", renderFrame },
+                       { "sceneGeneration", state.sceneGeneration },
+                       { "simulationTick", state.sceneFrame },
+                       { "sceneFrame", state.sceneFrame },
+                       { "simulationSeconds", state.simulationSeconds },
+                       { "paused", state.paused },
+                       { "renderFrame", renderFrame },
+                       { "replayFrame", state.presentedReplayFrame },
+                       { "topic", SKARNESS_STATE_TOPICS[index].name },
+                       { "kind", kind },
+                       { "ownerVersion", topics[index].ownerVersion },
+                       { "payload", Json::parse( payload ) } };
         traceLines.push_back( event.dump() );
         if ( m_stateSubscriptions[index] )
         {
@@ -1914,13 +1899,11 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state, const Rep
     while ( !m_pendingCompletions.empty() )
     {
         const PendingCompletion& completion = m_pendingCompletions.front();
-        SendLifecycle(
-            completion.requestId,
-            completion.applied ? "applied" : "rejected",
-            completion.reason.empty() ? nullptr : completion.reason.c_str(),
-            true,
-            completion.hasResult ? &completion.result : nullptr
-        );
+        SendLifecycle( completion.requestId,
+                       completion.applied ? "applied" : "rejected",
+                       completion.reason.empty() ? nullptr : completion.reason.c_str(),
+                       true,
+                       completion.hasResult ? &completion.result : nullptr );
         m_pendingCompletions.pop_front();
     }
 
@@ -2024,16 +2007,14 @@ std::string SkarnessHost::UntilTimeoutReason( const SkarnessFrameState& state ) 
 
 bool SkarnessHost::WriteManifest( const char* status )
 {
-    Json manifest = {
-        { "schemaVersion", SKARNESS_SCHEMA_VERSION },
-        { "processId", GetCurrentProcessId() },
-        { "pipe", m_pipeName },
-        { "sessionToken", m_sessionToken },
-        { "stateTrace", m_tracePath.string() },
-        { "physicsTrace", m_physicsTracePath.string() },
-        { "manualInput", m_manualInput },
-        { "status", status ? status : "unknown" }
-    };
+    Json manifest = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
+                      { "processId", GetCurrentProcessId() },
+                      { "pipe", m_pipeName },
+                      { "sessionToken", m_sessionToken },
+                      { "stateTrace", m_tracePath.string() },
+                      { "physicsTrace", m_physicsTracePath.string() },
+                      { "manualInput", m_manualInput },
+                      { "status", status ? status : "unknown" } };
     const std::filesystem::path partial = m_manifestPath.string() + ".partial";
     {
         std::ofstream output( partial, std::ios::binary | std::ios::out | std::ios::trunc );

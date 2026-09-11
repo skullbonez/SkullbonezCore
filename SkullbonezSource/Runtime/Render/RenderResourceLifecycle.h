@@ -61,15 +61,13 @@ namespace Runtime
 class RenderResourceLifecycle
 {
   public:
-    RenderResourceLifecycle(
-        SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-        Rendering::RenderBackendDX12& backend,
-        Assets::AssetSystem& assets,
-        SkullbonezCore::Core::EngineConfig& config,
-        SkullbonezCore::Core::Profiler* profiler,
-        int sceneIndex,
-        int sceneLoadCount
-    );
+    RenderResourceLifecycle( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                             Rendering::RenderBackendDX12& backend,
+                             Assets::AssetSystem& assets,
+                             SkullbonezCore::Core::EngineConfig& config,
+                             SkullbonezCore::Core::Profiler* profiler,
+                             int sceneIndex,
+                             int sceneLoadCount );
     ~RenderResourceLifecycle();
 
     SkullbonezCore::Core::SbResult InitialiseProcessResources( bool dumpTextureAssets );

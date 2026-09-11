@@ -135,20 +135,18 @@ struct ReplayOverlayTimelineView
 
     ReplayScrubberPresentationView ScrubberPresentation() const noexcept
     {
-        return {
-            scrubber,
-            prediction.timeline,
-            prediction.topology,
-            prediction.controls,
-            prediction.diagnostics,
-            pathVisualizer,
-            velocityEdit,
-            solverStats,
-            selection,
-            selectedPrediction,
-            predictionTimelineAvailable,
-            shouldRenderScrubber
-        };
+        return { scrubber,
+                 prediction.timeline,
+                 prediction.topology,
+                 prediction.controls,
+                 prediction.diagnostics,
+                 pathVisualizer,
+                 velocityEdit,
+                 solverStats,
+                 selection,
+                 selectedPrediction,
+                 predictionTimelineAvailable,
+                 shouldRenderScrubber };
     }
 };
 
@@ -189,13 +187,11 @@ struct ReplayCauseLoadingView
     float progress = 0.0f;
 };
 
-inline ReplayCauseLoadingView BuildReplayCauseLoadingView(
-    const ReplayPredictionTimelineView& timeline,
-    const ReplayPredictionTopologyView& topology,
-    const ReplayPredictionControlsView& controls,
-    const RunReplayPathVisualizerState& path,
-    ReplayPredictionDetailMode detailMode
-) noexcept
+inline ReplayCauseLoadingView BuildReplayCauseLoadingView( const ReplayPredictionTimelineView& timeline,
+                                                           const ReplayPredictionTopologyView& topology,
+                                                           const ReplayPredictionControlsView& controls,
+                                                           const RunReplayPathVisualizerState& path,
+                                                           ReplayPredictionDetailMode detailMode ) noexcept
 {
     ReplayCauseLoadingView loading;
 

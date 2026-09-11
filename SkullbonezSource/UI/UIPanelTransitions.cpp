@@ -6,26 +6,36 @@ namespace SkullbonezCore::UI
 {
 namespace
 {
-constexpr std::array<UIPoint, static_cast<size_t>( UIPanel::Count )> PANEL_DIRECTIONS = {
-    { { 0, 0 }, { -20, 0 }, { 20, 0 }, { 0, 12 }, { 0, 20 }, { 0, 16 }, { 0, 16 }, { 0, 12 }, { 0, 12 }, { 0, 12 }, { 0, 12 }, { 0, -12 }, { 0, -6 }, { -20, 0 }, { 20, 0 } }
-};
-constexpr std::array<UIPanel, static_cast<size_t>( UIPanel::Count )> PANEL_ORDER = {
-    UIPanel::None,
-    UIPanel::Left,
-    UIPanel::LowerLeft,
-    UIPanel::Right,
-    UIPanel::Transport,
-    UIPanel::Drawer,
-    UIPanel::QuickTools,
-    UIPanel::AuxiliaryPrimary,
-    UIPanel::AuxiliarySecondary,
-    UIPanel::AuxiliaryGrid,
-    UIPanel::AttachedRight,
-    UIPanel::Header,
-    UIPanel::DiagnosticPrimary,
-    UIPanel::DiagnosticSecondary,
-    UIPanel::Popup
-};
+constexpr std::array<UIPoint, static_cast<size_t>( UIPanel::Count )> PANEL_DIRECTIONS = { { { 0, 0 },
+                                                                                            { -20, 0 },
+                                                                                            { 20, 0 },
+                                                                                            { 0, 12 },
+                                                                                            { 0, 20 },
+                                                                                            { 0, 16 },
+                                                                                            { 0, 16 },
+                                                                                            { 0, 12 },
+                                                                                            { 0, 12 },
+                                                                                            { 0, 12 },
+                                                                                            { 0, 12 },
+                                                                                            { 0, -12 },
+                                                                                            { 0, -6 },
+                                                                                            { -20, 0 },
+                                                                                            { 20, 0 } } };
+constexpr std::array<UIPanel, static_cast<size_t>( UIPanel::Count )> PANEL_ORDER = { UIPanel::None,
+                                                                                     UIPanel::Left,
+                                                                                     UIPanel::LowerLeft,
+                                                                                     UIPanel::Right,
+                                                                                     UIPanel::Transport,
+                                                                                     UIPanel::Drawer,
+                                                                                     UIPanel::QuickTools,
+                                                                                     UIPanel::AuxiliaryPrimary,
+                                                                                     UIPanel::AuxiliarySecondary,
+                                                                                     UIPanel::AuxiliaryGrid,
+                                                                                     UIPanel::AttachedRight,
+                                                                                     UIPanel::Header,
+                                                                                     UIPanel::DiagnosticPrimary,
+                                                                                     UIPanel::DiagnosticSecondary,
+                                                                                     UIPanel::Popup };
 
 UIPoint PanelTravel( const UIDrawList& draw, UIPanel id )
 {

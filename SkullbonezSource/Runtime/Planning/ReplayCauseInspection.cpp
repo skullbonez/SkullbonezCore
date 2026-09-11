@@ -292,64 +292,54 @@ ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCa
         }
     }
 
-    sprintf_s(
-        text.headline,
-        sizeof( text.headline ),
-        "ROW %d  FEATURE %u  BODIES %d / %d  POINT (%.4f, %.4f, %.4f)",
-        rowIndex,
-        contact.featureId,
-        contact.bodyA,
-        contact.bodyB,
-        point.x,
-        point.y,
-        point.z
-    );
-    sprintf_s(
-        text.basis,
-        sizeof( text.basis ),
-        "n (%.4f %.4f %.4f)  t1 (%.4f %.4f %.4f)  t2 (%.4f %.4f %.4f)",
-        contact.normal.x,
-        contact.normal.y,
-        contact.normal.z,
-        contact.tangent1.x,
-        contact.tangent1.y,
-        contact.tangent1.z,
-        contact.tangent2.x,
-        contact.tangent2.y,
-        contact.tangent2.z
-    );
-    sprintf_s(
-        text.geometry,
-        sizeof( text.geometry ),
-        "rA (%.4f %.4f %.4f)  rB (%.4f %.4f %.4f)  penetration %.5f",
-        contact.rA.x,
-        contact.rA.y,
-        contact.rA.z,
-        contact.rB.x,
-        contact.rB.y,
-        contact.rB.z,
-        contact.penetration
-    );
-    sprintf_s(
-        text.masses,
-        sizeof( text.masses ),
-        "normalMass %.5f  tangentMass (%.5f, %.5f)  bias %.5f  frictionLimit %.5f",
-        contact.normalMass,
-        contact.tangentMass1,
-        contact.tangentMass2,
-        contact.bias,
-        contact.frictionLimit
-    );
-    sprintf_s(
-        text.impulses,
-        sizeof( text.impulses ),
-        "accN %.5f  accT1 %.5f  accT2 %.5f  warm-start %s  previous normal impulse %.5f",
-        contact.accN,
-        contact.accT1,
-        contact.accT2,
-        contact.warmStarted ? "YES" : "NO",
-        previousNormalImpulse
-    );
+    sprintf_s( text.headline,
+               sizeof( text.headline ),
+               "ROW %d  FEATURE %u  BODIES %d / %d  POINT (%.4f, %.4f, %.4f)",
+               rowIndex,
+               contact.featureId,
+               contact.bodyA,
+               contact.bodyB,
+               point.x,
+               point.y,
+               point.z );
+    sprintf_s( text.basis,
+               sizeof( text.basis ),
+               "n (%.4f %.4f %.4f)  t1 (%.4f %.4f %.4f)  t2 (%.4f %.4f %.4f)",
+               contact.normal.x,
+               contact.normal.y,
+               contact.normal.z,
+               contact.tangent1.x,
+               contact.tangent1.y,
+               contact.tangent1.z,
+               contact.tangent2.x,
+               contact.tangent2.y,
+               contact.tangent2.z );
+    sprintf_s( text.geometry,
+               sizeof( text.geometry ),
+               "rA (%.4f %.4f %.4f)  rB (%.4f %.4f %.4f)  penetration %.5f",
+               contact.rA.x,
+               contact.rA.y,
+               contact.rA.z,
+               contact.rB.x,
+               contact.rB.y,
+               contact.rB.z,
+               contact.penetration );
+    sprintf_s( text.masses,
+               sizeof( text.masses ),
+               "normalMass %.5f  tangentMass (%.5f, %.5f)  bias %.5f  frictionLimit %.5f",
+               contact.normalMass,
+               contact.tangentMass1,
+               contact.tangentMass2,
+               contact.bias,
+               contact.frictionLimit );
+    sprintf_s( text.impulses,
+               sizeof( text.impulses ),
+               "accN %.5f  accT1 %.5f  accT2 %.5f  warm-start %s  previous normal impulse %.5f",
+               contact.accN,
+               contact.accT1,
+               contact.accT2,
+               contact.warmStarted ? "YES" : "NO",
+               previousNormalImpulse );
     return text;
 }
 
@@ -370,26 +360,22 @@ ReplayCauseSummaryText BuildReplayCauseSummaryText( const ReplayCauseSolverDetai
     sprintf_s( text.penetration, sizeof( text.penetration ), "%.5f u", contact.penetration );
     sprintf_s( text.effectiveMass, sizeof( text.effectiveMass ), "%.5f mass", contact.normalMass );
     sprintf_s( text.identity, sizeof( text.identity ), "ROW %d  FEATURE %u  BODIES %d / %d  %s", rowIndex, contact.featureId, contact.bodyA, contact.bodyB, contact.isTerrain ? "TERRAIN" : "OBJECT" );
-    sprintf_s(
-        text.dynamics,
-        sizeof( text.dynamics ),
-        "bias %.5f   friction limit %.5f   tangent mass %.5f / %.5f   manifold points %u",
-        contact.bias,
-        contact.frictionLimit,
-        contact.tangentMass1,
-        contact.tangentMass2,
-        static_cast<unsigned>( contact.manifoldPointCount )
-    );
-    sprintf_s(
-        text.policy,
-        sizeof( text.policy ),
-        "warm %s   resting %s   tangent friction %s   coupled %s   sleep %s",
-        contact.warmStarted ? "YES" : "NO",
-        contact.supportsRestingPolicy ? "YES" : "NO",
-        contact.allowsTangentFriction ? "YES" : "NO",
-        contact.normalCoupledFriction ? "YES" : "NO",
-        contact.inhibitsSleep ? "INHIBITED" : "ALLOWED"
-    );
+    sprintf_s( text.dynamics,
+               sizeof( text.dynamics ),
+               "bias %.5f   friction limit %.5f   tangent mass %.5f / %.5f   manifold points %u",
+               contact.bias,
+               contact.frictionLimit,
+               contact.tangentMass1,
+               contact.tangentMass2,
+               static_cast<unsigned>( contact.manifoldPointCount ) );
+    sprintf_s( text.policy,
+               sizeof( text.policy ),
+               "warm %s   resting %s   tangent friction %s   coupled %s   sleep %s",
+               contact.warmStarted ? "YES" : "NO",
+               contact.supportsRestingPolicy ? "YES" : "NO",
+               contact.allowsTangentFriction ? "YES" : "NO",
+               contact.normalCoupledFriction ? "YES" : "NO",
+               contact.inhibitsSleep ? "INHIBITED" : "ALLOWED" );
     return text;
 }
 
@@ -652,17 +638,15 @@ ReplayCauseIterationsProjection BuildReplayCauseIterationsProjection( const Repl
             row.kind = ReplayCauseIterationRowKind::VelocityWriteback;
             sprintf_s( row.stage, sizeof( row.stage ), "Writeback" );
             sprintf_s( row.status, sizeof( row.status ), "COMMITTED" );
-            sprintf_s(
-                row.details,
-                sizeof( row.details ),
-                "Body %d pos=(%.2f,%.2f,%.2f) |v|=%.2f |w|=%.2f",
-                record.bodyA,
-                record.point.x,
-                record.point.y,
-                record.point.z,
-                record.scalarA,
-                record.scalarB
-            );
+            sprintf_s( row.details,
+                       sizeof( row.details ),
+                       "Body %d pos=(%.2f,%.2f,%.2f) |v|=%.2f |w|=%.2f",
+                       record.bodyA,
+                       record.point.x,
+                       record.point.y,
+                       record.point.z,
+                       record.scalarA,
+                       record.scalarB );
             projection.rows[projection.rowCount++] = row;
         }
     }
@@ -703,15 +687,13 @@ void PlaceCauseInspectorInShell( ReplayCauseInspectorLayout& layout, const UI::U
 }
 } // namespace
 
-ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout(
-    const ReplayCauseSolverDetailView& solverDetail,
-    const RunReplayCauseTreeState& causeTree,
-    int screenWidth,
-    int screenHeight,
-    float drawerProgress,
-    const UI::UIRect& shellBounds,
-    const UI::UIRect& shellViewport
-) noexcept
+ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSolverDetailView& solverDetail,
+                                                            const RunReplayCauseTreeState& causeTree,
+                                                            int screenWidth,
+                                                            int screenHeight,
+                                                            float drawerProgress,
+                                                            const UI::UIRect& shellBounds,
+                                                            const UI::UIRect& shellViewport ) noexcept
 {
     PROFILE_SCOPED( "Frame/Replay/CauseInspection/PanelLayout" );
     (void)screenHeight;
@@ -733,23 +715,19 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout(
     const float visibleDrawerWidth = targetDrawerWidth * layout.drawerProgress;
     layout.hierarchy = ReplayOverlay::ReplayCauseWindowRect( causeTree );
     layout.hierarchyTitle = ReplayOverlay::ReplayCauseWindowTitleRect( causeTree );
-    layout.hierarchyScrollbar = {
-        layout.hierarchy.x + layout.hierarchy.w - REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH - 4.0f,
-        layout.hierarchy.y + ReplayOverlay::REPLAY_CAUSE_WINDOW_TITLE_HEIGHT + 10.0f,
-        REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH,
-        (std::max)( 0.0f, layout.hierarchy.h - ReplayOverlay::REPLAY_CAUSE_WINDOW_TITLE_HEIGHT - 22.0f )
-    };
+    layout.hierarchyScrollbar = { layout.hierarchy.x + layout.hierarchy.w - REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH - 4.0f,
+                                  layout.hierarchy.y + ReplayOverlay::REPLAY_CAUSE_WINDOW_TITLE_HEIGHT + 10.0f,
+                                  REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH,
+                                  (std::max)( 0.0f, layout.hierarchy.h - ReplayOverlay::REPLAY_CAUSE_WINDOW_TITLE_HEIGHT - 22.0f ) };
     layout.resize = ReplayOverlay::ReplayCauseWindowResizeRect( causeTree );
     layout.targetDrawer = { layout.hierarchy.x - targetDrawerWidth, layout.hierarchy.y, targetDrawerWidth, layout.hierarchy.h };
     layout.drawer = { layout.hierarchy.x - visibleDrawerWidth, layout.hierarchy.y, targetDrawerWidth, layout.hierarchy.h };
     layout.visibleDrawer = { layout.drawer.x, layout.drawer.y, visibleDrawerWidth, layout.drawer.h };
     layout.sharedSeam = { layout.hierarchy.x - REPLAY_CAUSE_INSPECTOR_SHARED_SEAM_WIDTH, layout.hierarchy.y, REPLAY_CAUSE_INSPECTOR_SHARED_SEAM_WIDTH, layout.hierarchy.h };
-    layout.drawerToggle = {
-        layout.hierarchy.x - REPLAY_CAUSE_INSPECTOR_TOGGLE_WIDTH * 0.5f,
-        layout.hierarchy.y + ( layout.hierarchy.h - REPLAY_CAUSE_INSPECTOR_TOGGLE_HEIGHT ) * 0.5f,
-        REPLAY_CAUSE_INSPECTOR_TOGGLE_WIDTH,
-        REPLAY_CAUSE_INSPECTOR_TOGGLE_HEIGHT
-    };
+    layout.drawerToggle = { layout.hierarchy.x - REPLAY_CAUSE_INSPECTOR_TOGGLE_WIDTH * 0.5f,
+                            layout.hierarchy.y + ( layout.hierarchy.h - REPLAY_CAUSE_INSPECTOR_TOGGLE_HEIGHT ) * 0.5f,
+                            REPLAY_CAUSE_INSPECTOR_TOGGLE_WIDTH,
+                            REPLAY_CAUSE_INSPECTOR_TOGGLE_HEIGHT };
     layout.drawerClose = layout.drawerToggle;
     const float compoundX = (std::min)( layout.drawer.x, layout.drawerToggle.x );
     layout.compound = { compoundX, layout.hierarchy.y, layout.hierarchy.x + layout.hierarchy.w - compoundX, layout.hierarchy.h };
@@ -758,12 +736,10 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout(
     {
         PlaceCauseInspectorInShell( layout, shellBounds, shellViewport );
     }
-    layout.drawerTitle = {
-        layout.drawer.x,
-        layout.drawer.y,
-        (std::max)( 0.0f, targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ),
-        ReplayOverlay::REPLAY_CAUSE_WINDOW_TITLE_HEIGHT
-    };
+    layout.drawerTitle = { layout.drawer.x,
+                           layout.drawer.y,
+                           (std::max)( 0.0f, targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ),
+                           ReplayOverlay::REPLAY_CAUSE_WINDOW_TITLE_HEIGHT };
 
     const float tabWidth = (std::max)( 0.0f, ( targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ) / 3.0f );
     const float headerHeight = shellBounds.w > 0.0f ? 88.0f : REPLAY_CAUSE_INSPECTOR_DRAWER_HEADER_HEIGHT;
@@ -773,12 +749,10 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout(
         layout.tabs[tab] = { layout.drawer.x + REPLAY_CAUSE_INSPECTOR_PADDING + tabWidth * static_cast<float>( tab ), layout.drawer.y + headerHeight, tabWidth, REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT };
     }
 
-    layout.content = {
-        layout.drawer.x + REPLAY_CAUSE_INSPECTOR_PADDING,
-        layout.drawer.y + headerHeight + REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT + REPLAY_CAUSE_INSPECTOR_PADDING,
-        (std::max)( 0.0f, targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ),
-        (std::max)( 0.0f, layout.drawer.h - headerHeight - REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f )
-    };
+    layout.content = { layout.drawer.x + REPLAY_CAUSE_INSPECTOR_PADDING,
+                       layout.drawer.y + headerHeight + REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT + REPLAY_CAUSE_INSPECTOR_PADDING,
+                       (std::max)( 0.0f, targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ),
+                       (std::max)( 0.0f, layout.drawer.h - headerHeight - REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ) };
     // Visibility belongs to the hierarchy footer, independent of the open detail tab.
     for ( std::size_t index = 0; index < layout.outlineToggles.size(); ++index )
     {
@@ -981,14 +955,12 @@ ReplayCauseSolverDetailResult EvaluateReplayCauseSolverDetail( const RunReplayCa
 
     if ( predictionSource )
     {
-        const ReplayPredictionEvidenceIdentity expected {
-            row.sourceGeneration,
-            ReplayPredictionDetailMode::High,
-            row.sourceBankEpoch,
-            row.firstFrame,
-            row.sourceTopologyVersion,
-            row.sourcePublicationVersion,
-        };
+        const ReplayPredictionEvidenceIdentity expected { row.sourceGeneration,
+                                                          ReplayPredictionDetailMode::High,
+                                                          row.sourceBankEpoch,
+                                                          row.firstFrame,
+                                                          row.sourceTopologyVersion,
+                                                          row.sourcePublicationVersion, };
 
         const ReplayPredictionCauseEvidenceQuery& query = source.prediction ? source.prediction->query : ReplayPredictionCauseEvidenceQuery {};
 
@@ -1489,12 +1461,10 @@ bool ReplayCauseInspection::TakeTransportRequest( ReplayCauseTransportRequest& o
     return true;
 }
 
-void ReplayCauseInspection::PublishSolverDetail(
-    uint64_t generation,
-    const ReplayCauseSolverDetailResult& detail,
-    const Rendering::ContactManifoldPresentation& contactPresentation,
-    const std::array<ReplayCauseObjectDetails, 2>& objects
-) noexcept
+void ReplayCauseInspection::PublishSolverDetail( uint64_t generation,
+                                                 const ReplayCauseSolverDetailResult& detail,
+                                                 const Rendering::ContactManifoldPresentation& contactPresentation,
+                                                 const std::array<ReplayCauseObjectDetails, 2>& objects ) noexcept
 {
     if ( generation == 0u || generation != m_state.generation || detail.frame != m_state.targetFrame )
     {
@@ -1689,18 +1659,16 @@ void ReplayCauseInspection::RestoreInteractionRecordingBaseline( const ReplayCau
     m_inFlightGeneration = 0;
 }
 
-bool ReplayCauseInspection::TickSolverDetailPanelInput(
-    const RunReplayCauseTreeState& causeTree,
-    int mouseX,
-    int mouseY,
-    bool hasClientPosition,
-    bool pointerBlocked,
-    bool leftPressed,
-    int wheelDelta,
-    int screenWidth,
-    int screenHeight,
-    ReplayCauseInspectorCommand* outCommand
-) noexcept
+bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree,
+                                                        int mouseX,
+                                                        int mouseY,
+                                                        bool hasClientPosition,
+                                                        bool pointerBlocked,
+                                                        bool leftPressed,
+                                                        int wheelDelta,
+                                                        int screenWidth,
+                                                        int screenHeight,
+                                                        ReplayCauseInspectorCommand* outCommand ) noexcept
 {
     if ( !hasClientPosition || pointerBlocked || screenWidth <= 0 || screenHeight <= 0 || ( m_state.sharedShell && m_state.shellBounds.w <= 0.0f ) )
     {

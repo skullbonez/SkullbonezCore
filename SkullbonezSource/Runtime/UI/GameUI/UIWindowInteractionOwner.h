@@ -116,18 +116,16 @@ class UIWindowInteractionOwner
 
     // Consumes one normalized input turn and explicit presentation facts. Scene
     // and runtime mutations are returned as commands rather than applied here.
-    InGameUIInputResult UpdateInput(
-        const InputControl::UIInputSnapshot& input,
-        const SceneNavigationModel& sceneNavigation,
-        int screenWidth,
-        int screenHeight,
-        double now,
-        bool editorModeEnabled,
-        bool placementModeEnabled,
-        bool placeStaticObject,
-        bool autoTerrainAlign,
-        uint32_t cameraModeEnabledMask
-    );
+    InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input,
+                                     const SceneNavigationModel& sceneNavigation,
+                                     int screenWidth,
+                                     int screenHeight,
+                                     double now,
+                                     bool editorModeEnabled,
+                                     bool placementModeEnabled,
+                                     bool placeStaticObject,
+                                     bool autoTerrainAlign,
+                                     uint32_t cameraModeEnabledMask );
 
   private:
     bool HandleMemoryOverlayInput( const InputControl::UIInputSnapshot& input, InGameUIInputResult& result );
@@ -164,18 +162,16 @@ class UIWindowInteractionOwner
     void DrawMinimizedContent( const InGameUIFrameData& data, UIDrawList& drawList, int screenW, int screenH );
     void DrawRenderTabContent( const InGameUIFrameData& data, const UIDrawContext& draw, const UIRect& content, float scrolledY );
     void DrawTargetsTabContent( const InGameUIFrameData& data, const UIDrawContext& draw, UIDrawList& drawList, const UIRect& content, float scrolledY );
-    UIRect DrawFooterContent(
-        const InGameUIFrameData& data,
-        const UIDrawContext& draw,
-        float x,
-        float y,
-        float width,
-        float height,
-        float bottomHeight,
-        float titleStatWidth,
-        float titleStatX,
-        const char* titleStat
-    );
+    UIRect DrawFooterContent( const InGameUIFrameData& data,
+                              const UIDrawContext& draw,
+                              float x,
+                              float y,
+                              float width,
+                              float height,
+                              float bottomHeight,
+                              float titleStatWidth,
+                              float titleStatX,
+                              const char* titleStat );
     void DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrameData& data, const UIRect& windowBounds, const UIRect& contentBounds, const UIRect& footerBounds );
     void DrawWindowHitboxes( const UIDrawContext& draw, const UIRect& windowBounds, const UIRect& contentBounds );
     void DrawActiveTabHitboxes( const UIDrawContext& draw, const InGameUIFrameData& data );
@@ -233,27 +229,23 @@ class UIWindowInteractionOwner
     void CancelActiveSliderPreview();
     void CancelEditorMiniPaletteInteraction();
     void SetMaximized( bool maximized, int screenW, int screenH, double now );
-    InGameUIInputResult HandleMinimizedInput(
-        const InputControl::UIInputSnapshot& input,
-        int screenW,
-        int screenH,
-        double now,
-        bool editorModeEnabled,
-        bool editorPlacementMode,
-        bool editorPlaceStatic,
-        bool editorTerrainAlign,
-        uint32_t cameraModeEnabledMask
-    );
+    InGameUIInputResult HandleMinimizedInput( const InputControl::UIInputSnapshot& input,
+                                              int screenW,
+                                              int screenH,
+                                              double now,
+                                              bool editorModeEnabled,
+                                              bool editorPlacementMode,
+                                              bool editorPlaceStatic,
+                                              bool editorTerrainAlign,
+                                              uint32_t cameraModeEnabledMask );
     MinimizedControlResult
     HandleMinimizedCameraMode( const InputControl::UIInputSnapshot& input, const UIRect& minimized, bool showEditorMiniPalette, uint32_t cameraModeEnabledMask, InGameUIInputResult& result );
-    MinimizedControlResult HandleMinimizedEditorStatus(
-        const InputControl::UIInputSnapshot& input,
-        const UIRect& minimized,
-        bool editorPlacementMode,
-        bool editorPlaceStatic,
-        bool editorTerrainAlign,
-        InGameUIInputResult& result
-    );
+    MinimizedControlResult HandleMinimizedEditorStatus( const InputControl::UIInputSnapshot& input,
+                                                        const UIRect& minimized,
+                                                        bool editorPlacementMode,
+                                                        bool editorPlaceStatic,
+                                                        bool editorTerrainAlign,
+                                                        InGameUIInputResult& result );
     MinimizedControlResult HandleEditorMiniPalette( const InputControl::UIInputSnapshot& input, int screenW, int screenH, const UIRect& minimized, double now, InGameUIInputResult& result );
     bool BeginEditorMiniPalettePress( const FrameComposition::EditorMiniPaletteLayout& layout, double now, InGameUIInputResult& result );
     void FinishEditorMiniPalettePress( const FrameComposition::EditorMiniPaletteLayout& layout, InGameUIInputResult& result );
@@ -264,15 +256,13 @@ class UIWindowInteractionOwner
     WindowPointerLayout PrepareWindowPointerLayout( double now );
     WindowOptionView BuildWindowOptionView( const SceneNavigationModel& sceneNavigation ) const;
     void HandleWindowWheel( const InputControl::UIInputSnapshot& input, InGameUIInputResult& result, const WindowPointerLayout& layout, const WindowOptionView& options, double now );
-    void HandleWindowPress(
-        const InputControl::UIInputSnapshot& input,
-        InGameUIInputResult& result,
-        const WindowPointerLayout& layout,
-        const WindowOptionView& options,
-        int screenW,
-        int screenH,
-        double now
-    );
+    void HandleWindowPress( const InputControl::UIInputSnapshot& input,
+                            InGameUIInputResult& result,
+                            const WindowPointerLayout& layout,
+                            const WindowOptionView& options,
+                            int screenW,
+                            int screenH,
+                            double now );
     bool HandleWindowChromePress( InGameUIInputResult& result, const WindowPointerLayout& layout, int screenW, int screenH, double now );
     bool HandleOpenControlPress( InGameUIInputResult& result, const WindowPointerLayout& layout, const WindowOptionView& options );
     bool HandleDiagnosticTabPress( const InputControl::UIInputSnapshot& input, InGameUIInputResult& result, const WindowPointerLayout& layout, const WindowOptionView& options, double now );

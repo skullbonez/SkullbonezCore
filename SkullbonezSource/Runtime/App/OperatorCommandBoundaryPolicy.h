@@ -83,12 +83,10 @@ inline float NormalizeWorldFluidHeight( float height ) noexcept
 
 inline float NormalizeWorldFluidDensity( float density ) noexcept
 {
-    return NormalizeFloat(
-        density,
-        UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MIN,
-        UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MAX,
-        UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_STEP
-    );
+    return NormalizeFloat( density,
+                           UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MIN,
+                           UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MAX,
+                           UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_STEP );
 }
 
 inline float NormalizeOrdinaryRenderParameter( UI::UIRenderParam param, float value ) noexcept
@@ -162,30 +160,24 @@ inline void NormalizeOperatorCommands( UI::InGameUICommands& commands ) noexcept
 
     normalizeRequested( commands.sceneOptions.requestedTimeScale > 0.0f, commands.sceneOptions.requestedTimeScale, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
     normalizeRequested( commands.physics.requestedPhysicsDebugAlpha >= 0.0f, commands.physics.requestedPhysicsDebugAlpha, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX, UI_PHYSICS_ALPHA_STEP );
-    normalizeRequested(
-        commands.physics.requestedPhysicsDebugContactLinger >= 0.0f,
-        commands.physics.requestedPhysicsDebugContactLinger,
-        UI_CONTACT_LINGER_MIN,
-        UI_CONTACT_LINGER_MAX,
-        UI_CONTACT_LINGER_STEP
-    );
+    normalizeRequested( commands.physics.requestedPhysicsDebugContactLinger >= 0.0f,
+                        commands.physics.requestedPhysicsDebugContactLinger,
+                        UI_CONTACT_LINGER_MIN,
+                        UI_CONTACT_LINGER_MAX,
+                        UI_CONTACT_LINGER_STEP );
     normalizeRequested( commands.physics.requestRayCastImpulseStrength, commands.physics.requestedRayCastImpulseStrength, UI_RAY_IMPULSE_MIN, UI_RAY_IMPULSE_MAX, UI_RAY_IMPULSE_STEP );
-    normalizeRequested(
-        commands.physics.requestLauncherProjectileSpeed,
-        commands.physics.requestedLauncherProjectileSpeed,
-        UI_LAUNCHER_PROJECTILE_SPEED_MIN,
-        UI_LAUNCHER_PROJECTILE_SPEED_MAX,
-        UI_LAUNCHER_PROJECTILE_SPEED_STEP
-    );
+    normalizeRequested( commands.physics.requestLauncherProjectileSpeed,
+                        commands.physics.requestedLauncherProjectileSpeed,
+                        UI_LAUNCHER_PROJECTILE_SPEED_MIN,
+                        UI_LAUNCHER_PROJECTILE_SPEED_MAX,
+                        UI_LAUNCHER_PROJECTILE_SPEED_STEP );
     normalizeRequested( commands.physics.requestTerrainFrictionCoeff, commands.physics.requestedTerrainFrictionCoeff, UI_FRICTION_COEFF_MIN, UI_FRICTION_COEFF_MAX, UI_FRICTION_COEFF_STEP );
     normalizeRequested( commands.physics.requestObjectFrictionCoeff, commands.physics.requestedObjectFrictionCoeff, UI_FRICTION_COEFF_MIN, UI_FRICTION_COEFF_MAX, UI_FRICTION_COEFF_STEP );
-    normalizeRequested(
-        commands.physics.requestRollingFrictionCoeff,
-        commands.physics.requestedRollingFrictionCoeff,
-        UI_ROLLING_FRICTION_COEFF_MIN,
-        UI_ROLLING_FRICTION_COEFF_MAX,
-        UI_ROLLING_FRICTION_COEFF_STEP
-    );
+    normalizeRequested( commands.physics.requestRollingFrictionCoeff,
+                        commands.physics.requestedRollingFrictionCoeff,
+                        UI_ROLLING_FRICTION_COEFF_MIN,
+                        UI_ROLLING_FRICTION_COEFF_MAX,
+                        UI_ROLLING_FRICTION_COEFF_STEP );
     normalizeRequested( commands.physics.requestTornadoRadius, commands.physics.requestedTornadoRadius, UI_TORNADO_RADIUS_MIN, UI_TORNADO_RADIUS_MAX, UI_TORNADO_RADIUS_STEP );
     normalizeRequested( commands.physics.requestTornadoHeight, commands.physics.requestedTornadoHeight, UI_TORNADO_HEIGHT_MIN, UI_TORNADO_HEIGHT_MAX, UI_TORNADO_HEIGHT_STEP );
     normalizeRequested( commands.physics.requestTornadoInward, commands.physics.requestedTornadoInward, UI_TORNADO_INWARD_MIN, UI_TORNADO_INWARD_MAX, UI_TORNADO_INWARD_STEP );

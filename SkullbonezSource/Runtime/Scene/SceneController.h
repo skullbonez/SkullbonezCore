@@ -120,19 +120,18 @@ struct SceneDefaultsSaveSnapshot
     SceneDefaultsGeneratedCountOverrides generatedCounts;
 };
 
-inline SceneDefaultsSaveSnapshot ProjectSceneDefaultsSaveSnapshot(
-    const ScenePresentationValues& presentation,
-    SceneRenderPolicyState renderPolicy,
-    const CameraControlState& camera,
-    const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides
-)
+inline SceneDefaultsSaveSnapshot ProjectSceneDefaultsSaveSnapshot( const ScenePresentationValues& presentation,
+                                                                   SceneRenderPolicyState renderPolicy,
+                                                                   const CameraControlState& camera,
+                                                                   const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides )
 {
-    return SceneDefaultsSaveSnapshot {
-        presentation,
-        renderPolicy,
-        SceneDefaultsCameraValues { camera.trackBallRow.IsValid() && camera.trackHeight > 0.0f, camera.trackHeight, camera.autoCycleInterval > 0.0f, camera.autoCycleInterval },
-        SceneDefaultsGeneratedCountOverrides { uiOverrides.modelCountOverride, uiOverrides.solverBallCountOverride, uiOverrides.solverBoxCountOverride }
-    };
+    return SceneDefaultsSaveSnapshot { presentation,
+                                       renderPolicy,
+                                       SceneDefaultsCameraValues { camera.trackBallRow.IsValid() && camera.trackHeight > 0.0f,
+                                                                   camera.trackHeight,
+                                                                   camera.autoCycleInterval > 0.0f,
+                                                                   camera.autoCycleInterval },
+                                       SceneDefaultsGeneratedCountOverrides { uiOverrides.modelCountOverride, uiOverrides.solverBallCountOverride, uiOverrides.solverBoxCountOverride } };
 }
 
 struct SceneLoadCompletedWorldChange
@@ -168,34 +167,26 @@ class SceneController : public SceneSession
     SceneLoadRequest ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
     SceneLoadRequest AdvanceScene( bool perfTestActive, bool preserveInteractiveUI );
     int PerfPass() const;
-    bool ApplyCinematicBrowserStyle(
-        RunLaunchOptions& launchOptions,
-        UI::RunSceneBrowserState& sceneBrowser,
-        const Assets::AssetSystem& assets,
-        SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-        const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
-        int index
-    );
-    void ApplyLiveStyle(
-        RunLaunchOptions& launchOptions,
-        UI::RunSceneBrowserState& sceneBrowser,
-        SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-        const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
-        const AuthoredScene& styleScene
-    );
-    void ApplyStandaloneStyle(
-        RunLaunchOptions& launchOptions,
-        UI::RunSceneBrowserState& sceneBrowser,
-        SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-        const SkullbonezCore::Scene::StandaloneStyleSnapshot& style
-    );
-    bool ApplyDemoHeroStyle(
-        RunLaunchOptions& launchOptions,
-        UI::RunSceneBrowserState& sceneBrowser,
-        const Assets::AssetSystem& assets,
-        SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-        const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic
-    );
+    bool ApplyCinematicBrowserStyle( RunLaunchOptions& launchOptions,
+                                     UI::RunSceneBrowserState& sceneBrowser,
+                                     const Assets::AssetSystem& assets,
+                                     SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                     const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
+                                     int index );
+    void ApplyLiveStyle( RunLaunchOptions& launchOptions,
+                         UI::RunSceneBrowserState& sceneBrowser,
+                         SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
+                         const AuthoredScene& styleScene );
+    void ApplyStandaloneStyle( RunLaunchOptions& launchOptions,
+                               UI::RunSceneBrowserState& sceneBrowser,
+                               SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                               const SkullbonezCore::Scene::StandaloneStyleSnapshot& style );
+    bool ApplyDemoHeroStyle( RunLaunchOptions& launchOptions,
+                             UI::RunSceneBrowserState& sceneBrowser,
+                             const Assets::AssetSystem& assets,
+                             SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                             const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic );
 
     SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveSnapshot& snapshot ) const;
 

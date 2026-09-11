@@ -65,49 +65,41 @@ struct SkyFeatureSpec
     SkullbonezCore::UI::UICinematicFeature feature;
 };
 
-constexpr SkySliderSpec kSkySliderSpecs[] = {
-    { "Direction", "Azimuth", SkullbonezCore::UI::UICinematicParam::SunAzimuth },
-    { nullptr, "Elevation", SkullbonezCore::UI::UICinematicParam::SunElevation },
-    { "Palette", "Sun power", SkullbonezCore::UI::UICinematicParam::SunBrightness },
-    { nullptr, "Glow", SkullbonezCore::UI::UICinematicParam::SkyGlow },
-    { nullptr, "Sun R", SkullbonezCore::UI::UICinematicParam::SunRed },
-    { nullptr, "Sun G", SkullbonezCore::UI::UICinematicParam::SunGreen },
-    { nullptr, "Sun B", SkullbonezCore::UI::UICinematicParam::SunBlue },
-    { nullptr, "Horizon R", SkullbonezCore::UI::UICinematicParam::HorizonRed },
-    { nullptr, "Horizon G", SkullbonezCore::UI::UICinematicParam::HorizonGreen },
-    { nullptr, "Horizon B", SkullbonezCore::UI::UICinematicParam::HorizonBlue },
-    { nullptr, "Zenith R", SkullbonezCore::UI::UICinematicParam::ZenithRed },
-    { nullptr, "Zenith G", SkullbonezCore::UI::UICinematicParam::ZenithGreen },
-    { nullptr, "Zenith B", SkullbonezCore::UI::UICinematicParam::ZenithBlue },
-    { "Clouds", "Coverage", SkullbonezCore::UI::UICinematicParam::CloudCoverage },
-    { nullptr, "Softness", SkullbonezCore::UI::UICinematicParam::CloudSoftness },
-    { nullptr, "Scale", SkullbonezCore::UI::UICinematicParam::CloudScale },
-    { nullptr, "Intensity", SkullbonezCore::UI::UICinematicParam::CloudIntensity },
-    { "Rays", "Shafts", SkullbonezCore::UI::UICinematicParam::ShaftStrength },
-    { nullptr, "Falloff", SkullbonezCore::UI::UICinematicParam::ShaftFalloff },
-    { nullptr, "Volume", SkullbonezCore::UI::UICinematicParam::VolumetricStrength },
-    { nullptr, "Density", SkullbonezCore::UI::UICinematicParam::VolumetricDensity },
-    { "Grade", "Exposure", SkullbonezCore::UI::UICinematicParam::Exposure },
-    { nullptr, "Gamma", SkullbonezCore::UI::UICinematicParam::Gamma },
-    { nullptr, "Saturation", SkullbonezCore::UI::UICinematicParam::StyleSaturation },
-    { nullptr, "Contrast", SkullbonezCore::UI::UICinematicParam::StyleContrast },
-    { nullptr, "Vignette", SkullbonezCore::UI::UICinematicParam::StyleVignette },
-};
-static_assert( sizeof( kSkySliderSpecs ) / sizeof( kSkySliderSpecs[0] ) == SkullbonezCore::UI::SkyTab::UI_SKY_SLIDER_COUNT,
-               "Sky slider specs must match UISkyTabState." );
+constexpr SkySliderSpec kSkySliderSpecs[] = { { "Direction", "Azimuth", SkullbonezCore::UI::UICinematicParam::SunAzimuth },
+                                              { nullptr, "Elevation", SkullbonezCore::UI::UICinematicParam::SunElevation },
+                                              { "Palette", "Sun power", SkullbonezCore::UI::UICinematicParam::SunBrightness },
+                                              { nullptr, "Glow", SkullbonezCore::UI::UICinematicParam::SkyGlow },
+                                              { nullptr, "Sun R", SkullbonezCore::UI::UICinematicParam::SunRed },
+                                              { nullptr, "Sun G", SkullbonezCore::UI::UICinematicParam::SunGreen },
+                                              { nullptr, "Sun B", SkullbonezCore::UI::UICinematicParam::SunBlue },
+                                              { nullptr, "Horizon R", SkullbonezCore::UI::UICinematicParam::HorizonRed },
+                                              { nullptr, "Horizon G", SkullbonezCore::UI::UICinematicParam::HorizonGreen },
+                                              { nullptr, "Horizon B", SkullbonezCore::UI::UICinematicParam::HorizonBlue },
+                                              { nullptr, "Zenith R", SkullbonezCore::UI::UICinematicParam::ZenithRed },
+                                              { nullptr, "Zenith G", SkullbonezCore::UI::UICinematicParam::ZenithGreen },
+                                              { nullptr, "Zenith B", SkullbonezCore::UI::UICinematicParam::ZenithBlue },
+                                              { "Clouds", "Coverage", SkullbonezCore::UI::UICinematicParam::CloudCoverage },
+                                              { nullptr, "Softness", SkullbonezCore::UI::UICinematicParam::CloudSoftness },
+                                              { nullptr, "Scale", SkullbonezCore::UI::UICinematicParam::CloudScale },
+                                              { nullptr, "Intensity", SkullbonezCore::UI::UICinematicParam::CloudIntensity },
+                                              { "Rays", "Shafts", SkullbonezCore::UI::UICinematicParam::ShaftStrength },
+                                              { nullptr, "Falloff", SkullbonezCore::UI::UICinematicParam::ShaftFalloff },
+                                              { nullptr, "Volume", SkullbonezCore::UI::UICinematicParam::VolumetricStrength },
+                                              { nullptr, "Density", SkullbonezCore::UI::UICinematicParam::VolumetricDensity },
+                                              { "Grade", "Exposure", SkullbonezCore::UI::UICinematicParam::Exposure },
+                                              { nullptr, "Gamma", SkullbonezCore::UI::UICinematicParam::Gamma },
+                                              { nullptr, "Saturation", SkullbonezCore::UI::UICinematicParam::StyleSaturation },
+                                              { nullptr, "Contrast", SkullbonezCore::UI::UICinematicParam::StyleContrast },
+                                              { nullptr, "Vignette", SkullbonezCore::UI::UICinematicParam::StyleVignette }, };
+static_assert( sizeof( kSkySliderSpecs ) / sizeof( kSkySliderSpecs[0] ) == SkullbonezCore::UI::SkyTab::UI_SKY_SLIDER_COUNT, "Sky slider specs must match UISkyTabState." );
 
-constexpr SkyFeatureSpec kSkyFeatureSpecs[] = {
-    { "Sky", SkullbonezCore::UI::UICinematicFeature::Sky },
-    { "Clouds", SkullbonezCore::UI::UICinematicFeature::Clouds },
-    { "God rays", SkullbonezCore::UI::UICinematicFeature::GodRays },
-    { "Volume", SkullbonezCore::UI::UICinematicFeature::VolumetricLight },
-};
-static_assert( sizeof( kSkyFeatureSpecs ) / sizeof( kSkyFeatureSpecs[0] ) ==
-                   SkullbonezCore::UI::SkyTab::UI_SKY_FEATURE_COUNT,
-               "Sky feature specs must match UISkyTabState." );
+constexpr SkyFeatureSpec kSkyFeatureSpecs[] = { { "Sky", SkullbonezCore::UI::UICinematicFeature::Sky },
+                                                { "Clouds", SkullbonezCore::UI::UICinematicFeature::Clouds },
+                                                { "God rays", SkullbonezCore::UI::UICinematicFeature::GodRays },
+                                                { "Volume", SkullbonezCore::UI::UICinematicFeature::VolumetricLight }, };
+static_assert( sizeof( kSkyFeatureSpecs ) / sizeof( kSkyFeatureSpecs[0] ) == SkullbonezCore::UI::SkyTab::UI_SKY_FEATURE_COUNT, "Sky feature specs must match UISkyTabState." );
 
-void DrawHitboxRect( const SkullbonezCore::UI::UIDrawContext& draw, const SkullbonezCore::UI::UIRect& bounds, float r,
-                     float g, float b )
+void DrawHitboxRect( const SkullbonezCore::UI::UIDrawContext& draw, const SkullbonezCore::UI::UIRect& bounds, float r, float g, float b )
 {
     if ( bounds.w <= 0.0f || bounds.h <= 0.0f )
     {
@@ -162,8 +154,7 @@ SkullbonezCore::UI::UIRect SkySaveButtonBounds( float contentX, float scrolledY,
     return { saveX, scrolledY + 12.0f, UI_SKY_SAVE_BUTTON_W, UI_SKY_SAVE_BUTTON_H };
 }
 
-bool SkyFeatureEnabled( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                        SkullbonezCore::UI::UICinematicFeature feature )
+bool SkyFeatureEnabled( const SkullbonezCore::Core::CinematicRenderConfig& cinematic, SkullbonezCore::UI::UICinematicFeature feature )
 {
     switch ( feature )
     {
@@ -180,8 +171,7 @@ bool SkyFeatureEnabled( const SkullbonezCore::Core::CinematicRenderConfig& cinem
     }
 }
 
-float SkyValueForParam( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                        SkullbonezCore::UI::UICinematicParam param )
+float SkyValueForParam( const SkullbonezCore::Core::CinematicRenderConfig& cinematic, SkullbonezCore::UI::UICinematicParam param )
 {
     switch ( param )
     {
@@ -242,14 +232,11 @@ float SkyValueForParam( const SkullbonezCore::Core::CinematicRenderConfig& cinem
     }
 }
 
-void SetSkySliderResult( SkullbonezCore::UI::InGameUIInputResult& result, const SkullbonezCore::UI::UISlider& slider,
-                         int mouseX, const SkySliderSpec& spec )
+void SetSkySliderResult( SkullbonezCore::UI::InGameUIInputResult& result, const SkullbonezCore::UI::UISlider& slider, int mouseX, const SkySliderSpec& spec )
 {
-    const SkullbonezCore::UI::CinematicSliderSpec&
-        policy = SkullbonezCore::UI::kCinematicSliderSpecs[static_cast<int>( spec.param )];
+    const SkullbonezCore::UI::CinematicSliderSpec& policy = SkullbonezCore::UI::kCinematicSliderSpecs[static_cast<int>( spec.param )];
     result.commands.cinematic.requestedParam = spec.param;
-    result.commands.cinematic.requestedValue = slider.ValueFromMouse( mouseX, policy.minValue, policy.maxValue,
-                                                                      policy.step );
+    result.commands.cinematic.requestedValue = slider.ValueFromMouse( mouseX, policy.minValue, policy.maxValue, policy.step );
 }
 
 } // namespace
@@ -278,8 +265,7 @@ int ContentHeight()
     return static_cast<int>( height + 18.0f );
 }
 
-bool HandleContentClick( UISkyTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
-                         float contentX, float scrolledY, float contentW )
+bool HandleContentClick( UISkyTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY, float contentX, float scrolledY, float contentW )
 {
     // Invariant: Click handling sets the same bounds used by Draw, so hit boxes
     // and visible controls stay coupled.
@@ -360,8 +346,16 @@ void DrawHitboxes( const UISkyTabState& state, const UIDrawContext& draw, float 
     }
 }
 
-void Draw( UISkyTabState& state, const UIDrawContext& draw, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-           float contentX, float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
+void Draw( UISkyTabState& state,
+           const UIDrawContext& draw,
+           const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+           float contentX,
+           float contentY,
+           float contentW,
+           float contentH,
+           float scrolledY,
+           int mouseX,
+           int mouseY )
 {
     char buf[128];
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
@@ -386,8 +380,7 @@ void Draw( UISkyTabState& state, const UIDrawContext& draw, const SkullbonezCore
     {
         const float tx = SkyFeatureX( i, contentX, colW );
         const float toggleY = SkyFeatureY( i, featureBaseY );
-        DrawContentToggle( draw, contentY, contentH, state.featureToggles[i], tx, toggleY, colW, kSkyFeatureSpecs[i].label,
-                           SkyFeatureEnabled( cinematic, kSkyFeatureSpecs[i].feature ) );
+        DrawContentToggle( draw, contentY, contentH, state.featureToggles[i], tx, toggleY, colW, kSkyFeatureSpecs[i].label, SkyFeatureEnabled( cinematic, kSkyFeatureSpecs[i].feature ) );
     }
 
     const float baseY = scrolledY + UI_SKY_START_Y;
@@ -395,8 +388,7 @@ void Draw( UISkyTabState& state, const UIDrawContext& draw, const SkullbonezCore
     for ( int i = 0; i < UI_SKY_SLIDER_COUNT; ++i )
     {
         const SkySliderSpec& spec = kSkySliderSpecs[i];
-        const SkullbonezCore::UI::CinematicSliderSpec&
-            policy = SkullbonezCore::UI::kCinematicSliderSpecs[static_cast<int>( spec.param )];
+        const SkullbonezCore::UI::CinematicSliderSpec& policy = SkullbonezCore::UI::kCinematicSliderSpecs[static_cast<int>( spec.param )];
         const float sliderY = SkySliderY( i, baseY );
 
         if ( spec.section && IsRowVisible( contentY, contentH, sliderY - UI_SKY_SECTION_H + 4.0f, 18.0f ) )
@@ -430,8 +422,7 @@ UITooltipTarget TooltipAt( const UISkyTabState& state, int mouseX, int mouseY )
         if ( state.featureToggles[index].HitTest( mouseX, mouseY ) )
         {
             const int feature = static_cast<int>( kSkyFeatureSpecs[index].feature );
-            return { static_cast<uint32_t>( 3101 + feature ), state.featureToggles[index].Bounds(),
-                     kCinematicFeatureTooltipText[feature], true };
+            return { static_cast<uint32_t>( 3101 + feature ), state.featureToggles[index].Bounds(), kCinematicFeatureTooltipText[feature], true };
         }
     }
     for ( int index = 0; index < UI_SKY_SLIDER_COUNT; ++index )
@@ -439,8 +430,7 @@ UITooltipTarget TooltipAt( const UISkyTabState& state, int mouseX, int mouseY )
         if ( state.sliders[index].HitTest( mouseX, mouseY ) )
         {
             const int parameter = static_cast<int>( kSkySliderSpecs[index].param );
-            return { static_cast<uint32_t>( 3120 + parameter ), state.sliders[index].Bounds(),
-                     kCinematicTooltipText[parameter], true };
+            return { static_cast<uint32_t>( 3120 + parameter ), state.sliders[index].Bounds(), kCinematicTooltipText[parameter], true };
         }
     }
     return {};

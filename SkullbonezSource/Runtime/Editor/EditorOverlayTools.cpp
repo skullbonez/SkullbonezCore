@@ -84,48 +84,46 @@ void EditorToolsOwner::AppendPlacementGhost( EditorTracer& tracer, const Assets:
     {
         const Vector3 base = terrainPoint + rotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
         ForEachEditorBuildingPart( type, assets, [&]( const EditorPlacementJson& part )
-            {
-                const Vector3 bodyCenter = base + rotation * EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
-                Quaternion partOrientation = EditorBuildingPartOrientation( orientation, part );
-                const RotationMatrix partRotation = partOrientation.GetOrientationMatrix();
-                const std::string primitiveType = EditorAssetPrimitiveType( part );
+                                   {
+                                       const Vector3 bodyCenter = base + rotation * EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
+                                       Quaternion partOrientation = EditorBuildingPartOrientation( orientation, part );
+                                       const RotationMatrix partRotation = partOrientation.GetOrientationMatrix();
+                                       const std::string primitiveType = EditorAssetPrimitiveType( part );
 
-                if ( primitiveType == "convexHull" )
-                {
-                    const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
+                                       if ( primitiveType == "convexHull" )
+                                       {
+                                           const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
 
-                    if ( const ConvexHullShape* hull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( m_resultDiagnostics, hullPath ) )
-                    {
-                        appendHull( *hull, bodyCenter + partRotation * ( hull->GetAuthoredCenterOfMass() + hull->GetPosition() ), partRotation );
-                    }
-                }
-                else if ( primitiveType == "box" )
-                {
-                    Vector3 halfExtents;
+                                           if ( const ConvexHullShape* hull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( m_resultDiagnostics, hullPath ) )
+                                           {
+                                               appendHull( *hull, bodyCenter + partRotation * ( hull->GetAuthoredCenterOfMass() + hull->GetPosition() ), partRotation );
+                                           }
+                                       }
+                                       else if ( primitiveType == "box" )
+                                       {
+                                           Vector3 halfExtents;
 
-                    if ( TryReadEditorBoxHalfExtents( part, halfExtents ) )
-                    {
-                        tracer.AddBoxOutline(
-                            bodyCenter,
-                            partRotation * Vector3( halfExtents.x, 0.0f, 0.0f ),
-                            partRotation * Vector3( 0.0f, halfExtents.y, 0.0f ),
-                            partRotation * Vector3( 0.0f, 0.0f, halfExtents.z ),
-                            ghostR,
-                            ghostG,
-                            ghostB
-                        );
-                    }
-                }
-                else if ( primitiveType == "sphere" )
-                {
-                    float radius = 0.0f;
+                                           if ( TryReadEditorBoxHalfExtents( part, halfExtents ) )
+                                           {
+                                               tracer.AddBoxOutline( bodyCenter,
+                                                                     partRotation * Vector3( halfExtents.x, 0.0f, 0.0f ),
+                                                                     partRotation * Vector3( 0.0f, halfExtents.y, 0.0f ),
+                                                                     partRotation * Vector3( 0.0f, 0.0f, halfExtents.z ),
+                                                                     ghostR,
+                                                                     ghostG,
+                                                                     ghostB );
+                                           }
+                                       }
+                                       else if ( primitiveType == "sphere" )
+                                       {
+                                           float radius = 0.0f;
 
-                    if ( TryReadEditorSphereRadius( part, radius ) )
-                    {
-                        tracer.AddSphereOutline( bodyCenter, radius, ghostR, ghostG, ghostB );
-                    }
-                }
-            } );
+                                           if ( TryReadEditorSphereRadius( part, radius ) )
+                                           {
+                                               tracer.AddSphereOutline( bodyCenter, radius, ghostR, ghostG, ghostB );
+                                           }
+                                       }
+                                   } );
         return;
     }
 
@@ -136,15 +134,13 @@ void EditorToolsOwner::AppendPlacementGhost( EditorTracer& tracer, const Assets:
         for ( int partIndex = 0; partIndex < house->partCount; ++partIndex )
         {
             const EditorHousePartDefinition& part = house->parts[partIndex];
-            tracer.AddBoxOutline(
-                base + rotation * Vector3( part.offsetX, part.offsetY, part.offsetZ ),
-                rotation * Vector3( part.halfX, 0.0f, 0.0f ),
-                rotation * Vector3( 0.0f, part.halfY, 0.0f ),
-                rotation * Vector3( 0.0f, 0.0f, part.halfZ ),
-                ghostR,
-                ghostG,
-                ghostB
-            );
+            tracer.AddBoxOutline( base + rotation * Vector3( part.offsetX, part.offsetY, part.offsetZ ),
+                                  rotation * Vector3( part.halfX, 0.0f, 0.0f ),
+                                  rotation * Vector3( 0.0f, part.halfY, 0.0f ),
+                                  rotation * Vector3( 0.0f, 0.0f, part.halfZ ),
+                                  ghostR,
+                                  ghostG,
+                                  ghostB );
         }
 
         return;
@@ -208,14 +204,12 @@ void EditorToolsOwner::ObserveSceneLifecycle( const SceneLifecyclePacket& packet
     ClearEditorHistory();
 }
 
-EditorInteractionPreviewResult UpdateEditorInteractionPreview(
-    Core::SbDiagnosticStore& diagnostics,
-    RunEditorPlacementState& editor,
-    SceneWorld& world,
-    RuntimeInteractionController& interaction,
-    const Assets::AssetSystem& assets,
-    const EditorInteractionPreviewInput& input
-)
+EditorInteractionPreviewResult UpdateEditorInteractionPreview( Core::SbDiagnosticStore& diagnostics,
+                                                               RunEditorPlacementState& editor,
+                                                               SceneWorld& world,
+                                                               RuntimeInteractionController& interaction,
+                                                               const Assets::AssetSystem& assets,
+                                                               const EditorInteractionPreviewInput& input )
 {
     EditorInteractionPreviewResult result;
     editor.placementPreviewVisible = false;

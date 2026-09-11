@@ -109,9 +109,7 @@ class PhysicsEngine
     // SceneWorld orders one monotonic scene-load commit across concrete owners.
     // Shape counts are per-kind backing limits; point joints use the exact
     // authored/ragdoll allowance and fail loud if creation exceeds it.
-    void ReserveAuthoredBodyCapacity( std::size_t bodyCapacity, std::size_t sphereCapacity = 0u,
-                                      std::size_t boxCapacity = 0u, std::size_t hullCapacity = 0u,
-                                      std::size_t pointJointCapacity = 0u );
+    void ReserveAuthoredBodyCapacity( std::size_t bodyCapacity, std::size_t sphereCapacity = 0u, std::size_t boxCapacity = 0u, std::size_t hullCapacity = 0u, std::size_t pointJointCapacity = 0u );
 
     // Synchronously seeds private replay-prediction storage through explicit
     // concrete store/topology clones. The destination remains unpublished and
@@ -127,8 +125,7 @@ class PhysicsEngine
     // Cold editor/tool topology can extend a loaded scene one body at a time.
     // A complete load-time commit makes this a no-op during initial population.
     void ReserveAdditionalAuthoredBodyCapacity( const PhysicsColliderCreateDesc& colliderDesc );
-    void ReserveAdditionalAuthoredCapacity( std::size_t sphereCount, std::size_t boxCount, std::size_t hullCount,
-                                            std::size_t pointJointCount );
+    void ReserveAdditionalAuthoredCapacity( std::size_t sphereCount, std::size_t boxCount, std::size_t hullCount, std::size_t pointJointCount );
     PhysicsAuthoredBodyCount AuthoredBodyDescriptorCount() const;
 
     // Scene creation uses this before its first owner mutation; false is a
@@ -142,8 +139,7 @@ class PhysicsEngine
 
     // One physics-owned registration command publishes the authored descriptor,
     // live body, paired collider, and buoyancy row or rolls the transaction back.
-    PhysicsAuthoredBodyRegistration RegisterAuthoredBody( const PhysicsBodyCreateDesc& body,
-                                                          PhysicsColliderCreateDesc collider );
+    PhysicsAuthoredBodyRegistration RegisterAuthoredBody( const PhysicsBodyCreateDesc& body, PhysicsColliderCreateDesc collider );
 
     // Deterministically removes the paired collider, buoyancy, descriptor, and
     // body rows and invalidates the retired body handle before returning.
@@ -172,14 +168,17 @@ class PhysicsEngine
     // Steps the owned stores. Model-order descriptor import and diagnostic-name
     // registration are cold commands; the per-tick call carries only simulation
     // inputs plus concrete Debug CSV output authority.
-    void Step( float deltaSeconds, const PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool,
+    void Step( float deltaSeconds, const PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool, const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+    void Step( float deltaSeconds,
+               const PhysicsWorldForces& worldForces,
+               const ExternalForceFrameInput& externalForces,
+               Threading::WorkerPool& workerPool,
                const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
-    void Step( float deltaSeconds, const PhysicsWorldForces& worldForces, const ExternalForceFrameInput& externalForces,
-               Threading::WorkerPool& workerPool, const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
 
     // Runtime fixed-tree commands enter physics by handle; release, wake, and
     // sleep propagation stay inside the owned stores.
-    bool ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody, float releaseImpulseStrength,
+    bool ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,
+                                               float releaseImpulseStrength,
                                                const Math::Vector::Vector3& seedLinearVelocity,
                                                const Math::Vector::Vector3& seedAngularVelocity );
 
@@ -189,8 +188,7 @@ class PhysicsEngine
 
     // Live tool commands edit body velocity by handle; model-index
     // callers refresh topology before entering this store-owned command.
-    bool SetBodyVelocity( PhysicsBodyHandle body, const Math::Vector::Vector3& linearVelocity,
-                          const Math::Vector::Vector3& angularVelocity, bool wakeIfMoving );
+    bool SetBodyVelocity( PhysicsBodyHandle body, const Math::Vector::Vector3& linearVelocity, const Math::Vector::Vector3& angularVelocity, bool wakeIfMoving );
 
     // Scene/editor construction commands seed solver sleep state by handle
     // without a per-command presentation projection.
@@ -199,13 +197,11 @@ class PhysicsEngine
     // Queues one-shot solver input by body handle. The application offset is a
     // world-space vector from the body's center of mass. Callers that only need
     // a pending impulse must not rebuild descriptor rows for presentation wake.
-    void SetPendingBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse,
-                                const Math::Vector::Vector3& worldApplicationOffset );
+    void SetPendingBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse, const Math::Vector::Vector3& worldApplicationOffset );
 
     // Queues a one-shot impulse and wakes by body handle without borrowing the
     // model owner.
-    void ApplyBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse,
-                           const Math::Vector::Vector3& worldApplicationOffset );
+    void ApplyBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse, const Math::Vector::Vector3& worldApplicationOffset );
     void SetSleepEnabled( bool enabled );
     bool IsSleepEnabled() const;
     // Measurement control only: disabled still uses uniform articulation steps.
@@ -291,12 +287,10 @@ class PhysicsEngine
     // PhysicsEngine. PhysicsWorld owns its hot stage storage; the indirection is
     // confined to engine/world boundaries rather than leaking into consumers.
     std::unique_ptr<PhysicsWorld> m_world;
-    PhysicsBodyRowList<PhysicsBodyCreateDesc>
-        m_authoredBodyDescs { "PhysicsEngine.m_authoredBodyDescs",
-                              PhysicsCapacityReason::SceneBodies }; // Cold descriptors keyed by scene/model order.
-    PhysicsBodyStore m_bodyStore;                                   // Mutable body state in model/replay order.
-    ColliderStore m_colliderStore;                                  // Collider snapshot in model/replay order.
-    BuoyancySystem m_buoyancySystem;                                // Fluid facts aligned with body/collider model rows.
+    PhysicsBodyRowList<PhysicsBodyCreateDesc> m_authoredBodyDescs { "PhysicsEngine.m_authoredBodyDescs", PhysicsCapacityReason::SceneBodies }; // Cold descriptors keyed by scene/model order.
+    PhysicsBodyStore m_bodyStore;                                                                                                              // Mutable body state in model/replay order.
+    ColliderStore m_colliderStore;                                                                                                             // Collider snapshot in model/replay order.
+    BuoyancySystem m_buoyancySystem;                                                                                                           // Fluid facts aligned with body/collider model rows.
     PhysicsMaterial m_physicsMaterial;                  // Runtime material policy copied into body/collider descriptors.
     BodySimulationLimits m_bodySimulationLimits;        // Runtime body caps copied at authoring/import boundaries.
     ContactPolicy m_contactPolicy;                      // Runtime contact thresholds copied at authoring/import boundaries.

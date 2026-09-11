@@ -66,18 +66,16 @@ UIControlsTabFrameView InGameUIFrameData::ControlsTabFrame() const
 
 UIEditorTabFrameView InGameUIFrameData::EditorTabFrame() const
 {
-    return {
-        editor.editorModeEnabled,
-        editor.editorPlacementMode,
-        editor.editorPlaceStatic,
-        editor.editorTerrainAlign,
-        editor.editorTerrainBrush,
-        editor.editorTerrainBrushRadius,
-        editor.editorViewportLookActive,
-        editor.editorObjectType,
-        editor.editorUndoDepth,
-        editor.editorRedoDepth
-    };
+    return { editor.editorModeEnabled,
+             editor.editorPlacementMode,
+             editor.editorPlaceStatic,
+             editor.editorTerrainAlign,
+             editor.editorTerrainBrush,
+             editor.editorTerrainBrushRadius,
+             editor.editorViewportLookActive,
+             editor.editorObjectType,
+             editor.editorUndoDepth,
+             editor.editorRedoDepth };
 }
 
 UICinematicTabFrameView InGameUIFrameData::CinematicTabFrame() const
@@ -87,136 +85,124 @@ UICinematicTabFrameView InGameUIFrameData::CinematicTabFrame() const
 
 UIOptionsTabFrameView InGameUIFrameData::OptionsTabFrame() const
 {
-    return {
-        rendering.ordinaryRender.shadow.enabled,
-        rendering.cinematic.shadow.enabled,
-        scene.timeScale,
-        scene.presentationAlpha,
-        scene.modelCount,
-        scene.modelCapacity,
-        scene.fixedStep,
-        scene.presentationInterpolation,
-        scene.presentationPinned,
-        rendering.cinematicRendering,
-        world.waterFreezeDebug,
-        world.waterFlatDebug,
-        world.terrainHidden,
-        world.waterHidden
-    };
+    return { rendering.ordinaryRender.shadow.enabled,
+             rendering.cinematic.shadow.enabled,
+             scene.timeScale,
+             scene.presentationAlpha,
+             scene.modelCount,
+             scene.modelCapacity,
+             scene.fixedStep,
+             scene.presentationInterpolation,
+             scene.presentationPinned,
+             rendering.cinematicRendering,
+             world.waterFreezeDebug,
+             world.waterFlatDebug,
+             world.terrainHidden,
+             world.waterHidden };
 }
 
 UIPhysicsTabFrameView InGameUIFrameData::PhysicsTabFrame() const
 {
-    return {
-        world.physicsDebug,
-        world.worldGravity,
-        world.rayCastImpulseStrength,
-        world.launcherProjectileSpeed,
-        world.terrainFrictionCoeff,
-        world.objectFrictionCoeff,
-        world.rollingFrictionCoeff,
-        world.tornadoRadius,
-        world.tornadoHeight,
-        world.tornadoInwardAcceleration,
-        world.tornadoSwirlAcceleration,
-        world.tornadoLiftAcceleration,
-        world.physicsSleepEnabled,
-        world.tornadoEnabled,
-        world.tornadoVisualShell,
-        world.tornadoFieldVectors,
-        world.rayCastVisualization
-    };
+    return { world.physicsDebug,
+             world.worldGravity,
+             world.rayCastImpulseStrength,
+             world.launcherProjectileSpeed,
+             world.terrainFrictionCoeff,
+             world.objectFrictionCoeff,
+             world.rollingFrictionCoeff,
+             world.tornadoRadius,
+             world.tornadoHeight,
+             world.tornadoInwardAcceleration,
+             world.tornadoSwirlAcceleration,
+             world.tornadoLiftAcceleration,
+             world.physicsSleepEnabled,
+             world.tornadoEnabled,
+             world.tornadoVisualShell,
+             world.tornadoFieldVectors,
+             world.rayCastVisualization };
 }
 
 UIProfilerTabFrameView InGameUIFrameData::ProfilerTabFrame() const
 {
-    return {
-        diagnostics.profilerMarkerOptions,
-        diagnostics.profilerMarkerOptionCount,
-        surface.workerThreadCount,
-        surface.maxWorkerThreadCount,
-        surface.screenW,
-        surface.screenH,
-        surface.workerCoreTotalMs,
-        surface.now
-    };
+    return { diagnostics.profilerMarkerOptions,
+             diagnostics.profilerMarkerOptionCount,
+             surface.workerThreadCount,
+             surface.maxWorkerThreadCount,
+             surface.screenW,
+             surface.screenH,
+             surface.workerCoreTotalMs,
+             surface.now };
 }
 
 UIMemoryTabFrameView InGameUIFrameData::MemoryTabFrame() const
 {
-    return {
-        diagnostics.mainMemory,
-        diagnostics.renderMemory,
-        diagnostics.reserveCapacityRows,
-        diagnostics.reserveGrowthEvents,
-        diagnostics.reserveCapacityRowCount,
-        diagnostics.reserveGrowthEventCount,
-        surface.screenW,
-        surface.screenH,
-        diagnostics.replayMemoryPreset,
-        diagnostics.replayMemoryRequestedRetentionSeconds,
-        diagnostics.replayMemoryRequestedBudgetMiB,
-        diagnostics.replayMemoryPresentationRetentionSeconds,
-        diagnostics.replayMemorySolverRetentionSeconds,
-        diagnostics.reserveGrowthEventTotalCount,
-        diagnostics.reserveGrowthEventDroppedCount,
-        surface.now,
-        diagnostics.replayMemoryBudgetClamped,
-        diagnostics.replayMemorySolverWindowReduced
-    };
+    return { diagnostics.mainMemory,
+             diagnostics.renderMemory,
+             diagnostics.reserveCapacityRows,
+             diagnostics.reserveGrowthEvents,
+             diagnostics.reserveCapacityRowCount,
+             diagnostics.reserveGrowthEventCount,
+             surface.screenW,
+             surface.screenH,
+             diagnostics.replayMemoryPreset,
+             diagnostics.replayMemoryRequestedRetentionSeconds,
+             diagnostics.replayMemoryRequestedBudgetMiB,
+             diagnostics.replayMemoryPresentationRetentionSeconds,
+             diagnostics.replayMemorySolverRetentionSeconds,
+             diagnostics.reserveGrowthEventTotalCount,
+             diagnostics.reserveGrowthEventDroppedCount,
+             surface.now,
+             diagnostics.replayMemoryBudgetClamped,
+             diagnostics.replayMemorySolverWindowReduced };
 }
 
 UISceneTabFrameView InGameUIFrameData::SceneTabFrame() const
 {
     const OperatorEditorForecastView& source = operatorEditor.forecast;
-    const UISceneForecastFrameView forecast = {
-        source.simulatedSeconds,
-        source.simulatedSecondsPerRealSecond,
-        source.rollingWindowAgeSeconds,
-        source.energyDrift,
-        source.angularMomentumDrift,
-        source.maximumAbsoluteEnergyDrift,
-        source.maximumAngularMomentumDrift,
-        source.firstFailureSeconds,
-        source.firstFailureSubject,
-        source.firstFailureOther,
-        source.firstFailureCause,
-        source.available,
-        source.active,
-        source.workerInFlight,
-        source.failed,
-        source.configured,
-        source.numericalHealthy,
-        source.systemOrbitalHealthy,
-        source.auxiliaryOrbitalHealthy,
-        source.energyDriftAvailable,
-        source.angularMomentumDriftAvailable
-    };
+    const UISceneForecastFrameView forecast = { source.simulatedSeconds,
+                                                source.simulatedSecondsPerRealSecond,
+                                                source.rollingWindowAgeSeconds,
+                                                source.energyDrift,
+                                                source.angularMomentumDrift,
+                                                source.maximumAbsoluteEnergyDrift,
+                                                source.maximumAngularMomentumDrift,
+                                                source.firstFailureSeconds,
+                                                source.firstFailureSubject,
+                                                source.firstFailureOther,
+                                                source.firstFailureCause,
+                                                source.available,
+                                                source.active,
+                                                source.workerInFlight,
+                                                source.failed,
+                                                source.configured,
+                                                source.numericalHealthy,
+                                                source.systemOrbitalHealthy,
+                                                source.auxiliaryOrbitalHealthy,
+                                                source.energyDriftAvailable,
+                                                source.angularMomentumDriftAvailable };
 
-    return {
-        forecast,
-        surface.rendererName,
-        scene.sceneOptions,
-        scene.interactionRecordingOptions,
-        scene.sceneOptionCount,
-        scene.selectedSceneOption,
-        scene.interactionRecordingOptionCount,
-        scene.selectedInteractionRecordingOption,
-        scene.currentFrame,
-        scene.targetFrameCount,
-        scene.modelCount,
-        scene.currentSceneIndex,
-        scene.sceneCount,
-        surface.fps,
-        scene.sceneEnergy,
-        scene.timeScale,
-        scene.predictionRevealRate,
-        scene.fixedStep,
-        scene.testComplete,
-        surface.sceneName,
-        surface.sceneMode,
-        operatorEditor.tools.crossScenePauseLocked
-    };
+    return { forecast,
+             surface.rendererName,
+             scene.sceneOptions,
+             scene.interactionRecordingOptions,
+             scene.sceneOptionCount,
+             scene.selectedSceneOption,
+             scene.interactionRecordingOptionCount,
+             scene.selectedInteractionRecordingOption,
+             scene.currentFrame,
+             scene.targetFrameCount,
+             scene.modelCount,
+             scene.currentSceneIndex,
+             scene.sceneCount,
+             surface.fps,
+             scene.sceneEnergy,
+             scene.timeScale,
+             scene.predictionRevealRate,
+             scene.fixedStep,
+             scene.testComplete,
+             surface.sceneName,
+             surface.sceneMode,
+             operatorEditor.tools.crossScenePauseLocked };
 }
 
 namespace
@@ -258,35 +244,31 @@ void PublishDrawStats( InGameUITab activeTab, const UIDrawList& frame, const UID
     const auto overflowed = []( const UIDrawList::Stats& stats ) { return stats.commandOverflow || stats.textOverflow || stats.clipOverflow; };
     const bool overflow = overflowed( frameStats ) || overflowed( histogramStats ) || overflowed( memoryStats );
 
-    std::fprintf(
-        stderr,
-        "[ui-draw-stats] tab=%d frame=%d/%d histogram=%d/%d memory=%d/%d clip=%d/%d/%d overflow=%d\n",
-        static_cast<int>( activeTab ),
-        frameStats.commandCount,
-        frameStats.textBytes,
-        histogramStats.commandCount,
-        histogramStats.textBytes,
-        memoryStats.commandCount,
-        memoryStats.textBytes,
-        frameStats.maxClipDepth,
-        histogramStats.maxClipDepth,
-        memoryStats.maxClipDepth,
-        overflow ? 1 : 0
-    );
+    std::fprintf( stderr,
+                  "[ui-draw-stats] tab=%d frame=%d/%d histogram=%d/%d memory=%d/%d clip=%d/%d/%d overflow=%d\n",
+                  static_cast<int>( activeTab ),
+                  frameStats.commandCount,
+                  frameStats.textBytes,
+                  histogramStats.commandCount,
+                  histogramStats.textBytes,
+                  memoryStats.commandCount,
+                  memoryStats.textBytes,
+                  frameStats.maxClipDepth,
+                  histogramStats.maxClipDepth,
+                  memoryStats.maxClipDepth,
+                  overflow ? 1 : 0 );
 }
 
-void AppendStandaloneOverlays(
-    ProfilerTab::UIProfilerTabState& profiler,
-    MemoryTab::UIMemoryOverlayState& memoryState,
-    const InGameUIFrameData& data,
-    UIDrawList& frame,
-    UIDrawList& histogram,
-    UIDrawList& memory,
-    int screenW,
-    int screenH,
-    bool histogramEnabled,
-    bool memoryEnabled
-)
+void AppendStandaloneOverlays( ProfilerTab::UIProfilerTabState& profiler,
+                               MemoryTab::UIMemoryOverlayState& memoryState,
+                               const InGameUIFrameData& data,
+                               UIDrawList& frame,
+                               UIDrawList& histogram,
+                               UIDrawList& memory,
+                               int screenW,
+                               int screenH,
+                               bool histogramEnabled,
+                               bool memoryEnabled )
 {
     if ( histogramEnabled )
     {
@@ -344,19 +326,17 @@ void UIWindowInteractionOwner::DrawMinimizedContent( const InGameUIFrameData& da
     if ( data.editor.editorModeEnabled )
     {
         const EditorMiniPaletteLayout layout = BuildEditorMiniPaletteLayout( screenW, screenH, minimized, m_editorMiniPalettePressedEntry, m_editorMiniPaletteFlyoutOpen );
-        DrawEditorMiniPalette(
-            draw,
-            layout,
-            data.editor.editorObjectType,
-            data.editor.editorPlaceStatic,
-            m_mouseX,
-            m_mouseY,
-            m_editorMiniPalettePressedTreePlacement,
-            m_editorMiniPalettePressedHoldMode,
-            m_editorMiniPalettePressedEntry,
-            screenW,
-            screenH
-        );
+        DrawEditorMiniPalette( draw,
+                               layout,
+                               data.editor.editorObjectType,
+                               data.editor.editorPlaceStatic,
+                               m_mouseX,
+                               m_mouseY,
+                               m_editorMiniPalettePressedTreePlacement,
+                               m_editorMiniPalettePressedHoldMode,
+                               m_editorMiniPalettePressedEntry,
+                               screenW,
+                               screenH );
         DrawEditorMinimizedWindow( draw, minimized, data.EditorTabFrame(), m_mouseX, m_mouseY );
     }
     else
@@ -406,18 +386,16 @@ void UIWindowInteractionOwner::DrawRenderTabContent( const InGameUIFrameData& da
     {
         const UIRenderVisibilityViewStats& visibility = data.surface.visibility.views[viewIndex];
         snprintf( visibilityText, sizeof( visibilityText ), "%d submitted, %d culled, %d draws", visibility.submitted, visibility.culled, visibility.draws );
-        DrawLabelValueAt(
-            draw,
-            content.y,
-            content.h,
-            content.x,
-            scrolledY + 76.0f + static_cast<float>( viewIndex ) * 18.0f,
-            labels[viewIndex],
-            visibilityText,
-            palette.accent.r,
-            palette.accent.g,
-            palette.accent.b
-        );
+        DrawLabelValueAt( draw,
+                          content.y,
+                          content.h,
+                          content.x,
+                          scrolledY + 76.0f + static_cast<float>( viewIndex ) * 18.0f,
+                          labels[viewIndex],
+                          visibilityText,
+                          palette.accent.r,
+                          palette.accent.g,
+                          palette.accent.b );
     }
 
     m_saveTrajectoryStyleButton.SetBounds( 0, 0, 0, 0 );
@@ -490,18 +468,16 @@ void UIWindowInteractionOwner::DrawTargetsTabContent( const InGameUIFrameData& d
             snprintf( detailText, sizeof( detailText ), "%s, n/a", RenderTargetPreviewTypeText( *selected ) );
         }
 
-        DrawLabelValueAt(
-            draw,
-            content.y,
-            content.h,
-            content.x,
-            scrolledY + UI_TARGETS_META_Y,
-            "Selected",
-            detailText,
-            available ? palette.textPrimary.r : palette.textMuted.r,
-            available ? palette.textPrimary.g : palette.textMuted.g,
-            available ? palette.textPrimary.b : palette.textMuted.b
-        );
+        DrawLabelValueAt( draw,
+                          content.y,
+                          content.h,
+                          content.x,
+                          scrolledY + UI_TARGETS_META_Y,
+                          "Selected",
+                          detailText,
+                          available ? palette.textPrimary.r : palette.textMuted.r,
+                          available ? palette.textPrimary.g : palette.textMuted.g,
+                          available ? palette.textPrimary.b : palette.textMuted.b );
     }
 
     const UIRect previewPanel = { content.x, scrolledY + UI_TARGETS_PREVIEW_Y, content.w, UI_TARGETS_PREVIEW_H };
@@ -537,12 +513,10 @@ void UIWindowInteractionOwner::DrawTargetsTabContent( const InGameUIFrameData& d
 
     if ( IsRowVisible( content.y, content.h, scrolledY + UI_TARGETS_COMBO_Y, 24.0f ) )
     {
-        m_renderTargetCombo.Draw(
-            draw,
-            "View",
-            { std::span<const char* const>( options, static_cast<std::size_t>( targetCount ) ), selectedIndex, m_lastRenderTargetDisabledMask, selectedText },
-            { m_mouseX, m_mouseY }
-        );
+        m_renderTargetCombo.Draw( draw,
+                                  "View",
+                                  { std::span<const char* const>( options, static_cast<std::size_t>( targetCount ) ), selectedIndex, m_lastRenderTargetDisabledMask, selectedText },
+                                  { m_mouseX, m_mouseY } );
     }
 }
 
@@ -632,15 +606,13 @@ void DrawFooterStats( const InGameUIFrameData& data, const UIFooterDrawContext& 
 UIRect UIWindowInteractionOwner::DrawCompactToolsFooter( const InGameUIFrameData& data, const UIDrawContext& draw, const ToolsChromeRects& chrome )
 {
     PrepareCompactToolsControls( chrome );
-    const char* options[] = {
-        "Renderer: DX12",
-        "Water reflection...",
-        m_blurPreviewEnabled ? "Blur: on" : "Blur: off",
-        data.surface.vsyncEnabled ? "VSync: on" : "VSync: off",
-        m_hitboxOverlayEnabled ? "UI hitboxes: on" : "UI hitboxes: off",
-        ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) ? "Canvas performance: on" : "Canvas performance: off",
-        ProfilerTab::TimelineEnabled( m_profilerTab ) ? "Profiler timeline: on" : "Profiler timeline: off"
-    };
+    const char* options[] = { "Renderer: DX12",
+                              "Water reflection...",
+                              m_blurPreviewEnabled ? "Blur: on" : "Blur: off",
+                              data.surface.vsyncEnabled ? "VSync: on" : "VSync: off",
+                              m_hitboxOverlayEnabled ? "UI hitboxes: on" : "UI hitboxes: off",
+                              ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) ? "Canvas performance: on" : "Canvas performance: off",
+                              ProfilerTab::TimelineEnabled( m_profilerTab ) ? "Profiler timeline: on" : "Profiler timeline: off" };
     if ( m_reflectionCombo.IsOpen() )
     {
         static const char* reflections[] = { "FBO", "DXR", "None" };
@@ -653,18 +625,16 @@ UIRect UIWindowInteractionOwner::DrawCompactToolsFooter( const InGameUIFrameData
     return chrome.footer;
 }
 
-UIRect UIWindowInteractionOwner::DrawFooterContent(
-    const InGameUIFrameData& data,
-    const UIDrawContext& draw,
-    float x,
-    float y,
-    float width,
-    float height,
-    float bottomHeight,
-    float titleStatWidth,
-    float titleStatX,
-    const char* titleStat
-)
+UIRect UIWindowInteractionOwner::DrawFooterContent( const InGameUIFrameData& data,
+                                                    const UIDrawContext& draw,
+                                                    float x,
+                                                    float y,
+                                                    float width,
+                                                    float height,
+                                                    float bottomHeight,
+                                                    float titleStatWidth,
+                                                    float titleStatX,
+                                                    const char* titleStat )
 {
     const ToolsChromeRects chrome = ComputeToolsChromeRects( { x, y, width, height }, m_presentationEnabled );
     if ( chrome.compact )
@@ -844,13 +814,11 @@ void InGameUI::RevealCauseControls( int width, int height )
 GameLayout::ComboPopupPresentation InGameUI::EditorPopup() const
 {
     const UIComboBox& popup = m_windowInteraction.m_editorTab.objectCombo;
-    return {
-        popup.DropdownBounds( EditorTab::OBJECT_TYPE_COUNT ),
-        popup.FirstVisibleOption( EditorTab::OBJECT_TYPE_COUNT ),
-        popup.VisibleOptionCount( EditorTab::OBJECT_TYPE_COUNT ),
-        EditorTab::OBJECT_TYPE_COUNT,
-        popup.IsOpen()
-    };
+    return { popup.DropdownBounds( EditorTab::OBJECT_TYPE_COUNT ),
+             popup.FirstVisibleOption( EditorTab::OBJECT_TYPE_COUNT ),
+             popup.VisibleOptionCount( EditorTab::OBJECT_TYPE_COUNT ),
+             EditorTab::OBJECT_TYPE_COUNT,
+             popup.IsOpen() };
 }
 
 GameLayout::ComboPopupPresentation InGameUI::ToolsPopup() const
@@ -868,15 +836,13 @@ GameLayout::ComboPopupPresentation InGameUI::TargetPopup() const
     const auto& owner = m_windowInteraction;
     const auto& popup = owner.m_renderTargetCombo;
     const int count = owner.m_lastRenderTargetPreviewCount;
-    return {
-        popup.DropdownBounds( count ),
-        popup.FirstVisibleOption( count ),
-        popup.VisibleOptionCount( count ),
-        count,
-        popup.IsOpen(),
-        owner.m_selectedRenderTargetPreview,
-        owner.m_lastRenderTargetDisabledMask
-    };
+    return { popup.DropdownBounds( count ),
+             popup.FirstVisibleOption( count ),
+             popup.VisibleOptionCount( count ),
+             count,
+             popup.IsOpen(),
+             owner.m_selectedRenderTargetPreview,
+             owner.m_lastRenderTargetDisabledMask };
 }
 
 GameLayout::ComboPopupPresentation InGameUI::RecordingPopup() const
@@ -1155,17 +1121,15 @@ InputControl::UIPointerOverride InGameUI::InputOverride() const
 }
 
 
-InGameUIInputResult InGameUI::UpdateInput(
-    const InputControl::UIInputSnapshot& input,
-    int screenWidth,
-    int screenHeight,
-    double now,
-    bool editorModeEnabled,
-    bool placementModeEnabled,
-    bool placeStaticObject,
-    bool autoTerrainAlign,
-    uint32_t cameraModeEnabledMask
-)
+InGameUIInputResult InGameUI::UpdateInput( const InputControl::UIInputSnapshot& input,
+                                           int screenWidth,
+                                           int screenHeight,
+                                           double now,
+                                           bool editorModeEnabled,
+                                           bool placementModeEnabled,
+                                           bool placeStaticObject,
+                                           bool autoTerrainAlign,
+                                           uint32_t cameraModeEnabledMask )
 {
     PROFILE_SCOPED( "Frame/UI/Input" );
     InputControl::UIInputSnapshot pointerInput = input;
@@ -1335,15 +1299,13 @@ void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& d
             {
                 draw.Rect( tabs[index].x + 6.0f, tabs[index].y + tabs[index].h - 2.0f, tabs[index].w - 12.0f, 2.0f, palette.accent.r, palette.accent.g, palette.accent.b, 1.0f );
             }
-            draw.Text(
-                tabs[index].x + 10.0f,
-                tabs[index].y + 5.0f,
-                12.0f,
-                ink.r,
-                ink.g,
-                ink.b,
-                m_presentation.workspace == Workspace::SolverLab ? ( index == 0 ? "Controls" : "Differences" ) : ( index == 0 ? "Replay" : "Causes" )
-            );
+            draw.Text( tabs[index].x + 10.0f,
+                       tabs[index].y + 5.0f,
+                       12.0f,
+                       ink.r,
+                       ink.g,
+                       ink.b,
+                       m_presentation.workspace == Workspace::SolverLab ? ( index == 0 ? "Controls" : "Differences" ) : ( index == 0 ? "Replay" : "Causes" ) );
         }
     }
     draw.BeginLayer();
@@ -1403,15 +1365,13 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
     DrawDockFold( draw, m_presentationRects.rightFold, !m_presentation.preferences.rightFolded, m_presentationRects.rightFold.Contains( m_mouseX, m_mouseY ) );
     if ( m_presentationRects.right.w > 24 )
     {
-        draw.Text(
-            m_presentationRects.right.x + 30,
-            m_presentationRects.right.y + 8,
-            11,
-            palette.textPrimary.r,
-            palette.textPrimary.g,
-            palette.textPrimary.b,
-            m_presentation.workspace == Workspace::SolverLab ? "Differences" : "Causes"
-        );
+        draw.Text( m_presentationRects.right.x + 30,
+                   m_presentationRects.right.y + 8,
+                   11,
+                   palette.textPrimary.r,
+                   palette.textPrimary.g,
+                   palette.textPrimary.b,
+                   m_presentation.workspace == Workspace::SolverLab ? "Differences" : "Causes" );
     }
     // A visible grip and larger hit area make both dock edges discoverable.
     const UIRect grips[] = { m_presentationRects.leftResize, m_presentationRects.replayResize, m_presentationRects.rightResize };
@@ -1458,19 +1418,17 @@ void UIWindowInteractionOwner::DrawPresentedEditorPalette( const InGameUIFrameDa
     draw.PushClip( layout.clip );
     draw.Text( layout.bounds.x, layout.bounds.y - 24.0f, 12.0f, Style::Palette().textSecondary.r, Style::Palette().textSecondary.g, Style::Palette().textSecondary.b, "Quick objects" );
     draw.PopClip();
-    DrawEditorMiniPalette(
-        draw,
-        layout,
-        data.editor.editorObjectType,
-        data.editor.editorPlaceStatic,
-        m_mouseX,
-        m_mouseY,
-        m_editorMiniPalettePressedTreePlacement,
-        m_editorMiniPalettePressedHoldMode,
-        m_editorMiniPalettePressedEntry,
-        data.surface.screenW,
-        data.surface.screenH
-    );
+    DrawEditorMiniPalette( draw,
+                           layout,
+                           data.editor.editorObjectType,
+                           data.editor.editorPlaceStatic,
+                           m_mouseX,
+                           m_mouseY,
+                           m_editorMiniPalettePressedTreePlacement,
+                           m_editorMiniPalettePressedHoldMode,
+                           m_editorMiniPalettePressedEntry,
+                           data.surface.screenW,
+                           data.surface.screenH );
 }
 
 void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& data )
@@ -1534,8 +1492,10 @@ void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& 
     m_cameraModeCombo.SetBounds( bounds.camera.x, bounds.camera.y, bounds.camera.w, bounds.camera.h );
     m_cameraModeCombo.SetDropUp( false );
     const uint32_t disabled = ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) & ~data.surface.cameraModeEnabledMask;
-    m_cameraModeCombo
-        .Draw( draw, "", { std::span<const char* const>( kCameraModeOptions ), std::clamp( data.surface.cameraModeIndex, 0, CAMERA_MODE_OPTION_COUNT - 1 ), disabled }, { m_mouseX, m_mouseY } );
+    m_cameraModeCombo.Draw( draw,
+                            "",
+                            { std::span<const char* const>( kCameraModeOptions ), std::clamp( data.surface.cameraModeIndex, 0, CAMERA_MODE_OPTION_COUNT - 1 ), disabled },
+                            { m_mouseX, m_mouseY } );
 }
 
 void UIWindowInteractionOwner::DrawToolsDrawerChrome( const UIDrawContext& draw, const UIRect& bounds )
@@ -1568,49 +1528,43 @@ void UIWindowInteractionOwner::DrawTooltips( const InGameUIFrameData& data )
     const UIRect content = ComputeToolsChromeRects( window, m_presentationEnabled ).content;
     const HeaderRects header = ComputeHeaderRects( m_presentationRects.header, m_presentation.workspace );
     const bool solverLab = m_presentation.workspace == Workspace::SolverLab;
-    const UITooltipTarget candidates[] = {
-        { 1, m_sceneTab.resetSceneButton.Bounds(), { "Rebuild this scene while preserving live runtime controls." } },
-        { 2, m_sceneTab.resetDefaultsButton.Bounds(), { "Discard live scene edits and reload authored defaults." } },
-        { 3, m_sceneTab.saveDefaultsButton.Bounds(), { "Save current authored scene settings through scene persistence." } },
-        { 4, m_sceneTab.combo.Bounds(), { "Filter and load a scene, return to Demo, or create a scene using the filter name." } },
-        { 5, m_sceneTab.recordingCombo.Bounds(), { "Play an existing interaction recording from the recording catalog." } },
-        { 6, m_sceneTab.solverLabCombo.Bounds(), { "Open a recorded physics comparison in Solver Lab." } },
-        { 7, m_sceneTab.timeScaleSlider.Bounds(), { "Control how quickly the simulation advances.", "Multiplier of real time" } },
-        { 8, m_sceneTab.predictionRevealSlider.Bounds(), { "Reveal an already-computed prediction at this speed.", "Multiplier; maximum reveals instantly" } },
-        { 9, m_sceneTab.continuousForecastToggle.Bounds(), { "Start or stop the continuous orbital forecast." } },
-        { 10, m_sceneTab.resetForecastButton.Bounds(), { "Restart the orbital forecast from the current scene state." } },
-        { 11, header.skull, { "Open or close Tools while retaining the selected tab." } },
-        { 12, header.scene, { "Open the existing Scene browser for loading, creation and scene defaults." } },
-        { 13, header.scenes, { "Open the existing Scene browser for loading, creation and scene defaults." } },
-        { 14, header.layout, { "Open Options or exit to the full-screen scene while retaining panel choices." } },
-        { 15, header.tools, { "Open or close Tools while retaining the selected tab." } },
-        { 16,
-          DiagnosticDetailsBounds( m_presentationRects.markerHistory ),
-          { "Open the detailed Profiler: marker hierarchy, timeline, workers and draw calls.", "Milliseconds", "F5 focuses marker history" } },
-        { 17, DiagnosticDetailsBounds( m_presentationRects.memoryWaterline ), { "Open detailed Memory and replay retention controls.", "MiB", "F6 focuses memory waterline" } },
-        { 18, m_presentationRects.replayDetails, { "Click to toggle Tools, or drag upward to open and resize the bottom drawer." } },
-        { 19, m_presentationRects.editorTab, { "Show the editing controls. This does not enable editor mode." } },
-        { 20, m_presentationRects.editorReplayTab, { "Show recording, prediction and replay controls." } },
-        { 21, m_presentationRects.leftFold, { "Fold or reopen the left pane while preserving its controls and state." } },
-        { 22,
-          m_presentationRects.rightFold,
-          { solverLab ? "Fold or reopen comparison differences while retaining the selected object." : "Fold or reopen Causes while retaining selected evidence." } },
-        { 23, m_presentationRects.leftResize, { "Drag to resize the left dock within the window." } },
-        { 24, m_presentationRects.rightResize, { "Drag to resize the right dock within the window." } },
-        { 26, header.workspace, { "Switch Scene and Solver Lab. Leaving Solver Lab pauses and retains its comparison." } },
-        { 27, header.close, { "Exit Solver Lab and return to the full-screen game.", "", "Esc" } },
-        { 25, header.camera, { "Choose a supported camera. Unavailable attached cameras are disabled for this scene." } },
-        { 34, m_editorTab.terrainAlignToggle.Bounds(), { "Align newly placed objects to the terrain surface." } },
-        { 30, m_editorTab.editorModeToggle.Bounds(), { "Enable or disable functional scene editing." } },
-        { 31,
-          m_editorTab.placementModeToggle.Bounds(),
-          { "Switch between placing objects and selecting existing objects.", "", "", "Enable Editor mode first." },
-          false,
-          false,
-          data.editor.editorModeEnabled },
-        { 32, m_editorTab.staticObjectToggle.Bounds(), { "Choose whether newly placed objects are static." } },
-        { 33, m_editorTab.objectCombo.Bounds(), { "Choose an object from the existing placement catalog." } }
-    };
+    const UITooltipTarget candidates[] = { { 1, m_sceneTab.resetSceneButton.Bounds(), { "Rebuild this scene while preserving live runtime controls." } },
+                                           { 2, m_sceneTab.resetDefaultsButton.Bounds(), { "Discard live scene edits and reload authored defaults." } },
+                                           { 3, m_sceneTab.saveDefaultsButton.Bounds(), { "Save current authored scene settings through scene persistence." } },
+                                           { 4, m_sceneTab.combo.Bounds(), { "Filter and load a scene, return to Demo, or create a scene using the filter name." } },
+                                           { 5, m_sceneTab.recordingCombo.Bounds(), { "Play an existing interaction recording from the recording catalog." } },
+                                           { 6, m_sceneTab.solverLabCombo.Bounds(), { "Open a recorded physics comparison in Solver Lab." } },
+                                           { 7, m_sceneTab.timeScaleSlider.Bounds(), { "Control how quickly the simulation advances.", "Multiplier of real time" } },
+                                           { 8, m_sceneTab.predictionRevealSlider.Bounds(), { "Reveal an already-computed prediction at this speed.", "Multiplier; maximum reveals instantly" } },
+                                           { 9, m_sceneTab.continuousForecastToggle.Bounds(), { "Start or stop the continuous orbital forecast." } },
+                                           { 10, m_sceneTab.resetForecastButton.Bounds(), { "Restart the orbital forecast from the current scene state." } },
+                                           { 11, header.skull, { "Open or close Tools while retaining the selected tab." } },
+                                           { 12, header.scene, { "Open the existing Scene browser for loading, creation and scene defaults." } },
+                                           { 13, header.scenes, { "Open the existing Scene browser for loading, creation and scene defaults." } },
+                                           { 14, header.layout, { "Open Options or exit to the full-screen scene while retaining panel choices." } },
+                                           { 15, header.tools, { "Open or close Tools while retaining the selected tab." } },
+                                           { 16, DiagnosticDetailsBounds( m_presentationRects.markerHistory ), { "Open the detailed Profiler: marker hierarchy, timeline, workers and draw calls.", "Milliseconds", "F5 focuses marker history" } },
+                                           { 17, DiagnosticDetailsBounds( m_presentationRects.memoryWaterline ), { "Open detailed Memory and replay retention controls.", "MiB", "F6 focuses memory waterline" } },
+                                           { 18, m_presentationRects.replayDetails, { "Click to toggle Tools, or drag upward to open and resize the bottom drawer." } },
+                                           { 19, m_presentationRects.editorTab, { "Show the editing controls. This does not enable editor mode." } },
+                                           { 20, m_presentationRects.editorReplayTab, { "Show recording, prediction and replay controls." } },
+                                           { 21, m_presentationRects.leftFold, { "Fold or reopen the left pane while preserving its controls and state." } },
+                                           { 22, m_presentationRects.rightFold, { solverLab ? "Fold or reopen comparison differences while retaining the selected object." : "Fold or reopen Causes while retaining selected evidence." } },
+                                           { 23, m_presentationRects.leftResize, { "Drag to resize the left dock within the window." } },
+                                           { 24, m_presentationRects.rightResize, { "Drag to resize the right dock within the window." } },
+                                           { 26, header.workspace, { "Switch Scene and Solver Lab. Leaving Solver Lab pauses and retains its comparison." } },
+                                           { 27, header.close, { "Exit Solver Lab and return to the full-screen game.", "", "Esc" } },
+                                           { 25, header.camera, { "Choose a supported camera. Unavailable attached cameras are disabled for this scene." } },
+                                           { 34, m_editorTab.terrainAlignToggle.Bounds(), { "Align newly placed objects to the terrain surface." } },
+                                           { 30, m_editorTab.editorModeToggle.Bounds(), { "Enable or disable functional scene editing." } },
+                                           { 31,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         m_editorTab.placementModeToggle.Bounds(),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         { "Switch between placing objects and selecting existing objects.", "", "", "Enable Editor mode first." },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         false,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         false,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         data.editor.editorModeEnabled },
+                                           { 32, m_editorTab.staticObjectToggle.Bounds(), { "Choose whether newly placed objects are static." } },
+                                           { 33, m_editorTab.objectCombo.Bounds(), { "Choose an object from the existing placement catalog." } } };
     UITooltipTarget target;
     for ( const auto& candidate : candidates )
     {
@@ -1633,13 +1587,7 @@ void UIWindowInteractionOwner::DrawTooltips( const InGameUIFrameData& data )
         const int entry = HitEditorMiniPaletteButton( palette, m_mouseX, m_mouseY );
         if ( entry >= 0 )
         {
-            target = {
-                static_cast<uint32_t>( 100 + entry ),
-                palette.buttons[entry],
-                { EditorMiniPaletteEntryLabel( kEditorMiniPaletteEntries[entry] ),
-                  "",
-                  kEditorMiniPaletteEntries[entry].holdMode == EDITOR_MINI_HOLD_MODE_NONE ? "Click to select and enter placement" : "Hold, move to a variant, then release" }
-            };
+            target = { static_cast<uint32_t>( 100 + entry ), palette.buttons[entry], { EditorMiniPaletteEntryLabel( kEditorMiniPaletteEntries[entry] ), "", kEditorMiniPaletteEntries[entry].holdMode == EDITOR_MINI_HOLD_MODE_NONE ? "Click to select and enter placement" : "Hold, move to a variant, then release" } };
             target.hovered = true;
         }
     }

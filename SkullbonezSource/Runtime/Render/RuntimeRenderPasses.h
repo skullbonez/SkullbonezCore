@@ -382,8 +382,7 @@ struct RuntimeRenderTargetPreviewSnapshot
     {
         if ( count < 0 || count >= static_cast<int>( targets.size() ) )
         {
-            SB_FATAL( "Runtime/Render/RenderTargetPreviewSnapshot",
-                      "Render-target preview capacity exceeded. count=%d capacity=%zu", count, targets.size() );
+            SB_FATAL( "Runtime/Render/RenderTargetPreviewSnapshot", "Render-target preview capacity exceeded. count=%d capacity=%zu", count, targets.size() );
         }
 
         targets[static_cast<std::size_t>( count++ )] = preview;
@@ -580,20 +579,23 @@ Concept: SkyPass
 class SkyPass
 {
   public:
-    SkyPass( SkyPassResources& skyResources, FullscreenPassResources& fullscreenResources,
-             std::unique_ptr<Geometry::SkyBox>& skyBox, const SkullbonezCore::Core::EngineConfig& config,
+    SkyPass( SkyPassResources& skyResources,
+             FullscreenPassResources& fullscreenResources,
+             std::unique_ptr<Geometry::SkyBox>& skyBox,
+             const SkullbonezCore::Core::EngineConfig& config,
              SkullbonezCore::Core::Profiler* profiler )
-        : m_skyResources( skyResources ), m_fullscreenResources( fullscreenResources ), m_skyBox( skyBox ),
-          m_config( config ), m_profiler( profiler )
+        : m_skyResources( skyResources ), m_fullscreenResources( fullscreenResources ), m_skyBox( skyBox ), m_config( config ), m_profiler( profiler )
     {
     }
 
-    void EnsureGpuResources( bool cinematicEnabled, Assets::AssetSystem& assets,
-                             Rendering::Dx12ResourceBuilder& renderResources );
+    void EnsureGpuResources( bool cinematicEnabled, Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources );
     void ReleaseGpuResources();
-    void Render( const RenderCameraLighting& camera, const Math::Transformation::Matrix4& view,
-                 const SkullbonezCore::Core::CinematicRenderConfig* cinematic, Rendering::Dx12GeometryOwner& renderGeometry,
-                 Rendering::Dx12TextureOwner& renderTextures, SkyPassMode mode );
+    void Render( const RenderCameraLighting& camera,
+                 const Math::Transformation::Matrix4& view,
+                 const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                 Rendering::Dx12GeometryOwner& renderGeometry,
+                 Rendering::Dx12TextureOwner& renderTextures,
+                 SkyPassMode mode );
 
   private:
     friend struct SkyPassTestAccess;
@@ -628,9 +630,11 @@ class SkyPass
         return mode == SkyPassMode::CinematicIfEnabled && cinematic && cinematic->skyAtmosphereEnabled;
     }
     Geometry::SkyBox& RequireWorldView( const char* operation );
-    void RenderCinematicSky( const RenderCameraLighting& camera, const Math::Transformation::Matrix4& view,
+    void RenderCinematicSky( const RenderCameraLighting& camera,
+                             const Math::Transformation::Matrix4& view,
                              const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                             Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12TextureOwner& renderTextures );
+                             Rendering::Dx12GeometryOwner& renderGeometry,
+                             Rendering::Dx12TextureOwner& renderTextures );
 
     SkyPassResources& m_skyResources;
     FullscreenPassResources& m_fullscreenResources;
@@ -653,18 +657,19 @@ Concept: SceneTargetPass
 class SceneTargetPass
 {
   public:
-    SceneTargetPass( CinematicScenePassResources& resources, SkyPass& skyPass, SkullbonezCore::Core::Profiler* profiler )
-        : m_resources( resources ), m_skyPass( skyPass ), m_profiler( profiler )
+    SceneTargetPass( CinematicScenePassResources& resources, SkyPass& skyPass, SkullbonezCore::Core::Profiler* profiler ) : m_resources( resources ), m_skyPass( skyPass ), m_profiler( profiler )
     {
     }
 
-    void EnsureGpuResources( bool cinematicEnabled, Rendering::Dx12ResourceBuilder& renderResources, int windowWidth,
-                             int windowHeight );
+    void EnsureGpuResources( bool cinematicEnabled, Rendering::Dx12ResourceBuilder& renderResources, int windowWidth, int windowHeight );
     void ReleaseGpuResources();
     bool IsReady() const;
-    void Begin( const RenderCameraLighting& camera, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GeometryOwner& renderGeometry,
-                Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12Diagnostics& renderDiagnostics,
+    void Begin( const RenderCameraLighting& camera,
+                const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                Rendering::Dx12FrameOwner& renderFrame,
+                Rendering::Dx12GeometryOwner& renderGeometry,
+                Rendering::Dx12TextureOwner& renderTextures,
+                Rendering::Dx12Diagnostics& renderDiagnostics,
                 Rendering::RenderGpuTimingOwner* gpuTiming );
 
   private:
@@ -683,14 +688,12 @@ Concept: ShadowPass
 class ShadowPass
 {
   public:
-    ShadowPass( ShadowPassResources& resources, const SkullbonezCore::Core::EngineConfig& config,
-                RenderResourceLifecycleLog& lifecycleLog, SkullbonezCore::Core::Profiler* profiler )
+    ShadowPass( ShadowPassResources& resources, const SkullbonezCore::Core::EngineConfig& config, RenderResourceLifecycleLog& lifecycleLog, SkullbonezCore::Core::Profiler* profiler )
         : m_resources( resources ), m_config( config ), m_lifecycleLog( lifecycleLog ), m_profiler( profiler )
     {
     }
 
-    void EnsureGpuResources( Rendering::Dx12ResourceBuilder& renderResources,
-                             const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
+    void EnsureGpuResources( Rendering::Dx12ResourceBuilder& renderResources, const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
     void ReleaseGpuResources();
 
     // Clears last-frame receiver payloads without scheduling a render pass.
@@ -699,19 +702,22 @@ class ShadowPass
     ShadowPassOutput Render( const ShadowPassInputs& inputs );
 
   private:
-    Rendering::ShadowFrameData BuildTerrainFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                                      const Math::Vector::Vector3& lightDirectionWorld,
-                                                      Geometry::Terrain* terrain ) const;
+    Rendering::ShadowFrameData
+    BuildTerrainFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic, const Math::Vector::Vector3& lightDirectionWorld, Geometry::Terrain* terrain ) const;
     Rendering::ShadowFrameData BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                                      const Math::Vector::Vector3& lightDirectionWorld,
                                                      const Math::Vector::Vector3& focusHint,
                                                      Rendering::RenderInstanceRenderer& instanceRenderer );
-    void RenderShadowMap( Rendering::FramebufferDX12& target, Rendering::RenderInstanceRenderer& instanceRenderer,
-                          Rendering::Dx12Diagnostics& renderDiagnostics, const char* shadowShaderBaseName,
+    void RenderShadowMap( Rendering::FramebufferDX12& target,
+                          Rendering::RenderInstanceRenderer& instanceRenderer,
+                          Rendering::Dx12Diagnostics& renderDiagnostics,
+                          const char* shadowShaderBaseName,
                           const Rendering::ShadowFrameData& shadowFrame,
                           const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                          Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12TextureOwner& renderTextures,
-                          bool renderTerrain, const Rendering::ShadowCasterBatches& objectCasters,
+                          Rendering::Dx12FrameOwner& renderFrame,
+                          Rendering::Dx12TextureOwner& renderTextures,
+                          bool renderTerrain,
+                          const Rendering::ShadowCasterBatches& objectCasters,
                           Geometry::Terrain* terrain );
 
     ShadowPassResources& m_resources;
@@ -734,14 +740,16 @@ Concept: ReflectionPass
 class ReflectionPass
 {
   public:
-    ReflectionPass( ReflectionPassResources& resources, CollisionVisualizer& collisionVisualizer, SkyPass& skyPass,
-                    const SkullbonezCore::Core::EngineConfig& config, Math::Transformation::Matrix4* dxrReflectionTransforms,
-                    int dxrReflectionTransformCapacity, RenderResourceLifecycleLog& lifecycleLog,
+    ReflectionPass( ReflectionPassResources& resources,
+                    CollisionVisualizer& collisionVisualizer,
+                    SkyPass& skyPass,
+                    const SkullbonezCore::Core::EngineConfig& config,
+                    Math::Transformation::Matrix4* dxrReflectionTransforms,
+                    int dxrReflectionTransformCapacity,
+                    RenderResourceLifecycleLog& lifecycleLog,
                     SkullbonezCore::Core::Profiler* profiler )
-        : m_resources( resources ), m_collisionVisualizer( collisionVisualizer ), m_skyPass( skyPass ), m_config( config ),
-          m_dxrReflectionTransforms( dxrReflectionTransforms ),
-          m_dxrReflectionTransformCapacity( dxrReflectionTransformCapacity ), m_lifecycleLog( lifecycleLog ),
-          m_profiler( profiler )
+        : m_resources( resources ), m_collisionVisualizer( collisionVisualizer ), m_skyPass( skyPass ), m_config( config ), m_dxrReflectionTransforms( dxrReflectionTransforms ),
+          m_dxrReflectionTransformCapacity( dxrReflectionTransformCapacity ), m_lifecycleLog( lifecycleLog ), m_profiler( profiler )
     {
     }
 
@@ -770,14 +778,12 @@ Concept: ObjectPass
 class ObjectPass
 {
   public:
-    ObjectPass( CollisionVisualizer& collisionVisualizer, const SkullbonezCore::Core::EngineConfig& config,
-                SkullbonezCore::Core::Profiler* profiler )
+    ObjectPass( CollisionVisualizer& collisionVisualizer, const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Core::Profiler* profiler )
         : m_collisionVisualizer( collisionVisualizer ), m_config( config ), m_profiler( profiler )
     {
     }
 
-    void EnsureGpuResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
-                             Rendering::Dx12GeometryOwner& renderGeometry );
+    void EnsureGpuResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12GeometryOwner& renderGeometry );
     void Render( const ObjectPassInputs& inputs );
 
   private:
@@ -795,13 +801,11 @@ Concept: TerrainPass
 class TerrainPass
 {
   public:
-    TerrainPass( const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Core::Profiler* profiler )
-        : m_config( config ), m_profiler( profiler )
+    TerrainPass( const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Core::Profiler* profiler ) : m_config( config ), m_profiler( profiler )
     {
     }
 
-    void EnsureGpuResources( Geometry::Terrain* terrain, Assets::AssetSystem& assets,
-                             Rendering::Dx12ResourceBuilder& renderResources );
+    void EnsureGpuResources( Geometry::Terrain* terrain, Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources );
     void ReleaseGpuResources( Geometry::Terrain* terrain );
     void Render( const TerrainPassInputs& inputs );
 
@@ -819,8 +823,7 @@ Concept: WaterPass
 class WaterPass
 {
   public:
-    WaterPass( Environment::WorldEnvironment& world, const SkullbonezCore::Core::EngineConfig& config,
-               SkullbonezCore::Core::Profiler* profiler )
+    WaterPass( Environment::WorldEnvironment& world, const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Core::Profiler* profiler )
         : m_world( world ), m_config( config ), m_profiler( profiler )
     {
     }
@@ -850,10 +853,8 @@ Concept: DebugOverlayPass
 class DebugOverlayPass
 {
   public:
-    DebugOverlayPass( BroadphaseVisualizer& broadphaseVisualizer, PhysicsDebugVisualizer& physicsDebugVisualizer,
-                      Assets::AssetSystem& assets, SkullbonezCore::Core::Profiler* profiler )
-        : m_broadphaseVisualizer( broadphaseVisualizer ), m_physicsDebugVisualizer( physicsDebugVisualizer ),
-          m_assets( assets ), m_profiler( profiler )
+    DebugOverlayPass( BroadphaseVisualizer& broadphaseVisualizer, PhysicsDebugVisualizer& physicsDebugVisualizer, Assets::AssetSystem& assets, SkullbonezCore::Core::Profiler* profiler )
+        : m_broadphaseVisualizer( broadphaseVisualizer ), m_physicsDebugVisualizer( physicsDebugVisualizer ), m_assets( assets ), m_profiler( profiler )
     {
     }
     ~DebugOverlayPass();
@@ -865,11 +866,8 @@ class DebugOverlayPass
     bool HasOverlayWork( const DebugOverlayPassInputs& inputs ) const;
     void RenderLauncherShots( const DebugOverlayPassInputs& inputs );
     void EmitLauncherVertex( const Math::Vector::Vector3& point, float r, float g, float b, float a );
-    void EmitLauncherQuad( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, const Math::Vector::Vector3& c,
-                           const Math::Vector::Vector3& d, float r, float g, float blue, float alpha );
-    void EmitLauncherRibbon( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b,
-                             const Math::Vector::Vector3& widthAxis, float halfWidth, float r, float g, float blue,
-                             float alpha );
+    void EmitLauncherQuad( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, const Math::Vector::Vector3& c, const Math::Vector::Vector3& d, float r, float g, float blue, float alpha );
+    void EmitLauncherRibbon( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, const Math::Vector::Vector3& widthAxis, float halfWidth, float r, float g, float blue, float alpha );
     void EmitLauncherShot( const RenderToolOverlayView::LauncherShot& shot );
 
     BroadphaseVisualizer& m_broadphaseVisualizer;
@@ -892,22 +890,26 @@ Concept: VolumetricPass
 class VolumetricPass
 {
   public:
-    VolumetricPass( CinematicScenePassResources& sceneResources, VolumetricLightPassResources& volumetricResources,
-                    FullscreenPassResources& fullscreenResources, const SkullbonezCore::Core::EngineConfig& config,
+    VolumetricPass( CinematicScenePassResources& sceneResources,
+                    VolumetricLightPassResources& volumetricResources,
+                    FullscreenPassResources& fullscreenResources,
+                    const SkullbonezCore::Core::EngineConfig& config,
                     SkullbonezCore::Core::Profiler* profiler )
-        : m_sceneResources( sceneResources ), m_volumetricResources( volumetricResources ),
-          m_fullscreenResources( fullscreenResources ), m_config( config ), m_profiler( profiler )
+        : m_sceneResources( sceneResources ), m_volumetricResources( volumetricResources ), m_fullscreenResources( fullscreenResources ), m_config( config ), m_profiler( profiler )
     {
     }
 
-    void EnsureGpuResources( bool cinematicEnabled, Assets::AssetSystem& assets,
-                             Rendering::Dx12ResourceBuilder& renderResources );
+    void EnsureGpuResources( bool cinematicEnabled, Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources );
     void ReleaseGpuResources();
     bool CanRender( bool cinematicEnabled, const SkullbonezCore::Core::CinematicRenderConfig* cinematic ) const;
-    bool Render( const RenderCameraLighting& camera, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                 Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12TextureOwner& renderTextures,
-                 Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,
-                 Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::RenderGpuTimingOwner* gpuTiming,
+    bool Render( const RenderCameraLighting& camera,
+                 const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                 Rendering::Dx12GeometryOwner& renderGeometry,
+                 Rendering::Dx12TextureOwner& renderTextures,
+                 Rendering::Dx12FrameOwner& renderFrame,
+                 Rendering::Dx12GraphTransientPool& renderGraph,
+                 Rendering::Dx12Diagnostics& renderDiagnostics,
+                 Rendering::RenderGpuTimingOwner* gpuTiming,
                  const Rendering::RenderGraphTextureBinding* graphOutput = nullptr );
 
   private:
@@ -928,22 +930,27 @@ Concept: TonemapPass
 class TonemapPass
 {
   public:
-    TonemapPass( CinematicScenePassResources& sceneResources, VolumetricLightPassResources& volumetricResources,
-                 TonemapPassResources& tonemapResources, FullscreenPassResources& fullscreenResources,
-                 const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Core::Profiler* profiler )
-        : m_sceneResources( sceneResources ), m_volumetricResources( volumetricResources ),
-          m_tonemapResources( tonemapResources ), m_fullscreenResources( fullscreenResources ), m_config( config ),
+    TonemapPass( CinematicScenePassResources& sceneResources,
+                 VolumetricLightPassResources& volumetricResources,
+                 TonemapPassResources& tonemapResources,
+                 FullscreenPassResources& fullscreenResources,
+                 const SkullbonezCore::Core::EngineConfig& config,
+                 SkullbonezCore::Core::Profiler* profiler )
+        : m_sceneResources( sceneResources ), m_volumetricResources( volumetricResources ), m_tonemapResources( tonemapResources ), m_fullscreenResources( fullscreenResources ), m_config( config ),
           m_profiler( profiler )
     {
     }
 
-    void EnsureGpuResources( bool cinematicEnabled, Assets::AssetSystem& assets,
-                             Rendering::Dx12ResourceBuilder& renderResources );
+    void EnsureGpuResources( bool cinematicEnabled, Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources );
     void ReleaseGpuResources();
-    void Render( const SkullbonezCore::Core::CinematicRenderConfig& cinematic, Rendering::Dx12GeometryOwner& renderGeometry,
-                 Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12FrameOwner& renderFrame,
-                 Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::RenderGpuTimingOwner* gpuTiming,
-                 bool sceneAlreadyUnbound, bool volumetricReady,
+    void Render( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                 Rendering::Dx12GeometryOwner& renderGeometry,
+                 Rendering::Dx12TextureOwner& renderTextures,
+                 Rendering::Dx12FrameOwner& renderFrame,
+                 Rendering::Dx12Diagnostics& renderDiagnostics,
+                 Rendering::RenderGpuTimingOwner* gpuTiming,
+                 bool sceneAlreadyUnbound,
+                 bool volumetricReady,
                  const Rendering::RenderGraphTextureBinding* graphVolumetric = nullptr );
 
   private:
@@ -966,8 +973,7 @@ Concept: UiTextPass
 class UiTextPass
 {
   public:
-    UiTextPass( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, SkullbonezCore::Core::Profiler* profiler,
-                Rendering::RenderGpuTimingOwner& gpuTiming )
+    UiTextPass( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, SkullbonezCore::Core::Profiler* profiler, Rendering::RenderGpuTimingOwner& gpuTiming )
         : m_resultDiagnostics( resultDiagnostics ), m_profilerLifecycle( profiler ), m_gpuTiming( &gpuTiming )
     {
     }
@@ -976,7 +982,8 @@ class UiTextPass
                                                        Rendering::Dx12GeometryOwner& renderGeometry,
                                                        std::unique_ptr<Rendering::ShaderDX12> textShader,
                                                        std::unique_ptr<Rendering::ShaderDX12> solidShader,
-                                                       std::unique_ptr<Rendering::ShaderDX12> solidBatchShader, int screenW,
+                                                       std::unique_ptr<Rendering::ShaderDX12> solidBatchShader,
+                                                       int screenW,
                                                        int screenH );
     void ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTextures, Rendering::Dx12GeometryOwner* renderGeometry );
     bool ShouldRender( const UiTextVisibility& visibility ) const;
@@ -986,27 +993,39 @@ class UiTextPass
         return m_dxrReflectionPreviewTexture;
     }
     void BeginFrame( int screenW, int screenH );
-    void RenderChromeStatus( const UiTextViewport& viewport, const UiChromeStatusValues& values,
-                             Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
+    void RenderChromeStatus( const UiTextViewport& viewport,
+                             const UiChromeStatusValues& values,
+                             Rendering::Dx12TextureOwner& renderTextures,
+                             Rendering::Dx12GeometryOwner& renderGeometry,
                              Rendering::Dx12Diagnostics& renderDiagnostics );
     void RenderChromeTail( const UiChromeTailValues& values, Rendering::Dx12GeometryOwner& renderGeometry );
-    void PrepareOperatorSubmission( const UiTextViewport& viewport, bool drawTestPattern,
+    void PrepareOperatorSubmission( const UiTextViewport& viewport,
+                                    bool drawTestPattern,
                                     Rendering::Dx12TextureOwner& renderTextures,
                                     Rendering::Dx12GeometryOwner& renderGeometry,
                                     Rendering::Dx12Diagnostics& renderDiagnostics );
     void SubmitOperatorDrawList( const UI::UIDrawList& drawList,
-                                 const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews, Assets::AssetSystem& assets,
+                                 const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews,
+                                 Assets::AssetSystem& assets,
                                  Rendering::Dx12ResourceBuilder& renderResources,
-                                 Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                                 Rendering::Dx12Diagnostics& renderDiagnostics, const UiTextViewport& viewport );
-    void RenderOverlayContent( const UiTextViewport& viewport, UiOverlayMode mode, int modelCount, float rollingFpsTime,
-                               float sceneEnergyForDisplay, Rendering::Dx12TextureOwner& renderTextures,
-                               Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics );
-    void SubmitDrawList( const UI::UIDrawList& drawList, const UiTextViewport& viewport,
-                         Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
+                                 Rendering::Dx12TextureOwner& renderTextures,
+                                 Rendering::Dx12GeometryOwner& renderGeometry,
+                                 Rendering::Dx12Diagnostics& renderDiagnostics,
+                                 const UiTextViewport& viewport );
+    void RenderOverlayContent( const UiTextViewport& viewport,
+                               UiOverlayMode mode,
+                               int modelCount,
+                               float rollingFpsTime,
+                               float sceneEnergyForDisplay,
+                               Rendering::Dx12TextureOwner& renderTextures,
+                               Rendering::Dx12GeometryOwner& renderGeometry,
+                               Rendering::Dx12Diagnostics& renderDiagnostics );
+    void SubmitDrawList( const UI::UIDrawList& drawList,
+                         const UiTextViewport& viewport,
+                         Rendering::Dx12TextureOwner& renderTextures,
+                         Rendering::Dx12GeometryOwner& renderGeometry,
                          Rendering::Dx12Diagnostics& renderDiagnostics );
-    void FinalizeOverlay( UiOverlayMode mode, Rendering::Dx12TextureOwner& renderTextures,
-                          Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics );
+    void FinalizeOverlay( UiOverlayMode mode, Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics );
     void ReportRetainedDrawStats();
 
   private:
@@ -1031,8 +1050,7 @@ class UiTextPass
         {
             if ( !m_active || !m_profiler )
             {
-                SB_FATAL( "Runtime/Render/UiTextPass", "%s requires an active startup-bound profiler. active=%d profiler=%p",
-                          operation, m_active ? 1 : 0, static_cast<void*>( m_profiler ) );
+                SB_FATAL( "Runtime/Render/UiTextPass", "%s requires an active startup-bound profiler. active=%d profiler=%p", operation, m_active ? 1 : 0, static_cast<void*>( m_profiler ) );
             }
 
             return *m_profiler;

@@ -328,12 +328,10 @@ struct ReplayGhostGraphInvocation
 
 size_t CountCompiledTransitionsForPass( const SkullbonezCore::Rendering::RenderGraphCompileResult& compiled, uint32_t passIndex );
 
-size_t ExecuteRequiredGraphTransitions(
-    const SkullbonezCore::Rendering::RenderGraphPassContext& context,
-    SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph,
-    const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled,
-    size_t expectedTransitionCount
-)
+size_t ExecuteRequiredGraphTransitions( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                        SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph,
+                                        const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled,
+                                        size_t expectedTransitionCount )
 {
     if ( expectedTransitionCount == 0 )
     {
@@ -432,17 +430,15 @@ void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGr
     data.rendered = data.debugOverlayPass->Render( *data.inputs );
 }
 
-void RenderReplayPredictionGhosts(
-    std::span<const ReplayPredictionGhostDrawRequest> ghostRequests,
-    const RenderCameraLighting& camera,
-    const RuntimeRenderModelPresentationView& models,
-    Rendering::PrimitiveBatchRenderer& primitiveRenderer,
-    const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting,
-    const char* primitiveShaderBaseName,
-    Textures::TextureCollection& textures,
-    const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-    const Rendering::ShadowFrameData* shadow
-)
+void RenderReplayPredictionGhosts( std::span<const ReplayPredictionGhostDrawRequest> ghostRequests,
+                                   const RenderCameraLighting& camera,
+                                   const RuntimeRenderModelPresentationView& models,
+                                   Rendering::PrimitiveBatchRenderer& primitiveRenderer,
+                                   const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting,
+                                   const char* primitiveShaderBaseName,
+                                   Textures::TextureCollection& textures,
+                                   const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                   const Rendering::ShadowFrameData* shadow )
 {
     PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
 
@@ -529,17 +525,15 @@ void ExecuteReplayGhostGraphCallback( const SkullbonezCore::Rendering::RenderGra
         SB_FATAL( "RunRender", "ReplayPredictionGhostPass graph callback missing execution data." );
     }
 
-    RenderReplayPredictionGhosts(
-        data.replayVisualPacket->ghostRequests,
-        *data.camera,
-        *data.models,
-        *data.primitiveRenderer,
-        *data.ordinaryLighting,
-        data.primitiveShaderBaseName,
-        *data.textures,
-        data.cinematic,
-        data.shadow
-    );
+    RenderReplayPredictionGhosts( data.replayVisualPacket->ghostRequests,
+                                  *data.camera,
+                                  *data.models,
+                                  *data.primitiveRenderer,
+                                  *data.ordinaryLighting,
+                                  data.primitiveShaderBaseName,
+                                  *data.textures,
+                                  data.cinematic,
+                                  data.shadow );
 }
 
 
@@ -660,17 +654,15 @@ void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGrap
         SB_FATAL( "RunRender", "VolumetricLightPass compiled transition count mismatch. expected=%zu actual=%zu", expectedTransitions, data.state->volumetricTransitionCount );
     }
 
-    data.state->volumetricRendered = data.pass->Render(
-        *data.camera,
-        *data.cinematic,
-        *data.renderGeometry,
-        *data.renderTextures,
-        *data.renderFrame,
-        *data.renderGraph,
-        *data.renderDiagnostics,
-        data.gpuTiming,
-        graphOutput
-    );
+    data.state->volumetricRendered = data.pass->Render( *data.camera,
+                                                        *data.cinematic,
+                                                        *data.renderGeometry,
+                                                        *data.renderTextures,
+                                                        *data.renderFrame,
+                                                        *data.renderGraph,
+                                                        *data.renderDiagnostics,
+                                                        data.gpuTiming,
+                                                        graphOutput );
 }
 
 void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context, TonemapGraphInvocation& data )
@@ -719,15 +711,13 @@ void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
     data.pass->Render( *data.cinematic, *data.renderGeometry, *data.renderTextures, *data.renderFrame, *data.renderDiagnostics, data.gpuTiming, true, data.state->volumetricRendered, graphVolumetric );
 }
 
-void WriteCinematicPostGraphEvidence(
-    const SkullbonezCore::Rendering::RenderGraph& graph,
-    const SkullbonezCore::Rendering::RenderGraphCompileResult& compiled,
-    const SkullbonezCore::Rendering::RenderGraphTransientMaterializationStats& materialization,
-    const SkullbonezCore::Rendering::RenderGraphTextureBinding& volumetricBinding,
-    bool volumetricDeclared,
-    size_t volumetricTransitionCount,
-    size_t tonemapTransitionCount
-)
+void WriteCinematicPostGraphEvidence( const SkullbonezCore::Rendering::RenderGraph& graph,
+                                      const SkullbonezCore::Rendering::RenderGraphCompileResult& compiled,
+                                      const SkullbonezCore::Rendering::RenderGraphTransientMaterializationStats& materialization,
+                                      const SkullbonezCore::Rendering::RenderGraphTextureBinding& volumetricBinding,
+                                      bool volumetricDeclared,
+                                      size_t volumetricTransitionCount,
+                                      size_t tonemapTransitionCount )
 {
     // Why: this human-readable file is diagnostic evidence, not frame storage.
     // The allocation phase must match that policy even when the cinematic post
@@ -851,13 +841,11 @@ struct GraphFramebufferResources
     size_t transitionCount = 0;
 };
 
-GraphFramebufferResources AddGraphFramebuffer(
-    SkullbonezCore::Rendering::RenderGraph& graph,
-    Rendering::Dx12GraphTransientPool& renderGraph,
-    const Rendering::FramebufferDX12* target,
-    const char* colorName,
-    const char* depthName
-)
+GraphFramebufferResources AddGraphFramebuffer( SkullbonezCore::Rendering::RenderGraph& graph,
+                                               Rendering::Dx12GraphTransientPool& renderGraph,
+                                               const Rendering::FramebufferDX12* target,
+                                               const char* colorName,
+                                               const char* depthName )
 {
     GraphFramebufferResources resources;
 
@@ -928,8 +916,11 @@ ShadowPassOutput RuntimeRenderer::ExecuteShadowThroughRenderGraph( const ShadowP
 {
     Rendering::Dx12GraphTransientPool& renderGraph = m_resources.RenderGraph();
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    const GraphFramebufferResources
-        terrainShadow = AddGraphFramebuffer( graph, renderGraph, m_resources.PassResources().shadows.terrainTarget.get(), "TerrainShadowMapColor", "TerrainShadowMapDepth" );
+    const GraphFramebufferResources terrainShadow = AddGraphFramebuffer( graph,
+                                                                         renderGraph,
+                                                                         m_resources.PassResources().shadows.terrainTarget.get(),
+                                                                         "TerrainShadowMapColor",
+                                                                         "TerrainShadowMapDepth" );
 
     const GraphFramebufferResources objectShadow = AddGraphFramebuffer( graph, renderGraph, m_resources.PassResources().shadows.objectTarget.get(), "ObjectShadowMapColor", "ObjectShadowMapDepth" );
 
@@ -978,12 +969,10 @@ ShadowPassOutput RuntimeRenderer::ExecuteShadowThroughRenderGraph( const ShadowP
     return callbackData.output;
 }
 
-void RuntimeRenderer::ExecuteSkyboxThroughRenderGraph(
-    const RenderCameraLighting& camera,
-    Rendering::Dx12GeometryOwner& renderGeometry,
-    Rendering::Dx12TextureOwner& renderTextures,
-    Rendering::Dx12GraphTransientPool& renderGraph
-)
+void RuntimeRenderer::ExecuteSkyboxThroughRenderGraph( const RenderCameraLighting& camera,
+                                                       Rendering::Dx12GeometryOwner& renderGeometry,
+                                                       Rendering::Dx12TextureOwner& renderTextures,
+                                                       Rendering::Dx12GraphTransientPool& renderGraph )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, renderGraph );
@@ -1090,16 +1079,14 @@ ReflectionPassOutput RuntimeRenderer::ExecuteReflectionThroughRenderGraph( const
 }
 
 
-void RuntimeRenderer::ExecuteSceneTargetBeginThroughRenderGraph(
-    const RenderCameraLighting& camera,
-    const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-    Rendering::Dx12GeometryOwner& renderGeometry,
-    Rendering::Dx12TextureOwner& renderTextures,
-    Rendering::Dx12FrameOwner& renderFrame,
-    Rendering::Dx12GraphTransientPool& renderGraph,
-    Rendering::Dx12Diagnostics& renderDiagnostics,
-    Rendering::RenderGpuTimingOwner& gpuTiming
-)
+void RuntimeRenderer::ExecuteSceneTargetBeginThroughRenderGraph( const RenderCameraLighting& camera,
+                                                                 const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                                                                 Rendering::Dx12GeometryOwner& renderGeometry,
+                                                                 Rendering::Dx12TextureOwner& renderTextures,
+                                                                 Rendering::Dx12FrameOwner& renderFrame,
+                                                                 Rendering::Dx12GraphTransientPool& renderGraph,
+                                                                 Rendering::Dx12Diagnostics& renderDiagnostics,
+                                                                 Rendering::RenderGpuTimingOwner& gpuTiming )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const GraphFramebufferResources sceneTarget = AddGraphFramebuffer( graph, renderGraph, m_resources.PassResources().cinematicScene.hdrTarget.get(), "CinematicSceneColor", "CinematicSceneDepth" );
@@ -1259,17 +1246,15 @@ bool RuntimeRenderer::ExecuteWorldExtensionThroughRenderGraph( const WorldExtens
     const Rendering::WorldSurfaceHeightView surfaceHeight = inputs.terrain ? Rendering::WorldSurfaceHeightView::Bind<Geometry::Terrain, &SampleWorldSurfaceHeight>( *inputs.terrain )
                                                                            : Rendering::WorldSurfaceHeightView();
 
-    const Rendering::WorldRenderExtensionFrameView frameView {
-        inputs.camera.viewProjection,
-        inputs.camera.eye,
-        inputs.camera.viewCenter,
-        inputs.camera.up,
-        inputs.renderTextures,
-        inputs.renderGeometry,
-        inputs.renderDiagnostics,
-        inputs.gpuTiming,
-        surfaceHeight
-    };
+    const Rendering::WorldRenderExtensionFrameView frameView { inputs.camera.viewProjection,
+                                                               inputs.camera.eye,
+                                                               inputs.camera.viewCenter,
+                                                               inputs.camera.up,
+                                                               inputs.renderTextures,
+                                                               inputs.renderGeometry,
+                                                               inputs.renderDiagnostics,
+                                                               inputs.gpuTiming,
+                                                               surfaceHeight };
 
     Rendering::WorldRenderExtensionScope scope( graph, m_renderPassCompileScratch, colorTarget, depthTarget, frameView );
     return inputs.registration.Register( scope );
@@ -1453,12 +1438,10 @@ RuntimeRenderer::CinematicPostFrameOutput RuntimeRenderer::ExecuteCinematicPostT
                 // Recoverable error: if graph-managed texture allocation fails, the
                 // optional volumetric callback records no draw and tonemap
                 // proceeds without its sample. Keep the failure visible.
-                SkullbonezCore::Core::Log().WriteEventf(
-                    "render_graph_volumetric_transient_unavailable materialization_failed=%d " "hresult=0x%08X resource=%s",
-                    transientMaterialization.failed ? 1 : 0,
-                    transientMaterialization.failureHresult,
-                    transientMaterialization.failureResource
-                );
+                SkullbonezCore::Core::Log().WriteEventf( "render_graph_volumetric_transient_unavailable materialization_failed=%d " "hresult=0x%08X resource=%s",
+                                                         transientMaterialization.failed ? 1 : 0,
+                                                         transientMaterialization.failureHresult,
+                                                         transientMaterialization.failureResource );
 
                 SkullbonezCore::Core::Log().FlushAll();
             }
@@ -1651,42 +1634,36 @@ int RuntimeRenderer::EndUiTextFrame( int drawCallStart )
     m_resources.UiText().ReportRetainedDrawStats();
     return (std::max)( 0, m_resources.RenderDiagnostics().GetFrameDrawCallCount() - drawCallStart );
 }
-RuntimeRenderer::RuntimeRenderer(
-    SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-    Rendering::RenderBackendDX12& backend,
-    Assets::AssetSystem& assets,
-    Window& window,
-    SkullbonezCore::Core::EngineConfig& config,
-    Environment::WorldEnvironment& worldEnvironment,
-    SkullbonezCore::Core::Profiler* profiler,
-    int sceneIndex,
-    int sceneLoadCount
-)
+RuntimeRenderer::RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                  Rendering::RenderBackendDX12& backend,
+                                  Assets::AssetSystem& assets,
+                                  Window& window,
+                                  SkullbonezCore::Core::EngineConfig& config,
+                                  Environment::WorldEnvironment& worldEnvironment,
+                                  SkullbonezCore::Core::Profiler* profiler,
+                                  int sceneIndex,
+                                  int sceneLoadCount )
     : m_resultDiagnostics( resultDiagnostics ), m_resources( resultDiagnostics, backend, assets, config, profiler, sceneIndex, sceneLoadCount ), m_window( window ), m_world( worldEnvironment ),
       m_profiler( profiler ), m_fullscreenQuadPass( m_resources.PassResources().fullscreen ),
       m_skyPass( m_resources.PassResources().sky, m_resources.PassResources().fullscreen, m_resources.SkyBoxOwner(), m_resources.Config(), m_profiler ),
       m_sceneTargetPass( m_resources.PassResources().cinematicScene, m_skyPass, m_profiler ), m_shadowPass( m_resources.PassResources().shadows, m_resources.Config(), m_resources.Log(), m_profiler ),
-      m_reflectionPass(
-          m_resources.PassResources().reflection,
-          m_collisionVisualizer,
-          m_skyPass,
-          m_resources.Config(),
-          m_dxrReflectionTransforms.data(),
-          static_cast<int>( m_dxrReflectionTransforms.size() ),
-          m_resources.Log(),
-          m_profiler
-      ),
+      m_reflectionPass( m_resources.PassResources().reflection,
+                        m_collisionVisualizer,
+                        m_skyPass,
+                        m_resources.Config(),
+                        m_dxrReflectionTransforms.data(),
+                        static_cast<int>( m_dxrReflectionTransforms.size() ),
+                        m_resources.Log(),
+                        m_profiler ),
       m_objectPass( m_collisionVisualizer, m_resources.Config(), m_profiler ), m_terrainPass( m_resources.Config(), m_profiler ), m_waterPass( m_world, m_resources.Config(), m_profiler ),
       m_debugOverlayPass( m_broadphaseVisualizer, m_physicsDebugVisualizer, m_resources.Assets(), m_profiler ),
       m_volumetricPass( m_resources.PassResources().cinematicScene, m_resources.PassResources().volumetricLight, m_resources.PassResources().fullscreen, m_resources.Config(), m_profiler ),
-      m_tonemapPass(
-          m_resources.PassResources().cinematicScene,
-          m_resources.PassResources().volumetricLight,
-          m_resources.PassResources().tonemap,
-          m_resources.PassResources().fullscreen,
-          m_resources.Config(),
-          m_profiler
-      )
+      m_tonemapPass( m_resources.PassResources().cinematicScene,
+                     m_resources.PassResources().volumetricLight,
+                     m_resources.PassResources().tonemap,
+                     m_resources.PassResources().fullscreen,
+                     m_resources.Config(),
+                     m_profiler )
 {
     m_renderPassGraphScratch.ReserveForRuntimePassGraph();
     m_renderPassCompileScratch.ReserveForRuntimePassGraph();
@@ -1726,14 +1703,12 @@ void RuntimeRenderer::UpdateDebugVisualizers( float secondsPerFrame, const Runti
 
     PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
     m_collisionVisualizer.SetEnabled( policy.collisionVisualizer );
-    m_collisionVisualizer.Update( secondsPerFrame, CollisionVisualizerFrameView {
-            debug.collision.colliders,
-            debug.collision.renderInstances,
-            debug.collision.collisionVisualContacts,
-            debug.collision.sleepStates,
-            debug.collision.sleepIslandVisualIds,
-            debug.collision.modelCount
-        } );
+    m_collisionVisualizer.Update( secondsPerFrame, CollisionVisualizerFrameView { debug.collision.colliders,
+                                                                 debug.collision.renderInstances,
+                                                                 debug.collision.collisionVisualContacts,
+                                                                 debug.collision.sleepStates,
+                                                                 debug.collision.sleepIslandVisualIds,
+                                                                 debug.collision.modelCount } );
     PROFILE_END( "Frame/PostPhysics/CollisionVisualizer" );
 
     PROFILE_BEGIN( "Frame/PostPhysics/PhysicsDebugVisualizer" );
@@ -1915,16 +1890,14 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
 
     const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic = world.cinematicRequested ? &world.cinematic : nullptr;
     const SkullbonezCore::Core::CinematicRenderConfig* activeShadowConfig = shadowMapsEnabled ? &activeShadowStyle : nullptr;
-    Rendering::RenderInstanceRenderer instanceRenderer(
-        primitiveRenderer,
-        renderDiagnostics,
-        ordinaryLighting,
-        models.renderInstances,
-        models.colliders,
-        models.renderWorkerPool,
-        models.shadowParallelPrep,
-        models.renderCollisionVolumes
-    );
+    Rendering::RenderInstanceRenderer instanceRenderer( primitiveRenderer,
+                                                        renderDiagnostics,
+                                                        ordinaryLighting,
+                                                        models.renderInstances,
+                                                        models.colliders,
+                                                        models.renderWorkerPool,
+                                                        models.shadowParallelPrep,
+                                                        models.renderCollisionVolumes );
 
     if ( activeShadowConfig )
     {
@@ -1944,24 +1917,22 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
 
     if ( activeShadowConfig )
     {
-        const ShadowPassInputs shadowInputs {
-            camera,
-            world.terrain,
-            models,
-            world.collisionDebug,
-            instanceRenderer,
-            primitiveRenderer,
-            shadowShaderBaseName,
-            renderFrame,
-            renderTextures,
-            renderDiagnostics,
-            &m_resources.GpuTiming(),
-            windowWidth,
-            windowHeight,
-            activeShadowConfig,
-            policy.terrainHidden,
-            policy.collisionVisualizer
-        };
+        const ShadowPassInputs shadowInputs { camera,
+                                              world.terrain,
+                                              models,
+                                              world.collisionDebug,
+                                              instanceRenderer,
+                                              primitiveRenderer,
+                                              shadowShaderBaseName,
+                                              renderFrame,
+                                              renderTextures,
+                                              renderDiagnostics,
+                                              &m_resources.GpuTiming(),
+                                              windowWidth,
+                                              windowHeight,
+                                              activeShadowConfig,
+                                              policy.terrainHidden,
+                                              policy.collisionVisualizer };
 
         shadowPass = ExecuteShadowThroughRenderGraph( shadowInputs );
 
@@ -2017,36 +1988,34 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
             CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
             m_reflectionPass.EnsureGpuResources( renderResources, windowWidth, windowHeight );
         }
-        const ReflectionPassInputs reflectionInputs {
-            camera,
-            models,
-            world.collisionDebug,
-            instanceRenderer,
-            primitiveRenderer,
-            ordinaryLighting,
-            primitiveShaderBaseName,
-            m_resources.Assets(),
-            renderResources,
-            renderGeometry,
-            m_resources.Textures(),
-            renderTextures,
-            renderFrame,
-            renderDiagnostics,
-            &m_resources.GpuTiming(),
-            raytracing,
-            useDxrReflection,
-            reflectionView,
-            reflectionViewProjection,
-            waterY,
-            windowWidth,
-            windowHeight,
-            activeCinematic,
-            objectShadowFrame,
-            collisionStateColorsVisible,
-            collisionVisualizerAlphaOverride,
-            bodyRenderAlpha,
-            static_cast<float>( policy.totalSimulationSeconds )
-        };
+        const ReflectionPassInputs reflectionInputs { camera,
+                                                      models,
+                                                      world.collisionDebug,
+                                                      instanceRenderer,
+                                                      primitiveRenderer,
+                                                      ordinaryLighting,
+                                                      primitiveShaderBaseName,
+                                                      m_resources.Assets(),
+                                                      renderResources,
+                                                      renderGeometry,
+                                                      m_resources.Textures(),
+                                                      renderTextures,
+                                                      renderFrame,
+                                                      renderDiagnostics,
+                                                      &m_resources.GpuTiming(),
+                                                      raytracing,
+                                                      useDxrReflection,
+                                                      reflectionView,
+                                                      reflectionViewProjection,
+                                                      waterY,
+                                                      windowWidth,
+                                                      windowHeight,
+                                                      activeCinematic,
+                                                      objectShadowFrame,
+                                                      collisionStateColorsVisible,
+                                                      collisionVisualizerAlphaOverride,
+                                                      bodyRenderAlpha,
+                                                      static_cast<float>( policy.totalSimulationSeconds ) };
 
         reflection = ExecuteReflectionThroughRenderGraph( reflectionInputs );
     }
@@ -2058,30 +2027,28 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
 
     // Opaque bodies render before terrain/water unless debug transparency or
     // causal focus asks for a late transparent body pass.
-    const ObjectPassInputs objectInputs {
-        camera,
-        models,
-        world.collisionDebug,
-        instanceRenderer,
-        primitiveRenderer,
-        ordinaryLighting,
-        primitiveShaderBaseName,
-        m_resources.Assets(),
-        renderResources,
-        renderGeometry,
-        m_resources.Textures(),
-        renderTextures,
-        renderDiagnostics,
-        &m_resources.GpuTiming(),
-        ObjectPassMode::Opaque,
-        activeCinematic,
-        objectShadowFrame,
-        collisionStateColorsVisible,
-        collisionVisualizerAlphaOverride,
-        1.0f,
-        replayFocusModelMask,
-        true
-    };
+    const ObjectPassInputs objectInputs { camera,
+                                          models,
+                                          world.collisionDebug,
+                                          instanceRenderer,
+                                          primitiveRenderer,
+                                          ordinaryLighting,
+                                          primitiveShaderBaseName,
+                                          m_resources.Assets(),
+                                          renderResources,
+                                          renderGeometry,
+                                          m_resources.Textures(),
+                                          renderTextures,
+                                          renderDiagnostics,
+                                          &m_resources.GpuTiming(),
+                                          ObjectPassMode::Opaque,
+                                          activeCinematic,
+                                          objectShadowFrame,
+                                          collisionStateColorsVisible,
+                                          collisionVisualizerAlphaOverride,
+                                          1.0f,
+                                          replayFocusModelMask,
+                                          true };
 
     if ( !transparentBodyPass )
     {
@@ -2090,43 +2057,46 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
 
     // Terrain receives the broad shadow frame and provides the main world depth
     // that cinematic post passes read later.
-    const TerrainPassInputs terrainInputs {
-        camera,
-        world.terrain,
-        m_resources.Textures(),
-        renderTextures,
-        renderDiagnostics,
-        &m_resources.GpuTiming(),
-        activeCinematic,
-        terrainShadowFrame,
-        terrainDetailShadowFrame,
-        m_resources.PrimitiveBatches().GetClipPlane(),
-        policy.terrainHidden
-    };
+    const TerrainPassInputs terrainInputs { camera,
+                                            world.terrain,
+                                            m_resources.Textures(),
+                                            renderTextures,
+                                            renderDiagnostics,
+                                            &m_resources.GpuTiming(),
+                                            activeCinematic,
+                                            terrainShadowFrame,
+                                            terrainDetailShadowFrame,
+                                            m_resources.PrimitiveBatches().GetClipPlane(),
+                                            policy.terrainHidden };
 
     ExecuteTerrainThroughRenderGraph( { terrainInputs, useCinematicTarget } );
 
     // Water is deliberately downstream of ReflectionPass; it samples the
     // reflection texture but never rebuilds it.
-    const WaterPassInputs waterInputs {
-        camera,
-        renderTextures,
-        renderDiagnostics,
-        &m_resources.GpuTiming(),
-        reflection,
-        activeCinematic,
-        world.cinematicRequested,
-        policy.waterHidden,
-        policy.waterFlatDebug,
-        policy.waterNoReflect,
-        policy.waterFreezeDebug,
-        policy.frozenWaterTime,
-        static_cast<float>( policy.simulationSeconds )
-    };
+    const WaterPassInputs waterInputs { camera,
+                                        renderTextures,
+                                        renderDiagnostics,
+                                        &m_resources.GpuTiming(),
+                                        reflection,
+                                        activeCinematic,
+                                        world.cinematicRequested,
+                                        policy.waterHidden,
+                                        policy.waterFlatDebug,
+                                        policy.waterNoReflect,
+                                        policy.waterFreezeDebug,
+                                        policy.frozenWaterTime,
+                                        static_cast<float>( policy.simulationSeconds ) };
 
     ExecuteWaterThroughRenderGraph( { waterInputs, useCinematicTarget } );
 
-    const bool worldExtensionRendered = ExecuteWorldExtensionThroughRenderGraph( { camera, world.worldExtension, renderTextures, renderGeometry, renderDiagnostics, m_resources.GpuTiming(), world.terrain, useCinematicTarget } );
+    const bool worldExtensionRendered = ExecuteWorldExtensionThroughRenderGraph( { camera,
+                                                                                   world.worldExtension,
+                                                                                   renderTextures,
+                                                                                   renderGeometry,
+                                                                                   renderDiagnostics,
+                                                                                   m_resources.GpuTiming(),
+                                                                                   world.terrain,
+                                                                                   useCinematicTarget } );
 
     if ( debugTransparentBodyPass )
     {
@@ -2154,7 +2124,16 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
 
     {
         CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
-        ExecuteReplayGhostsThroughRenderGraph( { camera, models, primitiveRenderer, ordinaryLighting, primitiveShaderBaseName, m_resources.Textures(), world.replayVisual, useCinematicTarget, activeCinematic, objectShadowFrame } );
+        ExecuteReplayGhostsThroughRenderGraph( { camera,
+                                                 models,
+                                                 primitiveRenderer,
+                                                 ordinaryLighting,
+                                                 primitiveShaderBaseName,
+                                                 m_resources.Textures(),
+                                                 world.replayVisual,
+                                                 useCinematicTarget,
+                                                 activeCinematic,
+                                                 objectShadowFrame } );
     }
 
     const WaterPassDebugInfo& waterDebug = m_waterPass.LastDebugInfo();
@@ -2193,20 +2172,18 @@ bool RuntimeRenderer::RenderFrameOverlays( const WorldOverlayTransaction& world,
     Rendering::Dx12Diagnostics& renderDiagnostics = m_resources.RenderDiagnostics();
 
     const DebugOverlaySnapshot debugSnapshot = BuildDebugOverlaySnapshot( overlays.worldExtensionDebug, overlays.toolOverlay, world.m_policy );
-    const DebugOverlayPassInputs debugInputs {
-        world.m_camera,
-        world.m_terrain,
-        overlays.physicsDebug,
-        m_resources.Assets(),
-        renderResources,
-        renderGeometry,
-        renderDiagnostics,
-        &m_resources.GpuTiming(),
-        debugSnapshot,
-        *world.m_replayVisual,
-        overlays.retainedOverlay,
-        overlays.replayContactPresentation
-    };
+    const DebugOverlayPassInputs debugInputs { world.m_camera,
+                                               world.m_terrain,
+                                               overlays.physicsDebug,
+                                               m_resources.Assets(),
+                                               renderResources,
+                                               renderGeometry,
+                                               renderDiagnostics,
+                                               &m_resources.GpuTiming(),
+                                               debugSnapshot,
+                                               *world.m_replayVisual,
+                                               overlays.retainedOverlay,
+                                               overlays.replayContactPresentation };
 
     const bool debugOverlayRendered = ExecuteDebugOverlayThroughRenderGraph( { debugInputs, world.m_useCinematicTarget } );
 
@@ -2214,7 +2191,16 @@ bool RuntimeRenderer::RenderFrameOverlays( const WorldOverlayTransaction& world,
 
     if ( world.m_useCinematicTarget )
     {
-        cinematicPostOutput = ExecuteCinematicPostThroughRenderGraph( { world.m_camera, world.m_cinematic, renderGeometry, renderTextures, renderFrame, renderGraph, renderDiagnostics, m_resources.GpuTiming(), world.m_windowWidth, world.m_windowHeight } );
+        cinematicPostOutput = ExecuteCinematicPostThroughRenderGraph( { world.m_camera,
+                                                                        world.m_cinematic,
+                                                                        renderGeometry,
+                                                                        renderTextures,
+                                                                        renderFrame,
+                                                                        renderGraph,
+                                                                        renderDiagnostics,
+                                                                        m_resources.GpuTiming(),
+                                                                        world.m_windowWidth,
+                                                                        world.m_windowHeight } );
     }
 
     m_frameGraphSnapshot.volumetricPassExecuted = cinematicPostOutput.volumetricPassExecuted;
@@ -2269,15 +2255,13 @@ SkullbonezCore::Core::SbResult RuntimeRenderer::ReleaseBackendOwnedRuntimeResour
         BackendResourceStep step;
     };
 
-    const BackendResourcePhase releaseSteps[] = {
-        { "world_environment", BackendResourceStep::WorldEnvironment },
-        { "helper_owner", BackendResourceStep::HelperOwner },
-        { "collision_visualizer", BackendResourceStep::CollisionVisualizer },
-        { "render_pass_resources", BackendResourceStep::RenderPassResources },
-        { "profiler_queries", BackendResourceStep::ProfilerQueries },
-        { "texture_collection", BackendResourceStep::TextureCollection },
-        { "skybox", BackendResourceStep::SkyBox },
-    };
+    const BackendResourcePhase releaseSteps[] = { { "world_environment", BackendResourceStep::WorldEnvironment },
+                                                  { "helper_owner", BackendResourceStep::HelperOwner },
+                                                  { "collision_visualizer", BackendResourceStep::CollisionVisualizer },
+                                                  { "render_pass_resources", BackendResourceStep::RenderPassResources },
+                                                  { "profiler_queries", BackendResourceStep::ProfilerQueries },
+                                                  { "texture_collection", BackendResourceStep::TextureCollection },
+                                                  { "skybox", BackendResourceStep::SkyBox }, };
 
     const auto logLifecycleStep = [&]( const char* step ) { m_resources.Log().Write( context.phaseName, step ); };
 
@@ -2393,16 +2377,14 @@ void RuntimeRenderer::FinalizeFrameGraphInternal( const char* declarationOnlyPas
 
     if ( !contract.IsValid() || contract.callbackPassCount + contract.declarationOnlyPassCount != graph.Passes().size() )
     {
-        SB_FATAL(
-            "RunRender",
-            "Production frame graph violates callback ownership. callbacks=%zu declarations=%zu expected=%zu " "name_match=%d enabled=%d passes=%zu",
-            contract.callbackPassCount,
-            contract.declarationOnlyPassCount,
-            contract.expectedDeclarationOnlyPassCount,
-            contract.declarationOnlyNameMatches ? 1 : 0,
-            contract.allCallbacksEnabled ? 1 : 0,
-            graph.Passes().size()
-        );
+        SB_FATAL( "RunRender",
+                  "Production frame graph violates callback ownership. callbacks=%zu declarations=%zu expected=%zu " "name_match=%d enabled=%d passes=%zu",
+                  contract.callbackPassCount,
+                  contract.declarationOnlyPassCount,
+                  contract.expectedDeclarationOnlyPassCount,
+                  contract.declarationOnlyNameMatches ? 1 : 0,
+                  contract.allCallbacksEnabled ? 1 : 0,
+                  graph.Passes().size() );
     }
 
     {
@@ -2433,14 +2415,12 @@ RenderDiagnosticsReadout RuntimeRenderer::BuildDiagnosticsReadout() const
 }
 
 
-RuntimeRenderer::WorldOverlayTransaction::WorldOverlayTransaction(
-    RuntimeRenderer& renderer,
-    const RenderCameraLighting& camera,
-    const WorldFrameSubmission& submission,
-    int windowWidth,
-    int windowHeight,
-    bool useCinematicTarget
-) noexcept
+RuntimeRenderer::WorldOverlayTransaction::WorldOverlayTransaction( RuntimeRenderer& renderer,
+                                                                   const RenderCameraLighting& camera,
+                                                                   const WorldFrameSubmission& submission,
+                                                                   int windowWidth,
+                                                                   int windowHeight,
+                                                                   bool useCinematicTarget ) noexcept
     : m_renderer( &renderer ), m_camera( camera ), m_cinematic( submission.cinematic ), m_policy( submission.framePolicy ), m_terrain( submission.terrain ), m_replayVisual( &submission.replayVisual ),
       m_windowWidth( windowWidth ), m_windowHeight( windowHeight ), m_useCinematicTarget( useCinematicTarget )
 {

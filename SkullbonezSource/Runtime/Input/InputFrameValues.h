@@ -39,8 +39,7 @@ struct RuntimeInputFrameFacts
     int requestedReplayCauseRow = -1;
 };
 
-inline UI::InputControl::UIInputSnapshot BuildUIInputSnapshot( const DeviceInputFrame& frame, const RuntimeMouseEdges& mouse,
-                                                               UI::InputControl::UIPointerOverride pointerOverride )
+inline UI::InputControl::UIInputSnapshot BuildUIInputSnapshot( const DeviceInputFrame& frame, const RuntimeMouseEdges& mouse, UI::InputControl::UIPointerOverride pointerOverride )
 {
     UI::InputControl::UIInputSnapshot snapshot;
     snapshot.keyWords = frame.keys.Words();

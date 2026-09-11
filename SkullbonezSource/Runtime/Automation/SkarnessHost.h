@@ -28,10 +28,8 @@ class SkarnessHost
     void PollCommands();
     bool PopCommand( SkarnessCommand& outCommand );
     void CompleteCommand( const std::string& requestId, bool applied, const char* reason = nullptr );
-    void CompleteCommand( const std::string& requestId, bool applied, const SkarnessCommandResult& result,
-                          const char* reason = nullptr );
-    bool BeginSceneTransition( const std::string& requestId, uint64_t sourceGeneration, const char* expectedScenePath,
-                               bool expectDemo );
+    void CompleteCommand( const std::string& requestId, bool applied, const SkarnessCommandResult& result, const char* reason = nullptr );
+    bool BeginSceneTransition( const std::string& requestId, uint64_t sourceGeneration, const char* expectedScenePath, bool expectDemo );
     uint64_t BeginCapture( const std::string& requestId );
     void CompleteCapture( uint64_t token, bool applied, const char* reason = nullptr );
     bool TakePointerInputFrame( SkarnessPointerInputFrame& outFrame );
@@ -81,14 +79,12 @@ class SkarnessHost
     void AcceptClient();
     void DisconnectClient();
     void ConsumeRequestLine( const std::string& line );
-    void QueueFileDialogResponse( const std::string& requestId, std::string purpose, std::string path, bool accepted,
-                                  bool valid );
+    void QueueFileDialogResponse( const std::string& requestId, std::string purpose, std::string path, bool accepted, bool valid );
     RememberRequestResult RememberRequestId( const std::string& requestId );
     bool AdmitRequestId( const std::string& requestId );
     void StoreCompletedResponse( const std::string& requestId, const std::string& response );
     bool SendJsonLine( const std::string& line );
-    void SendLifecycle( const std::string& requestId, const char* status, const char* reason = nullptr,
-                        bool retainResult = true, const SkarnessCommandResult* result = nullptr );
+    void SendLifecycle( const std::string& requestId, const char* status, const char* reason = nullptr, bool retainResult = true, const SkarnessCommandResult* result = nullptr );
     void SendCapabilities( const std::string& requestId );
     bool WriteManifest( const char* status );
     bool UntilConditionMet( const SkarnessFrameState& state ) const noexcept;

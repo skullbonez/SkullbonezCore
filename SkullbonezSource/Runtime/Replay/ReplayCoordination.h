@@ -254,27 +254,26 @@ struct ReplaySetCauseInspectorOpenCommand
 // Invariant: each transport alternative carries only the payload accepted by
 // that action. The dispatcher cannot observe a stale scalar, row, or toggle
 // value left behind by a different UI command.
-using ReplayTransportCommand = std::variant<
-    ReplaySetRecordingEnabledCommand,
-    ReplayJumpToStartCommand,
-    ReplayJumpToEndCommand,
-    ReplayTogglePlayPauseCommand,
-    ReplayStepBackwardCommand,
-    ReplayStepForwardCommand,
-    ReplaySetRevealSpeedCommand,
-    ReplayScrubCommand,
-    ReplayTogglePredictionCommand,
-    ReplaySetPredictionDetailModeCommand,
-    ReplaySetPredictionHorizonCommand,
-    ReplaySetVelocityEditEnabledCommand,
-    ReplaySetRagdollVisualsEnabledCommand,
-    ReplaySetPastPathVisibleCommand,
-    ReplayRestoreBranchCommand,
-    ReplaySaveCommand,
-    ReplayLoadCommand,
-    ReplayReturnToLiveCommand,
-    ReplaySelectCauseRowCommand,
-    ReplaySetCauseInspectorOpenCommand>;
+using ReplayTransportCommand = std::variant<ReplaySetRecordingEnabledCommand,
+                                            ReplayJumpToStartCommand,
+                                            ReplayJumpToEndCommand,
+                                            ReplayTogglePlayPauseCommand,
+                                            ReplayStepBackwardCommand,
+                                            ReplayStepForwardCommand,
+                                            ReplaySetRevealSpeedCommand,
+                                            ReplayScrubCommand,
+                                            ReplayTogglePredictionCommand,
+                                            ReplaySetPredictionDetailModeCommand,
+                                            ReplaySetPredictionHorizonCommand,
+                                            ReplaySetVelocityEditEnabledCommand,
+                                            ReplaySetRagdollVisualsEnabledCommand,
+                                            ReplaySetPastPathVisibleCommand,
+                                            ReplayRestoreBranchCommand,
+                                            ReplaySaveCommand,
+                                            ReplayLoadCommand,
+                                            ReplayReturnToLiveCommand,
+                                            ReplaySelectCauseRowCommand,
+                                            ReplaySetCauseInspectorOpenCommand>;
 
 inline ReplayTransportAction ReplayTransportCommandAction( const ReplayTransportCommand& command ) noexcept
 {
@@ -452,13 +451,11 @@ inline uint32_t SceneTimelineGeneratedConfigFlags( const ReplaySceneTimelineRese
     return flags;
 }
 
-ReplaySceneTimelineResetInput DescribeReplaySceneTimeline(
-    const SceneController& sceneController,
-    const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-    const SceneSessionState& scene,
-    int sceneObjectCapacity,
-    uint32_t generatedObjectTypeOverride
-);
+ReplaySceneTimelineResetInput DescribeReplaySceneTimeline( const SceneController& sceneController,
+                                                           const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                                           const SceneSessionState& scene,
+                                                           int sceneObjectCapacity,
+                                                           uint32_t generatedObjectTypeOverride );
 } // namespace ReplayTimelineOperations
 
 struct ReplaySceneTimelineResetResult

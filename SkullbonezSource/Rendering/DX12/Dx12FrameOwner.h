@@ -64,7 +64,7 @@ struct InstancedMeshDX12;
 struct DeferredResourceReleaseDX12
 {
     ID3D12Resource* resource = nullptr;
-    UINT staticDescriptorIndex = UINT_MAX; // Optional persistent row released by the same covering fence.
+    UINT staticDescriptorIndex = UINT_MAX;                                 // Optional persistent row released by the same covering fence.
     Dx12CpuDescriptorKind cpuDescriptorKind = Dx12CpuDescriptorKind::None; // Typed route back to the descriptor owner.
     UINT cpuDescriptorIndex = UINT_MAX;
     UINT64 fenceValue = 0;
@@ -87,9 +87,7 @@ class Dx12RetirementDiagnosticState
     {
         if ( survivorCount > inputCount )
         {
-            SB_FATAL( "Dx12RetirementDiagnosticState",
-                      "Retirement release diagnostics received impossible accounting. input=%zu survivors=%zu", inputCount,
-                      survivorCount );
+            SB_FATAL( "Dx12RetirementDiagnosticState", "Retirement release diagnostics received impossible accounting. input=%zu survivors=%zu", inputCount, survivorCount );
         }
 
         m_lastReleaseInputCount = inputCount;
@@ -141,12 +139,14 @@ class Dx12RetirementDiagnosticState
         // queue can reject its next row. The last release facts distinguish
         // normal saturation from a stalled or never-observed fence.
         SB_FATAL( "Dx12DeferredReleaseOwner",
-                  "Retirement capacity exhausted. owner=Rendering/DX12 phase=quarantine "
-                  "capacity=%zu count=%zu high_water=%zu "
-                  "last_release_input=%zu last_released=%zu last_survivors=%zu fence_ready=%d "
-                  "last_completed_fence=%llu",
-                  capacity, currentCount, PendingHighWater(), LastReleaseInputCount(), LastReleasedCount(),
-                  LastReleaseSurvivorCount(), LastFrameFenceReady() ? 1 : 0,
+                  "Retirement capacity exhausted. owner=Rendering/DX12 phase=quarantine " "capacity=%zu count=%zu high_water=%zu " "last_release_input=%zu last_released=%zu last_survivors=%zu fence_ready=%d " "last_completed_fence=%llu",
+                  capacity,
+                  currentCount,
+                  PendingHighWater(),
+                  LastReleaseInputCount(),
+                  LastReleasedCount(),
+                  LastReleaseSurvivorCount(),
+                  LastFrameFenceReady() ? 1 : 0,
                   static_cast<unsigned long long>( LastObservedCompletedFence() ) );
     }
 
@@ -168,8 +168,7 @@ class Dx12DeferredReleaseOwner
     // a resource while leaving headroom for resource-only readbacks/uploads.
     // The stress churn is the runtime high-water proof for this fixed queue.
     static constexpr size_t MAX_PENDING_RETIREMENTS = 512;
-    void Quarantine( ID3D12Resource* resource, UINT descriptorIndex = UINT_MAX,
-                     Dx12CpuDescriptorKind cpuKind = Dx12CpuDescriptorKind::None, UINT cpuDescriptorIndex = UINT_MAX )
+    void Quarantine( ID3D12Resource* resource, UINT descriptorIndex = UINT_MAX, Dx12CpuDescriptorKind cpuKind = Dx12CpuDescriptorKind::None, UINT cpuDescriptorIndex = UINT_MAX )
     {
         if ( !resource && descriptorIndex == UINT_MAX && cpuKind == Dx12CpuDescriptorKind::None )
         {
@@ -197,16 +196,12 @@ class Dx12DeferredReleaseOwner
         }
     }
     void AssignFence( UINT64 fenceValue );
-    void ReleaseCompleted( Dx12RenderDevice& device, Dx12DescriptorHeaps& descriptors, Dx12SubmittedWorkState& submittedWork,
-                           bool releaseUnfenced );
+    void ReleaseCompleted( Dx12RenderDevice& device, Dx12DescriptorHeaps& descriptors, Dx12SubmittedWorkState& submittedWork, bool releaseUnfenced );
     void ResetForDevice()
     {
         if ( m_pendingCount != 0 )
         {
-            SB_FATAL( "Dx12DeferredReleaseOwner",
-                      "Retirement diagnostics reset crossed a live queue. owner=Rendering/DX12 phase=device_reset "
-                      "count=%zu",
-                      m_pendingCount );
+            SB_FATAL( "Dx12DeferredReleaseOwner", "Retirement diagnostics reset crossed a live queue. owner=Rendering/DX12 phase=device_reset " "count=%zu", m_pendingCount );
         }
 
         m_diagnostics.Reset();
@@ -215,10 +210,7 @@ class Dx12DeferredReleaseOwner
     {
         if ( m_pendingCount != 0 )
         {
-            SB_FATAL( "Dx12DeferredReleaseOwner",
-                      "Retirement diagnostics reset crossed a live queue. owner=Rendering/DX12 phase=shutdown_reset "
-                      "count=%zu",
-                      m_pendingCount );
+            SB_FATAL( "Dx12DeferredReleaseOwner", "Retirement diagnostics reset crossed a live queue. owner=Rendering/DX12 phase=shutdown_reset " "count=%zu", m_pendingCount );
         }
 
         m_diagnostics.Reset();
@@ -254,10 +246,8 @@ class Dx12DrawGate
     }
     bool PrepareDraw();
     bool PrepareFramebufferBind();
-    bool PreparePipelineDraw( VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh,
-                              const DynamicVBDX12* dynamicVertexBuffer, const RasterStateDesc& rasterState );
-    bool PrecompilePipelineDraw( VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh,
-                                 const DynamicVBDX12* dynamicVertexBuffer, const RasterStateDesc& declaredRasterState );
+    bool PreparePipelineDraw( VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh, const DynamicVBDX12* dynamicVertexBuffer, const RasterStateDesc& rasterState );
+    bool PrecompilePipelineDraw( VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh, const DynamicVBDX12* dynamicVertexBuffer, const RasterStateDesc& declaredRasterState );
     bool CanRecord() const;
 
   private:
@@ -371,8 +361,7 @@ class Dx12FrameOwner
     static constexpr UINT64 UPLOAD_BUFFER_SIZE = 32ull * 1024ull * 1024ull;
     static constexpr int PROFILER_STACK_CAPACITY = 64;
 
-    Dx12FrameOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Dx12RenderDevice& device,
-                    Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures, Dx12DescriptorHeaps& descriptors );
+    Dx12FrameOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures, Dx12DescriptorHeaps& descriptors );
 
     Dx12DrawGate& DrawGate()
     {
@@ -425,10 +414,8 @@ class Dx12FrameOwner
     // owner; capability subobjects only forward their restricted surface.
     bool PrepareDraw();
     bool PrepareFramebufferBind();
-    bool PreparePipelineDraw( VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh,
-                              const DynamicVBDX12* dynamicVertexBuffer, const RasterStateDesc& rasterState );
-    bool PrecompilePipelineDraw( VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh,
-                                 const DynamicVBDX12* dynamicVertexBuffer, const RasterStateDesc& declaredRasterState );
+    bool PreparePipelineDraw( VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh, const DynamicVBDX12* dynamicVertexBuffer, const RasterStateDesc& rasterState );
+    bool PrecompilePipelineDraw( VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh, const DynamicVBDX12* dynamicVertexBuffer, const RasterStateDesc& declaredRasterState );
     D3D12_GPU_VIRTUAL_ADDRESS
     ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category = RenderUploadCategory::TextureRows );
     D3D12_GPU_VIRTUAL_ADDRESS
@@ -539,8 +526,7 @@ class Dx12FrameOwner
     }
     void RetireResource( ID3D12Resource* resource );
     void RetireResource( ID3D12Resource* resource, UINT descriptorIndex );
-    void RetireResource( ID3D12Resource* resource, UINT descriptorIndex, Dx12CpuDescriptorKind cpuKind,
-                         UINT cpuDescriptorIndex );
+    void RetireResource( ID3D12Resource* resource, UINT descriptorIndex, Dx12CpuDescriptorKind cpuKind, UINT cpuDescriptorIndex );
     void RetireStaticDescriptor( UINT descriptorIndex );
     void AssignRetirementFence( UINT64 fenceValue )
     {

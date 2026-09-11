@@ -88,13 +88,11 @@ bool QueuePose( Rendering::RenderInstanceStore& renderInstances, const Physics::
     return renderInstances.OverridePose( modelIndex, body.id, body.position, orientation, colliderStore );
 }
 
-bool HideUnmatchedBodies(
-    Rendering::RenderInstanceStore& renderInstances,
-    const Physics::PhysicsBodyStore& bodyStore,
-    const Physics::ColliderStore& colliderStore,
-    std::span<const uint8_t> matchedBodies,
-    int modelCount
-)
+bool HideUnmatchedBodies( Rendering::RenderInstanceStore& renderInstances,
+                          const Physics::PhysicsBodyStore& bodyStore,
+                          const Physics::ColliderStore& colliderStore,
+                          std::span<const uint8_t> matchedBodies,
+                          int modelCount )
 {
     bool queuedAny = false;
     const Math::Vector::Vector3 hiddenPosition( 0.0f, -100000.0f, 0.0f );
@@ -208,12 +206,10 @@ void ReplayPredictionPresentation::ReserveRecordingBuffers()
 }
 
 
-bool ReplayPredictionPresentation::BuildFocusModelMask(
-    const RunReplayPathVisualizerState& path,
-    const Physics::PhysicsBodyStore& bodyStore,
-    int modelCount,
-    std::span<const RunReplayPathTraceNode> futureNodes
-)
+bool ReplayPredictionPresentation::BuildFocusModelMask( const RunReplayPathVisualizerState& path,
+                                                        const Physics::PhysicsBodyStore& bodyStore,
+                                                        int modelCount,
+                                                        std::span<const RunReplayPathTraceNode> futureNodes )
 {
     if ( !path.hasTarget || path.targetId.value == 0 || modelCount <= 0 || modelCount > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
     {
@@ -378,12 +374,10 @@ bool ReplayPredictionPresentation::PrepareRenderPoseBodyMatch( int modelCount ) 
 }
 
 
-bool ReplayPredictionPresentation::ApplyFrameForRender(
-    Rendering::RenderInstanceStore& renderInstances,
-    const Physics::PhysicsBodyStore& bodyStore,
-    const Physics::ColliderStore& colliderStore,
-    const RunReplayPredictionFrame& frame
-)
+bool ReplayPredictionPresentation::ApplyFrameForRender( Rendering::RenderInstanceStore& renderInstances,
+                                                        const Physics::PhysicsBodyStore& bodyStore,
+                                                        const Physics::ColliderStore& colliderStore,
+                                                        const RunReplayPredictionFrame& frame )
 {
     const int modelCount = renderInstances.Count();
 
@@ -529,16 +523,14 @@ bool ReplayPredictionPresentation::BuildGhostDrawRequests( const ReplayPredictio
 }
 
 
-bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList(
-    const ReplayPredictionPresentationView& prediction,
-    const RunReplayPathVisualizerState& path,
-    const SceneEntityStore& entities,
-    const Physics::ColliderStore& colliderStore,
-    EditorTracer& frameTracer,
-    const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance,
-    bool blueOutlinesVisible,
-    bool greyOutlinesVisible
-)
+bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList( const ReplayPredictionPresentationView& prediction,
+                                                                    const RunReplayPathVisualizerState& path,
+                                                                    const SceneEntityStore& entities,
+                                                                    const Physics::ColliderStore& colliderStore,
+                                                                    EditorTracer& frameTracer,
+                                                                    const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance,
+                                                                    bool blueOutlinesVisible,
+                                                                    bool greyOutlinesVisible )
 {
     const bool retainedAppearanceChanged = m_retainedState->geometry.SetAppearance( trajectoryAppearance );
     const bool markerAppearanceChanged = m_retainedMarkerDrawList.SetReplayTrajectoryAppearance( trajectoryAppearance );
@@ -613,13 +605,11 @@ void ReplayPredictionPresentation::AttachRetainedPredictionGeometry( ReplayVisua
 }
 
 
-void ReplayPredictionPresentation::PublishVisualPacket(
-    ReplayVisualPacket packet,
-    const ReplayPredictionPresentationView& prediction,
-    Physics::PhysicsSceneObjectId pathTargetId,
-    const ReplaySolverFrameSample* latestSolver,
-    uint64_t replayReserveGrowthEvents
-)
+void ReplayPredictionPresentation::PublishVisualPacket( ReplayVisualPacket packet,
+                                                        const ReplayPredictionPresentationView& prediction,
+                                                        Physics::PhysicsSceneObjectId pathTargetId,
+                                                        const ReplaySolverFrameSample* latestSolver,
+                                                        uint64_t replayReserveGrowthEvents )
 {
     const bool samePresentation = m_trajectorySubmissionProbe.presentationKeyValid && m_trajectorySubmissionProbe.presentationTargetId == prediction.topology.targetId.value &&
                                   m_trajectorySubmissionProbe.presentationSourceFrame == prediction.timeline.sourceFrame &&
@@ -730,18 +720,14 @@ void ReplayPredictionPresentation::RecordTrajectorySubmissionFrame( const Skullb
         return;
     }
 
-    const uint64_t lineHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes(
-        submissionStats.ordinaryLineHash,
-        submissionStats.ordinaryLineBytes,
-        submissionStats.priorityLineHash,
-        submissionStats.priorityLineBytes
-    );
-    const uint64_t ribbonHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes(
-        submissionStats.ordinaryRibbonHash,
-        submissionStats.ordinaryRibbonBytes,
-        submissionStats.priorityRibbonHash,
-        submissionStats.priorityRibbonBytes
-    );
+    const uint64_t lineHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( submissionStats.ordinaryLineHash,
+                                                                                                 submissionStats.ordinaryLineBytes,
+                                                                                                 submissionStats.priorityLineHash,
+                                                                                                 submissionStats.priorityLineBytes );
+    const uint64_t ribbonHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( submissionStats.ordinaryRibbonHash,
+                                                                                                   submissionStats.ordinaryRibbonBytes,
+                                                                                                   submissionStats.priorityRibbonHash,
+                                                                                                   submissionStats.priorityRibbonBytes );
     const uint64_t geometryHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( lineHash, lineBytes, ribbonHash, ribbonBytes );
     const uint64_t submittedHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( geometryHash, lineBytes + ribbonBytes, submissionStats.vertexHash, submissionStats.vertexBytes );
 

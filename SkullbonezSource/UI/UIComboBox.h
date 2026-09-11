@@ -61,8 +61,7 @@ class UIComboBox
     void SetLabelVisible( bool visible );
     void ToggleOpen();
     void Close();
-    void Draw( const UIDrawContext& draw, const char* label, const UIComboPresentationView& presentation,
-               UIPointerPosition pointer ) const;
+    void Draw( const UIDrawContext& draw, const char* label, const UIComboPresentationView& presentation, UIPointerPosition pointer ) const;
 
   private:
     bool ResolveDropUp( int optionCount ) const;
