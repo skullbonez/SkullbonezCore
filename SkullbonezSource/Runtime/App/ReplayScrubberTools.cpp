@@ -1021,7 +1021,7 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
     const bool overRed = divergence.active && ReplayOverlay::ReplayDivergenceChoiceRect( planningViewport, true ).Contains( planningPointerEvent.clientX, planningPointerEvent.clientY );
     const bool overBlue = divergence.active && ReplayOverlay::ReplayDivergenceChoiceRect( planningViewport, false ).Contains( planningPointerEvent.clientX, planningPointerEvent.clientY );
     const bool overLab = divergence.active && ReplayOverlay::ReplayDivergenceToolRect( planningViewport, 0 ).Contains( planningPointerEvent.clientX, planningPointerEvent.clientY );
-    const bool overMode = divergence.active && ReplayOverlay::ReplayDivergenceToolRect( planningViewport, 1 ).Contains( planningPointerEvent.clientX, planningPointerEvent.clientY );
+    const bool overMode = m_authoring.VelocityEdit().enabled && ReplayOverlay::ReplayDivergenceToolRect( planningViewport, 1 ).Contains( planningPointerEvent.clientX, planningPointerEvent.clientY );
     const bool divergenceOwnsMouse = planningPointerEvent.hasClientPosition && !input.uiBlocksMouse && ( overRed || overBlue || overLab || overMode );
     if ( divergenceOwnsMouse && inputRouter.UiSnapshot().mouse.leftPressed )
     {
@@ -1363,6 +1363,10 @@ bool ReplayRuntime::TickVelocityEditing( const ReplayWorkspaceFrameInput& input,
     bool velocityEditOwnsMouse = false;
     ReplayInspectionCameraAction velocityInspectionCameraAction = ReplayInspectionCameraAction::None;
     ReplayInteractionRequest velocityPreparationRequest;
+    if ( !m_authoring.VelocityEdit().enabled )
+    {
+        m_planningOwner.PendingVelocityEdit() = {};
+    }
 
     if ( m_authoring.PrepareVelocityEditInput( input.editorModeEnabled,
                                                input.scenePhysicsEnabled,
@@ -1371,15 +1375,12 @@ bool ReplayRuntime::TickVelocityEditing( const ReplayWorkspaceFrameInput& input,
                                                ProjectReplayToolGesture( interaction.Gesture() ),
                                                velocityPreparationRequest ) )
     {
-        const bool divergenceReady = BeginVelocityDivergence( physics );
-        if ( divergenceReady && !m_visualPresentation.CameraView().active )
+        const RuntimeMouseEdges velocityPointerEdges = inputRouter.UiSnapshot().mouse;
+        const RuntimePointerEvent velocityPointer = inputRouter.RuntimeSnapshot().pointer;
+        if ( velocityPointerEdges.leftPressed && !pointerBlocked )
         {
-            // Prepare inspection before a mouse press owns capture. Switching
-            // cameras during the first drag must not unwind that gesture.
-            EnterInspectionCamera( cameras, camera, input.normalizedCurrentMode, interaction, inputRouter, mousePickup );
+            interaction.CancelCameraLookGesture();
         }
-        const RuntimeMouseEdges& velocityPointerEdges = inputRouter.UiSnapshot().mouse;
-        const RuntimePointerEvent& velocityPointer = inputRouter.RuntimeSnapshot().pointer;
         ReplayVelocityInputFrame velocityInput;
         velocityInput.viewProjection = input.velocityViewProjection;
         velocityInput.viewportX = static_cast<int>( input.velocityViewport.x );
@@ -1398,15 +1399,29 @@ bool ReplayRuntime::TickVelocityEditing( const ReplayWorkspaceFrameInput& input,
         ReplayVelocityInputResult velocityResult;
         velocityEditOwnsMouse = m_authoring.TickVelocityEditInput( m_visualPresentation,
                                                                    m_scrubberOwner,
-                                                                   input.pointerRay,
-                                                                   pointerBlocked || !divergenceReady,
+                                                                   pointerBlocked,
                                                                    input.now,
                                                                    velocityInput,
                                                                    physics,
                                                                    entities.Count(),
                                                                    velocityResult,
                                                                    velocityInspectionCameraAction );
-        if ( velocityResult.interaction.BeginGestureKind() == ReplayToolGestureKind::VelocityDrag )
+        if ( velocityResult.velocityChanged )
+        {
+            (void)PreviewVelocity( physics, velocityResult.linearVelocity, velocityResult.angularVelocity );
+        }
+        else if ( const auto pending = m_planningOwner.PendingVelocityEdit(); pending.targetId.IsValid() )
+        {
+            if ( pending.targetId == m_visualPresentation.PathVisualizer().targetId )
+            {
+                (void)PreviewVelocity( physics, pending.linearVelocity, pending.angularVelocity );
+            }
+            else
+            {
+                m_planningOwner.PendingVelocityEdit() = {};
+            }
+        }
+        if ( VelocityComparisonActive() && velocityResult.interaction.BeginGestureKind() == ReplayToolGestureKind::VelocityDrag )
         {
             // Lifetime: retain a completed result across a stationary click.
             // An unfinished generation is joined here and resumed on release,
@@ -1421,8 +1436,11 @@ bool ReplayRuntime::TickVelocityEditing( const ReplayWorkspaceFrameInput& input,
             m_planningOwner.VelocityDivergence().playing = false;
             m_scrubberOwner.SetTrackPosition( RunReplayTrack::Solver, SolverPresentTrackPosition() );
         }
-        if ( velocityInput.gesture.kind == ReplayToolGestureKind::VelocityDrag && velocityResult.interaction.EndsGesture() )
+        // Original-source preparation can change replay ownership before the
+        // next input turn. The physical release still commits its pending edit.
+        if ( velocityInput.leftReleased || ( velocityInput.gesture.kind == ReplayToolGestureKind::VelocityDrag && velocityResult.interaction.EndsGesture() ) )
         {
+            (void)CommitVelocityPreview();
             if ( m_planningOwner.VelocityDivergence().resumePredictionAfterDrag )
             {
                 Prediction().SetGenerationPermitted( true );
@@ -1433,8 +1451,10 @@ bool ReplayRuntime::TickVelocityEditing( const ReplayWorkspaceFrameInput& input,
             }
             m_planningOwner.VelocityDivergence().resumePredictionAfterDrag = false;
         }
-        if ( velocityResult.cancelExperiment && AcceptVelocityDivergence( physics, false ) )
+        if ( velocityResult.cancelExperiment && ( !VelocityComparisonActive() || AcceptVelocityDivergence( physics, false ) ) )
         {
+            m_authoring.ResetVelocityEdit();
+            m_planningOwner.PendingVelocityEdit() = {};
             ReplayInteractionOperations::CancelToolDragState( interaction, inputRouter );
             ApplyTransportCommand( ReplayReturnToLiveCommand {},
                                    cameras,
@@ -1453,6 +1473,12 @@ bool ReplayRuntime::TickVelocityEditing( const ReplayWorkspaceFrameInput& input,
             return true;
         }
         ApplyReplayInteractionRequest( velocityResult.interaction, inputRouter, interaction );
+        if ( velocityInput.gesture.kind == ReplayToolGestureKind::VelocityDrag && velocityResult.interaction.EndsGesture() && !m_visualPresentation.CameraView().active )
+        {
+            // Changing camera mode can cancel capture in the later input phase.
+            // Complete this first drag before entering inspection.
+            EnterInspectionCamera( cameras, camera, input.normalizedCurrentMode, interaction, inputRouter, mousePickup );
+        }
         output.enterInteractive |= velocityResult.enterInteractive;
 
         if ( velocityResult.pathPickRequested )
@@ -1754,44 +1780,13 @@ void HandleReplayPausePressed( ReplayPrediction& predictionOwner,
 }
 
 
-void HandleReplayVelocityEditPressed( ReplayAuthoring& authoring,
-                                      ReplayPrediction& predictionOwner,
-                                      ReplayPresentation& presentation,
-                                      ReplayScrubber& scrubber,
-                                      float solverPresentTrackPosition,
-                                      bool hasCameraFocus,
-                                      InputRouter& inputRouter,
-                                      RuntimeInteractionController& interaction,
-                                      CameraControlState& camera,
-                                      double now,
-                                      bool& outEnterInteractive )
+void HandleReplayVelocityEditPressed( ReplayAuthoring& authoring, InputRouter& inputRouter, RuntimeInteractionController& interaction )
 {
-    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Toggle" );
-    const bool enableVelocityEdit = !authoring.VelocityEdit().enabled;
-
-    if ( authoring.SetVelocityEditEnabled( enableVelocityEdit ) )
+    // Widget visibility is independent of prediction, camera, and transport.
+    if ( authoring.SetVelocityEditEnabled( !authoring.VelocityEdit().enabled ) )
     {
-        // Why: authoring emits a value command so prediction is refreshed in
-        // this composition turn without storing an owner pointer or callback.
-        const ReplayAuthoringPredictionRequest request = authoring.TakePredictionRequest();
-        predictionOwner.ApplyAuthoringRequest( BuildReplayPredictionAuthoringCommand( request ), REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
-
         ReplayInteractionOperations::CancelToolDragState( interaction, inputRouter );
-
-        if ( enableVelocityEdit )
-        {
-            outEnterInteractive = true;
-            ApplyReplayLiveAdvanceAction( predictionOwner, presentation, scrubber, true, solverPresentTrackPosition, true, hasCameraFocus, inputRouter, interaction, camera, outEnterInteractive );
-
-            interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayVelocityEdit, InteractionExitReason::EnterReplay );
-        }
-        else if ( interaction.Owner() == WorldInteractionOwner::ReplayVelocityEdit )
-        {
-            interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayScrub, InteractionExitReason::EnterReplay );
-        }
     }
-
-    KeepReplayScrubberVisible( scrubber, now );
 }
 
 
@@ -2483,27 +2478,16 @@ void ReplayRuntime::ApplyTransportCommand( const ReplaySetPredictionHorizonComma
 void ReplayRuntime::ApplyTransportCommand( const ReplaySetVelocityEditEnabledCommand& command,
                                            InputRouter& inputRouter,
                                            RuntimeInteractionController& interaction,
-                                           CameraControlState& camera,
-                                           double now,
-                                           ReplayWorkspaceOutput& output )
+                                           CameraControlState&,
+                                           double,
+                                           ReplayWorkspaceOutput& )
 {
     if ( m_authoring.VelocityEdit().enabled == command.enabled )
     {
         return;
     }
 
-    const bool hasCameraFocus = m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None;
-    HandleReplayVelocityEditPressed( m_authoring,
-                                     Prediction(),
-                                     m_visualPresentation,
-                                     m_scrubberOwner,
-                                     SolverPresentTrackPosition(),
-                                     hasCameraFocus,
-                                     inputRouter,
-                                     interaction,
-                                     camera,
-                                     now,
-                                     output.enterInteractive );
+    HandleReplayVelocityEditPressed( m_authoring, inputRouter, interaction );
 }
 
 
@@ -2683,7 +2667,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
                                                                bool uiBlocksMouse,
                                                                InputRouter& inputRouter,
                                                                RuntimeInteractionController& interaction,
-                                                               CameraControlState& camera,
+                                                               CameraControlState&,
                                                                ReplayWorkspaceOutput& output )
 {
     output.restoreRequest = ReplayLiveRestoreRequest {};
@@ -2691,7 +2675,6 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
     PROFILE_SCOPED( "Frame/Replay/ScrubberInput" );
     const bool loadedPresentation = HasLoadedPresentation();
     const float solverPresentTrackPosition = SolverPresentTrackPosition();
-    const bool hasCameraFocus = m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None;
     const RuntimeMouseEdges& pointer = inputRouter.UiSnapshot().mouse;
     const RuntimePointerEvent& runtimePointer = inputRouter.RuntimeSnapshot().pointer;
     ReplayScrubberPointerFrame pointerFrame;
@@ -2780,17 +2763,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
         break;
     }
     case ReplayScrubberAction::ToggleVelocityEdit:
-        HandleReplayVelocityEditPressed( m_authoring,
-                                         Prediction(),
-                                         m_visualPresentation,
-                                         m_scrubberOwner,
-                                         solverPresentTrackPosition,
-                                         hasCameraFocus,
-                                         inputRouter,
-                                         interaction,
-                                         camera,
-                                         input.now,
-                                         output.enterInteractive );
+        HandleReplayVelocityEditPressed( m_authoring, inputRouter, interaction );
 
         consumesMouse = true;
         break;

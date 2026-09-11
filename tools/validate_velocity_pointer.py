@@ -79,14 +79,14 @@ def run(session: Path) -> None:
         stock = ready(lambda row: row['predictionComplete'])
         assert stock['divergence']['allocatedOwnerBytes'] == 0
         send('replay.set_velocity_edit_enabled', enabled=True)
-        initial = ready(lambda row: row['divergence']['active'])
         send('run.step_frames', count=120)
         initial = state()
-        assert initial['predictionGeneration'] == 0
-        assert not initial['predictionGenerationPermitted'] and not initial['divergence']['redReady']
+        assert initial['predictionGeneration'] == stock['predictionGeneration']
+        assert not initial['divergence']['active'] and initial['divergence']['allocatedOwnerBytes'] == 0
+        assert initial['predictionComplete'] and not initial['causeLoading']
         save('enabled-without-edit', initial)
         capture('editable-handles')
-        original = initial['divergence']['blueBodies']
+        original = None
         def body_state():
             return send('scene.object.resolve', name='path_striker_02')['result']['objects'][0]
 
@@ -113,6 +113,12 @@ def run(session: Path) -> None:
             assert length > 12, (axis, start, finish)
             return [round(a+d*.7) for a, d in zip(start, delta)], [round(d/length*28) for d in delta]
 
+        (x, y), _ = handle(False, 0)
+        send('input.pointer_drag', button='left', x=x, y=y, deltaX=0, deltaY=0, moveClient=True, holdMilliseconds=180)
+        armed = state()
+        assert not armed['divergence']['active'] and armed['divergence']['allocatedOwnerBytes'] == 0
+        assert armed['predictionGeneration'] == stock['predictionGeneration'] and armed['predictionComplete']
+        save('stationary-before-edit', armed)
         for index, (angular, axis) in enumerate(((False, 0), (True, 0), (True, 1), (True, 2))):
             if index == 1:
                 click_bounds(ui_state()['headerLayoutBounds'])
@@ -127,7 +133,7 @@ def run(session: Path) -> None:
             (x, y), (dx, dy) = handle(angular, axis)
             field = 'angularVelocity' if angular else 'linearVelocity'
             before = body_state()
-            generation = state()['predictionGeneration']
+            generation = state()['predictionGeneration'] if original is not None else 0
             # The first press must edit immediately; no preparatory click.
             request = connection.send('input.pointer_drag', dict(button='left', x=x, y=y,
                                       deltaX=dx, deltaY=dy, moveClient=True, holdAfterMoveMilliseconds=1500))
@@ -141,6 +147,9 @@ def run(session: Path) -> None:
                 if other != axis: assert changed[field][other] == before[field][other]
             assert held['predictionGeneration'] == generation
             assert not held['predictionGenerationPermitted'] and not held['divergence']['redReady']
+            if original is None:
+                original = held['divergence']['blueBodies']
+                assert original and any(row['id'] == 7 for row in original)
             assert held['divergence']['blueBodies'] == original
             capture(f'held-{index}')
             assert connection.wait(request)['status'] == 'applied'
@@ -197,7 +206,7 @@ def run(session: Path) -> None:
         send('replay.set_prediction_enabled', enabled=True)
         ready(lambda row: row['predictionComplete'])
         send('replay.set_velocity_edit_enabled', enabled=True)
-        ready(lambda row: row['divergence']['active'])
+        assert not state()['divergence']['active']
         (x, y), (dx, dy) = handle(False, 0)
         send('input.pointer_drag', button='left', x=x, y=y, deltaX=dx, deltaY=dy, moveClient=True)
         building = state()
@@ -242,6 +251,31 @@ def run(session: Path) -> None:
         resumed = ready(lambda row: row['predictionComplete'])
         assert not resumed['divergence']['active']
         save('raw-terrain-scene-replacement', resumed)
+        # A quick release must survive building a previously absent original.
+        send('scene.load', name='interaction_replay_prediction_harness.scene.json')
+        send('prediction.select_target', name='path_striker_02')
+        send('replay.set_prediction_enabled', enabled=False)
+        send('replay.set_prediction_horizon', seconds=3)
+        untouched = state()
+        send('replay.set_velocity_edit_enabled', enabled=True)
+        send('run.step_frames', count=30)
+        armed = state()
+        assert armed['predictionGeneration'] == untouched['predictionGeneration']
+        assert not armed['predictionEnabled'] and not armed['divergence']['active']
+        before_cold_edit = body_state()['linearVelocity'][0]
+        (x, y), (dx, dy) = handle(False, 0)
+        send('input.pointer_drag', button='left', x=x, y=y, deltaX=dx, deltaY=dy, moveClient=True)
+        cold_edit = ready(lambda row: row['divergence']['redReady'])
+        assert body_state()['linearVelocity'][0] > before_cold_edit + .01
+        assert cold_edit['predictionGeneration'] == 1 and cold_edit['divergence']['blueFrameCount'] == 361
+        assert next(row for row in cold_edit['divergence']['blueBodies'] if row['id'] == 7)['velocity'][0] == before_cold_edit
+        save('released-before-original-ready', cold_edit)
+        vx, vy, vw, vh = ui_state()['viewport']
+        send('input.pointer_drag', button='left', x=round(vx+vw*.85), y=round(vy+vh*.2), deltaX=0, deltaY=0, moveClient=True)
+        assert not state()['divergence']['active']
+        send('replay.set_velocity_edit_enabled', enabled=True)
+        send('input.pointer_drag', button='left', x=round(vx+vw*.85), y=round(vy+vh*.2), deltaX=0, deltaY=0, moveClient=True)
+        assert not state()['divergence']['active'] and state()['divergence']['allocatedOwnerBytes'] == 0
     finally:
         try:
             send('session.stop')

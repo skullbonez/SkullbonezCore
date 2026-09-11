@@ -239,7 +239,6 @@ class ReplayAuthoring
     PrepareVelocityEditInput( bool editorModeEnabled, bool scenePhysicsEnabled, int screenWidth, int screenHeight, const ReplayToolGestureView& gesture, ReplayInteractionRequest& outInteraction );
     bool TickVelocityEditInput( ReplayPresentation& presentationOwner,
                                 ReplayScrubber& scrubberOwner,
-                                const ReplayPathPickInput& pointerRay,
                                 bool uiBlocksMouse,
                                 double now,
                                 const ReplayVelocityInputFrame& frame,
@@ -297,11 +296,8 @@ class ReplayAuthoring
         m_velocityEdit.hotLinearAxis = -1;
         m_velocityEdit.hotAngularAxis = -1;
 
-        if ( enabled )
-        {
-            QueuePredictionRefresh( true );
-        }
-        else
+        // Showing the widget does not invalidate the published future.
+        if ( !enabled )
         {
             (void)FinishVelocityEditDrag();
         }

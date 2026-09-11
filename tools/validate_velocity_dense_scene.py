@@ -68,13 +68,30 @@ try:
     send('prediction.select_target', name='prediction_striker_ball')
     send('replay.set_prediction_enabled', enabled=True)
     ready(lambda q: q['predictionComplete'])
-    send('replay.set_velocity_edit_enabled', enabled=True)
-    initial = ready(lambda q: q['divergence']['active'])
-    assert not initial['predictionGenerationPermitted'] and initial['predictionGeneration'] == 0
     for key in ('headerLayoutBounds', 'editorReplayTabBounds', 'causeTabBounds'):
         x, y, w, h = topic('ui.presentation')[key]
         click(x + w / 2, y + h / 2)
         send('run.step_frames', count=60)
+    stock = ready(lambda q: q['predictionComplete'] and not q['causeLoading'])
+    save('before-widget', stock)
+    screenshot('before-widget')
+    send('replay.set_velocity_edit_enabled', enabled=True)
+    send('run.step_frames', count=120)
+    initial = state()
+    save('widget-only', initial)
+    screenshot('widget-only')
+    assert not initial['divergence']['active'], 'Opening the widget started a comparison'
+    assert initial['divergence']['allocatedOwnerBytes'] == 0
+    # The geometry packet also contains the new widget; compare all other
+    # prediction, causal, transport and camera observations exactly.
+    for key in stock.keys() - {'divergence', 'causeTreeRowCacheHitCount',
+                              'submittedGeometryHash', 'submittedGeometryBytes'}:
+        assert initial[key] == stock[key], (key, stock[key], initial[key])
+    from PIL import Image, ImageChops
+    panel_x = round(topic('ui.presentation')['viewport'][0] + topic('ui.presentation')['viewport'][2])
+    with Image.open(p / 'before-widget-view.png') as before, Image.open(p / 'widget-only-view.png') as after:
+        region = (panel_x, 0, before.width, before.height - 30)
+        assert ImageChops.difference(before.crop(region).convert('RGB'), after.crop(region).convert('RGB')).getbbox() is None, 'Causal panel changed while arming'
     send('replay.velocity_preview', linear=[130, -1, 0], angular=[0, 0, -14])
     send('run.step_frames', count=30)
     assert state()['predictionGeneration'] == 0

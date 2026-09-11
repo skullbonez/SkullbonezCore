@@ -55,6 +55,16 @@ bool ReplayRuntime::BeginVelocityDivergence( Physics::PhysicsEngine& physics )
     if ( !Prediction().ReadyForDeterministicReveal() || Prediction().State().build.dirty || Prediction().State().build.pendingLatestRestart ||
          Prediction().State().simulation.predictionBodies.empty() )
     {
+        // Only an actual edit reaches this path. If no original exists yet,
+        // build it first while Planning retains the requested vector/release.
+        if ( !Prediction().State().enabled )
+        {
+            Prediction().SetEnabled( true );
+        }
+        else if ( !Prediction().State().build.building && !Prediction().State().build.complete && !Prediction().State().build.dirty && !Prediction().State().build.pendingLatestRestart )
+        {
+            Prediction().MarkDirty();
+        }
         return false;
     }
 
@@ -78,12 +88,12 @@ bool ReplayRuntime::BeginVelocityDivergence( Physics::PhysicsEngine& physics )
     modified.ApplyDetailModeCommand( { settings.diagnostics.detailMode } );
     modified.SetHorizonSeconds( settings.controls.horizonSeconds );
     modified.SetRevealRatePreservingCursor( settings.controls.revealSecondsPerSecond );
-    // Allocation is approved on entry; simulation waits for an edited release.
+    // The first changed vector allocates the comparison; simulation waits for release.
     modified.SetGenerationPermitted( false );
     modified.SetEnabled( true );
     m_bluePrediction = std::move( m_prediction );
     m_prediction = std::move( replacement );
-    m_planningOwner.VelocityDivergence() = { true, false };
+    m_planningOwner.VelocityDivergence() = { true, false, m_authoring.VelocityEdit().angular };
     m_scrubberOwner.SetLiveAdvanceHeld( true );
     m_planningOwner.CauseInspection().Reset();
     return true;

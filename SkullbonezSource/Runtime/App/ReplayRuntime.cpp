@@ -452,10 +452,24 @@ bool ReplayRuntime::PreviewVelocity( Physics::PhysicsEngine& physics, const Math
         return false;
     }
 
+    const auto hotBeforeEdit = bodies.HotFields();
+    if ( Math::Vector::VectorMagSquared( linearVelocity - Physics::PhysicsBodyLinearVelocity( hotBeforeEdit, modelRow ) ) <= 1.0e-10f &&
+         Math::Vector::VectorMagSquared( angularVelocity - Physics::PhysicsBodyAngularVelocity( hotBeforeEdit, modelRow ) ) <= 1.0e-10f )
+    {
+        m_planningOwner.PendingVelocityEdit() = {};
+        return true;
+    }
+
     if ( !BeginVelocityDivergence( physics ) )
     {
-        return false;
+        auto& pending = m_planningOwner.PendingVelocityEdit();
+        pending.targetId = path.targetId;
+        pending.linearVelocity = linearVelocity;
+        pending.angularVelocity = angularVelocity;
+        return true;
     }
+    const bool released = m_planningOwner.PendingVelocityEdit().released;
+    m_planningOwner.PendingVelocityEdit() = {};
     const Physics::PhysicsBodyHotFieldsConstView hot = bodies.HotFields();
     const RunReplayVelocityEditState& edit = m_authoring.VelocityEdit();
 
@@ -475,16 +489,30 @@ bool ReplayRuntime::PreviewVelocity( Physics::PhysicsEngine& physics, const Math
     }
 
     m_authoring.QueueVelocityEditPreview( path.targetId, linearVelocity - m_authoring.VelocityEdit().dragStartLinearVelocity );
+    if ( released )
+    {
+        (void)m_authoring.FinishVelocityEditDrag();
+    }
     return true;
 }
 
 bool ReplayRuntime::CommitVelocityPreview() noexcept
 {
+    if ( m_planningOwner.PendingVelocityEdit().targetId.IsValid() )
+    {
+        m_planningOwner.PendingVelocityEdit().released = true;
+        return true;
+    }
     return m_authoring.FinishVelocityEditDrag();
 }
 
 bool ReplayRuntime::CancelVelocityPreview( Physics::PhysicsEngine& physics ) noexcept
 {
+    if ( m_planningOwner.PendingVelocityEdit().targetId.IsValid() )
+    {
+        m_planningOwner.PendingVelocityEdit() = {};
+        return true;
+    }
     const RunReplayVelocityEditState edit = m_authoring.VelocityEdit();
 
     if ( !edit.dragTargetId.IsValid() )

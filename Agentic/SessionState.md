@@ -2,7 +2,35 @@
 
 Date: 2026-09-11
 Branch: `codex/unified-ui`
-Status: Dense Modified prediction completion fixed and validated for PR #169; Profile relink awaits closing the user-owned running game. Owner authorized commit/push/PR update. Prior release fix is 83955e37e; approved provenance metadata is 5e9975e27. Portfolio 138/144 unchanged.
+Status: Modify Velocity now opens only its widget; original prediction and causal contents remain intact until an actual vector edit. Validated for commit/push to PR #169. Dense-memory fix a5b86f596 remains intact; Profile has been rebuilt. Portfolio 138/144 unchanged.
+
+## Idle velocity widget - 2026-09-11
+
+Opening Modify Velocity no longer refreshes prediction, swaps prediction owners,
+changes camera/transport, or clears causal inspection. The second owner is
+allocated only after a changed vector requests comparison. App receives native
+mouse proposals before writing Physics, preserving the stock seed first; release
+starts the modified generation. Planning retains a pending vector and its release
+if an original must be built first, with target checks and cancellation/reset.
+Stationary initial clicks retain the original owner and generation. Screen
+handles do not require a replay world ray; the first drag retires camera-look
+capture and completes before entering inspection. Its physical release remains
+authoritative if preparing the original changes replay ownership. The angular
+mode switch remains available while only the widget is armed; comparison choices
+and Solver Lab appear after editing. Scene clicks cancel armed or active editing.
+
+Validation: 1,041 unit tests passed; Automation and Profile builds passed; source
+design, dependency graph/proof and plain-language checks passed. Skarness native
+pointer coverage (including quick release before an original exists) is under
+`TestOutput/skarness/velocity-widget-pointer-final-native/`; 200-box widget-only causal
+pixel comparison and full Modified/Solver Lab/accept flow are under
+`TestOutput/skarness/velocity-widget-dense-closure/`; both choices and ghosts are
+under `TestOutput/skarness/velocity-widget-choices/`. The unchanged full visual-fidelity gate passed, including causal reveal,
+durable replay artifact and all negative controls. The staged physics gate passed for the final native first-click fix with
+fingerprint `2de0a09a14d5`, using the isolated copy and unchanged golden. All 15 persistent scene-transition cases passed, including the generated
+demo and a second 200-box wall prediction. No baseline or allocation
+cap/registration changed. The user-created untracked `asdasd.scene.json` is not
+part of this change; commit validation uses an isolated staged-tree copy.
 
 ## Dense velocity prediction completion - 2026-09-11
 

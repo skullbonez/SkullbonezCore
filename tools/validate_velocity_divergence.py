@@ -114,7 +114,7 @@ def run(session: Path, executable: Path) -> None:
 
         for round_index, red_choice in enumerate((False, True)):
             send("replay.set_velocity_edit_enabled", enabled=True)
-            ready(lambda row: row["divergence"]["active"])
+            assert not state()["divergence"]["active"]
             send("replay.velocity_preview", linear=[90, 12, 20], angular=[0, 0, 0])
             send("replay.velocity_commit")
             ready(lambda row: row["divergence"]["redReady"])
@@ -185,6 +185,9 @@ def run(session: Path, executable: Path) -> None:
 
         # Scene replacement releases an unresolved comparison as well.
         send("replay.set_velocity_edit_enabled", enabled=True)
+        assert not state()["divergence"]["active"]
+        send("replay.velocity_preview", linear=[110, 12, 20], angular=[0, 0, 0])
+        send("replay.velocity_commit")
         ready(lambda row: row["divergence"]["active"])
         send("scene.load", name=scene.name)
         cleared = state()

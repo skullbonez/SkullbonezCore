@@ -58,9 +58,23 @@ struct ReplayPlanningSceneView
     char targetName[32] = {};
 };
 
+// Lifetime: retain the latest requested vector while its original future builds.
+// A release can arrive before that build completes; it must not lose the edit.
+struct ReplayPendingVelocityEdit
+{
+    Physics::PhysicsSceneObjectId targetId;
+    Math::Vector::Vector3 linearVelocity;
+    Math::Vector::Vector3 angularVelocity;
+    bool released = false;
+};
+
 class ReplayPlanningRuntime
 {
   public:
+    ReplayPendingVelocityEdit& PendingVelocityEdit() noexcept
+    {
+        return m_pendingVelocityEdit;
+    }
     ReplayOverlay::ReplayVelocityDivergenceView& VelocityDivergence() noexcept
     {
         return m_velocityDivergence;
@@ -153,6 +167,7 @@ class ReplayPlanningRuntime
     ObserveTripPlannerPrediction( const RunReplayPathVisualizerState& path, const ReplayPredictionTimelineView& timeline, const ReplayPredictionControlsView& controls, bool liveAdvancing );
 
     ReplayOverlay::ReplayVelocityDivergenceView m_velocityDivergence;
+    ReplayPendingVelocityEdit m_pendingVelocityEdit;
     float m_surfaceScroll = 0.0f;
     ReplayInterceptReadout m_interceptReadout;
     ReplayGuideArcs m_guideArcs;

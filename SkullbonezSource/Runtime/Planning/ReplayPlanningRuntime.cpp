@@ -176,6 +176,7 @@ void ReplayPlanningRuntime::ClearState() noexcept
 
 void ReplayPlanningRuntime::ResetTransientPlanState() noexcept
 {
+    m_pendingVelocityEdit = {};
     m_surfaceScroll = 0.0f;
     m_porkchopPanel.Reset();
     m_tripPlanner.ResetForSceneDiscard();

@@ -193,7 +193,7 @@ int HitVelocityAxis( const ReplayVelocityBodyView& body, const ReplayVelocityInp
 
 } // namespace
 
-ReplayKeyboardVelocityEditResult ReplayAuthoring::ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input, ReplayScrubber& scrubberOwner, const ReplayPresentation& presentationOwner )
+ReplayKeyboardVelocityEditResult ReplayAuthoring::ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input, ReplayScrubber& scrubberOwner, const ReplayPresentation& )
 {
     ReplayKeyboardVelocityEditResult result;
 
@@ -209,14 +209,6 @@ ReplayKeyboardVelocityEditResult ReplayAuthoring::ApplyKeyboardVelocityEdit( con
             if ( enableVelocityEdit )
             {
                 result.enterInteractive = true;
-
-                if ( scrubberOwner.SetLiveAdvanceHeld( true ) )
-                {
-                    const ReplayScrubberView scrubber = scrubberOwner.View();
-                    const bool useInspectionCamera = ReplayScrubNeedsInspectionCamera( scrubber.liveAdvanceHeld, presentationOwner.CameraView().focusKind );
-
-                    result.cameraAction = useInspectionCamera ? ReplayKeyboardVelocityEditCameraAction::EnterInspection : ReplayKeyboardVelocityEditCameraAction::ExitInspection;
-                }
 
                 result.setWorldOwner = true;
                 result.worldOwner = ReplayWorldOwnerRequest::VelocityEdit;
@@ -264,9 +256,8 @@ bool ReplayAuthoring::PrepareVelocityEditInput( bool editorModeEnabled,
 
 bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwner,
                                              ReplayScrubber& scrubberOwner,
-                                             const ReplayPathPickInput& pointerRay,
                                              bool uiBlocksMouse,
-                                             double now,
+                                             double,
                                              const ReplayVelocityInputFrame& frame,
                                              PhysicsEngine& velocityPhysics,
                                              std::size_t entityCount,
@@ -285,7 +276,9 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
         outResult.interaction.EndGesture();
     };
 
-    if ( !pointerRay.hasWorldRay )
+    // XYZ handles are picked in screen space, including before Scene mode has
+    // transitioned to inspection and supplied a replay world-picking ray.
+    if ( !frame.hasClientPosition )
     {
         if ( velocityDragActive() && ( frame.leftReleased || !frame.leftDown ) )
         {
@@ -336,13 +329,12 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
         // A stationary held pointer resolves to the velocity already stored.
         // Skipping that no-op prevents needless replacement generations while
         // still publishing every materially changed pointer sample.
-        if ( velocityChanged && velocityPhysics.SetBodyVelocity( body.body, linearVelocity, angularVelocity, true ) )
+        if ( velocityChanged )
         {
-            // Why: held samples bend only the selected published path. This
-            // fixed-size command replaces its predecessor without scheduling a
-            // private-world build or disturbing the other retained paths.
-            QueueVelocityEditPreview( VelocityEdit().dragTargetId, linearVelocity - VelocityEdit().dragStartLinearVelocity );
-            scrubberOwner.SetVisible( true, now, REPLAY_SCRUBBER_VISIBLE_SECONDS );
+            // App must retain the unmodified seed before Physics is written.
+            outResult.velocityChanged = true;
+            outResult.linearVelocity = linearVelocity;
+            outResult.angularVelocity = angularVelocity;
         }
     };
 
@@ -367,19 +359,7 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
     const int hotAxis = hasHotBody ? HitVelocityAxis( hotBody, frame, VelocityEdit().angular, screenDrag ) : -1;
     SetVelocityEditHoverAxes( VelocityEdit().angular ? -1 : hotAxis, VelocityEdit().angular ? hotAxis : -1 );
 
-    const auto armBaselineComparisonForDrag = [&]()
-    {
-        if ( presentationOwner.PathVisualizer().hasTarget )
-        {
-            // Why: the old future must be retained before the first drag tick
-            // dirties prediction. The visualizer owns the actual capture so it
-            // can reuse the same rest-pose and replay-reserve rules as drawing.
-            QueueVelocityMutationBaselinePreparation();
-        }
-    };
-
-    // App prepares the inspection camera before either handle captures the mouse.
-    // Both modes retain the stock baseline before publishing the drag gesture.
+    // Capturing a handle alone must leave the published future intact.
     const auto beginVelocityDrag = [&]( const ReplayVelocityBodyView& body, int axis, bool angular )
     {
         outResult.enterInteractive = true;
@@ -396,7 +376,6 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
         dragStart.angularVelocity = body.angularVelocity;
         dragStart.screenDrag = screenDrag;
 
-        armBaselineComparisonForDrag();
         BeginVelocityEditDrag( dragStart );
         outResult.interaction.BeginVelocityDrag( frame.mouseX, frame.mouseY, body.body, axis, angular );
         outResult.consumesMouse = true;

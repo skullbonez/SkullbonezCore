@@ -1659,11 +1659,15 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
 
     m_drawList.SetPanel( UI::UIPanel::None );
     ReplayScrubberComposer( m_drawList, replay.timeline.ScrubberPresentation(), scenePhysicsEnabled, gesture, viewport, nowSeconds ).Compose();
-    if ( replay.planning.divergence.active )
+    if ( replay.timeline.velocityEdit.enabled || replay.planning.divergence.active )
     {
         m_drawList.PushClip( viewport.PlanningBounds() );
         for ( bool red : { true, false } )
         {
+            if ( !replay.planning.divergence.active )
+            {
+                continue;
+            }
             const UI::UIRect rect = ReplayDivergenceChoiceRect( viewport.PlanningBounds(), red );
             const bool enabled = !red || replay.planning.divergence.redReady;
             const float r = red ? 0.8f : 0.12f;
@@ -1671,12 +1675,12 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
             m_drawList.AddRoundedRect( rect, 4.0f, { r, 0.2f, b, enabled ? 0.95f : 0.45f } );
             m_drawList.AddText( { rect.x + 8.0f, rect.y + 8.0f }, 11.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, red ? "Accept Modified" : "Accept Original" );
         }
-        for ( int index = 0; index < 2; ++index )
+        for ( int index = replay.planning.divergence.active ? 0 : 1; index < 2; ++index )
         {
             const auto rect = ReplayDivergenceToolRect( viewport.PlanningBounds(), index );
             const bool enabled = index == 1 || replay.planning.divergence.redReady;
             m_drawList.AddRoundedRect( rect, 4.0f, { 0.16f, 0.20f, 0.28f, enabled ? 0.95f : 0.45f } );
-            const char* label = index == 0 ? "Open in Solver Lab" : replay.planning.divergence.angular ? "Editing Angular | switch to Linear" : "Editing Linear | switch to Angular";
+            const char* label = index == 0 ? "Open in Solver Lab" : replay.timeline.velocityEdit.angular ? "Editing Angular | switch to Linear" : "Editing Linear | switch to Angular";
             m_drawList.AddText( { rect.x + 8.0f, rect.y + 8.0f }, 11.0f, { 1, 1, 1, 1 }, label );
         }
         m_drawList.PopClip();

@@ -219,6 +219,28 @@ TEST_CASE( "Runtime scene diagnostic facts reject invalid sentinel and count dom
 }
 
 
+TEST_CASE( "Opening velocity editing preserves prediction and cause rows" )
+{
+    ReplayAuthoring authoring;
+    authoring.ReserveCauseTreeRows( 1u );
+    authoring.BeginCauseTreeRowBuild( 123u );
+    RunReplayCauseTreeRow row;
+    row.id.value = 17u;
+    REQUIRE( authoring.AppendCauseTreeRow( row ) );
+    REQUIRE( authoring.SetVelocityEditEnabled( true ) );
+    CHECK( authoring.VelocityEdit().enabled );
+    CHECK( authoring.CauseTree().rows.size() == 1u );
+    CHECK( authoring.CauseTree().rows.front().id.value == 17u );
+    const auto request = authoring.TakePredictionRequest();
+    CHECK_FALSE( request.refreshPrediction );
+    CHECK_FALSE( request.enablePrediction );
+    CHECK_FALSE( request.prepareVelocityMutationBaseline );
+    CHECK_FALSE( request.updateVelocityPreview );
+    CHECK_FALSE( request.finishVelocityPreview );
+    REQUIRE( authoring.SetVelocityEditEnabled( false ) );
+    CHECK_FALSE( authoring.TakePredictionRequest().refreshPrediction );
+}
+
 TEST_CASE( "Replay velocity drag coalesces preview samples and refreshes only on release" )
 {
     ReplayAuthoring authoring;

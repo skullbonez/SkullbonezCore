@@ -262,6 +262,10 @@ struct ReplayVelocityInputFrame
 struct ReplayVelocityInputResult
 {
     ReplayInteractionRequest interaction;
+    // App preserves the original prediction before applying this proposed edit.
+    Math::Vector::Vector3 linearVelocity;
+    Math::Vector::Vector3 angularVelocity;
+    bool velocityChanged = false;
     bool enterInteractive = false;
     bool pathPickRequested = false;
     bool cancelExperiment = false;
