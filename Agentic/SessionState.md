@@ -2,7 +2,7 @@
 
 Date: 2026-09-11
 Branch: `codex/unified-ui`
-Status: Modify Velocity mouse editing repaired and closure checks complete; commit and PR #169 update prepared. Replay oracle provenance approval remains pending. Branch review is committed in be5e7a7a5 and formatting in 6e94df4e0. Portfolio 138/144 unchanged.
+Status: Modify Velocity mouse editing committed in 83955e37e; closure checks complete. Owner approved the two replay provenance hashes and push/update of PR #169. Branch review is committed in be5e7a7a5 and formatting in 6e94df4e0. Portfolio 138/144 unchanged.
 
 ## Modify Velocity mouse release fix - 2026-09-11
 
@@ -27,7 +27,7 @@ shader initialization. text.hlsl and ui_render_target_preview.hlsl had been bake
 from local CRLF bytes, while Git stores/checks out LF. Rebaking from Git-equivalent
 LF changes only source/input hashes in the manifest; DXIL bytes and reflection
 are unchanged. All shader source/dependency hashes now match Git's exact bytes.
-No baseline or Physics setting is changed.
+No behavioral baseline value or Physics setting is changed; the approved provenance reconciliation is recorded below.
 
 The persistent scene matrix also exposed a terrain-load lifetime defect: RAW
 construction records an upload, then PrepareEditing replaces that vertex buffer
@@ -44,11 +44,15 @@ velocity-scene-matrix.log, velocity-mouse-fast.log and velocity-shader-bake-fina
 Both the complete branch fast gate (184 sources / 1,589 contexts) and the final
 follow-up fast gate pass, with 1,036 unit tests. All 15 scene-matrix cases, native
 velocity/causal checks, the complete UI gate, the staged Physics matrix, DX12
-renderer and timed graphics stress pass. Replay has a provenance-only mismatch after the shader manifest fix;
-all 2,401 ticks, causal data and artifact checks match the unchanged oracle. A
-local two-hash candidate passes the comparator and all negative controls. Owner
-approval was requested under AGENTS.md before applying it. The candidate and
-old/new hash evidence are in TestOutput/velocity-provenance-candidate/changes.json.
+renderer and timed graphics stress pass. The owner explicitly approved the two
+provenance hashes after the shader manifest fix. Only shadersSha256 and its
+derived causal visualBaselineSha256 binding changed; all 2,401 ticks, causal
+data, artifact bytes and Physics golden values remain unchanged. The comparator
+and all ten offline controls pass against the reconciled files using the same
+authoritative capture, preserving the one-process, one-generation rule. Evidence:
+TestOutput/velocity-replay-approved.log and
+TestOutput/velocity-provenance-candidate/changes.json. The commit body records
+the exact old/new hashes and their byte-for-byte derivation.
 Terminal results are in TestOutput/velocity-release-validation.json.
 
 ## Branch adversarial review - 2026-09-11
