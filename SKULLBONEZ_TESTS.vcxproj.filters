@@ -604,6 +604,9 @@
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp">
       <Filter>Source Files\World</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\World\TerrainEditing.cpp">
+      <Filter>Source Files\World</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.Rendering.cpp">
       <Filter>Source Files\Assets</Filter>
     </ClCompile>

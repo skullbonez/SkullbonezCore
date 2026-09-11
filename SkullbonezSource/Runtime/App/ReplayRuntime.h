@@ -650,6 +650,7 @@ class ReplayRuntime
     // Publishes reveal, trajectory, and marker caches for callers that project
     // restored prediction values without running the normal frame scheduler.
     // RenderPathVisualizer remains read-only and must follow this command.
+    bool PrepareTerrainEdit();
     void PreparePredictionPresentation( Physics::PhysicsEngine& physics, const SceneEntityStore& entities );
     void ClearPathVisualizerState();
 

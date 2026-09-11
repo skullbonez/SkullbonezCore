@@ -441,6 +441,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\App\Run.cpp">
       <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\App\TerrainEditor.cpp">
+      <Filter>Source Files\Runtime\App</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorInteractionTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
@@ -670,6 +673,9 @@
       <Filter>Source Files\World</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp">
+      <Filter>Source Files\World</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\World\TerrainEditing.cpp">
       <Filter>Source Files\World</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Assets\TextureCollection.cpp">

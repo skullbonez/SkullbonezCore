@@ -1448,7 +1448,25 @@ void Run::ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInpu
     {
         SkarnessCommandApplication application;
 
-        ApplySkarnessComparisonCommand( command, application );
+        if ( command.type == SkarnessCommandType::EditorSetTerrainBrush )
+        {
+            UI::InGameUICommands commands;
+            commands.editor.toggleEditorMode = command.enabled && !m_editorTools.Editor().editorModeEnabled;
+            commands.editor.toggleTerrainBrush = command.enabled != m_editorTools.Editor().terrainBrushEnabled;
+            ApplyEditorModeCommands( result, false, facts, commands );
+            application.applied = m_editorTools.Editor().terrainBrushEnabled == command.enabled;
+            application.reason = nullptr;
+        }
+        else if ( command.type == SkarnessCommandType::SceneSave )
+        {
+            m_sceneController.SubmitSaveCurrentDefaults();
+            application.applied = true;
+            application.reason = nullptr;
+        }
+        else
+        {
+            ApplySkarnessComparisonCommand( command, application );
+        }
         if ( !application.handled )
         {
             ApplySkarnessReplayCommand( command, result, facts, application );

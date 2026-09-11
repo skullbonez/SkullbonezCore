@@ -40,6 +40,7 @@
 #include <fstream>
 #include <limits>
 #include <memory>
+#include <filesystem>
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 
 namespace
@@ -80,8 +81,7 @@ PhysicsBodyStore& TerrainBodyStore()
     static PhysicsBodyStore store;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
     store.Clear();
@@ -93,8 +93,7 @@ ColliderStore& TerrainColliderStore()
     static ColliderStore store;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         store.ReserveShapeCapacity( 16u, 0u, 0u );
     }
@@ -107,8 +106,7 @@ void ExpectHeightMapShapeFailure( int mapSize, int stepSize, const char* expecte
     EngineConfig config;
     std::unique_ptr<Terrain> terrain = std::make_unique<Terrain>( 0.0f, 0.0f, 0.0f, config );
     Terrain* const originalTerrain = terrain.get();
-    const auto result = Terrain::TryCreatePhysicsFromHeightMap( diagnostics, "unused-height-map.raw", mapSize, stepSize, 1,
-                                                                config, terrain );
+    const auto result = Terrain::TryCreatePhysicsFromHeightMap( diagnostics, "unused-height-map.raw", mapSize, stepSize, 1, config, terrain );
 
     CHECK_FALSE( result.Ok() );
     CHECK( std::strcmp( result.ErrorOwner(), "World/Terrain" ) == 0 );
@@ -140,6 +138,97 @@ TEST_CASE( "Terrain: invalid height-map dimensions fail before construction" )
     ExpectHeightMapShapeFailure( ( std::numeric_limits<int>::max )(), 1, "pixel count exceeds" );
 }
 
+TEST_CASE( "Terrain editor: strokes share render and collision heights with bounded storage" )
+{
+    EngineConfig config;
+    Terrain terrain( 30.0f, 0.0f, 0.0f, config );
+    CHECK_FALSE( terrain.Sculpt( Vector3( 500, 30, 500 ), 40, 5 ) );
+    terrain.PrepareEditing();
+    CHECK( terrain.IsFlatSlope() );
+    CHECK_FALSE( terrain.IsEdited() );
+    REQUIRE( terrain.Sculpt( Vector3( 500, 30, 500 ), 40, 5 ) );
+    const auto cells = terrain.PhysicsView().cells.data();
+    CHECK_FALSE( terrain.IsFlatSlope() );
+    CHECK( terrain.GetTerrainHeightAt( 500, 500 ) == doctest::Approx( 35 ) );
+    CHECK( terrain.GetTerrainHeightAt( 600, 500 ) == doctest::Approx( 30 ) );
+    REQUIRE( terrain.Sculpt( Vector3( 500, 35, 500 ), 40, -10 ) );
+    CHECK( terrain.GetTerrainHeightAt( 500, 500 ) == doctest::Approx( 25 ) );
+    CHECK( terrain.PhysicsView().cells.data() == cells );
+    CHECK( terrain.PhysicsView().worldExtent == Terrain::FLAT_SLOPE_EXTENT );
+    const auto vertices = terrain.BuildRenderVertexData();
+    bool foundCenter = false;
+    for ( size_t i = 0; i < vertices.size(); i += 8 )
+    {
+        if ( vertices[i] == 500 && vertices[i + 2] == 500 )
+        {
+            CHECK( vertices[i + 1] == 25 );
+            foundCenter = true;
+        }
+    }
+    CHECK( foundCenter );
+    CHECK_FALSE( terrain.Sculpt( Vector3( 500, 0, 500 ), 0, 10 ) );
+    CHECK_FALSE( terrain.Sculpt( Vector3( 500, 0, 500 ), 40, std::numeric_limits<float>::quiet_NaN() ) );
+    CHECK( terrain.EditRevision() == 2 );
+}
+
+TEST_CASE( "Terrain editor: save reuses unchanged maps and round trips signed fractional heights" )
+{
+    EngineConfig config;
+    Terrain terrain( 0.0f, 0.0f, 0.0f, config );
+    terrain.PrepareEditing();
+    std::string reference;
+    constexpr const char* scenePath = "TestOutput/terrain_editor.scene.json";
+    REQUIRE( terrain.SaveHeightMapForScene( diagnostics, scenePath, reference ).Ok() );
+    CHECK( reference.empty() );
+    REQUIRE( terrain.Sculpt( Vector3( 500, 0, 500 ), 50, -1.234567f ) );
+    REQUIRE( terrain.SaveHeightMapForScene( diagnostics, scenePath, reference ).Ok() );
+    REQUIRE_FALSE( reference.empty() );
+    const auto path = std::filesystem::path( "TestOutput" ) / reference;
+    const auto firstWrite = std::filesystem::last_write_time( path );
+    std::string repeated;
+    REQUIRE( terrain.SaveHeightMapForScene( diagnostics, scenePath, repeated ).Ok() );
+    CHECK( repeated == reference );
+    CHECK( std::filesystem::last_write_time( path ) == firstWrite );
+    std::unique_ptr<Terrain> loaded;
+    REQUIRE( Terrain::LoadSavedHeightMap( diagnostics, std::filesystem::absolute( path ).string().c_str(), config, loaded ).Ok() );
+    CHECK_FALSE( loaded->IsEdited() );
+    CHECK( loaded->GetTerrainHeightAt( 500, 500 ) == terrain.GetTerrainHeightAt( 500, 500 ) );
+    CHECK( loaded->BuildRenderVertexData() == terrain.BuildRenderVertexData() );
+    REQUIRE( loaded->SaveHeightMapForScene( diagnostics, "TestOutput/different.scene.json", repeated ).Ok() );
+    CHECK( std::filesystem::path( repeated ) == std::filesystem::absolute( path ) );
+    loaded->PrepareEditing();
+    REQUIRE( loaded->Sculpt( Vector3( 500, 0, 500 ), 50, 2 ) );
+    REQUIRE( loaded->SaveHeightMapForScene( diagnostics, "TestOutput/different.scene.json", repeated ).Ok() );
+    CHECK( repeated != reference );
+    CHECK( std::filesystem::last_write_time( path ) == firstWrite );
+}
+
+
+TEST_CASE( "Terrain editor: malformed saved maps preserve the current terrain" )
+{
+    EngineConfig config;
+    auto terrain = std::make_unique<Terrain>( 30.0f, 0.0f, 0.0f, config );
+    Terrain* const original = terrain.get();
+    const char* invalidMaps[] = {
+        "SKULLBONEZ_HEIGHTMAP 1\n2 1 1\n0 0 0",
+        "SKULLBONEZ_HEIGHTMAP 1\n514 1 1\n",
+        "SKULLBONEZ_HEIGHTMAP 1\n2 0 1\n0 0 0 0",
+        "SKULLBONEZ_HEIGHTMAP 1\n2 1 1\n0 0 nan 0",
+        "SKULLBONEZ_HEIGHTMAP 1\n2 1 1\n0 0 0 0 extra",
+    };
+    constexpr const char* path = "TestOutput/terrain_invalid.heightmap";
+    for ( const char* invalid : invalidMaps )
+    {
+        {
+            std::ofstream output( path, std::ios::trunc );
+            output << invalid;
+        }
+        CHECK_FALSE( Terrain::LoadSavedHeightMap( diagnostics, path, config, terrain ).Ok() );
+        CHECK( terrain.get() == original );
+    }
+    std::remove( path );
+}
+
 
 TEST_CASE( "Terrain: exact-minimum height map publishes one checked quad" )
 {
@@ -154,8 +243,7 @@ TEST_CASE( "Terrain: exact-minimum height map publishes one checked quad" )
 
     EngineConfig config;
     std::unique_ptr<Terrain> terrain;
-    const auto result = Terrain::TryCreatePhysicsFromHeightMap( diagnostics, kHeightMapPath, kMapSize, 1, kTextureWrap,
-                                                                config, terrain );
+    const auto result = Terrain::TryCreatePhysicsFromHeightMap( diagnostics, kHeightMapPath, kMapSize, 1, kTextureWrap, config, terrain );
 
     std::remove( kHeightMapPath );
 
@@ -168,7 +256,18 @@ TEST_CASE( "Terrain: exact-minimum height map publishes one checked quad" )
     REQUIRE( vertexData.size() == 48u );
 
     constexpr float kExpectedTextureCoordinates[] = {
-        0.0f, 0.0f, 3.0f, 0.0f, 0.0f, 3.0f, 0.0f, 3.0f, 3.0f, 0.0f, 3.0f, 3.0f,
+        0.0f,
+        0.0f,
+        3.0f,
+        0.0f,
+        0.0f,
+        3.0f,
+        0.0f,
+        3.0f,
+        3.0f,
+        0.0f,
+        3.0f,
+        3.0f,
     };
     for ( size_t vertexIndex = 0; vertexIndex < 6u; ++vertexIndex )
     {
@@ -191,8 +290,7 @@ TEST_CASE( "Terrain: oversized RAW height map is rejected without replacing terr
     EngineConfig config;
     std::unique_ptr<Terrain> terrain = std::make_unique<Terrain>( 0.0f, 0.0f, 0.0f, config );
     Terrain* const originalTerrain = terrain.get();
-    const auto result = Terrain::TryCreatePhysicsFromHeightMap( diagnostics, kHeightMapPath, kMapSize, 1, 1, config,
-                                                                terrain );
+    const auto result = Terrain::TryCreatePhysicsFromHeightMap( diagnostics, kHeightMapPath, kMapSize, 1, 1, config, terrain );
 
     std::remove( kHeightMapPath );
 
@@ -367,8 +465,7 @@ TEST_CASE( "Terrain: collapsed height-map posts publish world-up render normals"
     config.terrainGeometry.scale = 0.0f;
     std::unique_ptr<Terrain> terrain;
 
-    const auto result = Terrain::TryCreatePhysicsFromHeightMap( diagnostics, kHeightMapPath, kMapSize, 1, 1, config,
-                                                                terrain );
+    const auto result = Terrain::TryCreatePhysicsFromHeightMap( diagnostics, kHeightMapPath, kMapSize, 1, 1, config, terrain );
 
     std::remove( kHeightMapPath );
 
@@ -422,14 +519,12 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     WorkerPool inlinePool( lockOrderValidator );
     PhysicsTerrainStage stage;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         stage.ReserveSceneCapacity( 3u );
     }
     const std::array<int, 1> awakeBodyIndices = { 0 };
 
-    stage.Detect( bodies, colliders, buoyancyFacts, terrain.PhysicsView(), physicsSettings, sleepState, discreteState,
-                  timeRemaining, awakeBodyIndices, execution, inlinePool );
+    stage.Detect( bodies, colliders, buoyancyFacts, terrain.PhysicsView(), physicsSettings, sleepState, discreteState, timeRemaining, awakeBodyIndices, execution, inlinePool );
 
     const auto candidates = stage.GetDetectionCandidates();
     REQUIRE( candidates.size() == 3u );
@@ -444,8 +539,7 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
         SkullbonezCore::Physics::PhysicsMotionEligibilityNone,
         SkullbonezCore::Physics::PhysicsMotionEligibilityNone,
     };
-    stage.Detect( bodies, colliders, buoyancyFacts, terrain.PhysicsView(), physicsSettings, sleepState, promotedState,
-                  timeRemaining, awakeBodyIndices, execution, inlinePool );
+    stage.Detect( bodies, colliders, buoyancyFacts, terrain.PhysicsView(), physicsSettings, sleepState, promotedState, timeRemaining, awakeBodyIndices, execution, inlinePool );
 
     const auto promotedCandidates = stage.GetDetectionCandidates();
     REQUIRE( promotedCandidates.size() == 3u );
@@ -459,8 +553,7 @@ TEST_CASE( "Coverage floor contract: terrain sweep and manifold support every co
     EngineConfig config;
     Terrain terrain( 0.0f, 0.0f, 0.0f, config );
     SkullbonezCore::Math::CollisionDetection::ConvexHullShape hull;
-    REQUIRE(
-        SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/pyramid.hull", hull ) );
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/pyramid.hull", hull ) );
     const CollisionShape shapes[] = {
         SphereShape( 1.0f ),
         BoxShape( Vector3( 1.0f, 1.0f, 1.0f ) ),

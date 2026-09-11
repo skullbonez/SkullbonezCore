@@ -57,6 +57,8 @@ enum class SkarnessCommandType : uint8_t
     WindowResize,
     UiAnimationClock,
     PhysicsSpeculativeValidation,
+    EditorSetTerrainBrush,
+    SceneSave,
     SceneLoad,
     SceneReset,
     SceneLoadDemo,
@@ -241,9 +243,14 @@ struct SkarnessCapability
 // This catalog is the one discoverable protocol inventory. Player controls,
 // parsers, and mechanical coverage tests join on these stable command names.
 inline constexpr std::array SKARNESS_CAPABILITIES = {
-    SkarnessCapability { "input.file_dialog_response", "Automation",
-                         "{purpose:comparison.open|comparison.save|replay.load,accepted:bool,path?:string}",
-                         SkarnessCapabilityAvailability::AutomatedInputOnly },
+    SkarnessCapability { "editor.set_terrain_brush", "Editor", "{enabled:bool}" },
+    SkarnessCapability { "scene.save", "Scene", "{}" },
+    SkarnessCapability {
+        "input.file_dialog_response",
+        "Automation",
+        "{purpose:comparison.open|comparison.save|replay.load|terrain.import,accepted:bool,path?:string}",
+        SkarnessCapabilityAvailability::AutomatedInputOnly
+    },
     SkarnessCapability { "comparison.load", "Planning", "{path:string}" },
     SkarnessCapability { "comparison.close", "Planning", "{}" },
     SkarnessCapability { "comparison.seek", "Planning", "{tick:int}" },
@@ -269,13 +276,11 @@ inline constexpr std::array SKARNESS_CAPABILITIES = {
     SkarnessCapability { "scene.load_demo", "Scene", "{}" },
     SkarnessCapability { "scene.object.list", "Scene", "{}" },
     SkarnessCapability { "scene.object.resolve", "Scene", "{name:string}|{sceneObjectId:uint64}" },
-    SkarnessCapability { "scene.object.select", "Interaction",
-                         "{scope:inspect|editor,name:string}|{scope:inspect|editor,sceneObjectId:uint64}" },
+    SkarnessCapability { "scene.object.select", "Interaction", "{scope:inspect|editor,name:string}|{scope:inspect|editor,sceneObjectId:uint64}" },
     SkarnessCapability { "scene.object.clear_selection", "Interaction", "{scope:inspect|editor}" },
     SkarnessCapability { "run.pause", "Automation", "{}" },
     SkarnessCapability { "input.set_prediction_key", "Input", "{down:bool}" },
-    SkarnessCapability { "input.set_key", "Input", "{key:int[8..255],down:bool}",
-                         SkarnessCapabilityAvailability::AutomatedInputOnly },
+    SkarnessCapability { "input.set_key", "Input", "{key:int[8..255],down:bool}", SkarnessCapabilityAvailability::AutomatedInputOnly },
     SkarnessCapability { "input.set_focus", "Input", "{focused:bool}", SkarnessCapabilityAvailability::AutomatedInputOnly },
     SkarnessCapability { "run.resume", "Automation", "{}" },
     SkarnessCapability { "run.step", "Automation", "{count:int[1..100000]}" },
@@ -301,8 +306,7 @@ inline constexpr std::array SKARNESS_CAPABILITIES = {
     SkarnessCapability { "replay.set_guide_arcs_enabled", "Planning", "{enabled:bool}" },
     SkarnessCapability { "replay.set_path_color_mode", "Replay", "{mode:lane|velocity|time|object|causal}" },
     SkarnessCapability { "replay.set_intercept_target", "Planning", "{name:string}|{sceneObjectId:uint64}" },
-    SkarnessCapability { "replay.velocity_preview", "Replay",
-                         "{linear:[number,number,number],angular:[number,number,number]}" },
+    SkarnessCapability { "replay.velocity_preview", "Replay", "{linear:[number,number,number],angular:[number,number,number]}" },
     SkarnessCapability { "replay.velocity_commit", "Replay", "{}" },
     SkarnessCapability { "replay.velocity_cancel", "Replay", "{}" },
     SkarnessCapability { "prediction.reveal_reset", "Prediction", "{}" },
@@ -312,9 +316,12 @@ inline constexpr std::array SKARNESS_CAPABILITIES = {
     SkarnessCapability { "replay.load", "Replay", "{path:string}" },
     SkarnessCapability { "replay.return_to_live", "Replay", "{}" },
     SkarnessCapability { "replay.select_cause_row", "Replay", "{row:int}" },
-    SkarnessCapability { "replay.select_cause", "Planning",
-                         "{row:int,sceneObjectId:uint64,frame:uint64,generation:uint64,bankEpoch:uint64,topologyVersion:"
-                         "uint64,publicationVersion:uint64}" },
+    SkarnessCapability {
+        "replay.select_cause",
+        "Planning",
+        "{row:int,sceneObjectId:uint64,frame:uint64,generation:uint64,bankEpoch:uint64,topologyVersion:"
+        "uint64,publicationVersion:uint64}"
+    },
     SkarnessCapability { "replay.set_cause_inspector_open", "Planning", "{open:bool}" },
     SkarnessCapability { "replay.set_cause_filter_text", "Replay", "{text:string}" },
     SkarnessCapability { "replay.set_cause_filter", "Replay", "{filter:all|prediction|contacts}" },
@@ -335,20 +342,19 @@ inline constexpr std::array SKARNESS_CAPABILITIES = {
     SkarnessCapability { "replay.set_path_target", "Replay", "{name:string}|{sceneObjectId:uint64}" },
     SkarnessCapability { "camera.orbit_inspection", "Camera", "{yawRadians:number,pitchRadians:number,wheelDelta?:int}" },
     SkarnessCapability { "state.subscribe", "Automation", "{topics:[string],detail:summary|normal|full}" },
-    SkarnessCapability { "input.set_movement", "Input", "{w:bool,a:bool,s:bool,d:bool}",
-                         SkarnessCapabilityAvailability::AutomatedInputOnly },
-    SkarnessCapability { "input.set_arrows", "Input", "{left:bool,right:bool}",
-                         SkarnessCapabilityAvailability::AutomatedInputOnly },
+    SkarnessCapability { "input.set_movement", "Input", "{w:bool,a:bool,s:bool,d:bool}", SkarnessCapabilityAvailability::AutomatedInputOnly },
+    SkarnessCapability { "input.set_arrows", "Input", "{left:bool,right:bool}", SkarnessCapabilityAvailability::AutomatedInputOnly },
     SkarnessCapability { "ui.animation_clock", "UI", "{seconds:number,enabled:bool}" },
     SkarnessCapability { "physics.speculative_validation", "Physics", "{enabled:bool}; paused validation sessions only" },
-    SkarnessCapability { "input.pointer_position", "Input", "{x:int,y:int,enabled:bool}",
-                         SkarnessCapabilityAvailability::AutomatedInputOnly },
-    SkarnessCapability { "input.pointer_wheel", "Input", "{x:int,y:int,wheelDelta:int}",
-                         SkarnessCapabilityAvailability::AutomatedInputOnly },
-    SkarnessCapability { "input.pointer_drag", "Input",
-                         "{button:left|right|middle,x:int,y:int,deltaX:int,deltaY:int,moveClient?:bool,holdMilliseconds?:"
-                         "int}",
-                         SkarnessCapabilityAvailability::AutomatedInputOnly },
+    SkarnessCapability { "input.pointer_position", "Input", "{x:int,y:int,enabled:bool}", SkarnessCapabilityAvailability::AutomatedInputOnly },
+    SkarnessCapability { "input.pointer_wheel", "Input", "{x:int,y:int,wheelDelta:int}", SkarnessCapabilityAvailability::AutomatedInputOnly },
+    SkarnessCapability {
+        "input.pointer_drag",
+        "Input",
+        "{button:left|right|middle,x:int,y:int,deltaX:int,deltaY:int,moveClient?:bool,holdMilliseconds?:"
+        "int}",
+        SkarnessCapabilityAvailability::AutomatedInputOnly
+    },
 };
 
 struct SkarnessProceedPolicy
@@ -397,6 +403,14 @@ struct SkarnessFrameState
         bool editorPlacement = false;
         bool editorStaticObject = false;
         bool editorTerrainAlign = false;
+        bool editorTerrainBrush = false;
+        bool terrainBrushVisible = false;
+        float editorTerrainBrushRadius = 40.0f;
+        uint64_t terrainEditRevision = 0;
+        bool terrainFlat = false;
+        float terrainCenterHeight = 0.0f;
+        float terrainMinimumHeight = 0.0f;
+        float terrainMaximumHeight = 0.0f;
         int cameraMode = 0;
         uint32_t cameraModeEnabledMask = 0;
         std::array<float, 4> cameraPopupBounds = {};

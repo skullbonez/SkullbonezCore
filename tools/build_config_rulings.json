@@ -542,6 +542,10 @@
     "skullbonezsource/runtime/ui/gameui/uitoolstooltips.cpp": {
       "ExceptionHandling": "2c3f252b06d25b377bf5d0fa6e1b29c528eb21b7d2c7f21baf2e09823dcc1ec6",
       "PreprocessorDefinitions": "e124d81dfa59307f7586c93abc23dd5484f95d52c179d08d02f5b12ae2c8210a"
+    },
+    "skullbonezsource/world/terrainediting.cpp": {
+      "ExceptionHandling": "cb06ae4b32ff554bae70d3489107ef67b6af6d02f2142f46201ecab3ed3569c1",
+      "PreprocessorDefinitions": "ff9adba2117e696f37b3d1558543c0e0f49fada8ec3e0e3a89677357e8717258"
     }
   }
 }

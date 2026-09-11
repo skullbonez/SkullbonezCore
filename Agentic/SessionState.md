@@ -2,7 +2,37 @@
 
 Date: 2026-09-11
 Branch: `codex/unified-ui`
-Status: Four requested UI fixes committed in f8b3ef948. Modify Velocity divergence implemented and all required terminal checks passed; feature commit prepared. Existing formatter work remains user-owned. Portfolio 138/144 unchanged.
+Status: Four UI fixes committed in f8b3ef948; Modify Velocity divergence committed in 2bd78ef29. Terrain editor implemented and closure checks complete; terrain feature commit prepared. Existing formatter work remains user-owned. Portfolio 138/144 unchanged.
+
+## Terrain editor - 2026-09-11
+
+Tools > Editor now has a terrain brush: wheel changes radius, left hold raises,
+right hold lowers, and UI input cannot sculpt. New levels remain flat by default;
+the Scene dropdown can create a level from an existing .heightmap or legacy RAW.
+Saving writes a full-precision signed map beside the level only after sculpting.
+Unchanged saved/imported maps are reused. World owns the grid and persistence;
+App orders prediction cancellation, Physics rebinding/wake and fixed DX12 uploads.
+Scene loading reserves brush storage and DXR rebuild workspace.
+
+Validation: 1,032 active unit tests / 3,483,551 assertions pass; new terrain
+malformed-file and reuse tests pass. Compiler design checks pass across the
+changed sources, including both new translation units. Native brush, wheel,
+UI exclusion, save/reload, flat creation, import and cancel all pass, with zero
+allocation violations. Command catalog/shared routes pass after waiting for
+Modify Velocity's asynchronous stock/branch readiness. Physics matches the
+44,401-line golden exactly for workers 0, repeated 0, 1 and 4. One-minute graphics
+stress passes. Three consecutive DX12 runs report zero validation errors.
+
+Renderer gate limitations are established as pre-existing: reflection metadata
+matches byte-for-byte with the committed formatter style (the user's in-progress
+style changes produce only generated whitespace drift). All three render captures
+match the saved pre-change executable 2386e9e3 pixel-for-pixel in isolated layouts;
+the committed visual baselines predate that layout. No image or Physics baseline
+was refreshed. The Editor draw-command fingerprint was deliberately updated for
+the visible brush controls, with a corresponding label assertion.
+
+Evidence: `TestOutput/terrain-validation.json`, native session
+`TestOutput/skarness/terrain-validation-06`, and `docs/terrain-editor.md`.
 
 ## Four UI fixes - 2026-09-11
 

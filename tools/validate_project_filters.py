@@ -296,6 +296,7 @@ SCENE_PREFIXES = (
 )
 
 WORLD_PREFIXES = (
+    "TerrainEditing",
     "FluidSurfaceAdjustment",
     "SkyBox",
     "Terrain",
@@ -467,6 +468,7 @@ RUNTIME_PLANNING_PREFIXES = (
 )
 
 RUNTIME_APP_PREFIXES = (
+    "TerrainEditor",
     "RunComparison",
     "CameraFrameApplication",
     "InteractionAutomationApplication",

@@ -1240,11 +1240,12 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
         InGameUITab::Memory,
     };
     // Blue-gray mockup palette with selected-value clips that reserve combo arrows.
-    // Options adds themes; Profiler/Memory share table roles. Native evidence: ui-themes-final/live.
+    // Options adds themes; Profiler/Memory share table roles.
+    // Editor adds sculpt controls; native evidence: terrain-validation-06/editor-controls-view.png.
     constexpr uint64_t expected[] = {
         2132093253974716310ull,
         8999909969555097215ull,
-        16768119659391589123ull,
+        15598442833394761550ull,
         5029844691847507383ull,
         10394370338941968616ull,
         5478074610712965329ull,
@@ -1277,6 +1278,11 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
             // scrolling, as the physical-input test above verifies.
             CHECK( forecastButtonIndex == -1 );
             REQUIRE( FindDrawTextIndex( frame, "Solver Lab" ) >= 0 );
+        }
+
+        if ( tabs[surface] == InGameUITab::Editor )
+        {
+            REQUIRE( FindDrawTextIndex( frame, "Terrain brush" ) >= 0 );
         }
 
         if ( tabs[surface] == InGameUITab::Options )

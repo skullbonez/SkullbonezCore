@@ -159,16 +159,11 @@ inline constexpr std::size_t MAX_RETAINED_GEOMETRY_PRIORITY_RECORDS = 3000u;
 inline constexpr std::size_t MAX_RETAINED_GEOMETRY_ORDINARY_LINE_FLOATS = 262144u;
 inline constexpr std::size_t MAX_RETAINED_GEOMETRY_PRIORITY_LINE_FLOATS = 524288u;
 inline constexpr std::size_t MAX_RETAINED_GEOMETRY_RANGES = 4096u;
-inline constexpr std::size_t RETAINED_GEOMETRY_ORDINARY_FLOATS = MAX_RETAINED_GEOMETRY_ORDINARY_RECORDS *
-                                                                 INSTANCED_RIBBON_FLOATS_PER_RECORD;
-inline constexpr std::size_t RETAINED_GEOMETRY_PRIORITY_FLOATS = MAX_RETAINED_GEOMETRY_PRIORITY_RECORDS *
-                                                                 INSTANCED_RIBBON_FLOATS_PER_RECORD;
-inline constexpr std::size_t RETAINED_GEOMETRY_EXPANDED_FLOATS = RETAINED_GEOMETRY_ORDINARY_FLOATS +
-                                                                 RETAINED_GEOMETRY_PRIORITY_FLOATS +
-                                                                 MAX_RETAINED_GEOMETRY_ORDINARY_LINE_FLOATS +
+inline constexpr std::size_t RETAINED_GEOMETRY_ORDINARY_FLOATS = MAX_RETAINED_GEOMETRY_ORDINARY_RECORDS * INSTANCED_RIBBON_FLOATS_PER_RECORD;
+inline constexpr std::size_t RETAINED_GEOMETRY_PRIORITY_FLOATS = MAX_RETAINED_GEOMETRY_PRIORITY_RECORDS * INSTANCED_RIBBON_FLOATS_PER_RECORD;
+inline constexpr std::size_t RETAINED_GEOMETRY_EXPANDED_FLOATS = RETAINED_GEOMETRY_ORDINARY_FLOATS + RETAINED_GEOMETRY_PRIORITY_FLOATS + MAX_RETAINED_GEOMETRY_ORDINARY_LINE_FLOATS +
                                                                  MAX_RETAINED_GEOMETRY_PRIORITY_LINE_FLOATS;
-inline constexpr std::size_t RETAINED_GEOMETRY_COMPACT_FLOATS = RETAINED_GEOMETRY_ORDINARY_FLOATS +
-                                                                RETAINED_GEOMETRY_PRIORITY_FLOATS;
+inline constexpr std::size_t RETAINED_GEOMETRY_COMPACT_FLOATS = RETAINED_GEOMETRY_ORDINARY_FLOATS + RETAINED_GEOMETRY_PRIORITY_FLOATS;
 
 struct RetainedGeometryBufferDX12
 {
@@ -200,8 +195,7 @@ struct InstancedMeshDX12
 // Hazard: draw counts are caller values, while both vertex-buffer views expose
 // finite uploaded byte ranges. Validate by division so hostile counts cannot
 // overflow a bytes-needed multiplication.
-inline bool Dx12InstancedDrawFitsUploadedData( UINT staticBytes, int staticStride, UINT instanceBytes, int instanceStride,
-                                               int requestedStaticVertices, int requestedInstances ) noexcept
+inline bool Dx12InstancedDrawFitsUploadedData( UINT staticBytes, int staticStride, UINT instanceBytes, int instanceStride, int requestedStaticVertices, int requestedInstances ) noexcept
 {
     if ( staticStride <= 0 || instanceStride <= 0 || requestedStaticVertices <= 0 || requestedInstances <= 0 )
     {
@@ -336,9 +330,14 @@ class Dx12TextureCommands
     {
         m_frame.ResourceRelease().RetireStaticDescriptor( descriptorIndex );
     }
-    bool Transition( const char* passName, const char* resourceName, ID3D12Resource* resource,
-                     RenderGraphResourceAccess before, RenderGraphResourceAccess after,
-                     UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES );
+    bool Transition(
+        const char* passName,
+        const char* resourceName,
+        ID3D12Resource* resource,
+        RenderGraphResourceAccess before,
+        RenderGraphResourceAccess after,
+        UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES
+    );
     bool UavBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource );
 
   private:
@@ -355,8 +354,7 @@ class Dx12TextureCommands
 class Dx12TextureOwner
 {
   public:
-    explicit Dx12TextureOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
-        : m_resultDiagnostics( resultDiagnostics )
+    explicit Dx12TextureOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) : m_resultDiagnostics( resultDiagnostics )
     {
     }
 
@@ -365,13 +363,20 @@ class Dx12TextureOwner
     SkullbonezCore::Core::SbResult PrepareGenerateMipsShaderReload( ID3D12Device* device, ID3D12PipelineState*& candidate );
     void AdoptGenerateMipsShaderReload( ID3D12PipelineState* candidate );
     void Shutdown();
-    uint32_t CreateTexture2D( Dx12TextureCommands& commands, const uint8_t* pixels, int width, int height, int channels,
-                              TextureMipPolicy mipPolicy, TextureFilterPolicy filterPolicy, bool& graphicsStateInvalidated );
+    uint32_t CreateTexture2D(
+        Dx12TextureCommands& commands,
+        const uint8_t* pixels,
+        int width,
+        int height,
+        int channels,
+        TextureMipPolicy mipPolicy,
+        TextureFilterPolicy filterPolicy,
+        bool& graphicsStateInvalidated
+    );
 
     // Lifetime: pixel bytes are consumed synchronously while the cold upload
     // command is recorded; the texture owner retains only the created resource.
-    uint32_t CreateTexture2D( const uint8_t* pixels, int width, int height, int channels, TextureMipPolicy mipPolicy,
-                              TextureFilterPolicy filterPolicy );
+    uint32_t CreateTexture2D( const uint8_t* pixels, int width, int height, int channels, TextureMipPolicy mipPolicy, TextureFilterPolicy filterPolicy );
     void BindTexture( uint32_t handle, int slot );
     void DeleteTexture( Dx12TextureCommands& commands, uint32_t handle );
     void DeleteTexture( uint32_t handle );
@@ -418,11 +423,15 @@ class Dx12TextureOwner
         {
             if ( !m_active || !m_device || !m_frame || !m_pipeline )
             {
-                SB_FATAL( "Dx12TextureOwner",
-                          "Texture operation requires an active resource epoch. operation=%s active=%d device=%d frame=%d "
-                          "pipeline=%d",
-                          operation ? operation : "unknown", m_active ? 1 : 0, m_device ? 1 : 0, m_frame ? 1 : 0,
-                          m_pipeline ? 1 : 0 );
+                SB_FATAL(
+                    "Dx12TextureOwner",
+                    "Texture operation requires an active resource epoch. operation=%s active=%d device=%d frame=%d " "pipeline=%d",
+                    operation ? operation : "unknown",
+                    m_active ? 1 : 0,
+                    m_device ? 1 : 0,
+                    m_frame ? 1 : 0,
+                    m_pipeline ? 1 : 0
+                );
             }
         }
         bool Active() const noexcept
@@ -455,8 +464,7 @@ class Dx12TextureOwner
     {
         return channels == 2 || channels == 3;
     }
-    static bool ExpandTextureUploadToRgba( std::span<const uint8_t> source, int channels,
-                                           std::span<uint8_t> destination ) noexcept
+    static bool ExpandTextureUploadToRgba( std::span<const uint8_t> source, int channels, std::span<uint8_t> destination ) noexcept
     {
         if ( ( channels != 2 && channels != 3 ) || source.size() % static_cast<size_t>( channels ) != 0 )
         {
@@ -496,8 +504,7 @@ class Dx12TextureOwner
 
         return true;
     }
-    bool GenerateMips( Dx12TextureCommands& commands, ID3D12Resource* texture, DXGI_FORMAT format, UINT width, UINT height,
-                       UINT mipCount, bool& graphicsStateInvalidated );
+    bool GenerateMips( Dx12TextureCommands& commands, ID3D12Resource* texture, DXGI_FORMAT format, UINT width, UINT height, UINT mipCount, bool& graphicsStateInvalidated );
 
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     Dx12TextureRegistry m_registry;
@@ -523,19 +530,31 @@ class Dx12TextureOwner
 class Dx12PipelineOwner
 {
   public:
-    explicit Dx12PipelineOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) noexcept
-        : m_resultDiagnostics( resultDiagnostics )
+    explicit Dx12PipelineOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) noexcept : m_resultDiagnostics( resultDiagnostics )
     {
     }
 
     SkullbonezCore::Core::SbResult Initialize( ID3D12Device* device );
     void Shutdown();
-    bool PrepareDraw( ID3D12Device* device, ID3D12GraphicsCommandList* commandList, Dx12CommandRecordingState& recording,
-                      Dx12TextureOwner& textures, VertexFormat12 format, bool instanced,
-                      const InstancedMeshDX12* instancedMesh, const DynamicVBDX12* dynamicVertexBuffer,
-                      const RasterStateDesc& rasterState );
-    bool PrecompileDraw( ID3D12Device* device, VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh,
-                         const DynamicVBDX12* dynamicVertexBuffer, const RasterStateDesc& declaredRasterState );
+    bool PrepareDraw(
+        ID3D12Device* device,
+        ID3D12GraphicsCommandList* commandList,
+        Dx12CommandRecordingState& recording,
+        Dx12TextureOwner& textures,
+        VertexFormat12 format,
+        bool instanced,
+        const InstancedMeshDX12* instancedMesh,
+        const DynamicVBDX12* dynamicVertexBuffer,
+        const RasterStateDesc& rasterState
+    );
+    bool PrecompileDraw(
+        ID3D12Device* device,
+        VertexFormat12 format,
+        bool instanced,
+        const InstancedMeshDX12* instancedMesh,
+        const DynamicVBDX12* dynamicVertexBuffer,
+        const RasterStateDesc& declaredRasterState
+    );
     void SetActiveShader( const ShaderDX12* shader );
     void ReleaseShaderPipelinesForReload();
     void RestoreShaderPipelinesAfterReload();
@@ -571,15 +590,21 @@ class Dx12PipelineOwner
     static void BuildInputLayout( VertexFormat12 format, D3D12_INPUT_ELEMENT_DESC* output, UINT& count );
     static void BuildInstancedInputLayout( const InstancedMeshDX12& mesh, D3D12_INPUT_ELEMENT_DESC* output, UINT& count );
     static void BuildDynamicVBInputLayout( const DynamicVBDX12& buffer, D3D12_INPUT_ELEMENT_DESC* output, UINT& count );
-    ID3D12PipelineState* CreatePSO( ID3D12Device* device, VertexFormat12 format, bool instanced,
-                                    const InstancedMeshDX12* instancedMesh, const DynamicVBDX12* dynamicVertexBuffer,
-                                    const RasterStateDesc& rasterState );
+    ID3D12PipelineState*
+    CreatePSO( ID3D12Device* device, VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh, const DynamicVBDX12* dynamicVertexBuffer, const RasterStateDesc& rasterState );
     PSOKey12 BuildPSOKey( VertexFormat12 format, bool instanced, const RasterStateDesc& rasterState ) const;
     static size_t BuildPSOHash( const PSOKey12& key, const DynamicVBDX12* dynamicVertexBuffer );
-    ID3D12PipelineState* FindOrCreatePSO( ID3D12Device* device, const PSOKey12& key, size_t psoHash, VertexFormat12 format,
-                                          bool instanced, const InstancedMeshDX12* instancedMesh,
-                                          const DynamicVBDX12* dynamicVertexBuffer, const RasterStateDesc& rasterState,
-                                          bool precompile );
+    ID3D12PipelineState* FindOrCreatePSO(
+        ID3D12Device* device,
+        const PSOKey12& key,
+        size_t psoHash,
+        VertexFormat12 format,
+        bool instanced,
+        const InstancedMeshDX12* instancedMesh,
+        const DynamicVBDX12* dynamicVertexBuffer,
+        const RasterStateDesc& rasterState,
+        bool precompile
+    );
     void ResetCommandState();
 
     static constexpr size_t CACHE_CAPACITY = 96;
@@ -625,11 +650,17 @@ class Dx12GeometryOwner
     Dx12GeometryOwner();
     void SetScissor( const D3D12_RECT& scissor );
     uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices );
-    void UploadAndDrawDynamicVB( uint32_t handle, std::span<const float> packedVertices, D3D12_GPU_VIRTUAL_ADDRESS address,
-                                 uint8_t* uploadPointer, ID3D12GraphicsCommandList* commandList, Dx12DrawGate& drawGate,
-                                 Dx12Diagnostics& diagnostics, const RasterStateDesc& rasterState );
-    bool PrecompileDynamicVBRasterState( uint32_t handle, Dx12DrawGate& drawGate,
-                                         const RasterStateDesc& declaredRasterState );
+    void UploadAndDrawDynamicVB(
+        uint32_t handle,
+        std::span<const float> packedVertices,
+        D3D12_GPU_VIRTUAL_ADDRESS address,
+        uint8_t* uploadPointer,
+        ID3D12GraphicsCommandList* commandList,
+        Dx12DrawGate& drawGate,
+        Dx12Diagnostics& diagnostics,
+        const RasterStateDesc& rasterState
+    );
+    bool PrecompileDynamicVBRasterState( uint32_t handle, Dx12DrawGate& drawGate, const RasterStateDesc& declaredRasterState );
     void DestroyDynamicVB( uint32_t handle );
     void AdoptGridLineShader( std::unique_ptr<ShaderDX12> shader );
     bool EnsureGridLinePipeline( ID3D12Device* device, Dx12PipelineOwner& pipeline, DXGI_FORMAT rtvFormat );
@@ -639,27 +670,38 @@ class Dx12GeometryOwner
     void InvalidateGridLinePipelinesForShaderReload();
     UINT GridLineConstantBytes() const;
     UINT TransientConstantBytes( TransientTriangleStyle style ) const;
-    void DrawLinesColored( std::span<const float> packedVertices, const Math::Transformation::Matrix4& viewProjection,
-                           D3D12_GPU_VIRTUAL_ADDRESS vertexAddress, uint8_t* uploadPointer,
-                           ID3D12GraphicsCommandList* commandList, Dx12PipelineOwner& pipeline, Dx12DrawGate& drawGate,
-                           Dx12Diagnostics& diagnostics, const RasterStateDesc& rasterState );
-    void DrawTransientColoredTriangles( std::span<const float> packedVertices,
-                                        const Math::Transformation::Matrix4& viewProjection, TransientTriangleStyle style,
-                                        int viewportWidth, int viewportHeight, D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
-                                        uint8_t* uploadPointer, ID3D12GraphicsCommandList* commandList,
-                                        Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics,
-                                        const RasterStateDesc& rasterState );
-    void BindResourceOwners( Dx12RenderDevice& device, Dx12FrameOwner& frame, Dx12PipelineOwner& pipeline,
-                             Dx12Diagnostics& diagnostics );
+    void DrawLinesColored(
+        std::span<const float> packedVertices,
+        const Math::Transformation::Matrix4& viewProjection,
+        D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
+        uint8_t* uploadPointer,
+        ID3D12GraphicsCommandList* commandList,
+        Dx12PipelineOwner& pipeline,
+        Dx12DrawGate& drawGate,
+        Dx12Diagnostics& diagnostics,
+        const RasterStateDesc& rasterState
+    );
+    void DrawTransientColoredTriangles(
+        std::span<const float> packedVertices,
+        const Math::Transformation::Matrix4& viewProjection,
+        TransientTriangleStyle style,
+        int viewportWidth,
+        int viewportHeight,
+        D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
+        uint8_t* uploadPointer,
+        ID3D12GraphicsCommandList* commandList,
+        Dx12DrawGate& drawGate,
+        Dx12Diagnostics& diagnostics,
+        const RasterStateDesc& rasterState
+    );
+    void BindResourceOwners( Dx12RenderDevice& device, Dx12FrameOwner& frame, Dx12PipelineOwner& pipeline, Dx12Diagnostics& diagnostics );
 
     // Lifetime: Runtime composition supplies this once during BackendInit,
     // before the geometry owner is published to frame code.
     bool ConfigureRetainedGeometryCapacity( RetainedGeometryCapacity capacity ) noexcept;
     static constexpr UINT64 RetainedGeometryBufferSizeBytes()
     {
-        return static_cast<UINT64>( ( RETAINED_GEOMETRY_EXPANDED_FLOATS + RETAINED_GEOMETRY_COMPACT_FLOATS ) *
-                                        sizeof( float ) +
-                                    MAX_RETAINED_GEOMETRY_RANGES * sizeof( D3D12_DRAW_ARGUMENTS ) );
+        return static_cast<UINT64>( ( RETAINED_GEOMETRY_EXPANDED_FLOATS + RETAINED_GEOMETRY_COMPACT_FLOATS ) * sizeof( float ) + MAX_RETAINED_GEOMETRY_RANGES * sizeof( D3D12_DRAW_ARGUMENTS ) );
     }
     static constexpr UINT64 RetainedGeometryCompactBufferSizeBytes()
     {
@@ -669,34 +711,47 @@ class Dx12GeometryOwner
 
     // Lifetime: vertex bytes and layout spans are consumed synchronously by
     // cold resource creation and are never retained by the geometry owner.
-    uint32_t CreateInstancedMesh( const float* staticVertices, int staticVertexCount, int staticFloatsPerVertex,
-                                  int instanceFloats, int instanceStartAttribute,
-                                  std::span<const int> instanceAttributeSizes, std::span<const int> staticAttributeSizes );
-    void UploadInstanceData( uint32_t handle, std::span<const float> packedInstances, D3D12_GPU_VIRTUAL_ADDRESS address,
-                             uint8_t* uploadPointer );
-    void DrawInstancedMesh( const InstancedMeshDrawDesc& draw, ID3D12GraphicsCommandList* commandList,
-                            Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics );
+    uint32_t CreateInstancedMesh(
+        const float* staticVertices,
+        int staticVertexCount,
+        int staticFloatsPerVertex,
+        int instanceFloats,
+        int instanceStartAttribute,
+        std::span<const int> instanceAttributeSizes,
+        std::span<const int> staticAttributeSizes
+    );
+    void UploadInstanceData( uint32_t handle, std::span<const float> packedInstances, D3D12_GPU_VIRTUAL_ADDRESS address, uint8_t* uploadPointer );
+    void DrawInstancedMesh( const InstancedMeshDrawDesc& draw, ID3D12GraphicsCommandList* commandList, Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics );
 
     // Hot submission entry points coordinate this owner's bounded geometry
     // with the stable frame/pipeline/diagnostics owners bound at startup.
     bool PrecompileDynamicVBRasterState( uint32_t handle, const PassRasterStateBucket& bucket );
-    void UploadAndDrawDynamicVB( uint32_t handle, std::span<const float> packedVertices,
-                                 const PassRasterStateBucket& bucket );
-    void DrawLinesColored( std::span<const float> packedVertices, const Math::Transformation::Matrix4& viewProjection,
-                           const PassRasterStateBucket& bucket );
-    void DrawTransientColoredTriangles( std::span<const float> packedVertices,
-                                        const Math::Transformation::Matrix4& viewProjection, TransientTriangleStyle style,
-                                        const PassRasterStateBucket& bucket );
-    void DrawRetainedGeometryRibbon( std::span<const float> packedVertices, RetainedGeometryStreamToken stream,
-                                     bool priorityLane, const Math::Transformation::Matrix4& viewProjection,
-                                     TransientTriangleStyle style, const PassRasterStateBucket& bucket );
-    void DrawRetainedGeometryRanges( std::span<const float> compactRecords,
-                                     std::span<const RetainedGeometryRangeToken> ranges, RetainedGeometryStreamToken stream,
-                                     const Math::Transformation::Matrix4& viewProjection, TransientTriangleStyle style,
-                                     const PassRasterStateBucket& bucket );
-    void DrawRetainedLinesColored( std::span<const float> packedVertices, RetainedGeometryStreamToken stream,
-                                   bool priorityLane, const Math::Transformation::Matrix4& viewProjection,
-                                   const PassRasterStateBucket& bucket );
+    void UploadAndDrawDynamicVB( uint32_t handle, std::span<const float> packedVertices, const PassRasterStateBucket& bucket );
+    void DrawLinesColored( std::span<const float> packedVertices, const Math::Transformation::Matrix4& viewProjection, const PassRasterStateBucket& bucket );
+    void DrawTransientColoredTriangles( std::span<const float> packedVertices, const Math::Transformation::Matrix4& viewProjection, TransientTriangleStyle style, const PassRasterStateBucket& bucket );
+    void DrawRetainedGeometryRibbon(
+        std::span<const float> packedVertices,
+        RetainedGeometryStreamToken stream,
+        bool priorityLane,
+        const Math::Transformation::Matrix4& viewProjection,
+        TransientTriangleStyle style,
+        const PassRasterStateBucket& bucket
+    );
+    void DrawRetainedGeometryRanges(
+        std::span<const float> compactRecords,
+        std::span<const RetainedGeometryRangeToken> ranges,
+        RetainedGeometryStreamToken stream,
+        const Math::Transformation::Matrix4& viewProjection,
+        TransientTriangleStyle style,
+        const PassRasterStateBucket& bucket
+    );
+    void DrawRetainedLinesColored(
+        std::span<const float> packedVertices,
+        RetainedGeometryStreamToken stream,
+        bool priorityLane,
+        const Math::Transformation::Matrix4& viewProjection,
+        const PassRasterStateBucket& bucket
+    );
     void UploadInstanceData( uint32_t handle, std::span<const float> packedInstances );
     void DrawInstancedMesh( const InstancedMeshDrawDesc& draw );
     void DestroyInstancedMesh( uint32_t handle );
@@ -724,9 +779,7 @@ class Dx12GeometryOwner
     };
 
     static bool AttributeLayoutFits( std::span<const int> attributeSizes, std::size_t capacity ) noexcept;
-    static bool TryBuildInstancedAttributeLayout( std::span<const int> instanceAttributeSizes,
-                                                  std::span<const int> staticAttributeSizes,
-                                                  InstancedAttributeLayout& outLayout ) noexcept;
+    static bool TryBuildInstancedAttributeLayout( std::span<const int> instanceAttributeSizes, std::span<const int> staticAttributeSizes, InstancedAttributeLayout& outLayout ) noexcept;
     DynamicVBDX12* ResolveDynamicVB( uint32_t handle ) noexcept;
     const DynamicVBDX12* ResolveDynamicVB( uint32_t handle ) const noexcept;
 
@@ -757,11 +810,16 @@ class Dx12GeometryOwner
         {
             if ( !m_active || !m_device || !m_frame || !m_pipeline || !m_diagnostics )
             {
-                SB_FATAL( "Dx12GeometryOwner",
-                          "Geometry operation requires an active submission epoch. operation=%s active=%d device=%d "
-                          "frame=%d pipeline=%d diagnostics=%d",
-                          operation ? operation : "unknown", m_active ? 1 : 0, m_device ? 1 : 0, m_frame ? 1 : 0,
-                          m_pipeline ? 1 : 0, m_diagnostics ? 1 : 0 );
+                SB_FATAL(
+                    "Dx12GeometryOwner",
+                    "Geometry operation requires an active submission epoch. operation=%s active=%d device=%d " "frame=%d pipeline=%d diagnostics=%d",
+                    operation ? operation : "unknown",
+                    m_active ? 1 : 0,
+                    m_device ? 1 : 0,
+                    m_frame ? 1 : 0,
+                    m_pipeline ? 1 : 0,
+                    m_diagnostics ? 1 : 0
+                );
             }
         }
         bool Active() const noexcept
@@ -778,32 +836,66 @@ class Dx12GeometryOwner
     };
     void BeginSubmissionEpoch();
     void RequireSubmissionEpoch( const char* operation ) const;
-    uint32_t CreateInstancedMesh( const float* staticVertices, int staticVertexCount, int staticFloatsPerVertex,
-                                  int instanceFloats, int instanceStartAttribute,
-                                  const InstancedAttributeLayout& attributeLayout, ID3D12Device* device,
-                                  ID3D12GraphicsCommandList* commandList, ID3D12Resource* uploadResource,
-                                  D3D12_GPU_VIRTUAL_ADDRESS uploadAddress, uint8_t* uploadPointer );
-    void DrawColoredTrianglesFromBuffer( std::size_t packedFloatCount, const Math::Transformation::Matrix4& viewProjection,
-                                         TransientTriangleStyle style, int viewportWidth, int viewportHeight,
-                                         D3D12_GPU_VIRTUAL_ADDRESS vertexAddress, const RasterStateDesc& rasterState,
-                                         ID3D12GraphicsCommandList* commandList, Dx12DrawGate& drawGate,
-                                         Dx12Diagnostics& diagnostics );
-    void DrawCompactRibbonsFromBuffer( std::size_t packedFloatCount, const Math::Transformation::Matrix4& viewProjection,
-                                       TransientTriangleStyle style, int viewportWidth, int viewportHeight,
-                                       UINT startInstance, D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
-                                       const RasterStateDesc& rasterState, ID3D12GraphicsCommandList* commandList,
-                                       Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics );
-    bool PrepareColoredTriangleShader( const Math::Transformation::Matrix4& viewProjection, TransientTriangleStyle style,
-                                       int viewportWidth, int viewportHeight );
-    void SubmitColoredTriangleBuffer( std::size_t packedFloatCount, TransientTriangleStyle style,
-                                      bool compactRibbonInstances, UINT startInstance,
-                                      D3D12_GPU_VIRTUAL_ADDRESS vertexAddress, const RasterStateDesc& rasterState,
-                                      ID3D12GraphicsCommandList* commandList, Dx12DrawGate& drawGate,
-                                      Dx12Diagnostics& diagnostics );
-    void DrawLinesColoredFromBuffer( std::size_t packedFloatCount, const Math::Transformation::Matrix4& viewProjection,
-                                     D3D12_GPU_VIRTUAL_ADDRESS vertexAddress, ID3D12GraphicsCommandList* commandList,
-                                     Dx12PipelineOwner& pipeline, Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics,
-                                     const RasterStateDesc& rasterState );
+    uint32_t CreateInstancedMesh(
+        const float* staticVertices,
+        int staticVertexCount,
+        int staticFloatsPerVertex,
+        int instanceFloats,
+        int instanceStartAttribute,
+        const InstancedAttributeLayout& attributeLayout,
+        ID3D12Device* device,
+        ID3D12GraphicsCommandList* commandList,
+        ID3D12Resource* uploadResource,
+        D3D12_GPU_VIRTUAL_ADDRESS uploadAddress,
+        uint8_t* uploadPointer
+    );
+    void DrawColoredTrianglesFromBuffer(
+        std::size_t packedFloatCount,
+        const Math::Transformation::Matrix4& viewProjection,
+        TransientTriangleStyle style,
+        int viewportWidth,
+        int viewportHeight,
+        D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
+        const RasterStateDesc& rasterState,
+        ID3D12GraphicsCommandList* commandList,
+        Dx12DrawGate& drawGate,
+        Dx12Diagnostics& diagnostics
+    );
+    void DrawCompactRibbonsFromBuffer(
+        std::size_t packedFloatCount,
+        const Math::Transformation::Matrix4& viewProjection,
+        TransientTriangleStyle style,
+        int viewportWidth,
+        int viewportHeight,
+        UINT startInstance,
+        D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
+        const RasterStateDesc& rasterState,
+        ID3D12GraphicsCommandList* commandList,
+        Dx12DrawGate& drawGate,
+        Dx12Diagnostics& diagnostics
+    );
+    bool PrepareColoredTriangleShader( const Math::Transformation::Matrix4& viewProjection, TransientTriangleStyle style, int viewportWidth, int viewportHeight );
+    void SubmitColoredTriangleBuffer(
+        std::size_t packedFloatCount,
+        TransientTriangleStyle style,
+        bool compactRibbonInstances,
+        UINT startInstance,
+        D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
+        const RasterStateDesc& rasterState,
+        ID3D12GraphicsCommandList* commandList,
+        Dx12DrawGate& drawGate,
+        Dx12Diagnostics& diagnostics
+    );
+    void DrawLinesColoredFromBuffer(
+        std::size_t packedFloatCount,
+        const Math::Transformation::Matrix4& viewProjection,
+        D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
+        ID3D12GraphicsCommandList* commandList,
+        Dx12PipelineOwner& pipeline,
+        Dx12DrawGate& drawGate,
+        Dx12Diagnostics& diagnostics,
+        const RasterStateDesc& rasterState
+    );
     static constexpr size_t MAX_DYNAMIC_VERTEX_BUFFERS = 32;
     static constexpr size_t MAX_GRID_LINE_PSOS = 4;
     static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;
@@ -853,8 +945,7 @@ struct Dx12RaytracingMaterialTextureTable
     std::array<UINT, DX12_RAYTRACING_MATERIAL_TEXTURE_COUNT> srvIndices = {};
 };
 
-inline bool TryBuildDx12RaytracingMaterialTextureTable( std::span<const UINT> resolvedSrvIndices,
-                                                        Dx12RaytracingMaterialTextureTable& outTable ) noexcept
+inline bool TryBuildDx12RaytracingMaterialTextureTable( std::span<const UINT> resolvedSrvIndices, Dx12RaytracingMaterialTextureTable& outTable ) noexcept
 {
     outTable = {};
 
@@ -934,11 +1025,18 @@ class Dx12FeatureEpochResult
 class Dx12RaytracingOwner
 {
   public:
-    Dx12RaytracingOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Dx12RenderDevice& device,
-                         Dx12DescriptorHeaps& descriptors, Dx12FrameOwner& frame, Dx12TextureOwner& textures,
-                         Dx12PipelineOwner& pipeline, Dx12GeometryOwner& geometry );
+    Dx12RaytracingOwner(
+        SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+        Dx12RenderDevice& device,
+        Dx12DescriptorHeaps& descriptors,
+        Dx12FrameOwner& frame,
+        Dx12TextureOwner& textures,
+        Dx12PipelineOwner& pipeline,
+        Dx12GeometryOwner& geometry
+    );
 
     SkullbonezCore::Core::SbResult InitDXR( const RaytracingSetupDesc& setup );
+    bool RefreshTerrainGeometry();
     void DispatchReflectionRays( const WaterReflectionRayDesc& reflection );
     void BuildTLAS( std::span<const Math::Transformation::Matrix4> instanceTransforms );
     uint32_t GetReflectionUAVTexture() const;
@@ -950,15 +1048,12 @@ class Dx12RaytracingOwner
     bool Supported() const;
     bool Initialized() const;
 
-    Dx12RaytracingSetupOutcome BeginSetup( ID3D12Device* device, ID3D12GraphicsCommandList* commandList,
-                                           Dx12DescriptorHeaps& descriptors, int renderWidth, int renderHeight,
-                                           const RaytracingSetupDesc& setup );
+    Dx12RaytracingSetupOutcome
+    BeginSetup( ID3D12Device* device, ID3D12GraphicsCommandList* commandList, Dx12DescriptorHeaps& descriptors, int renderWidth, int renderHeight, const RaytracingSetupDesc& setup );
     SkullbonezCore::Core::SbResult CompleteSetup( ID3D12Device* device, int maxInstances );
     void AbortSetup( const SkullbonezCore::Core::SbResult& failure );
     SkullbonezCore::Core::SbResult BuildScene( std::span<const Math::Transformation::Matrix4> instanceTransforms );
-    Dx12RaytracingDispatchOutcome DispatchReflections( ID3D12Device* device, Dx12DescriptorHeaps& descriptors,
-                                                       const Dx12TextureOwner& textures,
-                                                       const WaterReflectionRayDesc& reflection );
+    Dx12RaytracingDispatchOutcome DispatchReflections( ID3D12Device* device, Dx12DescriptorHeaps& descriptors, const Dx12TextureOwner& textures, const WaterReflectionRayDesc& reflection );
     UINT ReflectionSrvIndex() const;
     ID3D12Resource* ReflectionResource() const;
     uint32_t ReflectionTextureHandle() const;
@@ -969,8 +1064,7 @@ class Dx12RaytracingOwner
   private:
     SkullbonezCore::Core::SbResult CreateRootSignature( ID3D12Device* device );
     SkullbonezCore::Core::SbResult CreatePipeline();
-    SkullbonezCore::Core::SbResult CreateReflectionTexture( ID3D12Device* device, Dx12DescriptorHeaps& descriptors,
-                                                            int width, int height );
+    SkullbonezCore::Core::SbResult CreateReflectionTexture( ID3D12Device* device, Dx12DescriptorHeaps& descriptors, int width, int height );
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     Dx12RenderDevice& m_device;
     Dx12DescriptorHeaps& m_descriptors;
@@ -1072,8 +1166,7 @@ class RenderBackendDX12
 
     // Lifetime: retainedGeometryShaderBaseName is consumed during cold shader
     // creation and is not stored by the backend.
-    SkullbonezCore::Core::SbResult Init( HWND hwnd, HDC hdc, int width, int height, UINT frameCount,
-                                         const char* retainedGeometryShaderBaseName );
+    SkullbonezCore::Core::SbResult Init( HWND hwnd, HDC hdc, int width, int height, UINT frameCount, const char* retainedGeometryShaderBaseName );
     void Shutdown();
     Dx12ShaderDevelopment& ShaderDevelopment() noexcept
     {

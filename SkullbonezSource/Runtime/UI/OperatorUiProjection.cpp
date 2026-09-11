@@ -67,23 +67,17 @@ SkullbonezCore::UI::OperatorEditorForecastCause MapForecastCause( OperatorUiFore
 
 } // namespace
 
-void ProjectOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRenderingView& view,
-                                         const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
-                                         const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
+void ProjectOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRenderingView& view, const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary, const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     using SkullbonezCore::UI::UICinematicFeature;
     using SkullbonezCore::UI::UICinematicParam;
     using SkullbonezCore::UI::UIRenderParam;
 
-    static_assert( static_cast<int>( UIRenderParam::Count ) ==
-                   SkullbonezCore::UI::OperatorEditorRenderingView::ordinaryParameterCount );
-    static_assert( static_cast<int>( UICinematicParam::Count ) ==
-                   SkullbonezCore::UI::OperatorEditorRenderingView::cinematicParameterCount );
-    static_assert( static_cast<int>( UICinematicFeature::Count ) ==
-                   SkullbonezCore::UI::OperatorEditorRenderingView::cinematicFeatureCount );
+    static_assert( static_cast<int>( UIRenderParam::Count ) == SkullbonezCore::UI::OperatorEditorRenderingView::ordinaryParameterCount );
+    static_assert( static_cast<int>( UICinematicParam::Count ) == SkullbonezCore::UI::OperatorEditorRenderingView::cinematicParameterCount );
+    static_assert( static_cast<int>( UICinematicFeature::Count ) == SkullbonezCore::UI::OperatorEditorRenderingView::cinematicFeatureCount );
 
-    const auto ordinaryValue = [&]( UIRenderParam parameter, float value )
-    { view.ordinaryParameters[static_cast<int>( parameter )] = value; };
+    const auto ordinaryValue = [&]( UIRenderParam parameter, float value ) { view.ordinaryParameters[static_cast<int>( parameter )] = value; };
 
     ordinaryValue( UIRenderParam::SunIntensity, ordinary.sunIntensity );
     ordinaryValue( UIRenderParam::SunRed, ordinary.sunColorR );
@@ -124,8 +118,7 @@ void ProjectOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRende
     ordinaryValue( UIRenderParam::TrajectoryMarkerEdgeFeather, ordinary.replayTrajectory.markerEdgeFeather );
     ordinaryValue( UIRenderParam::TrajectorySelectedEmphasis, ordinary.replayTrajectory.selectedEmphasis );
 
-    const auto cinematicValue = [&]( UICinematicParam parameter, float value )
-    { view.cinematicParameters[static_cast<int>( parameter )] = value; };
+    const auto cinematicValue = [&]( UICinematicParam parameter, float value ) { view.cinematicParameters[static_cast<int>( parameter )] = value; };
 
     cinematicValue( UICinematicParam::Exposure, cinematic.exposure );
     cinematicValue( UICinematicParam::Gamma, cinematic.gamma );
@@ -203,15 +196,17 @@ void ProjectOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRende
 }
 void ProjectOperatorEditorScene( UI::OperatorEditorFrameView& view, const OperatorUiSceneFacts& facts )
 {
-    view.scene = { facts.currentScenePath ? facts.currentScenePath : "",
-                   facts.sceneOptions,
-                   facts.currentSceneBrowserIndex,
-                   facts.sceneOptionCount,
-                   facts.runtime.frame,
-                   facts.entityCount,
-                   facts.runtime.timeScale,
-                   facts.currentScenePath && facts.currentScenePath[0] != '\0',
-                   false };
+    view.scene = {
+        facts.currentScenePath ? facts.currentScenePath : "",
+        facts.sceneOptions,
+        facts.currentSceneBrowserIndex,
+        facts.sceneOptionCount,
+        facts.runtime.frame,
+        facts.entityCount,
+        facts.runtime.timeScale,
+        facts.currentScenePath && facts.currentScenePath[0] != '\0',
+        false
+    };
     view.property = { facts.worldGravity, facts.worldFluidHeight, facts.worldFluidDensity };
 }
 
@@ -281,12 +276,18 @@ void ProjectOperatorEditorLookLab( UI::OperatorEditorFrameView& view, const UI::
     view.lookLab = lookLab;
 }
 
-void ProjectOperatorEditorReplay( UI::OperatorEditorFrameView& view, int memoryPreset, int requestedRetentionSeconds,
-                                  int requestedBudgetMiB, int presentationRetentionSeconds, int solverRetentionSeconds,
-                                  bool memoryBudgetClamped, bool solverWindowReduced )
+void ProjectOperatorEditorReplay(
+    UI::OperatorEditorFrameView& view,
+    int memoryPreset,
+    int requestedRetentionSeconds,
+    int requestedBudgetMiB,
+    int presentationRetentionSeconds,
+    int solverRetentionSeconds,
+    bool memoryBudgetClamped,
+    bool solverWindowReduced
+)
 {
-    view.replay = { memoryPreset,           requestedRetentionSeconds, requestedBudgetMiB, presentationRetentionSeconds,
-                    solverRetentionSeconds, memoryBudgetClamped,       solverWindowReduced };
+    view.replay = { memoryPreset, requestedRetentionSeconds, requestedBudgetMiB, presentationRetentionSeconds, solverRetentionSeconds, memoryBudgetClamped, solverWindowReduced };
 }
 
 void ProjectOperatorEditorSurfaces( UI::OperatorEditorFrameView& view, bool primaryVisible, bool secondaryVisible )
@@ -331,26 +332,22 @@ void ProjectOperatorUiDrawTrace( UI::InGameUIFrameData& uiData, const Rendering:
 }
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-void ProjectOperatorUiProfilerFrame( UI::InGameUIFrameData& uiData, std::span<const OperatorUiProfilerMarkerFacts> markers,
-                                     std::span<const OperatorUiWorkerCoreFacts> workerSamples )
+void ProjectOperatorUiProfilerFrame( UI::InGameUIFrameData& uiData, std::span<const OperatorUiProfilerMarkerFacts> markers, std::span<const OperatorUiWorkerCoreFacts> workerSamples )
 {
-    static_assert( SkullbonezCore::UI::ProfilerTab::MAX_MARKERS == SkullbonezCore::Core::Profiler::MAX_MARKERS,
-                   "UI profiler snapshot capacity must match SkullbonezCore::Core::Profiler markers" );
+    static_assert( SkullbonezCore::UI::ProfilerTab::MAX_MARKERS == SkullbonezCore::Core::Profiler::MAX_MARKERS, "UI profiler snapshot capacity must match SkullbonezCore::Core::Profiler markers" );
 
-    static_assert( SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES ==
-                       SkullbonezCore::Core::Profiler::MAX_WORKER_CORES,
-                   "UI worker sample snapshot capacity must match SkullbonezCore::Core::Profiler samples" );
+    static_assert(
+        SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES == SkullbonezCore::Core::Profiler::MAX_WORKER_CORES,
+        "UI worker sample snapshot capacity must match SkullbonezCore::Core::Profiler samples"
+    );
 
     SkullbonezCore::UI::ProfilerTab::FrameSnapshot& profilerFrame = uiData.diagnostics.profiler;
-    profilerFrame.markerCount = (std::min)( static_cast<int>( markers.size() ),
-                                            SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
+    profilerFrame.markerCount = (std::min)( static_cast<int>( markers.size() ), SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
 
     for ( int markerIndex = 0; markerIndex < profilerFrame.markerCount; ++markerIndex )
     {
         const OperatorUiProfilerMarkerFacts& source = markers[static_cast<std::size_t>( markerIndex )];
-        const int paletteIndex = source.colorIndex >= 0
-                                     ? source.colorIndex % SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE
-                                     : 0;
+        const int paletteIndex = source.colorIndex >= 0 ? source.colorIndex % SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE : 0;
 
         const SkullbonezCore::Core::Profiler::BarColor& color = SkullbonezCore::Core::Profiler::BAR_PALETTE[paletteIndex];
 
@@ -373,8 +370,7 @@ void ProjectOperatorUiProfilerFrame( UI::InGameUIFrameData& uiData, std::span<co
         target.colorB = color.b;
     }
 
-    profilerFrame.workerCoreSampleCount = (std::min)( static_cast<int>( workerSamples.size() ),
-                                                      SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES );
+    profilerFrame.workerCoreSampleCount = (std::min)( static_cast<int>( workerSamples.size() ), SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES );
 
     for ( int sampleIndex = 0; sampleIndex < profilerFrame.workerCoreSampleCount; ++sampleIndex )
     {
@@ -394,32 +390,21 @@ void ProjectOperatorUiProfilerFrame( UI::InGameUIFrameData& uiData, std::span<co
 #endif
 } // namespace
 
-void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const OperatorUiDiagnosticsFacts& facts,
-                                   UI::UIRuntimeReserveCapacityRow* reserveCapacityRows )
+void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const OperatorUiDiagnosticsFacts& facts, UI::UIRuntimeReserveCapacityRow* reserveCapacityRows )
 {
     UIData.surface.UIDrawCalls = facts.metrics.uiDrawCalls;
     UIData.surface.visibility = ProjectRenderVisibilityDiagnostics( facts.visibility );
-    UIData.surface.fps = facts.metrics.rollingFrameSeconds > 0.0f
-                             ? 1.0f / facts.metrics.rollingFrameSeconds
-                             : ( facts.metrics.secondsPerFrame > 0.0
-                                     ? 1.0f / static_cast<float>( facts.metrics.secondsPerFrame )
-                                     : 0.0f );
-    UIData.surface.renderMs = ( facts.metrics.rollingRenderSeconds > 0.0f ? facts.metrics.rollingRenderSeconds
-                                                                          : facts.metrics.renderSeconds ) *
-                              1000.0f;
-    UIData.surface.physicsMs = ( facts.metrics.rollingPhysicsSeconds > 0.0f ? facts.metrics.rollingPhysicsSeconds
-                                                                            : facts.metrics.physicsSeconds ) *
-                               1000.0f;
+    UIData.surface.fps = facts.metrics.rollingFrameSeconds > 0.0f ? 1.0f / facts.metrics.rollingFrameSeconds
+                                                                  : ( facts.metrics.secondsPerFrame > 0.0 ? 1.0f / static_cast<float>( facts.metrics.secondsPerFrame ) : 0.0f );
+    UIData.surface.renderMs = ( facts.metrics.rollingRenderSeconds > 0.0f ? facts.metrics.rollingRenderSeconds : facts.metrics.renderSeconds ) * 1000.0f;
+    UIData.surface.physicsMs = ( facts.metrics.rollingPhysicsSeconds > 0.0f ? facts.metrics.rollingPhysicsSeconds : facts.metrics.physicsSeconds ) * 1000.0f;
     UIData.surface.cpuFrameMs = facts.metrics.cpuFrameWorkMs;
     UIData.surface.gpuFrameMs = facts.metrics.gpuFrameWorkMs;
     ProjectOperatorUiDrawTrace( UIData, facts.drawTrace );
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     const int markerCount = (std::clamp)( facts.markerCount, 0, static_cast<int>( facts.markers.size() ) );
     const int workerSampleCount = (std::clamp)( facts.workerSampleCount, 0, static_cast<int>( facts.workerSamples.size() ) );
-    ProjectOperatorUiProfilerFrame( UIData,
-                                    std::span<const OperatorUiProfilerMarkerFacts>( facts.markers.data(), markerCount ),
-                                    std::span<const OperatorUiWorkerCoreFacts>( facts.workerSamples.data(),
-                                                                                workerSampleCount ) );
+    ProjectOperatorUiProfilerFrame( UIData, std::span<const OperatorUiProfilerMarkerFacts>( facts.markers.data(), markerCount ), std::span<const OperatorUiWorkerCoreFacts>( facts.workerSamples.data(), workerSampleCount ) );
 #endif
     {
         // Concept: marker enumeration stays in the runtime pass that owns
@@ -444,14 +429,12 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const Operator
         // append only normalizes nullable names and non-negative timings.
         auto addMarkerOption = [&]( const SkullbonezCore::UI::UIProfilerMarkerOption& input )
         {
-            if ( UIData.diagnostics.profilerMarkerOptionCount >= SkullbonezCore::UI::UI_PROFILER_MARKER_OPTION_MAX ||
-                 markerOptionExists( input.hash, input.isFrameTotal ) )
+            if ( UIData.diagnostics.profilerMarkerOptionCount >= SkullbonezCore::UI::UI_PROFILER_MARKER_OPTION_MAX || markerOptionExists( input.hash, input.isFrameTotal ) )
             {
                 return;
             }
 
-            SkullbonezCore::UI::UIProfilerMarkerOption&
-                option = UIData.diagnostics.profilerMarkerOptions[UIData.diagnostics.profilerMarkerOptionCount++];
+            SkullbonezCore::UI::UIProfilerMarkerOption& option = UIData.diagnostics.profilerMarkerOptions[UIData.diagnostics.profilerMarkerOptionCount++];
 
             option = input;
             option.name = input.name ? input.name : "";
@@ -481,51 +464,51 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const Operator
         }
 #endif
         const SkullbonezCore::UI::Style::UIColor& mainColor = SkullbonezCore::UI::Style::Palette().accent;
-        addMarkerOption(
-            SkullbonezCore::UI::UIProfilerMarkerOption { .name = "Frame Total",
-                                                         .leafName = "Frame Total",
-                                                         .hash = SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
-                                                         .cpuMs = UIData.surface.cpuFrameMs,
-                                                         .cpuAverageMs = frameAverageMs,
-                                                         .gpuMs = UIData.surface.gpuFrameMs,
-                                                         .colorR = mainColor.r,
-                                                         .colorG = mainColor.g,
-                                                         .colorB = mainColor.b,
-                                                         .hasGpu = true,
-                                                         .sampleValid = true,
-                                                         .isFrameTotal = true } );
+        addMarkerOption( SkullbonezCore::UI::UIProfilerMarkerOption {
+                .name = "Frame Total",
+                .leafName = "Frame Total",
+                .hash = SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
+                .cpuMs = UIData.surface.cpuFrameMs,
+                .cpuAverageMs = frameAverageMs,
+                .gpuMs = UIData.surface.gpuFrameMs,
+                .colorR = mainColor.r,
+                .colorG = mainColor.g,
+                .colorB = mainColor.b,
+                .hasGpu = true,
+                .sampleValid = true,
+                .isFrameTotal = true
+            } );
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
         auto addProfilerMarker = [&]( const OperatorUiProfilerMarkerFacts& marker )
         {
-            const SkullbonezCore::Core::Profiler::BarColor&
-                color = SkullbonezCore::Core::Profiler::BAR_PALETTE[marker.colorIndex %
-                                                                    SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE];
+            const SkullbonezCore::Core::Profiler::BarColor& color = SkullbonezCore::Core::Profiler::BAR_PALETTE[marker.colorIndex % SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE];
 
-            addMarkerOption(
-                SkullbonezCore::UI::UIProfilerMarkerOption { .name = marker.name,
-                                                             .leafName = marker.leafName,
-                                                             .hash = marker.hash,
-                                                             .cpuMs = marker.lastFrameMs,
-                                                             .cpuAverageMs = marker.avgMs > 0.0f ? marker.avgMs
-                                                                                                 : marker.lastFrameMs,
-                                                             .workerMs = marker.lastFrameWorkerMs,
-                                                             .workerAverageMs = marker.workerAvgMs > 0.0f
-                                                                                    ? marker.workerAvgMs
-                                                                                    : marker.lastFrameWorkerMs,
-                                                             .gpuMs = marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
-                                                             .colorR = color.r,
-                                                             .colorG = color.g,
-                                                             .colorB = color.b,
-                                                             .hasGpu = marker.hasGpu,
-                                                             .sampleValid = true,
-                                                             .isFrameTotal = false } );
+            addMarkerOption( SkullbonezCore::UI::UIProfilerMarkerOption {
+                    .name = marker.name,
+                    .leafName = marker.leafName,
+                    .hash = marker.hash,
+                    .cpuMs = marker.lastFrameMs,
+                    .cpuAverageMs = marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs,
+                    .workerMs = marker.lastFrameWorkerMs,
+                    .workerAverageMs = marker.workerAvgMs > 0.0f ? marker.workerAvgMs : marker.lastFrameWorkerMs,
+                    .gpuMs = marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
+                    .colorR = color.r,
+                    .colorG = color.g,
+                    .colorB = color.b,
+                    .hasGpu = marker.hasGpu,
+                    .sampleValid = true,
+                    .isFrameTotal = false
+                } );
         };
 
-        static constexpr uint32_t kPinnedMarkerHashes[] = { ::HashStr( "Frame/Physics" ), ::HashStr( "Frame/Physics/Step" ),
-                                                            ::HashStr( "Frame/Physics/Narrowphase/PersistentContacts/"
-                                                                       "SolveRows" ),
-                                                            ::HashStr( "Frame/Render" ), ::HashStr( "Frame/UI" ) };
+        static constexpr uint32_t kPinnedMarkerHashes[] = {
+            ::HashStr( "Frame/Physics" ),
+            ::HashStr( "Frame/Physics/Step" ),
+            ::HashStr( "Frame/Physics/Narrowphase/PersistentContacts/" "SolveRows" ),
+            ::HashStr( "Frame/Render" ),
+            ::HashStr( "Frame/UI" )
+        };
 
         for ( uint32_t pinnedHash : kPinnedMarkerHashes )
         {
@@ -568,8 +551,7 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const Operator
         UIData.diagnostics.renderMemory = ProjectRenderMemoryDiagnostics( facts.renderMemory );
         UIData.diagnostics.reserveGrowthEventTotalCount = facts.reserveGrowthEventTotalCount;
         UIData.diagnostics.reserveGrowthEventDroppedCount = facts.reserveGrowthEventDroppedCount;
-        UIData.diagnostics.reserveGrowthEventCount = (std::min)( facts.reserveGrowthEventCount,
-                                                                 SkullbonezCore::UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX );
+        UIData.diagnostics.reserveGrowthEventCount = (std::min)( facts.reserveGrowthEventCount, SkullbonezCore::UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX );
 
         for ( int index = 0; index < UIData.diagnostics.reserveGrowthEventCount; ++index )
         {
@@ -579,22 +561,17 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const Operator
 
     if ( facts.reserveCapacityAvailable )
     {
-        UIData.diagnostics.reserveCapacityRowCount = (std::min)( facts.reserveCapacityRowCount,
-                                                                 SkullbonezCore::UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX );
+        UIData.diagnostics.reserveCapacityRowCount = (std::min)( facts.reserveCapacityRowCount, SkullbonezCore::UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX );
 
         for ( int index = 0; index < UIData.diagnostics.reserveCapacityRowCount; ++index )
         {
-            const SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView&
-                source = facts.reserveCapacityRows[static_cast<std::size_t>( index )];
+            const SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView& source = facts.reserveCapacityRows[static_cast<std::size_t>( index )];
             SkullbonezCore::UI::UIRuntimeReserveCapacityRow& destination = reserveCapacityRows[index];
-            strncpy_s( destination.ownerName, sizeof( destination.ownerName ), source.ownerName ? source.ownerName : "",
-                       _TRUNCATE );
+            strncpy_s( destination.ownerName, sizeof( destination.ownerName ), source.ownerName ? source.ownerName : "", _TRUNCATE );
 
-            strncpy_s( destination.capacityReason, sizeof( destination.capacityReason ),
-                       source.capacityReason ? source.capacityReason : "", _TRUNCATE );
+            strncpy_s( destination.capacityReason, sizeof( destination.capacityReason ), source.capacityReason ? source.capacityReason : "", _TRUNCATE );
 
-            strncpy_s( destination.subsystemName, sizeof( destination.subsystemName ),
-                       SkullbonezCore::Core::Allocation::RuntimeReserveSubsystemName( source.subsystem ), _TRUNCATE );
+            strncpy_s( destination.subsystemName, sizeof( destination.subsystemName ), SkullbonezCore::Core::Allocation::RuntimeReserveSubsystemName( source.subsystem ), _TRUNCATE );
 
             destination.elementSizeBytes = source.elementSizeBytes;
             destination.currentCapacity = source.currentCapacity;
@@ -606,13 +583,10 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const Operator
         UIData.diagnostics.reserveCapacityRows = reserveCapacityRows;
     }
 }
-void ProjectOperatorUiPresentation( UI::InGameUIFrameData& UIData, const OperatorUiSceneFacts& facts,
-                                    const UI::OperatorEditorFrameView& operatorEditorView )
+void ProjectOperatorUiPresentation( UI::InGameUIFrameData& UIData, const OperatorUiSceneFacts& facts, const UI::OperatorEditorFrameView& operatorEditorView )
 {
     const RuntimeViewModel& view = facts.runtime;
-    UIData.surface.sceneName = view.sceneMode && facts.sceneHasCurrentEntry && facts.currentSceneName
-                                   ? facts.currentSceneName
-                                   : "";
+    UIData.surface.sceneName = view.sceneMode && facts.sceneHasCurrentEntry && facts.currentSceneName ? facts.currentSceneName : "";
     UIData.scene.sceneOptions = facts.sceneOptions;
     UIData.scene.sceneOptionCount = facts.sceneOptionCount;
     UIData.scene.selectedSceneOption = facts.currentSceneBrowserIndex;
@@ -636,8 +610,7 @@ void ProjectOperatorUiPresentation( UI::InGameUIFrameData& UIData, const Operato
     UIData.scene.presentationInterpolation = view.presentationInterpolation;
     UIData.scene.presentationPinned = view.presentationPinned;
     UIData.scene.presentationAlpha = view.presentationAlpha;
-    UIData.scene.canSaveSceneDefaults = view.sceneMode && facts.sceneHasCurrentEntry && facts.currentScenePath &&
-                                        facts.currentScenePath[0] != '\0';
+    UIData.scene.canSaveSceneDefaults = view.sceneMode && facts.sceneHasCurrentEntry && facts.currentScenePath && facts.currentScenePath[0] != '\0';
 
     // Invariant: representative GameUI controls display the same immutable
     // values supplied to the secondary editor for this frame.
@@ -711,6 +684,8 @@ void ProjectOperatorUiInteraction( UI::InGameUIFrameData& UIData, const Operator
     UIData.editor.editorPlacementMode = facts.editorPlacementMode;
     UIData.editor.editorPlaceStatic = facts.editorPlaceStatic;
     UIData.editor.editorTerrainAlign = facts.editorTerrainAlign;
+    UIData.editor.editorTerrainBrush = facts.editorTerrainBrush;
+    UIData.editor.editorTerrainBrushRadius = facts.editorTerrainBrushRadius;
     UIData.editor.editorViewportLookActive = facts.editorViewportLookActive;
     UIData.editor.editorObjectType = facts.editorObjectType;
     UIData.editor.editorUndoDepth = facts.editorUndoDepth;

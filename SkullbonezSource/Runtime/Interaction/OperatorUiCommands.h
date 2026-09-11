@@ -226,7 +226,8 @@ struct UISceneCommands
     bool resetSceneDefaults = false; // Discard live scene edits and reload authored defaults.
     bool requestDemoScene = false;   // Switch to generated demo scene instead of a discovered scene file.
     bool saveSceneDefaults = false;  // Persist editable-scene defaults back to disk.
-    bool createScene = false;        // Create a new starter scene from requestedSceneName.
+    bool importHeightMap = false;
+    bool createScene = false; // Create a new starter scene from requestedSceneName.
     char requestedSceneName[64] = {};
     int requestedSceneIndex = -1;                // index into sceneOptions, -1=no request
     int requestedInteractionRecordingIndex = -1; // newest-first recording catalog index, -1=no request
@@ -287,6 +288,7 @@ struct UIEditorCommands
     bool togglePlacementMode = false;
     bool togglePlaceStatic = false;
     bool toggleTerrainAlign = false;
+    bool toggleTerrainBrush = false;
     bool enterPlacementMode = false;
     bool requestPlaceStatic = false;
     bool requestedPlaceStatic = false;

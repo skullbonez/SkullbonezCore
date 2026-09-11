@@ -250,6 +250,8 @@ struct OperatorUiInteractionFacts
     bool editorPlacementMode = false;
     bool editorPlaceStatic = false;
     bool editorTerrainAlign = false;
+    bool editorTerrainBrush = false;
+    float editorTerrainBrushRadius = 40.0f;
     bool editorViewportLookActive = false;
 };
 
@@ -309,8 +311,7 @@ class OperatorUiRenderTargetListFacts
     }
 
   private:
-    friend void ProjectOperatorUiRenderTargets( UI::InGameUIFrameData& uiData,
-                                                const OperatorUiRenderTargetListFacts& facts );
+    friend void ProjectOperatorUiRenderTargets( UI::InGameUIFrameData& uiData, const OperatorUiRenderTargetListFacts& facts );
 
     // Invariant: one private row describes one catalog identity without its
     // backend texture handle; its label borrow ends after synchronous draw.
@@ -340,10 +341,8 @@ struct OperatorUiDiagnosticsFacts
     Core::MainMemoryStats mainMemory;
     std::array<OperatorUiProfilerMarkerFacts, UI::ProfilerTab::MAX_MARKERS> markers = {};
     std::array<OperatorUiWorkerCoreFacts, UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES> workerSamples = {};
-    std::array<Core::Allocation::RuntimeReserveGrowthEventView, UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX>
-        reserveGrowthEvents = {};
-    std::array<Core::Allocation::RuntimeReserveCapacityView, UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX> reserveCapacityRows =
-        {};
+    std::array<Core::Allocation::RuntimeReserveGrowthEventView, UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX> reserveGrowthEvents = {};
+    std::array<Core::Allocation::RuntimeReserveCapacityView, UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX> reserveCapacityRows = {};
     int markerCount = 0;
     int workerSampleCount = 0;
     int reserveGrowthEventCount = 0;
@@ -371,28 +370,33 @@ inline Core::MainMemoryStats ProjectMemoryTabAvailability( bool sourceValid, con
 }
 
 void ProjectOperatorEditorScene( UI::OperatorEditorFrameView& view, const OperatorUiSceneFacts& facts );
-void ProjectOperatorRenderingParameters( UI::OperatorEditorRenderingView& view, const Core::OrdinaryRenderConfig& ordinary,
-                                         const Core::CinematicRenderConfig& cinematic );
+void ProjectOperatorRenderingParameters( UI::OperatorEditorRenderingView& view, const Core::OrdinaryRenderConfig& ordinary, const Core::CinematicRenderConfig& cinematic );
 void ProjectOperatorEditorRendering( UI::OperatorEditorFrameView& view, const OperatorUiRenderingFacts& facts );
 void ProjectOperatorEditorForecast( UI::OperatorEditorFrameView& view, const OperatorUiForecastFacts& facts );
 void ProjectOperatorEditorLookLab( UI::OperatorEditorFrameView& view, const UI::OperatorEditorLookLabView& lookLab );
-void ProjectOperatorEditorReplay( UI::OperatorEditorFrameView& view, int memoryPreset, int requestedRetentionSeconds,
-                                  int requestedBudgetMiB, int presentationRetentionSeconds, int solverRetentionSeconds,
-                                  bool memoryBudgetClamped, bool solverWindowReduced );
+void ProjectOperatorEditorReplay(
+    UI::OperatorEditorFrameView& view,
+    int memoryPreset,
+    int requestedRetentionSeconds,
+    int requestedBudgetMiB,
+    int presentationRetentionSeconds,
+    int solverRetentionSeconds,
+    bool memoryBudgetClamped,
+    bool solverWindowReduced
+);
 void ProjectOperatorEditorSurfaces( UI::OperatorEditorFrameView& view, bool primaryVisible, bool secondaryVisible );
 inline void BeginOperatorEditorHierarchy( UI::OperatorEditorFrameView& view, const OperatorUiHierarchyFacts& facts )
 {
     view.scene.dirty = facts.sceneDirty;
-    view.tools = { facts.editorModeEnabled, facts.placementModeEnabled, facts.placeStaticObject, facts.crossScenePauseLocked,
-                   facts.fixedStep,         facts.autoTerrainAlign,     facts.undoDepth,         facts.redoDepth };
+    view.tools =
+        { facts.editorModeEnabled, facts.placementModeEnabled, facts.placeStaticObject, facts.crossScenePauseLocked, facts.fixedStep, facts.autoTerrainAlign, facts.undoDepth, facts.redoDepth };
     view.hierarchy.totalRowCount = facts.totalRowCount;
     view.hierarchy.rowCount = (std::min)( view.hierarchy.totalRowCount, UI::OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY );
     view.hierarchy.truncated = view.hierarchy.totalRowCount > view.hierarchy.rowCount;
     view.assets = { facts.selectedObjectType, facts.objectTypeCount, facts.buildingAssetsAvailable };
 }
 
-inline void AppendOperatorEditorHierarchyRow( UI::OperatorEditorFrameView& view, const OperatorUiHierarchyFacts& hierarchy,
-                                              const OperatorUiHierarchyEntityFacts& entity, uint32_t sourceIndex )
+inline void AppendOperatorEditorHierarchyRow( UI::OperatorEditorFrameView& view, const OperatorUiHierarchyFacts& hierarchy, const OperatorUiHierarchyEntityFacts& entity, uint32_t sourceIndex )
 {
     if ( sourceIndex >= view.hierarchy.rowCount )
     {
@@ -415,10 +419,8 @@ inline void AppendOperatorEditorHierarchyRow( UI::OperatorEditorFrameView& view,
     }
 }
 
-void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& uiData, const OperatorUiDiagnosticsFacts& facts,
-                                   UI::UIRuntimeReserveCapacityRow* reserveCapacityRows );
-void ProjectOperatorUiPresentation( UI::InGameUIFrameData& uiData, const OperatorUiSceneFacts& facts,
-                                    const UI::OperatorEditorFrameView& operatorEditorView );
+void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& uiData, const OperatorUiDiagnosticsFacts& facts, UI::UIRuntimeReserveCapacityRow* reserveCapacityRows );
+void ProjectOperatorUiPresentation( UI::InGameUIFrameData& uiData, const OperatorUiSceneFacts& facts, const UI::OperatorEditorFrameView& operatorEditorView );
 void ProjectOperatorUiSettings( UI::InGameUIFrameData& uiData, const OperatorUiSettingsFacts& facts );
 void ProjectOperatorUiInteraction( UI::InGameUIFrameData& uiData, const OperatorUiInteractionFacts& facts );
 inline void ProjectOperatorUiViewport( UI::InGameUIFrameData& uiData, int width, int height )
@@ -433,8 +435,7 @@ inline void ProjectOperatorUiRenderIdentity( UI::InGameUIFrameData& uiData, cons
     uiData.surface.drawCallsBeforeUI = drawCallsBeforeUi;
 }
 
-inline void ProjectOperatorUiRecordingBrowser( UI::InGameUIFrameData& uiData, const char* const* options, int optionCount,
-                                               int selectedOption )
+inline void ProjectOperatorUiRecordingBrowser( UI::InGameUIFrameData& uiData, const char* const* options, int optionCount, int selectedOption )
 {
     uiData.scene.interactionRecordingOptions = options;
     uiData.scene.interactionRecordingOptionCount = optionCount;

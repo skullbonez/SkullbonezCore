@@ -71,6 +71,8 @@ UIEditorTabFrameView InGameUIFrameData::EditorTabFrame() const
         editor.editorPlacementMode,
         editor.editorPlaceStatic,
         editor.editorTerrainAlign,
+        editor.editorTerrainBrush,
+        editor.editorTerrainBrushRadius,
         editor.editorViewportLookActive,
         editor.editorObjectType,
         editor.editorUndoDepth,

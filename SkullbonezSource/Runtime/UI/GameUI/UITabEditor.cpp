@@ -39,24 +39,23 @@ namespace
 {
 
 constexpr float EDITOR_MODE_TOGGLE_Y = 42.0f;
-constexpr float EDITOR_PLACE_TOGGLE_Y = 76.0f;
-constexpr float EDITOR_STATIC_TOGGLE_Y = 110.0f;
-constexpr float EDITOR_OBJECT_COMBO_Y = 154.0f;
-constexpr float EDITOR_STATUS_Y = 194.0f;
-constexpr float EDITOR_HISTORY_STATUS_Y = 222.0f;
-constexpr float EDITOR_ALIGN_TOGGLE_Y = 250.0f;
+constexpr float EDITOR_PLACE_TOGGLE_Y = 196.0f;
+constexpr float EDITOR_STATIC_TOGGLE_Y = 230.0f;
+constexpr float EDITOR_OBJECT_COMBO_Y = 274.0f;
+constexpr float EDITOR_STATUS_Y = 314.0f;
+constexpr float EDITOR_HISTORY_STATUS_Y = 342.0f;
+constexpr float EDITOR_ALIGN_TOGGLE_Y = 370.0f;
 
-void SetContentBounds( SkullbonezCore::UI::EditorTab::UIEditorTabState& state, float contentX, float rowBase,
-                       float contentW )
+void SetContentBounds( SkullbonezCore::UI::EditorTab::UIEditorTabState& state, float contentX, float rowBase, float contentW )
 {
     const float contentBaseY = rowBase - EDITOR_MODE_TOGGLE_Y;
     const float colW = (std::min)( contentW, (std::max)( 148.0f, contentW * 0.46f ) );
     state.editorModeToggle.SetBounds( contentX, contentBaseY + EDITOR_MODE_TOGGLE_Y, colW, 24.0f );
     state.placementModeToggle.SetBounds( contentX, contentBaseY + EDITOR_PLACE_TOGGLE_Y, colW, 24.0f );
     state.staticObjectToggle.SetBounds( contentX, contentBaseY + EDITOR_STATIC_TOGGLE_Y, colW, 24.0f );
+    state.terrainBrushToggle.SetBounds( contentX, contentBaseY + 76.0f, colW, 24.0f );
     state.terrainAlignToggle.SetBounds( contentX, contentBaseY + EDITOR_ALIGN_TOGGLE_Y, colW, 24.0f );
-    state.objectCombo.SetBounds( contentX, contentBaseY + EDITOR_OBJECT_COMBO_Y,
-                                 contentW < 400.0f ? contentW : contentW * 0.55f, 24.0f );
+    state.objectCombo.SetBounds( contentX, contentBaseY + EDITOR_OBJECT_COMBO_Y, contentW < 400.0f ? contentW : contentW * 0.55f, 24.0f );
 }
 
 } // namespace
@@ -70,12 +69,11 @@ namespace EditorTab
 
 int ContentHeight()
 {
-    return 282;
+    return 402;
 }
 
 
-bool HandleContentClick( UIEditorTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX,
-                         float rowBase, float contentW )
+bool HandleContentClick( UIEditorTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX, float rowBase, float contentW )
 {
     SetContentBounds( state, contentX, rowBase, contentW );
 
@@ -120,6 +118,11 @@ bool HandleContentClick( UIEditorTabState& state, InGameUIInputResult& result, i
         return true;
     }
 
+    if ( state.terrainBrushToggle.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.editor.toggleTerrainBrush = state.placementModeAvailable;
+        return true;
+    }
     if ( state.terrainAlignToggle.HitTest( mouseX, mouseY ) )
     {
         result.commands.editor.toggleTerrainAlign = true;
@@ -136,37 +139,47 @@ bool HandleContentClick( UIEditorTabState& state, InGameUIInputResult& result, i
 }
 
 
-void Draw( UIEditorTabState& state, const UIDrawContext& draw, const UIEditorTabFrameView& data, float contentX,
-           float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
+void Draw(
+    UIEditorTabState& state,
+    const UIDrawContext& draw,
+    const UIEditorTabFrameView& data,
+    float contentX,
+    float contentY,
+    float contentW,
+    float contentH,
+    float scrolledY,
+    int mouseX,
+    int mouseY
+)
 {
     const Style::UIPalette& palette = Style::Palette();
     state.placementModeAvailable = data.editorModeEnabled;
     const float colW = (std::min)( contentW, (std::max)( 148.0f, contentW * 0.46f ) );
 
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Editor" );
-    DrawContentToggle( draw, contentY, contentH, state.editorModeToggle, contentX, scrolledY + EDITOR_MODE_TOGGLE_Y, colW,
-                       "Editor mode", data.editorModeEnabled );
+    DrawContentToggle( draw, contentY, contentH, state.editorModeToggle, contentX, scrolledY + EDITOR_MODE_TOGGLE_Y, colW, "Editor mode", data.editorModeEnabled );
 
-    DrawContentToggle( draw, contentY, contentH, state.placementModeToggle, contentX, scrolledY + EDITOR_PLACE_TOGGLE_Y,
-                       colW, "Place mode", data.editorPlacementMode, data.editorModeEnabled );
+    DrawContentToggle( draw, contentY, contentH, state.placementModeToggle, contentX, scrolledY + EDITOR_PLACE_TOGGLE_Y, colW, "Place mode", data.editorPlacementMode, data.editorModeEnabled );
 
-    DrawContentToggle( draw, contentY, contentH, state.staticObjectToggle, contentX, scrolledY + EDITOR_STATIC_TOGGLE_Y,
-                       colW, "Static object", data.editorPlaceStatic );
+    DrawContentToggle( draw, contentY, contentH, state.staticObjectToggle, contentX, scrolledY + EDITOR_STATIC_TOGGLE_Y, colW, "Static object", data.editorPlaceStatic );
 
-    state.objectCombo.SetBounds( contentX, scrolledY + EDITOR_OBJECT_COMBO_Y,
-                                 contentW < 400.0f ? contentW : contentW * 0.55f, 24.0f );
+    state.objectCombo.SetBounds( contentX, scrolledY + EDITOR_OBJECT_COMBO_Y, contentW < 400.0f ? contentW : contentW * 0.55f, 24.0f );
 
     state.selectedObjectType = std::clamp( data.editorObjectType, 0, OBJECT_TYPE_COUNT - 1 );
 
     if ( IsRowVisible( contentY, contentH, scrolledY + EDITOR_OBJECT_COMBO_Y, 24.0f ) || state.objectCombo.IsOpen() )
     {
-        state.objectCombo.Draw( draw, "Object", { std::span<const char* const>( OBJECT_LABELS ), state.selectedObjectType },
-                                { mouseX, mouseY } );
+        state.objectCombo.Draw( draw, "Object", { std::span<const char* const>( OBJECT_LABELS ), state.selectedObjectType }, { mouseX, mouseY } );
     }
 
-    DrawContentToggle( draw, contentY, contentH, state.terrainAlignToggle, contentX, scrolledY + EDITOR_ALIGN_TOGGLE_Y, colW,
-                       "Terrain align", data.editorTerrainAlign );
+    DrawContentToggle( draw, contentY, contentH, state.terrainAlignToggle, contentX, scrolledY + EDITOR_ALIGN_TOGGLE_Y, colW, "Terrain align", data.editorTerrainAlign );
 
+    DrawContentToggle( draw, contentY, contentH, state.terrainBrushToggle, contentX, scrolledY + 76.0f, colW, "Terrain brush", data.editorTerrainBrush, data.editorModeEnabled );
+    char brushSize[48] = {};
+    snprintf( brushSize, sizeof( brushSize ), "%.1f", data.editorTerrainBrushRadius );
+    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 110.0f, "Brush radius", brushSize, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b );
+    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 138.0f, "Brush", "Left raise / Right lower", palette.textMuted.r, palette.textMuted.g, palette.textMuted.b );
+    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 162.0f, "Size", "Mouse wheel", palette.textMuted.r, palette.textMuted.g, palette.textMuted.b );
     const char* viewportState = "Cursor";
 
     if ( data.editorViewportLookActive )
@@ -175,16 +188,14 @@ void Draw( UIEditorTabState& state, const UIDrawContext& draw, const UIEditorTab
     }
     else if ( data.editorModeEnabled )
     {
-        viewportState = data.editorPlacementMode ? ( data.editorPlaceStatic ? "Place static" : "Place dynamic" ) : "Gizmo";
+        viewportState = data.editorTerrainBrush ? "Terrain brush" : data.editorPlacementMode ? ( data.editorPlaceStatic ? "Place static" : "Place dynamic" ) : "Gizmo";
     }
 
-    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + EDITOR_STATUS_Y, "Viewport", viewportState,
-                      palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
+    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + EDITOR_STATUS_Y, "Viewport", viewportState, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
 
     char historyText[64];
     snprintf( historyText, sizeof( historyText ), "%d undo / %d redo", data.editorUndoDepth, data.editorRedoDepth );
-    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + EDITOR_HISTORY_STATUS_Y, "History", historyText,
-                      palette.textMuted.r, palette.textMuted.g, palette.textMuted.b );
+    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + EDITOR_HISTORY_STATUS_Y, "History", historyText, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b );
 }
 
 } // namespace EditorTab

@@ -61,20 +61,24 @@ namespace Runtime
 class RenderResourceLifecycle
 {
   public:
-    RenderResourceLifecycle( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-                             Rendering::RenderBackendDX12& backend, Assets::AssetSystem& assets,
-                             SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Core::Profiler* profiler,
-                             int sceneIndex, int sceneLoadCount );
+    RenderResourceLifecycle(
+        SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+        Rendering::RenderBackendDX12& backend,
+        Assets::AssetSystem& assets,
+        SkullbonezCore::Core::EngineConfig& config,
+        SkullbonezCore::Core::Profiler* profiler,
+        int sceneIndex,
+        int sceneLoadCount
+    );
     ~RenderResourceLifecycle();
 
     SkullbonezCore::Core::SbResult InitialiseProcessResources( bool dumpTextureAssets );
     SkullbonezCore::Core::SbResult EnsureUiTextResources( int screenW, int screenH );
     SkullbonezCore::Core::SbResult InitialiseSceneRayTracing( Geometry::Terrain* terrain, int modelCapacity );
-    RuntimeRenderTargetPreviewSnapshot BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
-                                                                         bool cinematicTargetsAvailable,
-                                                                         bool volumetricAvailable ) const;
+    RuntimeRenderTargetPreviewSnapshot BuildRenderTargetPreviewSnapshot( bool shadowsAvailable, bool cinematicTargetsAvailable, bool volumetricAvailable ) const;
     bool ShouldRenderUiText( const UiTextVisibility& visibility ) const;
     void SetUiTextDxrReflectionPreviewTexture( uint32_t textureHandle );
+    bool RefreshTerrainGeometry();
 
   private:
     friend class RuntimeRenderer;
