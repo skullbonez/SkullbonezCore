@@ -64,6 +64,13 @@ struct ReplayAutomationView
     float planningSurfaceScroll = 0.0f;
     int overlayCommands = 0;
     bool overlayOverflow = false;
+    uint64_t divergenceAllocatedBytes = 0;
+    bool divergencePlaying = false;
+    bool divergenceActive = false;
+    bool divergenceRedReady = false;
+    uint64_t divergenceBlueSourceHash = 0;
+    std::span<const RunReplayPredictionFrame> divergenceBlueFrames;
+    std::span<const ReplayPredictionGhostDrawRequest> divergenceGhosts;
 };
 #endif
 

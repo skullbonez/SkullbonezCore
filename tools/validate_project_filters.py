@@ -483,6 +483,7 @@ RUNTIME_APP_PREFIXES = (
     "ReplayRuntime",
     "ReplayScrubberTools",
     "ReplayValidation",
+    "ReplayVelocityDivergence",
     "StartupInputApplication",
 )
 

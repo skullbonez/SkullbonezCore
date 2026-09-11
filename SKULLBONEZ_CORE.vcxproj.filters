@@ -367,8 +367,11 @@
       <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\App\ReplayValidation.cpp">
-      <Filter>Source Files\Runtime\App</Filter>
-    </ClCompile>
+        <Filter>Source Files\Runtime\App</Filter>
+      </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\App\ReplayVelocityDivergence.cpp">
+        <Filter>Source Files\Runtime\App</Filter>
+      </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\App\ReplayValidation.Probes.cpp">
       <Filter>Source Files\Runtime\App</Filter>
     </ClCompile>

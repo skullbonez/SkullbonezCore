@@ -627,6 +627,11 @@ void ReplayRuntime::ExitInspectionCamera(
 
 bool ReplayRuntime::SavePresentationFromScrubber( double now )
 {
+    if ( m_planningOwner.VelocityDivergence().active )
+    {
+        PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", now );
+        return false;
+    }
     // Invariant: App advances the process-local sequence and publishes success
     // only after Replay's binary v2 writer completes.
     char path[256] = {};
@@ -668,7 +673,7 @@ bool ReplayRuntime::BeginLoadedPresentationActivationScrubber( bool hasLoadedPre
 
 void ReplayRuntime::ArmLoadedPresentationScrubber( float normalized, double now, RuntimeInteractionController& interaction )
 {
-    ReplayPresentationOperations::ArmLoadedPresentation( normalized, now, m_scrubberOwner, m_visualPresentation, m_authoring, m_predictionOwner, interaction );
+    ReplayPresentationOperations::ArmLoadedPresentation( normalized, now, m_scrubberOwner, m_visualPresentation, m_authoring, Prediction(), interaction );
 }
 
 void ReplayRuntime::ApplyCauseTreeSelection(
@@ -697,7 +702,7 @@ void ReplayRuntime::ApplyCauseTreeSelection(
         return;
     }
 
-    const ReplayCauseSeekResult seek = EvaluateReplayCauseSeek( selectedRow, m_timeline.Solver().GetStats(), m_predictionOwner.ActiveFrames() );
+    const ReplayCauseSeekResult seek = EvaluateReplayCauseSeek( selectedRow, m_timeline.Solver().GetStats(), Prediction().ActiveFrames() );
 
     if ( !seek.CanTransport() )
     {
@@ -722,7 +727,7 @@ void ReplayRuntime::ApplyCauseTreeSelection(
     const Physics::ColliderStore& colliderStore = world.Colliders();
 
     if ( !ActivateReplayCauseTreeRow(
-        m_predictionOwner,
+        Prediction(),
         m_authoring,
         requestedRow,
         m_visualPresentation,
@@ -760,7 +765,7 @@ void ReplayRuntime::ApplyCauseTreeSelection(
     }
     else if ( seek.source == ReplayCauseSeekSource::Prediction )
     {
-        const auto predictionFrames = m_predictionOwner.ActiveFrames();
+        const auto predictionFrames = Prediction().ActiveFrames();
         const auto exactFrame = std::find_if( predictionFrames.begin(), predictionFrames.end(), [&]( const RunReplayPredictionFrame& frame ) { return frame.frameIndex == seek.frame; } );
         const ReplayPredictionCauseEvidencePacket& evidence = CopyPredictionCauseEvidence( selectedRow );
         const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( selectedRow, seek, { seek.frame, {}, {}, &evidence } );
@@ -839,7 +844,7 @@ void ReplayRuntime::ApplyCauseInspectionTransition(
                 attachedCamera.SetFocusedInspectionPosition( body->id, body->position );
             }
 
-            const auto frames = m_predictionOwner.ActiveFrames();
+            const auto frames = Prediction().ActiveFrames();
             const float predictionT = frames.size() > 1 ? static_cast<float>( frame->frameIndex ) / static_cast<float>( frames.size() - 1u ) : 0.0f;
             const float presentT = SolverPresentTrackPosition();
             m_scrubberOwner.SetTrackPosition( RunReplayTrack::Solver, presentT + ( 1.0f - presentT ) * predictionT );
@@ -914,7 +919,7 @@ void ReplayRuntime::ApplyCauseInspectionTransition(
         return;
     }
 
-    const auto frames = m_predictionOwner.ActiveFrames();
+    const auto frames = Prediction().ActiveFrames();
     const auto found = std::find_if( frames.begin(), frames.end(), [&]( const auto& frame ) { return frame.frameIndex == transport.targetFrame; } );
 
     if ( found == frames.end() )
@@ -1034,6 +1039,7 @@ void ReplayRuntime::TickWorkspace(
     const auto presentation = world.RenderPresentationRecords();
     Environment::CameraCollection* cameras = &world.Cameras();
     Geometry::Terrain* terrain = world.Terrain().Get();
+    TickVelocityDivergencePlayback( interaction, input.now, output );
     const bool sharedSurface = input.transportBounds.w > 0.0f;
     const bool causeUiBlocksMouse = sharedSurface ? input.causeUiBlocksMouse : input.uiBlocksMouse;
     m_planningOwner.CauseInspection().SetShellPresentation( sharedSurface, input.causeBounds, input.planningBounds );
@@ -1052,7 +1058,20 @@ void ReplayRuntime::TickWorkspace(
 
     const RuntimePointerEvent& planningPointerEvent = inputRouter.RuntimeSnapshot().pointer;
     const UI::UIRect planningViewport = sharedSurface ? input.planningBounds : UI::UIRect { 0.0f, 0.0f, static_cast<float>( input.screenWidth ), static_cast<float>( input.screenHeight ) };
-    const bool planningOwnsMouse = m_planningOwner.TickPointerSurface(
+    const auto divergence = m_planningOwner.VelocityDivergence();
+    const bool overRed = divergence.active && ReplayOverlay::ReplayDivergenceChoiceRect( planningViewport, true ).Contains( planningPointerEvent.clientX, planningPointerEvent.clientY );
+    const bool overBlue = divergence.active && ReplayOverlay::ReplayDivergenceChoiceRect( planningViewport, false ).Contains( planningPointerEvent.clientX, planningPointerEvent.clientY );
+    const bool divergenceOwnsMouse = planningPointerEvent.hasClientPosition && !input.uiBlocksMouse && ( overRed || overBlue );
+    if ( divergenceOwnsMouse && inputRouter.UiSnapshot().mouse.leftPressed )
+    {
+        const bool accepted = AcceptVelocityDivergence( physics, overRed );
+        PublishTransportFeedback( accepted ? ( overRed ? "RED ACCEPTED" : "BLUE ACCEPTED" ) : "PREDICTION NOT READY", input.now );
+        if ( accepted )
+        {
+            ReplayInteractionOperations::CancelToolDragState( interaction, inputRouter );
+        }
+    }
+    const bool planningOwnsMouse = divergenceOwnsMouse || m_planningOwner.TickPointerSurface(
         planningViewport,
         input.uiBlocksMouse,
         planningPointerEvent.clientX,
@@ -1060,12 +1079,12 @@ void ReplayRuntime::TickWorkspace(
         planningPointerEvent.hasClientPosition,
         inputRouter.UiSnapshot().mouse.leftPressed,
         input.wheelDelta,
-        ReplayOverlay::ReplayTripBaselineReady( m_predictionOwner.PresentationView() )
+        ReplayOverlay::ReplayTripBaselineReady( Prediction().PresentationView() )
     );
 
     const bool predictionCauseRows = !m_authoring.CauseTree().rows.empty() && m_authoring.CauseTree().rows.front().prediction;
     const bool causeWindowAvailable = ( !sharedSurface || input.causeBounds.w > 0.0f ) && !m_authoring.CauseTree().rows.empty() &&
-                                      ReplayPredictionCauseWindowAvailable( m_predictionOwner.PresentationView().diagnostics.detailMode, predictionCauseRows );
+                                      ReplayPredictionCauseWindowAvailable( Prediction().PresentationView().diagnostics.detailMode, predictionCauseRows );
 
     // Invariant: reserve the complete target drawer before any pointer phase.
     // Opening the drawer therefore never shifts the Replay-owned hierarchy
@@ -1128,7 +1147,7 @@ void ReplayRuntime::TickWorkspace(
     if ( !input.editorModeEnabled && input.screenWidth > 0 && input.screenHeight > 0 )
     {
         causeTreeRowsReady = BuildReplayCauseTreeRows(
-            m_predictionOwner,
+            Prediction(),
             m_authoring,
             m_visualPresentation.PathVisualizer(),
             CurrentSolverScrubSample(),
@@ -1309,7 +1328,7 @@ void ReplayRuntime::TickWorkspace(
     const DeviceInputFrame& device = inputRouter.DeviceFrame();
     const bool playbackKeysAvailable = device.appFocused && !inputRouter.UiSnapshot().blocksKeyboard && !m_authoring.CauseTree().filterFocused;
     const int playbackDirection = playbackKeysAvailable ? static_cast<int>( device.keys.IsDown( VK_RIGHT ) ) - static_cast<int>( device.keys.IsDown( VK_LEFT ) ) : 0;
-    m_planningOwner.CauseInspection().AdvancePredictionPlayback( m_predictionOwner.ActiveFrames(), playbackDirection, input.now );
+    m_planningOwner.CauseInspection().AdvancePredictionPlayback( Prediction().ActiveFrames(), playbackDirection, input.now );
     const bool causeInteractionActive = input.uiBlocksMouse || scrubberOwnsMouse || causeTreeOwnsMouse || solverDetailOwnsMouse || pointerOverCauseWindow ||
                                         interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayCauseTreeDrag;
 
@@ -1348,6 +1367,7 @@ void ReplayRuntime::TickWorkspace(
         velocityPreparationRequest
     ) )
     {
+        const bool divergenceReady = BeginVelocityDivergence( physics );
         const RuntimeMouseEdges& velocityPointerEdges = inputRouter.UiSnapshot().mouse;
         const RuntimePointerEvent& velocityPointer = inputRouter.RuntimeSnapshot().pointer;
         ReplayVelocityInputFrame velocityInput;
@@ -1365,7 +1385,7 @@ void ReplayRuntime::TickWorkspace(
             m_visualPresentation,
             m_scrubberOwner,
             input.pointerRay,
-            input.uiBlocksMouse || scrubberOwnsMouse || causeTreeOwnsMouse,
+            input.uiBlocksMouse || scrubberOwnsMouse || causeTreeOwnsMouse || planningOwnsMouse || !divergenceReady,
             input.now,
             velocityInput,
             physics,
@@ -1720,7 +1740,7 @@ void HandleReplayVelocityEditPressed(
         const ReplayAuthoringPredictionRequest request = authoring.TakePredictionRequest();
         predictionOwner.ApplyAuthoringRequest( BuildReplayPredictionAuthoringCommand( request ), REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
 
-        CancelReplayToolDragState( interaction, inputRouter );
+        ReplayInteractionOperations::CancelToolDragState( interaction, inputRouter );
 
         if ( enableVelocityEdit )
         {
@@ -2162,7 +2182,7 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
 
 ReplayPredictionDetailTransitionAction ReplayRuntime::ApplyPredictionDetailModeCommand( ReplayPredictionDetailMode requestedMode )
 {
-    const ReplayPredictionDetailTransitionAction expectedActions = EvaluateReplayPredictionDetailTransition( m_predictionOwner.PresentationView().diagnostics.detailMode, requestedMode );
+    const ReplayPredictionDetailTransitionAction expectedActions = EvaluateReplayPredictionDetailTransition( Prediction().PresentationView().diagnostics.detailMode, requestedMode );
     const bool releasesEvidence = ReplayPredictionDetailTransitionHas( expectedActions, ReplayPredictionDetailTransitionAction::ReleaseHighDetailCapacity );
     SkullbonezCore::Core::MainMemoryReplayStats before;
 
@@ -2171,7 +2191,7 @@ ReplayPredictionDetailTransitionAction ReplayRuntime::ApplyPredictionDetailModeC
         before = CollectMemoryStats();
     }
 
-    const ReplayPredictionDetailTransitionAction actions = m_predictionOwner.ApplyDetailModeCommand( ReplayPredictionDetailModeCommand { requestedMode } );
+    const ReplayPredictionDetailTransitionAction actions = Prediction().ApplyDetailModeCommand( ReplayPredictionDetailModeCommand { requestedMode } );
 
     if ( releasesEvidence )
     {
@@ -2232,7 +2252,7 @@ void ReplayRuntime::EnterReplayTransportWorkspace( RuntimeInteractionController&
 bool ReplayRuntime::SetTransportCursor( float normalized, RuntimeInteractionController& interaction, double now, ReplayWorkspaceOutput& output )
 {
     const bool loaded = HasLoadedPresentation();
-    const bool predictionAvailable = !loaded && ( m_predictionOwner.ActiveFrames().size() >= 2u || m_predictionOwner.State().BuildPrefixShouldBePresented() );
+    const bool predictionAvailable = !loaded && ( Prediction().ActiveFrames().size() >= 2u || Prediction().State().BuildPrefixShouldBePresented() );
     const RunReplayTrack track = loaded || !predictionAvailable ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
     const std::size_t retainedCount = track == RunReplayTrack::Presentation ? ( loaded ? m_timeline.LoadedPresentation().samples.size() : m_timeline.Presentation().GetStats().sampleCount )
                                                                             : m_timeline.Solver().GetStats().sampleCount;
@@ -2246,7 +2266,7 @@ bool ReplayRuntime::SetTransportCursor( float normalized, RuntimeInteractionCont
     const float position = std::clamp( normalized, 0.0f, 1.0f );
     m_scrubberOwner.SelectTrack( track );
     m_scrubberOwner.SetTrackPosition( track, position );
-    (void)m_planningOwner.CauseInspection().SeekPredictionPlayback( m_predictionOwner.ActiveFrames(), ReplayPredictionNormalizedFromTrack( position, SolverPresentTrackPosition() ), now );
+    (void)m_planningOwner.CauseInspection().SeekPredictionPlayback( Prediction().ActiveFrames(), ReplayPredictionNormalizedFromTrack( position, SolverPresentTrackPosition() ), now );
     const float livePosition = loaded ? 1.0f : SolverPresentTrackPosition();
     m_scrubberOwner.SetHistoricalSamplePaused( loaded || !ReplayAtPresentTrackPosition( position, livePosition ) );
     EnterReplayTransportWorkspace( interaction, output );
@@ -2299,7 +2319,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayStepBackwardCommand&, Run
 {
     const bool loaded = HasLoadedPresentation();
     const std::size_t retainedCount = loaded ? m_timeline.LoadedPresentation().samples.size() : m_timeline.Solver().GetStats().sampleCount;
-    const std::size_t totalCount = retainedCount + ( loaded ? 0u : m_predictionOwner.ActiveFrames().size() );
+    const std::size_t totalCount = retainedCount + ( loaded ? 0u : Prediction().ActiveFrames().size() );
 
     if ( totalCount < 2u )
     {
@@ -2315,7 +2335,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayStepForwardCommand&, Runt
 {
     const bool loaded = HasLoadedPresentation();
     const std::size_t retainedCount = loaded ? m_timeline.LoadedPresentation().samples.size() : m_timeline.Solver().GetStats().sampleCount;
-    const std::size_t totalCount = retainedCount + ( loaded ? 0u : m_predictionOwner.ActiveFrames().size() );
+    const std::size_t totalCount = retainedCount + ( loaded ? 0u : Prediction().ActiveFrames().size() );
 
     if ( totalCount < 2u )
     {
@@ -2336,9 +2356,17 @@ void ReplayRuntime::ApplyTransportCommand(
     ReplayWorkspaceOutput& output
 )
 {
+    auto& divergence = m_planningOwner.VelocityDivergence();
+    if ( divergence.active )
+    {
+        divergence.playing = divergence.redReady && !divergence.playing;
+        divergence.playbackTime = now;
+        PublishTransportFeedback( divergence.playing ? "DIVERGENCE PLAYING" : "DIVERGENCE PAUSED", now );
+        return;
+    }
     const bool hasCameraFocus = m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None;
     HandleReplayPausePressed(
-        m_predictionOwner,
+        Prediction(),
         m_visualPresentation,
         m_scrubberOwner,
         SolverPresentTrackPosition(),
@@ -2355,7 +2383,7 @@ void ReplayRuntime::ApplyTransportCommand(
 
 void ReplayRuntime::ApplyTransportCommand( const ReplaySetRevealSpeedCommand& command, double now )
 {
-    m_predictionOwner.SetRevealRatePreservingCursor( command.rate );
+    Prediction().SetRevealRatePreservingCursor( command.rate );
     PublishTransportFeedback( "PREDICTION REVEAL SPEED UPDATED", now );
 }
 
@@ -2385,7 +2413,12 @@ bool ReplayRuntime::SeekReplayFrame( ReplayFrameIndex frame, RuntimeInteractionC
 
 void ReplayRuntime::ApplyTransportCommand( const ReplayTogglePredictionCommand&, RuntimeInteractionController& interaction, double now, ReplayWorkspaceOutput& output )
 {
-    HandleReplayPredictionPressed( m_predictionOwner, m_scrubberOwner, SolverPresentTrackPosition(), interaction, now, output.enterInteractive );
+    if ( m_planningOwner.VelocityDivergence().active )
+    {
+        PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", now );
+        return;
+    }
+    HandleReplayPredictionPressed( Prediction(), m_scrubberOwner, SolverPresentTrackPosition(), interaction, now, output.enterInteractive );
 }
 
 
@@ -2416,7 +2449,12 @@ void ReplayRuntime::ApplyTransportCommand(
 
 void ReplayRuntime::ApplyTransportCommand( const ReplaySetPredictionHorizonCommand& command, double now )
 {
-    m_predictionOwner.SetHorizonSeconds( std::clamp( command.seconds, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS ) );
+    if ( m_planningOwner.VelocityDivergence().active )
+    {
+        PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", now );
+        return;
+    }
+    Prediction().SetHorizonSeconds( std::clamp( command.seconds, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS ) );
     KeepReplayScrubberVisible( m_scrubberOwner, now );
 }
 
@@ -2438,7 +2476,7 @@ void ReplayRuntime::ApplyTransportCommand(
     const bool hasCameraFocus = m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None;
     HandleReplayVelocityEditPressed(
         m_authoring,
-        m_predictionOwner,
+        Prediction(),
         m_visualPresentation,
         m_scrubberOwner,
         SolverPresentTrackPosition(),
@@ -2454,9 +2492,9 @@ void ReplayRuntime::ApplyTransportCommand(
 
 void ReplayRuntime::ApplyTransportCommand( const ReplaySetRagdollVisualsEnabledCommand& command, double now )
 {
-    if ( m_predictionOwner.State().ragdollVisualsEnabled != command.enabled )
+    if ( Prediction().State().ragdollVisualsEnabled != command.enabled )
     {
-        HandleReplayRagdollVisualsPressed( m_predictionOwner, m_scrubberOwner, now );
+        HandleReplayRagdollVisualsPressed( Prediction(), m_scrubberOwner, now );
     }
 }
 
@@ -2472,6 +2510,11 @@ void ReplayRuntime::ApplyTransportCommand( const ReplaySetPastPathVisibleCommand
 
 void ReplayRuntime::ApplyTransportCommand( const ReplayRestoreBranchCommand&, RuntimeInteractionController& interaction, double now, ReplayWorkspaceOutput& output )
 {
+    if ( m_planningOwner.VelocityDivergence().active )
+    {
+        PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", now );
+        return;
+    }
     ReplayScrubberRestoreSources sources;
     sources.hasLoadedPresentation = HasLoadedPresentation();
     sources.presentationSample = CurrentScrubSample();
@@ -2483,6 +2526,11 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayRestoreBranchCommand&, Ru
 
 void ReplayRuntime::ApplyTransportCommand( const ReplaySaveCommand& command, double now, ReplayWorkspaceOutput& output )
 {
+    if ( m_planningOwner.VelocityDivergence().active )
+    {
+        PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", now );
+        return;
+    }
     output.enterInteractive = true;
 
     if ( command.path[0] == '\0' )
@@ -2499,6 +2547,11 @@ void ReplayRuntime::ApplyTransportCommand( const ReplaySaveCommand& command, dou
 ReplayTransportLoadResult ReplayRuntime::BeginTransportLoad( const ReplayLoadCommand& command, HWND window, double now )
 {
     ReplayTransportLoadResult result;
+    if ( m_planningOwner.VelocityDivergence().active )
+    {
+        PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", now );
+        return result;
+    }
     char path[MAX_PATH] = {};
 
     if ( command.path[0] != '\0' )
@@ -2557,6 +2610,11 @@ void ReplayRuntime::ApplyTransportCommand(
     ReplayWorkspaceOutput& output
 )
 {
+    if ( m_planningOwner.VelocityDivergence().active )
+    {
+        PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", now );
+        return;
+    }
     const ReplayCauseExitAction causeExit = m_planningOwner.CauseInspection().BeginReturn();
 
     if ( HasLoadedPresentation() )
@@ -2569,7 +2627,7 @@ void ReplayRuntime::ApplyTransportCommand(
     m_scrubberOwner.SetHistoricalSamplePaused( false );
     bool enterInteractive = false;
     ApplyReplayLiveAdvanceAction(
-        m_predictionOwner,
+        Prediction(),
         m_visualPresentation,
         m_scrubberOwner,
         false,
@@ -2645,9 +2703,9 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput(
     pointerFrame.uiMinimized = input.uiMinimized;
     pointerFrame.loadedPresentation = loadedPresentation;
     pointerFrame.pathTargetAvailable = m_visualPresentation.PathVisualizer().hasTarget;
-    pointerFrame.predictionEnabled = m_predictionOwner.State().enabled;
-    pointerFrame.predictionHighDetail = m_predictionOwner.PresentationView().diagnostics.detailMode == ReplayPredictionDetailMode::High;
-    pointerFrame.predictionTimelineAvailable = m_predictionOwner.ActiveFrames().size() >= 2 || m_predictionOwner.State().BuildPrefixShouldBePresented();
+    pointerFrame.predictionEnabled = Prediction().State().enabled;
+    pointerFrame.predictionHighDetail = Prediction().PresentationView().diagnostics.detailMode == ReplayPredictionDetailMode::High;
+    pointerFrame.predictionTimelineAvailable = Prediction().ActiveFrames().size() >= 2 || Prediction().State().BuildPrefixShouldBePresented();
 
     pointerFrame.currentPresentationAvailable = CurrentScrubSample() != nullptr;
     pointerFrame.currentSolverAvailable = CurrentSolverScrubSample() != nullptr;
@@ -2660,7 +2718,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput(
 
     if ( decision.cancelToolDrag )
     {
-        CancelReplayToolDragState( interaction, inputRouter );
+        ReplayInteractionOperations::CancelToolDragState( interaction, inputRouter );
     }
 
     if ( decision.exitInspectionCamera )
@@ -2692,19 +2750,14 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput(
     {
     case ReplayScrubberAction::RestoreBranch:
     {
-        ReplayScrubberRestoreSources sources;
-        sources.hasLoadedPresentation = HasLoadedPresentation();
-        sources.presentationSample = CurrentScrubSample();
-        sources.solverSample = CurrentSolverScrubSample();
-        sources.loadedPresentationPath = m_timeline.LoadedPresentation().path;
-        HandleReplayBranchPressed( m_scrubberOwner, interaction, sources, input.now, output.restoreRequest );
+        ApplyTransportCommand( ReplayRestoreBranchCommand {}, interaction, input.now, output );
         output.consumesMouse = true;
         return hostAction;
     }
     case ReplayScrubberAction::SetPredictionDetailMode:
     {
-        const ReplayPredictionDetailMode requestedMode = m_predictionOwner.PresentationView().diagnostics.detailMode == ReplayPredictionDetailMode::High ? ReplayPredictionDetailMode::Low
-                                                                                                                                                         : ReplayPredictionDetailMode::High;
+        const ReplayPredictionDetailMode requestedMode = Prediction().PresentationView().diagnostics.detailMode == ReplayPredictionDetailMode::High ? ReplayPredictionDetailMode::Low
+                                                                                                                                                    : ReplayPredictionDetailMode::High;
         const ReplayPredictionDetailTransitionAction actions = ApplyPredictionDetailModeCommand( requestedMode );
 
         if ( ClearPredictionCauseWindowForDetailTransition( actions ) )
@@ -2719,7 +2772,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput(
     case ReplayScrubberAction::ToggleVelocityEdit:
         HandleReplayVelocityEditPressed(
             m_authoring,
-            m_predictionOwner,
+            Prediction(),
             m_visualPresentation,
             m_scrubberOwner,
             solverPresentTrackPosition,
@@ -2738,12 +2791,17 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput(
         consumesMouse = true;
         break;
     case ReplayScrubberAction::ToggleRagdollVisuals:
-        HandleReplayRagdollVisualsPressed( m_predictionOwner, m_scrubberOwner, input.now );
+        HandleReplayRagdollVisualsPressed( Prediction(), m_scrubberOwner, input.now );
         consumesMouse = true;
         break;
     case ReplayScrubberAction::SetPredictionHorizon:
-
-        if ( !HandleReplayPredictionHorizonPressed( m_predictionOwner, m_scrubberOwner, inputRouter, interaction, predictHorizon, mouse.x, mouse.y, input.now, output.enterInteractive ) )
+        if ( m_planningOwner.VelocityDivergence().active )
+        {
+            PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", input.now );
+            consumesMouse = true;
+            break;
+        }
+        if ( !HandleReplayPredictionHorizonPressed( Prediction(), m_scrubberOwner, inputRouter, interaction, predictHorizon, mouse.x, mouse.y, input.now, output.enterInteractive ) )
         {
             output.consumesMouse = consumesMouse;
             return hostAction;
@@ -2752,7 +2810,13 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput(
         consumesMouse = true;
         break;
     case ReplayScrubberAction::TogglePrediction:
-        HandleReplayPredictionPressed( m_predictionOwner, m_scrubberOwner, solverPresentTrackPosition, interaction, input.now, output.enterInteractive );
+        if ( m_planningOwner.VelocityDivergence().active )
+        {
+            PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", input.now );
+            consumesMouse = true;
+            break;
+        }
+        HandleReplayPredictionPressed( Prediction(), m_scrubberOwner, solverPresentTrackPosition, interaction, input.now, output.enterInteractive );
 
         consumesMouse = true;
         break;
@@ -2778,24 +2842,15 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput(
         break;
     }
 
-    const bool scrubberGestureHandled = TickReplayScrubDrag( m_scrubberOwner, inputRouter, interaction, solverPresentTrackPosition, loadedPresentation, mouse.x, decision.trackBounds, leftReleased ) ||
-                                        TickReplayPredictionHorizonDrag(
-                                            m_predictionOwner,
-                                            m_scrubberOwner,
-                                            inputRouter,
-                                            interaction,
-                                            output.enterInteractive,
-                                            predictHorizon,
-                                            mouse.x,
-                                            leftReleased,
-                                            input.now
-                                        );
+    const bool
+        scrubberGestureHandled = TickReplayScrubDrag( m_scrubberOwner, inputRouter, interaction, solverPresentTrackPosition, loadedPresentation, mouse.x, decision.trackBounds, leftReleased ) ||
+                                 TickReplayPredictionHorizonDrag( Prediction(), m_scrubberOwner, inputRouter, interaction, output.enterInteractive, predictHorizon, mouse.x, leftReleased, input.now );
 
     consumesMouse = consumesMouse || scrubberGestureHandled;
     if ( scrubberGestureHandled )
     {
         (void)m_planningOwner.CauseInspection()
-            .SeekPredictionPlayback( m_predictionOwner.ActiveFrames(), ReplayPredictionNormalizedFromTrack( m_scrubberOwner.View().position, solverPresentTrackPosition ), input.now );
+            .SeekPredictionPlayback( Prediction().ActiveFrames(), ReplayPredictionNormalizedFromTrack( m_scrubberOwner.View().position, solverPresentTrackPosition ), input.now );
     }
     ReplayScrubberView scrubber = m_scrubberOwner.View();
 

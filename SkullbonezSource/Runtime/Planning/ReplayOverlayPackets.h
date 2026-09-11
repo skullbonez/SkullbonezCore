@@ -77,9 +77,7 @@ struct ReplayOverlayViewport
 
     UI::UIRect SceneBounds() const
     {
-        return sceneBounds.w > 0.0f && sceneBounds.h > 0.0f
-                   ? sceneBounds
-                   : UI::UIRect { 0.0f, 0.0f, static_cast<float>( width ), static_cast<float>( height ) };
+        return sceneBounds.w > 0.0f && sceneBounds.h > 0.0f ? sceneBounds : UI::UIRect { 0.0f, 0.0f, static_cast<float>( width ), static_cast<float>( height ) };
     }
     UI::UIRect PlanningBounds() const
     {
@@ -137,18 +135,20 @@ struct ReplayOverlayTimelineView
 
     ReplayScrubberPresentationView ScrubberPresentation() const noexcept
     {
-        return { scrubber,
-                 prediction.timeline,
-                 prediction.topology,
-                 prediction.controls,
-                 prediction.diagnostics,
-                 pathVisualizer,
-                 velocityEdit,
-                 solverStats,
-                 selection,
-                 selectedPrediction,
-                 predictionTimelineAvailable,
-                 shouldRenderScrubber };
+        return {
+            scrubber,
+            prediction.timeline,
+            prediction.topology,
+            prediction.controls,
+            prediction.diagnostics,
+            pathVisualizer,
+            velocityEdit,
+            solverStats,
+            selection,
+            selectedPrediction,
+            predictionTimelineAvailable,
+            shouldRenderScrubber
+        };
     }
 };
 
@@ -156,8 +156,22 @@ struct ReplayOverlayTimelineView
 // the first velocity mutation. This is UI availability, not a second mutation gate.
 inline bool ReplayTripBaselineReady( const ReplayPredictionPresentationView& prediction ) noexcept
 {
-    return prediction.baseline.comparisonActive ||
-           ( prediction.timeline.complete && prediction.timeline.frames.size() >= 2 );
+    return prediction.baseline.comparisonActive || ( prediction.timeline.complete && prediction.timeline.frames.size() >= 2 );
+}
+
+struct ReplayVelocityDivergenceView
+{
+    bool active = false;
+    bool redReady = false;
+    bool playing = false;
+    double playbackTime = 0.0;
+};
+
+// Both drawing and input use these viewport-contained choice rectangles.
+inline UI::UIRect ReplayDivergenceChoiceRect( const UI::UIRect& viewport, bool red ) noexcept
+{
+    const float width = (std::min)( 128.0f, (std::max)( 0.0f, ( viewport.w - 24.0f ) * 0.5f ) );
+    return { viewport.x + 8.0f + ( red ? 0.0f : width + 8.0f ), viewport.y + (std::max)( 0.0f, viewport.h - 40.0f ), width, (std::min)( 30.0f, viewport.h ) };
 }
 
 struct ReplayOverlayPlanningSurfacesView
@@ -166,6 +180,7 @@ struct ReplayOverlayPlanningSurfacesView
     const ReplayPorkchopPanelView& porkchop;
     const ReplayTripPlannerView& tripPlanner;
     float scroll = 0.0f;
+    ReplayVelocityDivergenceView divergence;
 };
 
 struct ReplayCauseLoadingView
@@ -174,11 +189,13 @@ struct ReplayCauseLoadingView
     float progress = 0.0f;
 };
 
-inline ReplayCauseLoadingView BuildReplayCauseLoadingView( const ReplayPredictionTimelineView& timeline,
-                                                           const ReplayPredictionTopologyView& topology,
-                                                           const ReplayPredictionControlsView& controls,
-                                                           const RunReplayPathVisualizerState& path,
-                                                           ReplayPredictionDetailMode detailMode ) noexcept
+inline ReplayCauseLoadingView BuildReplayCauseLoadingView(
+    const ReplayPredictionTimelineView& timeline,
+    const ReplayPredictionTopologyView& topology,
+    const ReplayPredictionControlsView& controls,
+    const RunReplayPathVisualizerState& path,
+    ReplayPredictionDetailMode detailMode
+) noexcept
 {
     ReplayCauseLoadingView loading;
 
@@ -193,14 +210,12 @@ inline ReplayCauseLoadingView BuildReplayCauseLoadingView( const ReplayPredictio
     // Invariant: a completed prefix from another target must never advance this
     // request's bar or admit its rows. Collision resolution uses simulation time,
     // independently of the user's future-path reveal speed.
-    if ( matchingTarget && timeline.frames.size() >= 2 && controls.horizonSeconds > 0.0f &&
-         ( !controls.building || timeline.usingBuildFrames ) )
+    if ( matchingTarget && timeline.frames.size() >= 2 && controls.horizonSeconds > 0.0f && ( !controls.building || timeline.usingBuildFrames ) )
     {
         const double seconds = timeline.frames.back().simulationSeconds - timeline.frames.front().simulationSeconds;
         if ( std::isfinite( seconds ) )
         {
-            loading.progress = std::clamp( static_cast<float>( seconds / controls.horizonSeconds ), 0.0f,
-                                           loading.active ? 0.99f : 1.0f );
+            loading.progress = std::clamp( static_cast<float>( seconds / controls.horizonSeconds ), 0.0f, loading.active ? 0.99f : 1.0f );
         }
     }
 

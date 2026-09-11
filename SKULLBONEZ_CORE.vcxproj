@@ -423,6 +423,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublication.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\ReplayPredictionPresentation.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\ReplayVelocityDivergence.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionScheduling.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionTopologyPublication.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\ReplayPredictionDrawing.cpp" />

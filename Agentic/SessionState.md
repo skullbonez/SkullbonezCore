@@ -2,7 +2,7 @@
 
 Date: 2026-09-11
 Branch: `codex/unified-ui`
-Status: Four requested UI fixes implemented and validated; local changes await commit. Existing formatter work remains user-owned. Portfolio 138/144 unchanged.
+Status: Four requested UI fixes committed in f8b3ef948. Modify Velocity divergence implemented and all required terminal checks passed; feature commit prepared. Existing formatter work remains user-owned. Portfolio 138/144 unchanged.
 
 ## Four UI fixes - 2026-09-11
 
@@ -27,11 +27,46 @@ No visual or Physics baseline was changed. Full results, native sessions,
 producer hashes and prior-build comparison are in
 `TestOutput/ui-four-fixes/validation.json`.
 
-Task changes are uncommitted. Do not stage the concurrent user-owned formatter
-changes (.clang-format, formatting scripts/hooks, style guide and tools README).
-A one-line comment wording correction in validate_ragdoll_prediction_generations.py
-repairs an existing plain-language gate failure. The earlier push status below
-is historical; this task did not push or commit anything.
+The four fixes are committed in `f8b3ef948`. This task has not pushed. Do not
+stage concurrent user-owned formatter changes (.clang-format, formatting
+scripts/hooks, style guide and tools README).
+
+## Modify Velocity divergence - 2026-09-11
+
+App retains the original complete Prediction owner as immutable blue when
+Modify Velocity begins. Only that action allocates a second owner through the
+existing Replay-phase prediction registration. Red builds from the edited seed;
+scrubbing and playback show all original objects as blue ghosts beside the real
+objects at the same red frame. Accept Blue restores the original bodies and
+solver snapshot; Accept Red keeps the edited seed. Either choice destroys the
+discarded owner and restores normal prediction colors. Scene replacement also
+releases comparison storage. Planning owns the choice/playback state and panels;
+App coordinates Prediction, Physics and rendering. The 960 MiB cap is shared,
+with no new growth registration or privilege.
+
+The user explicitly approved the lazy second allocation. Exact policy contexts
+were updated for the required formatting changes; new contexts identify startup
+primary-owner construction, approved lazy second-owner construction, and
+Diagnostics-only JSON observations. Strict native validation has zero gameplay
+or reserve-policy violations. Scene-browser normalization/queue append now
+enters the existing SceneLoad phase before the lifecycle load transaction; this
+fix was required by the strict scene-reset check.
+
+Native evidence: `TestOutput/skarness/divergence-validation-final-04` verifies
+seven bodies over 361 frames, both choices through real pointer clicks, repeated
+edits, synchronized playback, blocked premature save/branch/horizon changes,
+zero comparison-owner bytes before use, and release after both choices and
+scene replacement. Screenshots were inspected. The final fast gate passes, including Profile build, 1,029 tests / 3,483,261
+assertions, dependency and allocation-policy checks. Compiler design checks
+pass, including a separate check of the new App source. Causal playback,
+held arrows, camera interaction and retained futures also pass. Replay
+visual fidelity passes its complete 2,401-tick 200-box oracle, durable artifact
+and all negative controls. One-minute graphics stress passes: 72.38 seconds
+including timed cleanup, 131 descriptor turnovers, baseline restored. The staged
+physics gate matches all 44,401 baseline lines across workers 0/repeat/1/4
+(digest 50bca7c0f2c4), with fresh stamp 570636aee07b. Full results are recorded in
+`TestOutput/divergence-validation.json`. The feature commit is prepared; no push
+was performed. No baseline was refreshed.
 
 
 ## Ragdoll sleep investigation — 2026-09-11

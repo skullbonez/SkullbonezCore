@@ -1719,8 +1719,8 @@
       "patterns": [
         "{\"symbol\":\"ReplayPredictionPresentation::AppendGhostDrawRequest\",\"before\":[\"if ( m_ghostDrawRequests.size() < m_ghostDrawRequests.capacity() )\",\"{\"],\"statement\":\"m_ghostDrawRequests.push_back( request );\",\"after\":[\"}\",\"}\"]}",
         "{\"symbol\":\"ReplayPredictionPresentation::BuildFocusModelMask\",\"before\":[\"return false;\",\"}\"],\"statement\":\"m_focusModelMask.assign( static_cast<std::size_t>( modelCount ), 0 );\",\"after\":[\"int markedCount = 0;\",\"const auto markBySceneObjectId = [&]( Physics::PhysicsSceneObjectId id, int preferredModelIndex )\"]}",
-        "{\"symbol\":\"ReplayPredictionPresentation::ReplayPredictionPresentation\",\"before\":[\"m_retainedMarkerDrawList( resultDiagnostics )\",\"{\"],\"statement\":\"m_focusModelMask.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\",\"after\":[\"m_renderPoseBodyMatched.fill( uint8_t { 0 } );\",\"}\"]}",
-        "{\"symbol\":\"ReplayPredictionPresentation::ReserveRecordingBuffers\",\"before\":[\"void ReplayPredictionPresentation::ReserveRecordingBuffers()\",\"{\"],\"statement\":\"m_ghostDrawRequests.reserve( REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY );\",\"after\":[\"}\",\"bool ReplayPredictionPresentation::BuildFocusModelMask( const RunReplayPathVisualizerState& path,\"]}",
+        "{\"symbol\":\"ReplayPredictionPresentation::ReplayPredictionPresentation\",\"before\":[\": m_profiler( profiler ), m_retainedState( std::make_unique<ReplayPredictionPresentationRetainedState>() ), m_retainedMarkerDrawList( resultDiagnostics )\",\"{\"],\"statement\":\"m_focusModelMask.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\",\"after\":[\"m_renderPoseBodyMatched.fill( uint8_t { 0 } );\",\"}\"]}",
+        "{\"symbol\":\"ReplayPredictionPresentation::ReserveRecordingBuffers\",\"before\":[\"void ReplayPredictionPresentation::ReserveRecordingBuffers()\",\"{\"],\"statement\":\"m_ghostDrawRequests.reserve( REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY );\",\"after\":[\"}\",\"bool ReplayPredictionPresentation::BuildFocusModelMask(\"]}",
         "{\"symbol\":\"ReplayPredictionPresentation::BuildInspectionFocusModelMask\",\"before\":[\"return false;\",\"}\"],\"statement\":\"m_focusModelMask.assign( static_cast<std::size_t>( modelCount ), 0 );\",\"after\":[\"int markedCount = 0;\",\"const auto mark = [&]( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow )\"]}"
       ],
       "owner": "ReplayPredictionPresentation",
@@ -1900,7 +1900,7 @@
     {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPrediction.h",
       "patterns": [
-        "{\"symbol\":\"CaptureVisible\",\"before\":[\"}\",\"visibleTrajectoryBuild = visibleBuild;\"],\"statement\":\"visibleFutureNodes.resize( visibleFutureCache.futureNodes.size() );\",\"after\":[\"std::copy( visibleFutureCache.futureNodes.begin(), visibleFutureCache.futureNodes.end(),\",\"visibleFutureNodes.begin() );\"]}"
+        "{\"symbol\":\"CaptureVisible\",\"before\":[\"}\",\"visibleTrajectoryBuild = visibleBuild;\"],\"statement\":\"visibleFutureNodes.resize( visibleFutureCache.futureNodes.size() );\",\"after\":[\"std::copy( visibleFutureCache.futureNodes.begin(), visibleFutureCache.futureNodes.end(), visibleFutureNodes.begin() );\",\"visibleRetainedMarkerCount = (std::min)( visibleFutureCache.retainedMarkerCount, visibleRetainedMarkers.size() );\"]}"
       ],
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
@@ -2328,8 +2328,8 @@
     {
       "path": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp",
       "patterns": [
-        "{\"symbol\":\"ReplayRuntime::AdvanceStartupProbeWorkflows\",\"before\":[\"if ( probeResult.Ok() )\",\"{\"],\"statement\":\"continuation.m_restore.emplace( timelineReset );\",\"after\":[\"const bool restored = RestoreSolverSampleAsLive( *continuation.m_restore, world, scene, debug, runtimeTools,\",\"continuation.m_checkpoint );\"]}",
-        "{\"symbol\":\"ReplayRuntime::AdvanceStartupProbeWorkflows\",\"before\":[\"if ( probeResult.Ok() )\",\"{\"],\"statement\":\"continuation.m_restore.emplace( timelineReset );\",\"after\":[\"continuation.m_restore->SetArtifactRequest( continuation.m_restoreRequest );\",\"const bool restored = RestoreV2ArtifactTargetState( *continuation.m_restore, sceneController, debug, editorTools,\"]}"
+        "{\"symbol\":\"ReplayRuntime::AdvanceStartupProbeWorkflows\",\"before\":[\"if ( probeResult.Ok() )\",\"{\"],\"statement\":\"continuation.m_restore.emplace( timelineReset );\",\"after\":[\"const bool restored = RestoreSolverSampleAsLive( *continuation.m_restore, world, scene, debug, runtimeTools, continuation.m_checkpoint );\",\"continuation.m_restoreRequest = ReplayLiveRestoreRequest {};\"]}",
+        "{\"symbol\":\"ReplayRuntime::AdvanceStartupProbeWorkflows\",\"before\":[\"if ( probeResult.Ok() )\",\"{\"],\"statement\":\"continuation.m_restore.emplace( timelineReset );\",\"after\":[\"continuation.m_restore->SetArtifactRequest( continuation.m_restoreRequest );\",\"const bool restored = RestoreV2ArtifactTargetState(\"]}"
       ],
       "owner": "ReplayStartupProbeContinuation fixed restore transaction slot",
       "phase": "debug_startup_probe",
@@ -2743,7 +2743,7 @@
     {
       "path": "SkullbonezSource/Runtime/App/ReplayPredictionPresentation.cpp",
       "patterns": [
-        "{\"symbol\":\"ReplayPredictionPresentation::ReplayPredictionPresentation\",\"before\":[\"ReplayPredictionPresentation::ReplayPredictionPresentation( Core::SbDiagnosticStore& resultDiagnostics,\",\"Core::Profiler* profiler )\"],\"statement\":\": m_profiler( profiler ), m_retainedState( std::make_unique<ReplayPredictionPresentationRetainedState>() ),\",\"after\":[\"m_retainedMarkerDrawList( resultDiagnostics )\",\"{\"]}"
+        "{\"symbol\":\"ReplayPredictionPresentation::ReplayPredictionPresentation\",\"before\":[\"}\",\"ReplayPredictionPresentation::ReplayPredictionPresentation( Core::SbDiagnosticStore& resultDiagnostics, Core::Profiler* profiler )\"],\"statement\":\": m_profiler( profiler ), m_retainedState( std::make_unique<ReplayPredictionPresentationRetainedState>() ), m_retainedMarkerDrawList( resultDiagnostics )\",\"after\":[\"{\",\"m_focusModelMask.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\"]}"
       ],
       "owner": "ReplayPredictionPresentation retained visual state",
       "phase": "startup",
@@ -2838,16 +2838,18 @@
         "{\"symbol\":\"BuildPredictionFrames\",\"before\":[\"row[ ] = std::move( bodies );\",\"}\"],\"statement\":\"rows.push_back( std::move( row ) );\",\"after\":[\"}\",\"return { { , replay.activePredictionFrames.size() }, { , std::move( rows ) } };\"]}",
         "{\"symbol\":\"BuildPredictionEvidence\",\"before\":[\"if ( const auto* contact = evidence.Contact( frame->contacts, i ) )\",\"{\"],\"statement\":\"contacts.push_back( ContactRow( *contact ) );\",\"after\":[\"}\",\"}\"]}",
         "{\"symbol\":\"BuildPredictionEvidence\",\"before\":[\"if ( const auto* record = evidence.Pipeline( frame->pipeline, i ) )\",\"{\"],\"statement\":\"pipeline.push_back( PipelineRow( *record ) );\",\"after\":[\"}\",\"}\"]}",
-        "{\"symbol\":\"BuildPredictionEvidence\",\"before\":[\"row[ ] = std::move( pipeline );\",\"}\"],\"statement\":\"frames.push_back( std::move( row ) );\",\"after\":[\"}\",\"return { { , evidence.Generation() },\"]}",
+        "{\"symbol\":\"BuildPredictionEvidence\",\"before\":[\"row[ ] = std::move( pipeline );\",\"}\"],\"statement\":\"frames.push_back( std::move( row ) );\",\"after\":[\"}\",\"return {\"]}",
         "{\"symbol\":\"BuildTopology\",\"before\":[\"for ( const RunReplayPathTraceNode& node : packet.futureNodes )\",\"{\"],\"statement\":\"nodes.push_back( { { \\\"id\\\", node.id.value },\",\"after\":[\"{ , node.parentId.value },\",\"{ , node.modelRow.value },\"]}",
-        "{\"symbol\":\"BuildTrajectories\",\"before\":[\"for ( std::size_t i = 0; i < count; ++i )\",\"{\"],\"statement\":\"points.push_back(\",\"after\":[\"{ { , record.points[i].frameIndex }, { , Vec3( record.points[i].position ) } } );\",\"}\"]}",
-        "{\"symbol\":\"BuildTrajectories\",\"before\":[\"row[ ] = std::move( points );\",\"}\"],\"statement\":\"records.push_back( std::move( row ) );\",\"after\":[\"}\",\"return { { , replay.visualPacket.header.topologyVersion },\"]}",
+        "{\"symbol\":\"BuildTrajectories\",\"before\":[\"for ( std::size_t i = 0; i < count; ++i )\",\"{\"],\"statement\":\"points.push_back( { { \\\"frame\\\", record.points[i].frameIndex }, { \\\"position\\\", Vec3( record.points[i].position ) } } );\",\"after\":[\"}\",\"row[ ] = std::move( points );\"]}",
+        "{\"symbol\":\"BuildTrajectories\",\"before\":[\"row[ ] = std::move( points );\",\"}\"],\"statement\":\"records.push_back( std::move( row ) );\",\"after\":[\"}\",\"return {\"]}",
         "{\"symbol\":\"BuildCause\",\"before\":[\"for ( const RunReplayCauseTreeRow& row : replay.causeTree.rows )\",\"{\"],\"statement\":\"rows.push_back( { { \\\"kind\\\", static_cast<int>( row.kind ) },\",\"after\":[\"{ , row.id.value },\",\"{ , row.parentId.value },\"]}",
         "{\"symbol\":\"BuildPlanning\",\"before\":[\"for ( float value : replay.porkchop.deltaV )\",\"{\"],\"statement\":\"payload[\\\"porkchop\\\"][\\\"deltaV\\\"].push_back( value );\",\"after\":[\"}\",\"}\"]}",
         "{\"symbol\":\"AddFloatBuffer\",\"before\":[\"for ( float value : values )\",\"{\"],\"statement\":\"buffer[\\\"values\\\"].push_back( value );\",\"after\":[\"}\",\"}\"]}",
         "{\"symbol\":\"BuildVisualPacket\",\"before\":[\"for ( const ReplayPredictionRetainedMarker& marker : packet.retainedMarkers )\",\"{\"],\"statement\":\"markers.push_back( { { \\\"id\\\", marker.id.value },\",\"after\":[\"{ , marker.modelRow.value },\",\"{ , marker.hasEntryPose },\"]}",
         "{\"symbol\":\"BuildVisualPacket\",\"before\":[\"for ( const ReplayPredictionGhostDrawRequest& ghost : packet.ghostRequests )\",\"{\"],\"statement\":\"ghosts.push_back( { { \\\"modelRow\\\", ghost.modelRow.value },\",\"after\":[\"{ , Vec3( ghost.position ) },\",\"{ , Quaternion( ghost.orientation ) },\"]}",
-        "{\"symbol\":\"BuildPositionGates\",\"before\":[\"for ( const auto& gate : gates )\",\"{\"],\"statement\":\"rows.push_back( { { \\\"sceneObjectId\\\", gate.sceneObjectId },\",\"after\":[\"{ , gate.frame },\",\"{ , gate.center },\"]}"
+        "{\"symbol\":\"BuildPositionGates\",\"before\":[\"for ( const auto& gate : gates )\",\"{\"],\"statement\":\"rows.push_back( { { \\\"sceneObjectId\\\", gate.sceneObjectId }, { \\\"frame\\\", gate.frame }, { \\\"center\\\", gate.center }, { \\\"visible\\\", gate.visible } } );\",\"after\":[\"}\",\"return rows;\"]}",
+        "{\"symbol\":\"BuildDivergenceFrame\",\"before\":[\"for ( const auto& body : frame->bodies )\",\"{\"],\"statement\":\"bodies.push_back( { { \\\"id\\\", body.id.value }, { \\\"modelRow\\\", body.modelRow.value }, { \\\"position\\\", Vec3( body.position ) }, { \\\"velocity\\\", Vec3( body.linearVelocity ) } } );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"BuildDivergence\",\"before\":[\"for ( const auto& ghost : replay.divergenceGhosts )\",\"{\"],\"statement\":\"ghosts.push_back( { { \\\"modelRow\\\", ghost.modelRow.value }, { \\\"position\\\", Vec3( ghost.position ) }, { \\\"tint\\\", { ghost.tintR, ghost.tintG, ghost.tintB } }, { \\\"alpha\\\", ghost.alpha } } );\",\"after\":[\"}\",\"return {\"]}"
       ],
       "owner": "Skarness diagnostic snapshot serialization",
       "phase": "Diagnostics",
@@ -3025,6 +3027,30 @@
       "reason": "Prepare copies scene geometry under a Capture scope, then rebinds shape references after growth. It reserves each of the two model lists to the retained shape count; BuildModels visits each shape once and cannot exceed that reserve.",
       "cap": "At most one Shape and one geometry copy per source collider (shared hulls can reuse a copy), bounded by scene collider capacity; two model vectors are reserved to exactly that retained shape count before presentation.",
       "removal_or_wrapper_plan": "Use a fixed scene-capacity inspection arena if comparison preparation adopts arena storage; steady BuildModels must remain within the prepared capacities.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/App/ReplayRuntime.cpp",
+      "patterns": [
+        "{\"symbol\":\"ReplayRuntime::ReplayRuntime\",\"before\":[\"ReplayRuntime::ReplayRuntime( Core::SbDiagnosticStore& resultDiagnostics, Core::Profiler* profiler )\",\": m_resultDiagnostics( resultDiagnostics ), m_probeRunner( resultDiagnostics ), m_authoring( profiler ), m_visualPresentation( profiler ),\"],\"statement\":\"m_prediction( std::make_unique<ReplayPrediction>( resultDiagnostics, profiler ) ), m_predictionPresentation( resultDiagnostics, profiler )\",\"after\":[\"{\",\"}\"]}"
+      ],
+      "owner": "ReplayRuntime primary Prediction owner",
+      "phase": "Startup",
+      "reason": "The existing primary Prediction owner moves from inline storage to one startup-owned unique_ptr so accepting Blue can exchange complete owners without copying retained buffers.",
+      "cap": "Exactly one primary owner for the ReplayRuntime lifetime; no primary construction during steady gameplay.",
+      "removal_or_wrapper_plan": "Retain the explicit owner factory and lifetime; no general gameplay allocation permission.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp",
+      "patterns": [
+        "{\"symbol\":\"ReplayPrediction::CreateAdditionalOwner\",\"before\":[\"}\",\"RuntimeReserveAllocationScope allocation( ReplayPredictionReserveOwner(), RuntimeReservePhase::Replay, result );\"],\"statement\":\"return std::make_unique<ReplayPrediction>( diagnostics, m_profiler );\",\"after\":[\"}\",\"bool ReplayPrediction::PrepareVelocityMutationBaseline() noexcept\"]}"
+      ],
+      "owner": "replay_prediction_working_set",
+      "phase": "Replay",
+      "reason": "User-approved Modify Velocity allocation. App calls this factory only when entering comparison; RequestReplayPredictionReserveGrowth approves construction including nested TornadoGameplay reserves before RuntimeReserveAllocationScope allocates. Acceptance or scene discard destroys the other complete owner.",
+      "cap": "At most two complete owners during comparison; all payloads share the existing 960 MiB registration, active/high-water bytes and growth counters. Denial preserves Blue.",
+      "removal_or_wrapper_plan": "Retain the explicit owner factory and lifetime; no general gameplay allocation permission.",
       "match_mode": "exact_finding"
     }
   ]
