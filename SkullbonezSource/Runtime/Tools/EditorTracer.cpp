@@ -920,9 +920,9 @@ void EditorTracer::AddSphereOutline( const Vector3& center, float radius, float 
     EmitSphere( center, radius, r, g, b );
 }
 
-void EditorTracer::AddRagdollOutline( const Vector3& center, float scale, const Quaternion& orientation, float r, float g, float b )
+void EditorTracer::AddRagdollOutline( const Vector3& center, float scale, const Quaternion& orientation, float r, float g, float b, Physics::RagdollPose pose )
 {
-    Ragdoll::AddPreviewLines( m_lineData, center, scale, orientation, r, g, b );
+    Ragdoll::AddPreviewLines( m_lineData, center, scale, orientation, r, g, b, pose );
 }
 
 

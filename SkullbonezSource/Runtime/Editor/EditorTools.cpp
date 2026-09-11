@@ -18,6 +18,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "EditorTools.h"
+#include "../../Physics/Ragdoll.h"
 
 #include "../Camera/CameraCollection.h"
 #include "../Input/InputController.h"
@@ -55,7 +56,7 @@ int ClampEditorObjectType( int objectType )
     return std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
 }
 
-static_assert( UI::EditorTab::OBJECT_TYPE_COUNT == 37, "Update editor placement scale classification when adding editor object types." );
+static_assert( UI::EditorTab::OBJECT_TYPE_COUNT == 39, "Update editor placement scale classification when adding editor object types." );
 } // namespace
 
 int EditorMouseWheelSteps( int wheelDelta )
@@ -101,10 +102,19 @@ Assets::EditorHullAsset EditorHullAssetForType( int objectType )
     }
 }
 
+Physics::RagdollPose EditorRagdollPose( int objectType )
+{
+    if ( objectType == UI::EditorTab::OBJECT_RAGDOLL_ONE_ARM_SLEEP )
+    {
+        return Physics::RagdollPose::OneArmRaised;
+    }
+    return objectType == UI::EditorTab::OBJECT_RAGDOLL_BOTH_ARMS_SLEEP ? Physics::RagdollPose::BothArmsRaised : Physics::RagdollPose::Standing;
+}
+
 bool EditorPlacementUsesUniformScale( int objectType )
 {
     const int type = ClampEditorObjectType( objectType );
-    return type == UI::EditorTab::OBJECT_BALL || type == UI::EditorTab::OBJECT_SPHERE || type == UI::EditorTab::OBJECT_RAGDOLL || type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
+    return type == UI::EditorTab::OBJECT_BALL || type == UI::EditorTab::OBJECT_SPHERE || UI::EditorTab::IsRagdollObjectType( type );
 }
 
 bool EditorPlacementUsesHullScaleFactors( int objectType )
@@ -158,6 +168,8 @@ Vector3 EditorDefaultPlacementScale( int objectType )
         return Vector3( 8.0f, 8.0f, 8.0f );
     case UI::EditorTab::OBJECT_RAGDOLL:
     case UI::EditorTab::OBJECT_RAGDOLL_SLEEP:
+    case UI::EditorTab::OBJECT_RAGDOLL_ONE_ARM_SLEEP:
+    case UI::EditorTab::OBJECT_RAGDOLL_BOTH_ARMS_SLEEP:
         return Vector3( 1.0f, 1.0f, 1.0f );
     default:
         return Vector3( 1.0f, 1.0f, 1.0f );

@@ -28,6 +28,7 @@ Related:
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/CollisionShape.h"
+#include "../../Physics/Ragdoll.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -84,32 +85,51 @@ class EditorTracer
     SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats m_cachedRibbonSubmissionStats;
     uint64_t m_replayGeometryRevision = 0;
 
-    void EmitLineTo( std::vector<float>& lineData, const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r,
-                     float g, float bl );
+    void EmitLineTo( std::vector<float>& lineData, const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
     void EmitLine( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
     void EmitArrow( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
     void EmitRing( const Math::Vector::Vector3& center, int axis, float radius, float r, float g, float bl );
-    void EmitSphereTo( std::vector<float>& lineData, const Math::Vector::Vector3& center, float radius, float r, float g,
-                       float bl );
+    void EmitSphereTo( std::vector<float>& lineData, const Math::Vector::Vector3& center, float radius, float r, float g, float bl );
     void EmitSphere( const Math::Vector::Vector3& center, float radius, float r, float g, float bl );
-    void EmitBoxTo( std::vector<float>& lineData, const Math::Vector::Vector3& center, const Math::Vector::Vector3& xAxis,
-                    const Math::Vector::Vector3& yAxis, const Math::Vector::Vector3& zAxis, float r, float g, float bl );
-    void EmitBox( const Math::Vector::Vector3& center, const Math::Vector::Vector3& xAxis,
-                  const Math::Vector::Vector3& yAxis, const Math::Vector::Vector3& zAxis, float r, float g, float bl );
-    bool CanEmitShapeOutlineTo( const std::vector<float>& lineData,
-                                const Math::CollisionDetection::CollisionShapeReference& shape ) const noexcept;
-    void EmitShapeOutlineTo( std::vector<float>& lineData, const Math::Vector::Vector3& position,
+    void EmitBoxTo( std::vector<float>& lineData,
+                    const Math::Vector::Vector3& center,
+                    const Math::Vector::Vector3& xAxis,
+                    const Math::Vector::Vector3& yAxis,
+                    const Math::Vector::Vector3& zAxis,
+                    float r,
+                    float g,
+                    float bl );
+    void EmitBox( const Math::Vector::Vector3& center, const Math::Vector::Vector3& xAxis, const Math::Vector::Vector3& yAxis, const Math::Vector::Vector3& zAxis, float r, float g, float bl );
+    bool CanEmitShapeOutlineTo( const std::vector<float>& lineData, const Math::CollisionDetection::CollisionShapeReference& shape ) const noexcept;
+    void EmitShapeOutlineTo( std::vector<float>& lineData,
+                             const Math::Vector::Vector3& position,
                              const Math::Orientation::Quaternion& orientation,
-                             const Math::CollisionDetection::CollisionShapeReference& shape, float r, float g, float b );
-    void EmitShapeOutline( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
-                           const Math::CollisionDetection::CollisionShapeReference& shape, float r, float g, float b );
-    void EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData, const Math::Vector::Vector3& a,
-                                    const Math::Vector::Vector3& b, float r, float g, float bl,
+                             const Math::CollisionDetection::CollisionShapeReference& shape,
+                             float r,
+                             float g,
+                             float b );
+    void EmitShapeOutline( const Math::Vector::Vector3& position,
+                           const Math::Orientation::Quaternion& orientation,
+                           const Math::CollisionDetection::CollisionShapeReference& shape,
+                           float r,
+                           float g,
+                           float b );
+    void EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData,
+                                    const Math::Vector::Vector3& a,
+                                    const Math::Vector::Vector3& b,
+                                    float r,
+                                    float g,
+                                    float bl,
                                     const ReplayRibbonStyle& style,
                                     SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
-    void EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData, const Math::Vector::Vector3& a,
-                                     const Math::Vector::Vector3& b, float r, float g, float bl,
-                                     const ReplayRibbonStyle& glow, const ReplayRibbonStyle& core,
+    void EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData,
+                                     const Math::Vector::Vector3& a,
+                                     const Math::Vector::Vector3& b,
+                                     float r,
+                                     float g,
+                                     float bl,
+                                     const ReplayRibbonStyle& glow,
+                                     const ReplayRibbonStyle& core,
                                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
     void BuildReplayRibbonVertices( const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp );
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats m_replayTrajectoryStats;
@@ -127,63 +147,59 @@ class EditorTracer
         return m_replayGeometryRevision;
     }
 
-    void RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
-                                            std::size_t count = 1u );
-    ReplayVisualPacket BuildReplayVisualPacket( const Math::Vector::Vector3& cameraEye,
-                                                const Math::Vector::Vector3& cameraUp );
+    void RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane, std::size_t count = 1u );
+    ReplayVisualPacket BuildReplayVisualPacket( const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp );
     std::size_t ReplayPathRibbonSegmentCapacityRemaining() const;
     std::size_t ReplayPriorityRibbonSegmentCapacityRemaining() const;
 
     // Detached primitive inputs let App compose feature-owned overlay policy
     // without giving Tools access to the feature owner.
     void AddLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g, float b );
-    void AddBoxOutline( const Math::Vector::Vector3& center, const Math::Vector::Vector3& xAxis,
-                        const Math::Vector::Vector3& yAxis, const Math::Vector::Vector3& zAxis, float r, float g, float b );
+    void AddBoxOutline( const Math::Vector::Vector3& center, const Math::Vector::Vector3& xAxis, const Math::Vector::Vector3& yAxis, const Math::Vector::Vector3& zAxis, float r, float g, float b );
     void AddSphereOutline( const Math::Vector::Vector3& center, float radius, float r, float g, float b );
-    void AddRagdollOutline( const Math::Vector::Vector3& center, float scale,
-                            const Math::Orientation::Quaternion& orientation, float r, float g, float b );
+    void AddRagdollOutline( const Math::Vector::Vector3& center,
+                            float scale,
+                            const Math::Orientation::Quaternion& orientation,
+                            float r,
+                            float g,
+                            float b,
+                            Physics::RagdollPose pose = Physics::RagdollPose::Standing );
 
     void AddPlacementRay( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& hitPoint );
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float alpha, bool hit );
-    void AddReplayPathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g,
+    void AddReplayPathSegment( const Math::Vector::Vector3& start,
+                               const Math::Vector::Vector3& end,
+                               float r,
+                               float g,
                                float b,
-                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane =
-                                   SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
+                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane = SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
                                ReplayPathSegmentPresentation presentation = {} );
-    void AddReplayCausalTrailSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g,
-                                      float b, float opacity = 1.0f );
-    void AddReplayBaselinePathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r,
-                                       float g, float b, float opacity = 1.0f );
-    void AddReplayContactMarker( const Math::Vector::Vector3& point, const Math::Vector::Vector3& normal, float r, float g,
-                                 float b );
-    void AddReplayImpulseVector( const Math::Vector::Vector3& point, const Math::Vector::Vector3& impulse, float r, float g,
-                                 float b );
-    bool AddReplayCausalEntryMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
-                                     const Math::CollisionDetection::CollisionShapeReference& shape );
-    bool AddReplayCausalRestMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
-                                    const Math::CollisionDetection::CollisionShapeReference& shape );
-    bool AddReplayCausalHorizonMarker( const Math::Vector::Vector3& position,
-                                       const Math::Orientation::Quaternion& orientation,
-                                       const Math::CollisionDetection::CollisionShapeReference& shape );
-    void AddReplayBaselineEntryMarker( const Math::Vector::Vector3& position,
-                                       const Math::Orientation::Quaternion& orientation,
-                                       const Math::CollisionDetection::CollisionShapeReference& shape );
-    void AddReplayBaselineRestMarker( const Math::Vector::Vector3& position,
-                                      const Math::Orientation::Quaternion& orientation,
-                                      const Math::CollisionDetection::CollisionShapeReference& shape );
-    void AddReplayTargetMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
-                                const Math::CollisionDetection::CollisionShapeReference& shape, float radius );
+    void AddReplayCausalTrailSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g, float b, float opacity = 1.0f );
+    void AddReplayBaselinePathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g, float b, float opacity = 1.0f );
+    void AddReplayContactMarker( const Math::Vector::Vector3& point, const Math::Vector::Vector3& normal, float r, float g, float b );
+    void AddReplayImpulseVector( const Math::Vector::Vector3& point, const Math::Vector::Vector3& impulse, float r, float g, float b );
+    bool AddReplayCausalEntryMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation, const Math::CollisionDetection::CollisionShapeReference& shape );
+    bool AddReplayCausalRestMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation, const Math::CollisionDetection::CollisionShapeReference& shape );
+    bool AddReplayCausalHorizonMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation, const Math::CollisionDetection::CollisionShapeReference& shape );
+    void AddReplayBaselineEntryMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation, const Math::CollisionDetection::CollisionShapeReference& shape );
+    void AddReplayBaselineRestMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation, const Math::CollisionDetection::CollisionShapeReference& shape );
+    void AddReplayTargetMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation, const Math::CollisionDetection::CollisionShapeReference& shape, float radius );
     void AddAttachedCameraTargetMarker( const Math::Vector::Vector3& position,
                                         const Math::Orientation::Quaternion& orientation,
-                                        const Math::CollisionDetection::CollisionShapeReference& shape, float radius,
+                                        const Math::CollisionDetection::CollisionShapeReference& shape,
+                                        float radius,
                                         bool activeFollow );
-    void AddSelectionOutline( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
-                              const Math::CollisionDetection::CollisionShapeReference& shape );
-    void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis,
-                   int activeAxis, bool activeRotation, bool scaleMode, bool activeScale );
-    void AddReplayVelocityGizmo( const Math::Vector::Vector3& origin, const Math::Orientation::Quaternion& orientation,
-                                 const Math::CollisionDetection::CollisionShapeReference& shape, float radius,
-                                 const Math::Vector::Vector3& linearVelocity, const Math::Vector::Vector3& angularVelocity,
-                                 int hotLinearAxis, int hotAngularAxis, int activeAxis, bool activeAngular );
+    void AddSelectionOutline( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation, const Math::CollisionDetection::CollisionShapeReference& shape );
+    void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis, bool activeRotation, bool scaleMode, bool activeScale );
+    void AddReplayVelocityGizmo( const Math::Vector::Vector3& origin,
+                                 const Math::Orientation::Quaternion& orientation,
+                                 const Math::CollisionDetection::CollisionShapeReference& shape,
+                                 float radius,
+                                 const Math::Vector::Vector3& linearVelocity,
+                                 const Math::Vector::Vector3& angularVelocity,
+                                 int hotLinearAxis,
+                                 int hotAngularAxis,
+                                 int activeAxis,
+                                 bool activeAngular );
 };
 } // namespace SkullbonezCore::Runtime

@@ -1,8 +1,45 @@
 # Session State
 
-Date: 2026-09-11
+Date: 2026-09-12
 Branch: `codex/unified-ui`
-Status: Terrain brushing after new-level creation now replaces stale DXR mesh references during scene activation. Native RAW-to-flat/import creation strokes pass with zero DX12 errors. Prior velocity and viewport fixes remain intact. Portfolio 138/144 unchanged.
+Status: The editor offers standing, one-arm-raised and both-arms-raised sleeping ragdolls. Native placement, sleep persistence, save/reload and impact wake pass. Prior terrain, velocity and viewport fixes remain intact. Portfolio 138/144 unchanged.
+
+## Sleeping ragdoll editor poses - 2026-09-12
+
+The existing standing sleep entry is now labelled explicitly. Two appended
+catalog entries add one arm up and both arms up, with matching preview geometry,
+joint anchors and quick-menu icons. Existing object ids remain stable. All three
+are dynamic sleepers and save as ordinary body states plus their nine joints.
+
+Native testing exposed two ordering faults: a joint-construction wake could
+override the final sleep seed, and snapshot loading created joints after reading
+sleeping body states. Explicit sleep now retires earlier queued wakes for the
+same body; scene loading reapplies saved sleep after its joint creation. Later
+topology changes and impacts still wake affected bodies. Placement diagnostics
+now use fixed stack scratch instead of allocating a name vector for every part.
+
+Validation: all 1,043 unit tests pass (one existing skip; 3,483,933 assertions).
+Automation and Profile builds pass. Native Skarness placement keeps 30 bodies
+asleep and motionless through 240 ticks, saves/reloads all 27 joints, and verifies
+that an impact wakes the ten connected bodies while the other twenty stay asleep.
+The gameplay allocation guard passes and DX12 reports zero errors. Final native
+menu coverage passes all 39 catalog entries and 13 hold variants in both layouts.
+Screenshots were inspected. Artifacts are under
+`TestOutput/skarness/ragdoll-poses-refactor/` and
+`TestOutput/skarness/ragdoll-poses-editor-closure/`.
+
+The broad fast preflight found three oversized/deep placement functions. A
+synchronous placement owner replaces captured local spawn closures; two bounds
+calculations now enumerate the same eight corners without nested loops. Focused
+compiler checks close all nine configuration findings. Final formatting,
+dependency graph/proof, plain-language and allocation policy checks pass.
+Forty-two allocation-checker references were refreshed for existing formatting;
+owners, phases, limits, operations and registration counts are unchanged.
+The final staged physics gate passes against the unchanged golden, fingerprint
+`811532f8102b`. Review details are in `TestOutput/ragdoll-poses-review.md`.
+The unrelated user-created `asdasd.scene.json` remains excluded from the isolated
+staged-tree validation and commit. No physics-body field or growth privilege was
+added. Native sessions were stopped through Skarness.
 
 ## Terrain brush after new-level creation - 2026-09-11
 

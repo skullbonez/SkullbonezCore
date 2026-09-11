@@ -2112,7 +2112,7 @@ TEST_CASE( "Operator editor scene hierarchy and asset intents project through ty
     OperatorEditorToolCommandQueue malformed;
     CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformed, OperatorEditorToolCommand { OperatorEditorToolCommandType::SelectSceneObject, 0u } ).Ok() );
 
-    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformed, OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlacementObjectType, 0u, 37 } ).Ok() );
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformed, OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlacementObjectType, 0u, 39 } ).Ok() );
 }
 
 TEST_CASE( "Operator editor tool commands coalesce and project into established owner packets" )

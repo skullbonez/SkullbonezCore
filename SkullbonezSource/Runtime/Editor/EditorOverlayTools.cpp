@@ -154,9 +154,9 @@ void EditorToolsOwner::AppendPlacementGhost( EditorTracer& tracer, const Assets:
     {
         tracer.AddSphereOutline( center, scale.x, ghostR, ghostG, ghostB );
     }
-    else if ( type == UI::EditorTab::OBJECT_RAGDOLL || type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP )
+    else if ( UI::EditorTab::IsRagdollObjectType( type ) )
     {
-        tracer.AddRagdollOutline( terrainPoint, scale.x, orientation, ghostR, ghostG, ghostB );
+        tracer.AddRagdollOutline( terrainPoint, scale.x, orientation, ghostR, ghostG, ghostB, EditorRagdollPose( type ) );
     }
     else
     {

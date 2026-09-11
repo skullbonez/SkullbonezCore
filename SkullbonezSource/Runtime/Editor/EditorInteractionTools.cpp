@@ -226,7 +226,9 @@ float EditorPlacementAltitudeStepSize( SkullbonezCore::Core::SbDiagnosticStore& 
         return scale.x * 2.0f;
     case SkullbonezCore::UI::EditorTab::OBJECT_RAGDOLL:
     case SkullbonezCore::UI::EditorTab::OBJECT_RAGDOLL_SLEEP:
-        return scale.x * 18.5f;
+    case SkullbonezCore::UI::EditorTab::OBJECT_RAGDOLL_ONE_ARM_SLEEP:
+    case SkullbonezCore::UI::EditorTab::OBJECT_RAGDOLL_BOTH_ARMS_SLEEP:
+        return scale.x * ( EditorRagdollPose( type ) == SkullbonezCore::Physics::RagdollPose::Standing ? 18.5f : 24.8f );
     default:
     {
         if ( EditorTreeDefinitionForType( type ) )
@@ -1796,7 +1798,9 @@ bool TryComputeEditorObjectCenter( SkullbonezCore::Core::SbDiagnosticStore& diag
         return true;
     case UI::EditorTab::OBJECT_RAGDOLL:
     case UI::EditorTab::OBJECT_RAGDOLL_SLEEP:
-        outCenter = Ragdoll::DefaultPreviewCenter( terrainPoint, scale.x, orientation );
+    case UI::EditorTab::OBJECT_RAGDOLL_ONE_ARM_SLEEP:
+    case UI::EditorTab::OBJECT_RAGDOLL_BOTH_ARMS_SLEEP:
+        outCenter = Ragdoll::DefaultPreviewCenter( terrainPoint, scale.x, orientation, EditorRagdollPose( type ) );
         return true;
     case UI::EditorTab::OBJECT_TREE_SMALL:
     case UI::EditorTab::OBJECT_TREE_BIG:

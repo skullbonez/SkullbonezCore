@@ -40,6 +40,7 @@ Related:
 #include "../../Core/SbDiagnosticStore.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Config.h"
+#include "../../Core/SceneCapacity.h"
 
 #include "../../Core/FatalError.h"
 #include "../../Physics/ColliderStore.h"
@@ -48,6 +49,7 @@ Related:
 #include "../../Rendering/RenderInstanceStore.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cmath>
@@ -170,8 +172,17 @@ std::vector<const char*> SceneWorld::BuildDiagnosticNamesForReload() const
 
 void SceneWorld::RegisterPhysicsDiagnosticNames()
 {
-    const std::vector<const char*> diagnosticNames = BuildDiagnosticNamesForReload();
-    m_physics.SetDiagnosticNames( diagnosticNames );
+    // Lifetime: Physics copies these pointers synchronously; names remain owned
+    // by SceneEntityStore. Fixed stack scratch avoids a heap allocation per part
+    // when editor placement refreshes the diagnostic table during gameplay.
+    std::array<const char*, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> diagnosticNames;
+    const std::size_t count = static_cast<std::size_t>( Entities().Count() );
+    assert( count <= diagnosticNames.size() );
+    for ( std::size_t index = 0; index < count; ++index )
+    {
+        diagnosticNames[index] = Entities().At( static_cast<int>( index ) ).displayName;
+    }
+    m_physics.SetDiagnosticNames( std::span<const char* const>( diagnosticNames.data(), count ) );
 }
 
 

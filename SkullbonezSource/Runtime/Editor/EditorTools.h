@@ -20,6 +20,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
+#include "../../Physics/Ragdoll.h"
 
 #include "../../Core/PlatformWin32.h"
 #include "../../Assets/EditorHullAssets.h"
@@ -409,6 +410,8 @@ class EditorToolsOwner
 
 int EditorMouseWheelSteps( int wheelDelta );
 Assets::EditorHullAsset EditorHullAssetForType( int objectType );
+Physics::RagdollPose EditorRagdollPose( int objectType );
+
 bool EditorPlacementUsesUniformScale( int objectType );
 bool EditorPlacementUsesHullScaleFactors( int objectType );
 bool EditorPlacementUsesTreeScaleLock( int objectType );

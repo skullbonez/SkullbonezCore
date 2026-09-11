@@ -136,7 +136,7 @@ def run(session: Path) -> None:
             assert ui["editorObjectType"] == object_type, (entry, object_type, ui["editorObjectType"])
             assert ui["editorPlacement"]
             assert latest["scene.objects"] == scene_identity
-        for entry, variants in ((20, [15, 16, 17]), (21, [21, 22, 23]), (22, [24, 25, 26]), (23, [28, 29])):
+        for entry, variants in ((20, [15, 16, 17]), (21, [21, 22, 23]), (22, [24, 25, 26]), (23, [28, 29, 37, 38])):
             bx, by = x + (entry % columns) * 36 + 16, y + 424 + (entry // columns) * 36 + 16
             for option, object_type in enumerate(variants):
                 send("input.pointer_drag", button="left", x=int(bx), y=int(by), deltaX=44 + option * 35,
@@ -191,7 +191,7 @@ def run(session: Path) -> None:
             ui = sample(f"canvas-quick-object-{entry}")
             assert ui["editorObjectType"] == object_type
             assert latest["scene.objects"] == scene_identity
-        for entry, variants in ((20, [15, 16, 17]), (21, [21, 22, 23]), (22, [24, 25, 26]), (23, [28, 29])):
+        for entry, variants in ((20, [15, 16, 17]), (21, [21, 22, 23]), (22, [24, 25, 26]), (23, [28, 29, 37, 38])):
             bx, by = x + (entry % columns) * 36 + 16, palette_y + (entry // columns) * 36 + 16
             for option, object_type in enumerate(variants):
                 send("input.pointer_drag", button="left", x=int(bx), y=int(by), deltaX=44 + option * 35,
@@ -207,7 +207,7 @@ def run(session: Path) -> None:
         assert ui["layout"] == "Editor" and not ui["toolsVisible"]
         assert (ui["editorMode"], ui["editorPlacement"], ui["editorObjectType"]) == editing
         capture("editor-retained-editor")
-        print(f"PASS: native Editor controls, all {total} catalog choices, 24 quick-object buttons and 11 hold variants in the dock and Tools drawer, dock resizing/folding and retained editing state")
+        print(f"PASS: native Editor controls, all {total} catalog choices, 24 quick-object buttons and 13 hold variants in the dock and Tools drawer, dock resizing/folding and retained editing state")
     finally:
         try:
             send("session.stop")

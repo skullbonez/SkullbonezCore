@@ -100,8 +100,7 @@ class SleepTestOwners
     PhysicsBodyStore bodies;
     ColliderStore colliders;
     PhysicsSleepController controller;
-    PersistentContactCacheList cache { "TestSleepController.cache",
-                                       SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
+    PersistentContactCacheList cache { "TestSleepController.cache", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
 
     SleepTestOwners()
     {
@@ -146,11 +145,16 @@ class SleepFixture
     {
         const int bodyIndex = owners.bodies.Count();
         const auto sceneId = MakePhysicsSceneObjectId( static_cast<uint64_t>( 1000 + bodyIndex ) );
-        const auto desc = MakePhysicsBodyCreateDesc( sceneId, sphere, position,
+        const auto desc = MakePhysicsBodyCreateDesc( sceneId,
+                                                     sphere,
+                                                     position,
                                                      SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
                                                      SkullbonezCore::Math::Vector::ZERO_VECTOR,
-                                                     SkullbonezCore::Math::Vector::ZERO_VECTOR, Vector3( 1.0f, 1.0f, 1.0f ),
-                                                     1.0f, 0.0f, motionKind );
+                                                     SkullbonezCore::Math::Vector::ZERO_VECTOR,
+                                                     Vector3( 1.0f, 1.0f, 1.0f ),
+                                                     1.0f,
+                                                     0.0f,
+                                                     motionKind );
 
         const PhysicsBodyHandle handle = owners.bodies.CreateBodyRecord( desc, true );
         handles[static_cast<std::size_t>( bodyIndex )] = handle;
@@ -367,9 +371,7 @@ TEST_CASE( "Physics sleep controller: automatic point-joint wake applies current
     std::array<float, 2> timeRemaining = { 0.0f, 0.0f };
     constexpr float dt = 0.25f;
 
-    fixture.owners.controller.WakePointJointConnectedBodies( fixture.owners.bodies, fixture.owners.colliders, {},
-                                                             worldForces, buoyancyFacts, timeRemaining, fixture.WakeAccess(),
-                                                             joints, dt );
+    fixture.owners.controller.WakePointJointConnectedBodies( fixture.owners.bodies, fixture.owners.colliders, {}, worldForces, buoyancyFacts, timeRemaining, fixture.WakeAccess(), joints, dt );
 
     CHECK( fixture.owners.controller.GetSleepStates()[1] == 0u );
     CHECK( fixture.owners.bodies.HotFields().awake[1] == 1u );
@@ -378,9 +380,7 @@ TEST_CASE( "Physics sleep controller: automatic point-joint wake applies current
     CheckAwakeIndices( fixture.owners.controller, { 0, 1 } );
 
     const float velocityAfterWake = fixture.owners.bodies.HotFields().linearVelocityY[1];
-    fixture.owners.controller.WakePointJointConnectedBodies( fixture.owners.bodies, fixture.owners.colliders, {},
-                                                             worldForces, buoyancyFacts, timeRemaining, fixture.WakeAccess(),
-                                                             joints, dt );
+    fixture.owners.controller.WakePointJointConnectedBodies( fixture.owners.bodies, fixture.owners.colliders, {}, worldForces, buoyancyFacts, timeRemaining, fixture.WakeAccess(), joints, dt );
 
     CHECK( fixture.owners.bodies.HotFields().linearVelocityY[1] == velocityAfterWake );
 }
@@ -397,16 +397,14 @@ TEST_CASE( "Physics sleep controller: underwater lock refuses wake and disable-r
     worldForces.fluidDensity = 1000.0f;
     std::array<BuoyancyBodyFacts, 1> buoyancyFacts = {};
     std::array<float, 1> timeRemaining = { 0.125f };
-    fixture.owners.controller.LockUnderwaterSleeperIfReady( worldForces, fixture.owners.bodies, fixture.owners.colliders,
-                                                            buoyancyFacts, timeRemaining, 0 );
+    fixture.owners.controller.LockUnderwaterSleeperIfReady( worldForces, fixture.owners.bodies, fixture.owners.colliders, buoyancyFacts, timeRemaining, 0 );
 
     REQUIRE( fixture.owners.controller.GetUnderwaterSleepLocks()[0] == 1u );
     CHECK( timeRemaining[0] == 0.0f );
     CHECK( fixture.owners.controller.GetSleepStates()[0] == 1u );
     CHECK( fixture.owners.bodies.HotFields().awake[0] == 0u );
 
-    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.owners.colliders, worldForces, buoyancyFacts,
-                                         timeRemaining, fixture.WakeAccess(), 0 );
+    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.owners.colliders, worldForces, buoyancyFacts, timeRemaining, fixture.WakeAccess(), 0 );
 
     CHECK( fixture.owners.controller.GetUnderwaterSleepLocks()[0] == 1u );
     CHECK( fixture.owners.controller.GetSleepStates()[0] == 1u );
@@ -424,8 +422,7 @@ TEST_CASE( "Physics sleep controller: underwater lock refuses wake and disable-r
     fixture.owners.controller.SetPhysicsSleepEnabled( true );
     worldForces.fluidSurfaceHeight = -10.0f;
     fixture.Sleep( 0 );
-    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.owners.colliders, worldForces, buoyancyFacts,
-                                         timeRemaining, fixture.WakeAccess(), 0 );
+    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.owners.colliders, worldForces, buoyancyFacts, timeRemaining, fixture.WakeAccess(), 0 );
 
     CHECK( fixture.owners.controller.GetUnderwaterSleepLocks()[0] == 0u );
     CHECK( fixture.owners.controller.GetSleepStates()[0] == 0u );
@@ -461,6 +458,31 @@ TEST_CASE( "Physics sleep controller: awake-list remove add and cold rebuild pre
     fixture.owners.controller.InvalidateBodyTopology();
     REQUIRE( fixture.owners.controller.MirrorFlagsFrom( fixture.owners.bodies, 5 ) );
     CheckAwakeIndices( fixture.owners.controller, { 0, 1, 3 } );
+}
+
+TEST_CASE( "Physics sleep controller: explicit sleep supersedes earlier but not later topology wakes" )
+{
+    SleepFixture fixture;
+    for ( int bodyIndex = 0; bodyIndex < 3; ++bodyIndex )
+    {
+        fixture.AddSphere( Vector3( static_cast<float>( bodyIndex ) * 100.0f, 0.0f, 0.0f ) );
+    }
+    fixture.Mirror();
+    fixture.owners.controller.QueueConstraintTopologyWake( fixture.handles[0], fixture.handles[1] );
+    fixture.owners.controller.QueueConstraintTopologyWake( fixture.handles[1], fixture.handles[2] );
+    fixture.Sleep( 0 );
+    fixture.Sleep( 1 );
+    // Only explicitly seeded bodies discard their older requests.
+    REQUIRE( fixture.owners.controller.MirrorFlagsFrom( fixture.owners.bodies, 3 ) );
+    CHECK( fixture.owners.controller.GetSleepStates()[0] == 1u );
+    CHECK( fixture.owners.controller.GetSleepStates()[1] == 1u );
+    CheckAwakeIndices( fixture.owners.controller, { 2 } );
+
+    fixture.Sleep( 2 );
+    fixture.owners.controller.QueueConstraintTopologyWake( fixture.handles[0], fixture.handles[1] );
+    REQUIRE( fixture.owners.controller.MirrorFlagsFrom( fixture.owners.bodies, 3 ) );
+    CHECK( fixture.owners.controller.GetSleepStates()[2] == 1u );
+    CheckAwakeIndices( fixture.owners.controller, { 0, 1 } );
 }
 
 TEST_CASE( "Physics sleep controller: compacted queued wakes use stable handles only" )
@@ -555,9 +577,7 @@ TEST_CASE( "Physics sleep controller: joint wake scratch preserves retained cont
     std::array<BuoyancyBodyFacts, 3> buoyancy {};
     std::array<float, 3> remaining {};
     PhysicsWorldForces forces;
-    fixture.owners.controller.WakePointJointConnectedBodies( fixture.owners.bodies, fixture.owners.colliders, {}, forces,
-                                                             buoyancy, remaining, fixture.WakeAccess(), joints,
-                                                             1.0f / 120.0f );
+    fixture.owners.controller.WakePointJointConnectedBodies( fixture.owners.bodies, fixture.owners.colliders, {}, forces, buoyancy, remaining, fixture.WakeAccess(), joints, 1.0f / 120.0f );
     fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.WakeAccess(), 0 );
     CheckAwakeIndices( fixture.owners.controller, { 0, 1, 2 } );
 }

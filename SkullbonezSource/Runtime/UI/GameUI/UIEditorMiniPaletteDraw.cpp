@@ -250,17 +250,19 @@ void DrawEditorMiniIcon( const UIDrawContext& draw, const UIRect& bounds, int ob
         return;
     }
 
-    if ( type == EditorTab::OBJECT_RAGDOLL || type == EditorTab::OBJECT_RAGDOLL_SLEEP )
+    if ( EditorTab::IsRagdollObjectType( type ) )
     {
         draw.RoundedRect( cx - r * 0.34f, cy - r * 1.05f, r * 0.68f, r * 0.68f, 999.0f, color.r, color.g, color.b, alpha );
 
         draw.Rect( cx - r * 0.42f, cy - r * 0.34f, r * 0.84f, r * 0.92f, color.r, color.g, color.b, alpha );
-        draw.Rect( cx - r * 1.05f, cy - r * 0.18f, r * 0.52f, r * 0.32f, color.r, color.g, color.b, alpha * 0.82f );
-        draw.Rect( cx + r * 0.53f, cy - r * 0.18f, r * 0.52f, r * 0.32f, color.r, color.g, color.b, alpha * 0.82f );
+        const bool leftRaised = type == EditorTab::OBJECT_RAGDOLL_ONE_ARM_SLEEP || type == EditorTab::OBJECT_RAGDOLL_BOTH_ARMS_SLEEP;
+        const bool rightRaised = type == EditorTab::OBJECT_RAGDOLL_BOTH_ARMS_SLEEP;
+        draw.Rect( cx - r * 0.85f, cy - r * ( leftRaised ? 1.40f : 0.18f ), r * 0.30f, r * 1.10f, color.r, color.g, color.b, alpha * 0.82f );
+        draw.Rect( cx + r * 0.55f, cy - r * ( rightRaised ? 1.40f : 0.18f ), r * 0.30f, r * 1.10f, color.r, color.g, color.b, alpha * 0.82f );
         draw.Rect( cx - r * 0.50f, cy + r * 0.65f, r * 0.34f, r * 0.68f, color.r, color.g, color.b, alpha * 0.82f );
         draw.Rect( cx + r * 0.16f, cy + r * 0.65f, r * 0.34f, r * 0.68f, color.r, color.g, color.b, alpha * 0.82f );
 
-        if ( type == EditorTab::OBJECT_RAGDOLL_SLEEP )
+        if ( type != EditorTab::OBJECT_RAGDOLL )
         {
             draw.Rect( cx + r * 0.56f, cy - r * 1.04f, r * 0.48f, 2.0f, color.r, color.g, color.b, alpha );
             draw.Rect( cx + r * 0.70f, cy - r * 0.82f, r * 0.40f, 2.0f, color.r, color.g, color.b, alpha * 0.78f );
@@ -425,7 +427,8 @@ void DrawEditorMiniTooltip( const UIDrawContext& draw, const UIRect& anchor, con
 
 int EditorMiniRagdollObjectType( int mode )
 {
-    return mode == EDITOR_MINI_RAGDOLL_MODE_SLEEPING ? EditorTab::OBJECT_RAGDOLL_SLEEP : EditorTab::OBJECT_RAGDOLL;
+    constexpr int types[] = { EditorTab::OBJECT_RAGDOLL, EditorTab::OBJECT_RAGDOLL_SLEEP, EditorTab::OBJECT_RAGDOLL_ONE_ARM_SLEEP, EditorTab::OBJECT_RAGDOLL_BOTH_ARMS_SLEEP };
+    return types[std::clamp( mode, 0, EDITOR_MINI_RAGDOLL_MODE_COUNT - 1 )];
 }
 
 
@@ -506,16 +509,15 @@ void DrawEditorMiniPalette( const UIDrawContext& draw,
         const EditorMiniPaletteEntry& entry = kEditorMiniPaletteEntries[i];
         const bool treeEntry = IsEditorMiniTreePlacementValid( entry.treePlacement );
         const bool ragdollEntry = entry.holdMode == EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES;
-        const bool selected = treeEntry
-                                  ? ( currentTreeState && currentTreePlacement == entry.treePlacement )
-                                  : ( ragdollEntry ? ( editorObjectType == EditorTab::OBJECT_RAGDOLL || editorObjectType == EditorTab::OBJECT_RAGDOLL_SLEEP ) : entry.objectType == editorObjectType );
+        const bool selected = treeEntry ? ( currentTreeState && currentTreePlacement == entry.treePlacement )
+                                        : ( ragdollEntry ? EditorTab::IsRagdollObjectType( editorObjectType ) : entry.objectType == editorObjectType );
 
         const bool hot = layout.buttons[i].Contains( mouseX, mouseY );
-        const int marker = treeEntry ? entry.treePlacement : ( ragdollEntry && editorObjectType == EditorTab::OBJECT_RAGDOLL_SLEEP ? EDITOR_MINI_TREE_PLACEMENT_SLEEPING : -1 );
+        const int marker = treeEntry ? entry.treePlacement : ( ragdollEntry && selected && editorObjectType != EditorTab::OBJECT_RAGDOLL ? EDITOR_MINI_TREE_PLACEMENT_SLEEPING : -1 );
 
         const bool holdCapable = entry.holdMode != EDITOR_MINI_HOLD_MODE_NONE;
         const bool holdActive = holdCapable && i == pressedEntry && flyoutHoldMode != EDITOR_MINI_HOLD_MODE_NONE;
-        DrawEditorMiniPaletteButton( draw, layout.buttons[i], entry.objectType, selected, hot, marker, holdCapable, holdActive );
+        DrawEditorMiniPaletteButton( draw, layout.buttons[i], ragdollEntry && selected ? editorObjectType : entry.objectType, selected, hot, marker, holdCapable, holdActive );
 
         if ( hot )
         {
@@ -550,7 +552,7 @@ void DrawEditorMiniPalette( const UIDrawContext& draw,
             else if ( flyoutHoldMode == EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES )
             {
                 type = EditorMiniRagdollObjectType( option );
-                marker = option == EDITOR_MINI_RAGDOLL_MODE_SLEEPING ? EDITOR_MINI_TREE_PLACEMENT_SLEEPING : -1;
+                marker = option != 0 ? EDITOR_MINI_TREE_PLACEMENT_SLEEPING : -1;
                 selected = type == editorObjectType;
             }
 

@@ -78,8 +78,7 @@ LoadedChainMeasurement RunLoadedChain( bool clearWarmStartEveryStep, int stepHz 
     PhysicsBodyStore bodies;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( static_cast<std::size_t>( kLoadedChainBodyCount + 1 ) );
     }
 
@@ -104,8 +103,7 @@ LoadedChainMeasurement RunLoadedChain( bool clearWarmStartEveryStep, int stepHz 
     for ( int jointIndex = 0; jointIndex < kLoadedChainBodyCount; ++jointIndex )
     {
         PointJointConstraint& joint = constraints[static_cast<std::size_t>( jointIndex )];
-        joint.SetBodies( handles[static_cast<std::size_t>( jointIndex )],
-                         handles[static_cast<std::size_t>( jointIndex + 1 )] );
+        joint.SetBodies( handles[static_cast<std::size_t>( jointIndex )], handles[static_cast<std::size_t>( jointIndex + 1 )] );
         joint.localAnchorA = Vector3( 0.0f, -0.5f, 0.0f );
         joint.localAnchorB = Vector3( 0.0f, 0.5f, 0.0f );
         joint.slack = 0.0f;
@@ -169,6 +167,45 @@ LoadedChainMeasurement RunLoadedChain( bool clearWarmStartEveryStep, int stepHz 
 }
 } // namespace
 
+TEST_CASE( "Ragdoll raised-arm poses preserve feet and joint attachment distances" )
+{
+    using SkullbonezCore::Physics::RagdollPose;
+    const auto* standing = Ragdoll::SimpleParts();
+    int standingCount = 0;
+    const auto* standingJoints = Ragdoll::SimpleJoints( standingCount );
+    for ( const auto pose : { RagdollPose::Standing, RagdollPose::OneArmRaised, RagdollPose::BothArmsRaised } )
+    {
+        const auto* parts = Ragdoll::SimpleParts( pose );
+        int count = 0;
+        const auto* joints = Ragdoll::SimpleJoints( count, pose );
+        REQUIRE( count == 9 );
+        for ( int i : { 0, 1, 6, 7, 8, 9 } )
+        {
+            CheckVectorExact( parts[i].localCenter, standing[i].localCenter );
+            CheckVectorExact( parts[i].halfExtents, standing[i].halfExtents );
+        }
+        CHECK( parts[7].localCenter.y - parts[7].halfExtents.y == 0.0f );
+        CHECK( parts[9].localCenter.y - parts[9].halfExtents.y == 0.0f );
+        CHECK( ( parts[3].localCenter.y - parts[3].halfExtents.y > parts[1].localCenter.y + parts[1].halfExtents.y ) == ( pose != RagdollPose::Standing ) );
+        CHECK( ( parts[5].localCenter.y - parts[5].halfExtents.y > parts[1].localCenter.y + parts[1].halfExtents.y ) == ( pose == RagdollPose::BothArmsRaised ) );
+        for ( int i = 0; i < count; ++i )
+        {
+            const auto& joint = joints[i];
+            const auto& original = standingJoints[i];
+            const auto gap = parts[joint.bodyA].localCenter + joint.localAnchorA - parts[joint.bodyB].localCenter - joint.localAnchorB;
+            const auto originalGap = standing[original.bodyA].localCenter + original.localAnchorA - standing[original.bodyB].localCenter - original.localAnchorB;
+            CHECK( VectorMagSquared( gap ) == doctest::Approx( VectorMagSquared( originalGap ) ).epsilon( 0.00001 ) );
+            CHECK( joint.slack == original.slack );
+            CHECK( joint.flags == original.flags );
+        }
+        std::vector<float> preview;
+        Ragdoll::AddPreviewLines( preview, Vector3( 0, 0, 0 ), 1.0f, SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION, 1, 1, 1, pose );
+        CHECK( preview.size() == 10 * 12 * 2 * 6 );
+        const float center = Ragdoll::DefaultPreviewCenter( Vector3( 0, 0, 0 ), 1.0f, SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION, pose ).y;
+        CHECK( center == doctest::Approx( pose == RagdollPose::Standing ? 9.225f : 12.4f ) );
+    }
+}
+
 
 TEST_CASE( "Ragdoll neck swing: rounded dot endpoints stay finite" )
 {
@@ -178,12 +215,10 @@ TEST_CASE( "Ragdoll neck swing: rounded dot endpoints stay finite" )
     Vector3 correctionAxis;
     float correctionAngle = -1.0f;
 
-    CHECK_FALSE( Ragdoll::TryBuildNeckSwingCorrection( aboveOne, Vector3( 0.0f, 0.0f, 0.0f ), fallbackAxis, correctionAxis,
-                                                       correctionAngle ) );
+    CHECK_FALSE( Ragdoll::TryBuildNeckSwingCorrection( aboveOne, Vector3( 0.0f, 0.0f, 0.0f ), fallbackAxis, correctionAxis, correctionAngle ) );
     CHECK( correctionAngle == -1.0f );
 
-    REQUIRE( Ragdoll::TryBuildNeckSwingCorrection( belowNegativeOne, Vector3( 0.0f, 0.0f, 0.0f ), fallbackAxis,
-                                                   correctionAxis, correctionAngle ) );
+    REQUIRE( Ragdoll::TryBuildNeckSwingCorrection( belowNegativeOne, Vector3( 0.0f, 0.0f, 0.0f ), fallbackAxis, correctionAxis, correctionAngle ) );
     CHECK( std::isfinite( correctionAngle ) );
     CHECK( correctionAngle == doctest::Approx( kMaximumCorrectionRadians ) );
     CheckVectorExact( correctionAxis, fallbackAxis );
@@ -196,11 +231,9 @@ TEST_CASE( "Ragdoll neck swing: aligned vectors need no correction and opposed v
     Vector3 correctionAxis;
     float correctionAngle = 0.0f;
 
-    CHECK_FALSE( Ragdoll::TryBuildNeckSwingCorrection( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ), fallbackAxis, correctionAxis,
-                                                       correctionAngle ) );
+    CHECK_FALSE( Ragdoll::TryBuildNeckSwingCorrection( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ), fallbackAxis, correctionAxis, correctionAngle ) );
 
-    REQUIRE( Ragdoll::TryBuildNeckSwingCorrection( -1.0f, Vector3( 0.0f, 0.0f, 0.0f ), fallbackAxis, correctionAxis,
-                                                   correctionAngle ) );
+    REQUIRE( Ragdoll::TryBuildNeckSwingCorrection( -1.0f, Vector3( 0.0f, 0.0f, 0.0f ), fallbackAxis, correctionAxis, correctionAngle ) );
     CheckVectorExact( correctionAxis, fallbackAxis );
     CHECK( correctionAngle == doctest::Approx( kMaximumCorrectionRadians ) );
 }
@@ -212,8 +245,7 @@ TEST_CASE( "Ragdoll neck swing: cross axis is reused for capped and ordinary cor
     Vector3 correctionAxis;
     float correctionAngle = 0.0f;
 
-    REQUIRE( Ragdoll::TryBuildNeckSwingCorrection( 0.0f, correctionCross, Vector3( 1.0f, 0.0f, 0.0f ), correctionAxis,
-                                                   correctionAngle ) );
+    REQUIRE( Ragdoll::TryBuildNeckSwingCorrection( 0.0f, correctionCross, Vector3( 1.0f, 0.0f, 0.0f ), correctionAxis, correctionAngle ) );
     CheckVectorExact( correctionAxis, correctionCross );
     CHECK( correctionAngle == doctest::Approx( kMaximumCorrectionRadians ) );
 
@@ -221,8 +253,7 @@ TEST_CASE( "Ragdoll neck swing: cross axis is reused for capped and ordinary cor
     // independent geometric case proves the ordinary path does not always emit
     // the per-step cap used by the larger endpoint cases.
     const Vector3 subCapCross( 0.0f, 0.0f, 0.57357644f );
-    REQUIRE( Ragdoll::TryBuildNeckSwingCorrection( 0.81915206f, subCapCross, Vector3( 1.0f, 0.0f, 0.0f ), correctionAxis,
-                                                   correctionAngle ) );
+    REQUIRE( Ragdoll::TryBuildNeckSwingCorrection( 0.81915206f, subCapCross, Vector3( 1.0f, 0.0f, 0.0f ), correctionAxis, correctionAngle ) );
     CheckVectorExact( correctionAxis, correctionCross );
     CHECK( correctionAngle < kMaximumCorrectionRadians );
     CHECK( std::abs( correctionAngle - 0.08726646f ) <= 0.00005f );
@@ -234,8 +265,7 @@ TEST_CASE( "Ragdoll neck swing: point-joint host applies correction and damping"
     PhysicsBodyStore bodies;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( 2u );
     }
 
@@ -293,8 +323,7 @@ TEST_CASE( "Ragdoll point joint: coincident anchors constrain off-axis relative 
 {
     PhysicsBodyStore bodies;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( 2u );
     }
     PhysicsBodyCreateRecord anchor;
@@ -326,8 +355,7 @@ static void CheckJointRotationSymmetry( bool fixedA )
     {
         PhysicsBodyStore bodies;
         {
-            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
             bodies.ReserveCapacity( 2u );
         }
         auto orientation = SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION;
@@ -368,8 +396,7 @@ static void CheckJointRotationSymmetry( bool fixedA )
         REQUIRE( samples.back().iteration == 7 );
         CHECK( samples.back().minimumScaledPivot > 0.0f );
         const Vector3 residual = samples.back().relativeAnchorVelocity;
-        const Vector3 initialRelative = b.hot.linearVelocity +
-                                        CrossProduct( b.hot.angularVelocity, rotation * joint.localAnchorB );
+        const Vector3 initialRelative = b.hot.linearVelocity + CrossProduct( b.hot.angularVelocity, rotation * joint.localAnchorB );
         const Vector3 expectedResidual = initialRelative / ( 1.0f + 4.38649084f );
         CHECK( residual.x == doctest::Approx( expectedResidual.x ).epsilon( 0.0001f ) );
         CHECK( residual.y == doctest::Approx( expectedResidual.y ).epsilon( 0.0001f ) );
@@ -409,8 +436,7 @@ TEST_CASE( "Ragdoll point joint: degenerate mass blocks remain finite without wa
     {
         PhysicsBodyStore bodies;
         {
-            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
             bodies.ReserveCapacity( 2u );
         }
         PhysicsBodyCreateRecord body;
@@ -458,8 +484,7 @@ static void CheckImpactEnergy( int hz, float dampingRatio )
 {
     PhysicsBodyStore bodies;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope scope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope scope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( 2u );
     }
     PhysicsBodyCreateRecord anchor;
@@ -494,13 +519,11 @@ static void CheckImpactEnergy( int hz, float dampingRatio )
             {
                 work += sample.impulseWorkJoules;
             }
-            CHECK( work == doctest::Approx( 0.5 * ( Dot( after.linearVelocity, after.linearVelocity ) -
-                                                    Dot( before.linearVelocity, before.linearVelocity ) ) ) );
+            CHECK( work == doctest::Approx( 0.5 * ( Dot( after.linearVelocity, after.linearVelocity ) - Dot( before.linearVelocity, before.linearVelocity ) ) ) );
         }
         after.position += after.linearVelocity * dt;
         StorePhysicsBodyHotState( bodies.MutableHotFields(), 1u, after );
-        const double energy = 0.5 * ( Dot( after.linearVelocity, after.linearVelocity ) +
-                                      omegaSquared * Dot( after.position, after.position ) );
+        const double energy = 0.5 * ( Dot( after.linearVelocity, after.linearVelocity ) + omegaSquared * Dot( after.position, after.position ) );
         // Implicit Euler contributes numerical damping even at zeta=0.
         // Positive zeta adds physical relative-motion damping; neither
         // case may inject energy into this isolated unforced spring.
@@ -529,8 +552,7 @@ TEST_CASE( "Ragdoll softness: free swing and common motion are not body-speed da
     {
         PhysicsBodyStore bodies;
         {
-            SkullbonezCore::Core::Allocation::RuntimeAllocationScope scope(
-                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope scope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
             bodies.ReserveCapacity( 2u );
         }
         PhysicsBodyCreateRecord anchor;
@@ -579,8 +601,7 @@ TEST_CASE( "Ragdoll softness: zero frequency disables warm start and hard limit 
 
     PhysicsBodyStore bodies;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope scope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope scope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( 2u );
     }
     PhysicsBodyCreateRecord body;
