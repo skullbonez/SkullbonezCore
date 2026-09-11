@@ -523,6 +523,7 @@ RuntimeUIFrameResult Run::BeginRuntimeUIFrame( const ReplayPathPickInput& replay
         runtimeInput.BeginFrame( true, true, true );
         return result;
     }
+    const RECT velocityViewport = m_window.PresentationViewport();
     m_replayRuntime.TickWorkspace( ReplayWorkspaceFrameInput { windowHandle,
                                                                m_operatorUi->BlocksCameraMouse() || facts.externalUiCapture.mouse,
                                                                facts.gameUiActive,
@@ -549,6 +550,11 @@ RuntimeUIFrameResult Run::BeginRuntimeUIFrame( const ReplayPathPickInput& replay
                                                                m_operatorUi->PresentationBounds().causeControls,
                                                                m_operatorUi->BlocksCauseMouse() || facts.externalUiCapture.mouse,
                                                                m_operatorUi->PresentationBounds().statusContent,
+                                                               m_window.GetProjectionMatrix() * m_sceneController.Scene().Cameras().GetViewMatrix(),
+                                                               { static_cast<float>( velocityViewport.left ),
+                                                                                                                                                       static_cast<float>( velocityViewport.top ),
+                                                                                                                                                       static_cast<float>( velocityViewport.right - velocityViewport.left ),
+                                                                                                                                                       static_cast<float>( velocityViewport.bottom - velocityViewport.top ) },
                                                                m_operatorUi->SharedPresentationEnabled() && m_operatorUi->PresentationLayout() == UI::GameLayout::LayoutMode::Editor },
                                    m_inputRouter,
                                    m_interaction,
@@ -558,6 +564,28 @@ RuntimeUIFrameResult Run::BeginRuntimeUIFrame( const ReplayPathPickInput& replay
                                    m_runtimeTools.MousePickup(),
                                    result.replayWorkspace );
 
+    if ( result.replayWorkspace.velocityExperimentClosed && m_comparison.IsVelocityExperiment() )
+    {
+        CloseComparison();
+    }
+    if ( result.replayWorkspace.openVelocitySolverLab )
+    {
+        OpenVelocitySolverLab();
+    }
+    if ( result.replayWorkspace.cancelVelocityExperiment )
+    {
+        m_inputRouter.ApplyCameraMode( RunCameraMode::Scene,
+                                       RuntimeInputActionSource::Keyboard,
+                                       m_editorTools,
+                                       m_runtimeTools,
+                                       m_interaction,
+                                       m_attachedCamera,
+                                       m_camera,
+                                       m_sceneController,
+                                       m_replayRuntime,
+                                       m_inputRouter.RuntimeContext() );
+        m_operatorUi->ReturnToGame();
+    }
     if ( result.replayWorkspace.loadPresentationRequested )
     {
         ApplyReplayTransportCommand( result, facts, ReplayLoadCommand {} );
@@ -1440,7 +1468,7 @@ void Run::ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInpu
         else if ( command.type == SkarnessCommandType::SceneSave )
         {
             application.applied = !m_replayRuntime.VelocityComparisonActive();
-            application.reason = application.applied ? nullptr : "Accept Red or Blue before saving the scene.";
+            application.reason = application.applied ? nullptr : "Accept Original or Modified before saving the scene.";
             if ( application.applied )
             {
                 m_sceneController.SubmitSaveCurrentDefaults();

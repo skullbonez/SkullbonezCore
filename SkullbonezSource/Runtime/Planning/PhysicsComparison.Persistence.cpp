@@ -607,7 +607,7 @@ bool PhysicsComparison::SaveFinding( const char* path, const ReplayCameraSample&
 {
     using namespace SkullbonezCore::Core::Allocation;
     RuntimeAllocationScope saving( RuntimeAllocationPhase::Capture );
-    if ( !Active() )
+    if ( !Active() || m_bundle.empty() )
     {
         return false;
     }

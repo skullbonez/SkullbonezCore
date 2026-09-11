@@ -298,6 +298,14 @@ Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
     m_sceneController.Scene().Physics().BindProfiler( profiler );
     m_sceneController.Scene().Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
     m_operatorUi->LoadPresentationPreferences();
+    // Restore the panel rectangle before renderer/scene startup, rather than
+    // leaving Window's full-client fallback active until the first input turn.
+    m_operatorUi->UpdatePresentationInput( {}, m_window.ClientWidth(), m_window.ClientHeight(), true );
+    const auto viewport = m_operatorUi->PresentationBounds().viewport;
+    m_window.SetPresentationViewport( { static_cast<LONG>( viewport.x ),
+                                        static_cast<LONG>( viewport.y ),
+                                        static_cast<LONG>( viewport.x + viewport.w ),
+                                        static_cast<LONG>( viewport.y + viewport.h ) } );
     m_replayRuntime.RestoreEvidenceSummarySections( m_operatorUi->EvidenceSummarySectionsPreference() );
     m_operatorUi->SceneNavigation().RefreshBrowserList();
     m_operatorUi->SceneNavigation().RefreshInteractionRecordings();

@@ -1,5 +1,6 @@
 // App switches complete prediction owners; Planning owns the user's choice.
 #include "ReplayRuntime.h"
+#include "../Planning/PhysicsComparisonPanel.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
 
@@ -152,6 +153,16 @@ bool ReplayRuntime::AcceptVelocityDivergence( Physics::PhysicsEngine& physics, b
     m_scrubberOwner.SetLiveAdvanceHeld( true );
     m_scrubberOwner.SetTrackPosition( RunReplayTrack::Solver, SolverPresentTrackPosition() );
     return true;
+}
+
+bool ReplayRuntime::OpenVelocityComparison( PhysicsComparison& comparison )
+{
+    if ( !m_bluePrediction || !m_planningOwner.VelocityDivergence().redReady )
+    {
+        return false;
+    }
+    m_planningOwner.VelocityDivergence().playing = false;
+    return comparison.LoadPredictionFrames( m_bluePrediction->ActiveFrames(), Prediction().ActiveFrames() );
 }
 
 bool ReplayRuntime::PlaybackPaused() const noexcept

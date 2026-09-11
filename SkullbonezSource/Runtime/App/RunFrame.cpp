@@ -1459,6 +1459,11 @@ void Run::PublishSkarnessFrameState()
     Vector3 rayDirection( 0.0f, 0.0f, 0.0f );
     state.presentation.pointerHasWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Scene().Cameras(), m_window, rayOrigin, rayDirection );
     state.presentation.pointerRayDirection = { rayDirection.x, rayDirection.y, rayDirection.z };
+    // Observe the sampled physical pointer beside its routed gesture so native
+    // mouse tests can distinguish a missed press from a missed handle.
+    state.presentation.pointerClientPosition = { m_inputRouter.DeviceFrame().clientX, m_inputRouter.DeviceFrame().clientY };
+    state.presentation.pointerLeftState = { m_inputRouter.UiSnapshot().mouse.leftDown, m_inputRouter.UiSnapshot().mouse.leftPressed, m_inputRouter.UiSnapshot().mouse.leftReleased };
+    state.presentation.pointerGesture = { static_cast<int>( m_interaction.Gesture().kind ), m_interaction.Gesture().axis, m_interaction.Gesture().angular ? 1 : 0 };
     state.sceneGeneration = lifecycle.generation;
     state.sceneFrame = m_sceneController.State().currentFrame;
     const std::string* scenePath = m_sceneController.CurrentPath();

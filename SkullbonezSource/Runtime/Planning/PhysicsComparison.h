@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Replay/ReplayRecorder.h"
+#include "../Prediction/ReplayPredictionView.h"
 #include "../../UI/UIDrawList.h"
 #include <array>
 #include <atomic>
@@ -171,10 +172,15 @@ class PhysicsComparison
   public:
     static constexpr uint64_t MEMORY_BUDGET = 512ull * 1024 * 1024;
     bool Load( const char* bundlePath, ComparisonLoadProgress* progress = nullptr );
+    bool LoadPredictionFrames( std::span<const RunReplayPredictionFrame> blue, std::span<const RunReplayPredictionFrame> red );
     void Close() noexcept;
     bool Active() const noexcept
     {
         return !m_recordings[0].frames.empty() && !m_recordings[1].frames.empty();
+    }
+    bool IsVelocityExperiment() const noexcept
+    {
+        return m_velocityExperiment;
     }
     const std::string& Error() const noexcept
     {
@@ -281,6 +287,7 @@ class PhysicsComparison
     uint64_t m_eventSelectionRevision = 0;
     double m_fraction = 0.0;
     bool m_loop = false;
+    bool m_velocityExperiment = false;
 };
 // Lifetime: the worker owns its candidate exclusively until the release/acquire
 // completion handshake. App publishes it and performs scene/GPU setup on the UI thread.

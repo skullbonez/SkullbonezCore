@@ -78,8 +78,9 @@ struct ReplayTrajectoryAppearanceConfig;
 } // namespace Core
 namespace Runtime
 {
+class PhysicsComparison;
 class SceneController;
-}
+} // namespace Runtime
 
 namespace Environment
 {
@@ -651,6 +652,7 @@ class ReplayRuntime
     void ClearPathSelection() noexcept;
     ReplayFrameIndex ResetDeterministicReveal() noexcept;
     ReplayFrameIndex AdvanceDeterministicReveal( ReplayFrameIndex frames ) noexcept;
+    bool OpenVelocityComparison( PhysicsComparison& comparison );
     bool PreviewVelocity( Physics::PhysicsEngine& physics, const Math::Vector::Vector3& linearVelocity, const Math::Vector::Vector3& angularVelocity ) noexcept;
     bool CommitVelocityPreview() noexcept;
     bool PlaybackPaused() const noexcept;
@@ -1105,6 +1107,14 @@ class ReplayRuntime
     {
         return *m_prediction;
     }
+    bool TickVelocityEditing( const ReplayWorkspaceFrameInput& input,
+                              InputRouter& inputRouter,
+                              RuntimeInteractionController& interaction,
+                              SceneWorld& world,
+                              CameraControlState& camera,
+                              RunMousePickupState& mousePickup,
+                              bool pointerBlocked,
+                              ReplayWorkspaceOutput& output );
     bool BeginVelocityDivergence( Physics::PhysicsEngine& physics );
     bool AcceptVelocityDivergence( Physics::PhysicsEngine& physics, bool acceptRed );
     void ClearVelocityDivergence();

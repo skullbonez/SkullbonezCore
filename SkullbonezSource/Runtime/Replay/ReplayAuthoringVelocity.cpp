@@ -1,34 +1,4 @@
-/*
-File: SkullbonezSource/Runtime/Replay/ReplayAuthoringVelocity.cpp
-Purpose:
-  Implements replay velocity-edit keyboard policy, picking, dragging, mutation, and overlay drawing.
-
-Summary:
-  Velocity edit is a replay-owned interaction mode. It turns mouse rays into linear or angular
-  velocity edits. Held samples publish only a selected-path delta for cheap
-  visual feedback. Release schedules one authoritative prediction while the
-  provisional line remains visible.
-
-Glossary:
-  Velocity gizmo: Replay overlay that exposes linear axes and angular rings for one body.
-  Live advance: Replay scrubber mode that lets edited live physics advance while tools stay active.
-  Replay velocity body view: Local value view resolved from PhysicsBodyStore and
-    ColliderStore for one replay target; model index is a UI/presentation hint
-    after scene object identity resolves to a PhysicsBodyHandle.
-
-Invariants:
-  - Pointer capture must end whenever the drag exits or the edited target becomes invalid.
-  - Edited velocities are clamped before waking or mutating the physics body.
-  - A held drag mutates the live body but never schedules prediction work.
-  - Release schedules at most one authoritative replacement generation.
-  - Hit testing, drag-start values, and gizmo drawing must read store rows, not
-    the post-step legacy object record body mirror.
-  - Velocity-edit helper functions are file-local to this translation unit.
-
-Related:
-  - SkullbonezSource/Runtime/App/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
-*/
+// Velocity input uses the same world-aligned vector-tip axes as drawing.
 #include "ReplayAuthoring.h"
 #include "ReplayCoordination.h"
 #include "ReplayPresentation.h"
@@ -71,39 +41,6 @@ Vector3 EditorAxisVector( int axis )
 }
 
 
-float ReplayVelocityLinearBaseLength( float modelRadius )
-{
-    return (std::max)( 10.0f, modelRadius + 7.0f );
-}
-
-
-float ReplayVelocityLinearVisualAxisT( float modelRadius, float velocityComponent )
-{
-    const float sign = velocityComponent < 0.0f ? -1.0f : 1.0f;
-    const float t = std::clamp( fabsf( velocityComponent ) / REPLAY_VELOCITY_EDIT_LINEAR_MAX, 0.0f, 1.0f );
-    return sign * ( ReplayVelocityLinearBaseLength( modelRadius ) + t * REPLAY_VELOCITY_EDIT_LINEAR_EXTRA );
-}
-
-
-float ReplayVelocityLinearUnitsPerWorld()
-{
-    return REPLAY_VELOCITY_EDIT_LINEAR_MAX / REPLAY_VELOCITY_EDIT_LINEAR_EXTRA;
-}
-
-
-float ReplayVelocityAngularBaseRadius( float modelRadius )
-{
-    return (std::max)( 11.0f, modelRadius + 6.0f );
-}
-
-
-float ReplayVelocityAngularVisualRadius( float modelRadius, float angularComponent )
-{
-    const float t = std::clamp( fabsf( angularComponent ) / REPLAY_VELOCITY_EDIT_ANGULAR_MAX, 0.0f, 1.0f );
-    return ReplayVelocityAngularBaseRadius( modelRadius ) + t * (std::max)( 5.0f, modelRadius * 0.85f );
-}
-
-
 float ReplayVelocityAxisComponent( const Vector3& value, int axis )
 {
     if ( axis == 0 )
@@ -137,105 +74,6 @@ void ReplayVelocitySetAxisComponent( Vector3& value, int axis, float component )
 }
 
 
-Vector3 EditorRotationRingBasisA( int axis )
-{
-    switch ( axis )
-    {
-    case 0:
-        return Vector3( 0.0f, 1.0f, 0.0f );
-    case 1:
-        return Vector3( 0.0f, 0.0f, 1.0f );
-    case 2:
-        return Vector3( 1.0f, 0.0f, 0.0f );
-    default:
-        return Vector3( 1.0f, 0.0f, 0.0f );
-    }
-}
-
-
-Vector3 EditorRotationRingBasisB( int axis )
-{
-    switch ( axis )
-    {
-    case 0:
-        return Vector3( 0.0f, 0.0f, 1.0f );
-    case 1:
-        return Vector3( 1.0f, 0.0f, 0.0f );
-    case 2:
-        return Vector3( 0.0f, 1.0f, 0.0f );
-    default:
-        return Vector3( 0.0f, 1.0f, 0.0f );
-    }
-}
-
-
-float WrapEditorAngleDelta( float delta )
-{
-    while ( delta > _PI )
-    {
-        delta -= 2.0f * _PI;
-    }
-
-    while ( delta < -_PI )
-    {
-        delta += 2.0f * _PI;
-    }
-
-    return delta;
-}
-
-
-float DistanceRayToSegmentSquared( const Vector3& rayOrigin, const Vector3& rayDirection, const Vector3& segmentA,
-                                   const Vector3& segmentB )
-{
-    const Vector3 segment = segmentB - segmentA;
-    const float segmentLenSq = Dot( segment, segment );
-
-    if ( segmentLenSq <= TOLERANCE * TOLERANCE )
-    {
-        const Vector3 toPoint = segmentA - rayOrigin;
-        const float rayT = (std::max)( 0.0f, Dot( toPoint, rayDirection ) );
-        return VectorMagSquared( rayOrigin + rayDirection * rayT - segmentA );
-    }
-
-    const Vector3 w0 = rayOrigin - segmentA;
-    const float a = Dot( rayDirection, rayDirection );
-    const float b = Dot( rayDirection, segment );
-    const float c = segmentLenSq;
-    const float d = Dot( rayDirection, w0 );
-    const float e = Dot( segment, w0 );
-    const float denom = a * c - b * b;
-
-    float rayT = 0.0f;
-    float segmentT = 0.0f;
-
-    if ( fabsf( denom ) > 1e-5f )
-    {
-        rayT = ( b * e - c * d ) / denom;
-        segmentT = ( a * e - b * d ) / denom;
-    }
-
-    if ( rayT < 0.0f )
-    {
-        rayT = 0.0f;
-        segmentT = std::clamp( e / c, 0.0f, 1.0f );
-    }
-    else if ( segmentT < 0.0f )
-    {
-        segmentT = 0.0f;
-        rayT = (std::max)( 0.0f, -d / a );
-    }
-    else if ( segmentT > 1.0f )
-    {
-        segmentT = 1.0f;
-        rayT = (std::max)( 0.0f, ( b - d ) / a );
-    }
-
-    const Vector3 rayPoint = rayOrigin + rayDirection * rayT;
-    const Vector3 segmentPoint = segmentA + segment * segmentT;
-    return VectorMagSquared( rayPoint - segmentPoint );
-}
-
 struct ReplayVelocityBodyView
 {
     PhysicsBodyHandle body;
@@ -250,8 +88,10 @@ struct ReplayVelocityBodyView
 };
 
 
-static bool TryResolveReplayVelocityBodyView( Physics::PhysicsSceneObjectId targetId, ModelRowHint targetModelRow,
-                                              const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+static bool TryResolveReplayVelocityBodyView( Physics::PhysicsSceneObjectId targetId,
+                                              ModelRowHint targetModelRow,
+                                              const PhysicsBodyStore& bodyStore,
+                                              const ColliderStore& colliderStore,
                                               ReplayVelocityBodyView& outView )
 {
     outView = ReplayVelocityBodyView {};
@@ -270,9 +110,7 @@ static bool TryResolveReplayVelocityBodyView( Physics::PhysicsSceneObjectId targ
     }
 
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
-    const ColliderRecord* collider = body
-                                         ? colliderStore.RecordForHandle( colliderStore.HandleForBodyHandle( body->handle ) )
-                                         : nullptr;
+    const ColliderRecord* collider = body ? colliderStore.RecordForHandle( colliderStore.HandleForBodyHandle( body->handle ) ) : nullptr;
 
     if ( !body || !collider )
     {
@@ -298,159 +136,64 @@ static bool TryResolveReplayVelocityBodyView( Physics::PhysicsSceneObjectId targ
 }
 
 
-int HitReplayVelocityLinearAxis( const ReplayVelocityBodyView& body, const Vector3& rayOrigin, const Vector3& rayDirection )
+bool ProjectVelocityPoint( const ReplayVelocityInputFrame& frame, const Vector3& point, Vector3& screen )
+{
+    const auto* m = frame.viewProjection.Data();
+    const float w = m[3] * point.x + m[7] * point.y + m[11] * point.z + m[15];
+    if ( w <= 0.001f )
+    {
+        return false;
+    }
+    // Rendering maps NDC into Window's presentation viewport, which shrinks
+    // and moves as panels open. Picking must use that same client rectangle.
+    screen = { frame.viewportX + ( ( m[0] * point.x + m[4] * point.y + m[8] * point.z + m[12] ) / w + 1.0f ) * frame.screenWidth * 0.5f, frame.viewportY + ( 1.0f - ( m[1] * point.x + m[5] * point.y + m[9] * point.z + m[13] ) / w ) * frame.screenHeight * 0.5f, 0.0f };
+    return true;
+}
+
+int HitVelocityAxis( const ReplayVelocityBodyView& body, const ReplayVelocityInputFrame& frame, bool angular, ReplayVelocityScreenDrag& drag )
 {
     if ( body.fixed )
     {
         return -1;
     }
-
-    const Vector3 origin = body.position;
-    const float radius = body.radius;
-    const float threshold = (std::max)( 1.15f, radius * 0.12f );
-    const float thresholdSq = threshold * threshold;
-    int bestAxis = -1;
-    float bestDistanceSq = FLT_MAX;
-
-    for ( int axis = 0; axis < 3; ++axis )
-    {
-        const Vector3 axisVector = EditorAxisVector( axis );
-        const float component = ReplayVelocityAxisComponent( body.linearVelocity, axis );
-        const Vector3 endpoint = origin + axisVector * ReplayVelocityLinearVisualAxisT( radius, component );
-        const float distanceSq = DistanceRayToSegmentSquared( rayOrigin, rayDirection, origin, endpoint );
-
-        if ( distanceSq <= thresholdSq && distanceSq < bestDistanceSq )
-        {
-            bestDistanceSq = distanceSq;
-            bestAxis = axis;
-        }
-    }
-
-    return bestAxis;
-}
-
-
-int HitReplayVelocityAngularAxis( const ReplayVelocityBodyView& body, const Vector3& rayOrigin, const Vector3& rayDirection )
-{
-    if ( body.fixed )
+    const float length = ReplayVelocityHandleLength( body.radius );
+    const float scale = ReplayVelocityVectorScale( angular );
+    const Vector3 tip = body.position + ( angular ? body.angularVelocity : body.linearVelocity ) * scale;
+    Vector3 start;
+    if ( !ProjectVelocityPoint( frame, tip, start ) )
     {
         return -1;
     }
-
-    const Vector3 origin = body.position;
-    const float modelRadius = body.radius;
-    int bestAxis = -1;
-    float bestDiff = FLT_MAX;
-
+    const Vector3 pointer( static_cast<float>( frame.mouseX ), static_cast<float>( frame.mouseY ), 0.0f );
+    float best = 81.0f;
+    int hit = -1;
     for ( int axis = 0; axis < 3; ++axis )
     {
-        const Vector3 normal = EditorAxisVector( axis );
-        const float denom = Dot( normal, rayDirection );
-
-        if ( fabsf( denom ) <= 1e-4f )
+        Vector3 end;
+        if ( !ProjectVelocityPoint( frame, tip + EditorAxisVector( axis ) * length, end ) )
         {
             continue;
         }
-
-        const float rayT = ( Dot( normal, ( origin - rayOrigin ) ) ) / denom;
-
-        if ( rayT < 0.0f )
+        const Vector3 segment = end - start;
+        const float squared = VectorMagSquared( segment );
+        if ( squared < 16.0f )
         {
             continue;
         }
-
-        const float ringRadius = ReplayVelocityAngularVisualRadius( modelRadius,
-                                                                    ReplayVelocityAxisComponent( body.angularVelocity,
-                                                                                                 axis ) );
-
-        const float threshold = (std::max)( 1.10f, ringRadius * 0.08f );
-        const Vector3 hitPoint = rayOrigin + rayDirection * rayT;
-        const Vector3 radial = hitPoint - origin;
-        const float radialDistance = VectorMag( radial - normal * ( Dot( radial, normal ) ) );
-        const float diff = fabsf( radialDistance - ringRadius );
-
-        if ( diff <= threshold && diff < bestDiff )
+        const float t = std::clamp( Dot( pointer - start, segment ) / squared, 0.2f, 1.0f );
+        const float distance = VectorMagSquared( pointer - ( start + segment * t ) );
+        if ( distance < best && drag.Begin( start, end, pointer, length / scale ) )
         {
-            bestDiff = diff;
-            bestAxis = axis;
+            hit = axis;
+            best = distance;
         }
     }
-
-    return bestAxis;
+    return hit;
 }
 
-
-bool TryReplayVelocityAxisRayParameter( const ReplayVelocityBodyView& body, int axis, const Vector3& rayOrigin,
-                                        const Vector3& rayDirection, float& outAxisT )
-{
-    if ( axis < 0 || axis > 2 || body.modelRow.value < 0 )
-    {
-        return false;
-    }
-
-    const Vector3 axisOrigin = body.position;
-    const Vector3 axisVector = EditorAxisVector( axis );
-    const Vector3 w = axisOrigin - rayOrigin;
-    const float b = Dot( axisVector, rayDirection );
-    const float d = Dot( axisVector, w );
-    const float e = Dot( rayDirection, w );
-    const float denom = 1.0f - b * b;
-
-    if ( fabsf( denom ) <= 1e-5f )
-    {
-        return false;
-    }
-
-    outAxisT = ( b * e - d ) / denom;
-    return true;
-}
-
-
-bool TryReplayVelocityAngularRayAngle( const ReplayVelocityBodyView& body, int axis, const Vector3& rayOrigin,
-                                       const Vector3& rayDirection, float& outAngle )
-{
-    if ( axis < 0 || axis > 2 || body.modelRow.value < 0 )
-    {
-        return false;
-    }
-
-    const Vector3 origin = body.position;
-    const Vector3 normal = EditorAxisVector( axis );
-    const float denom = Dot( normal, rayDirection );
-
-    if ( fabsf( denom ) <= 1e-4f )
-    {
-        return false;
-    }
-
-    const float rayT = ( Dot( normal, ( origin - rayOrigin ) ) ) / denom;
-
-    if ( rayT < 0.0f )
-    {
-        return false;
-    }
-
-    Vector3 radial = rayOrigin + rayDirection * rayT - origin;
-    radial -= normal * ( Dot( radial, normal ) );
-    const float radialLenSq = Dot( radial, radial );
-
-    if ( radialLenSq <= TOLERANCE * TOLERANCE )
-    {
-        return false;
-    }
-
-    radial = radial * ( 1.0f / sqrtf( radialLenSq ) );
-
-    const Vector3 basisA = EditorRotationRingBasisA( axis );
-    const Vector3 basisB = EditorRotationRingBasisB( axis );
-    outAngle = atan2f( Dot( radial, basisB ), Dot( radial, basisA ) );
-    return true;
-}
 } // namespace
 
-ReplayKeyboardVelocityEditResult ReplayAuthoring::ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input,
-                                                                             ReplayScrubber& scrubberOwner,
-                                                                             const ReplayPresentation& presentationOwner )
+ReplayKeyboardVelocityEditResult ReplayAuthoring::ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input, ReplayScrubber& scrubberOwner, const ReplayPresentation& presentationOwner )
 {
     ReplayKeyboardVelocityEditResult result;
 
@@ -470,12 +213,9 @@ ReplayKeyboardVelocityEditResult ReplayAuthoring::ApplyKeyboardVelocityEdit( con
                 if ( scrubberOwner.SetLiveAdvanceHeld( true ) )
                 {
                     const ReplayScrubberView scrubber = scrubberOwner.View();
-                    const bool useInspectionCamera = ReplayScrubNeedsInspectionCamera( scrubber.liveAdvanceHeld,
-                                                                                       presentationOwner.CameraView()
-                                                                                           .focusKind );
+                    const bool useInspectionCamera = ReplayScrubNeedsInspectionCamera( scrubber.liveAdvanceHeld, presentationOwner.CameraView().focusKind );
 
-                    result.cameraAction = useInspectionCamera ? ReplayKeyboardVelocityEditCameraAction::EnterInspection
-                                                              : ReplayKeyboardVelocityEditCameraAction::ExitInspection;
+                    result.cameraAction = useInspectionCamera ? ReplayKeyboardVelocityEditCameraAction::EnterInspection : ReplayKeyboardVelocityEditCameraAction::ExitInspection;
                 }
 
                 result.setWorldOwner = true;
@@ -496,8 +236,11 @@ ReplayKeyboardVelocityEditResult ReplayAuthoring::ApplyKeyboardVelocityEdit( con
 }
 
 
-bool ReplayAuthoring::PrepareVelocityEditInput( bool editorModeEnabled, bool scenePhysicsEnabled, int screenWidth,
-                                                int screenHeight, const ReplayToolGestureView& gesture,
+bool ReplayAuthoring::PrepareVelocityEditInput( bool editorModeEnabled,
+                                                bool scenePhysicsEnabled,
+                                                int screenWidth,
+                                                int screenHeight,
+                                                const ReplayToolGestureView& gesture,
                                                 ReplayInteractionRequest& outInteraction )
 {
     outInteraction = {};
@@ -519,10 +262,15 @@ bool ReplayAuthoring::PrepareVelocityEditInput( bool editorModeEnabled, bool sce
 }
 
 
-bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
-                                             const ReplayPathPickInput& pointerRay, bool uiBlocksMouse, double now,
-                                             const ReplayVelocityInputFrame& frame, PhysicsEngine& velocityPhysics,
-                                             std::size_t entityCount, ReplayVelocityInputResult& outResult,
+bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwner,
+                                             ReplayScrubber& scrubberOwner,
+                                             const ReplayPathPickInput& pointerRay,
+                                             bool uiBlocksMouse,
+                                             double now,
+                                             const ReplayVelocityInputFrame& frame,
+                                             PhysicsEngine& velocityPhysics,
+                                             std::size_t entityCount,
+                                             ReplayVelocityInputResult& outResult,
                                              ReplayInspectionCameraAction& outInspectionCameraAction )
 {
     outResult = {};
@@ -535,13 +283,6 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
         (void)FinishVelocityEditDrag();
 
         outResult.interaction.EndGesture();
-    };
-
-    const auto shouldUseInspectionCamera = [&]()
-    {
-        const ReplayScrubberView scrubber = scrubberOwner.View();
-
-        return ReplayScrubNeedsInspectionCamera( scrubber.liveAdvanceHeld, presentationOwner.CameraView().focusKind );
     };
 
     if ( !pointerRay.hasWorldRay )
@@ -559,18 +300,13 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
     // model topology from inside an interaction hot path.
     const PhysicsBodyStore& velocityBodies = PhysicsEngine::ReadBodies( velocityPhysics );
     const ColliderStore& velocityColliders = PhysicsEngine::ReadColliders( velocityPhysics );
-    const bool velocityStoresReady = velocityBodies.Count() == velocityColliders.Count() &&
-                                     velocityBodies.Count() == entityCount;
+    const bool velocityStoresReady = velocityBodies.Count() == velocityColliders.Count() && velocityBodies.Count() == entityCount;
 
     const RunReplayPathVisualizerState& path = presentationOwner.PathVisualizer();
     const auto tryResolveVelocityBody = [&]( ReplayVelocityBodyView& outBody )
-    {
-        return velocityStoresReady && path.hasTarget &&
-               TryResolveReplayVelocityBodyView( path.targetId, path.targetModelRow, velocityBodies, velocityColliders,
-                                                 outBody );
-    };
+    { return velocityStoresReady && path.hasTarget && TryResolveReplayVelocityBodyView( path.targetId, path.targetModelRow, velocityBodies, velocityColliders, outBody ); };
 
-    const auto applyReplayVelocityEditDrag = [&]( const Vector3& dragRayOrigin, const Vector3& dragRayDirection )
+    const auto applyReplayVelocityEditDrag = [&]()
     {
         // Hazard: a drag can outlive its target if the scene reloads or the
         // edited body is removed. All capture and active-axis state must unwind
@@ -588,60 +324,14 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
         Vector3 linearVelocity = VelocityEdit().dragStartLinearVelocity;
         Vector3 angularVelocity = VelocityEdit().dragStartAngularVelocity;
 
-        if ( gesture.angular )
-        {
-            float currentAngle = 0.0f;
-
-            if ( !TryReplayVelocityAngularRayAngle( body, gesture.axis, dragRayOrigin, dragRayDirection, currentAngle ) )
-            {
-                return;
-            }
-
-            const float angleDelta = WrapEditorAngleDelta( currentAngle - VelocityEdit().dragStartAngle );
-            const float component = ReplayVelocityAxisComponent( VelocityEdit().dragStartAngularVelocity, gesture.axis ) +
-                                    angleDelta * ( REPLAY_VELOCITY_EDIT_ANGULAR_MAX / _PI );
-
-            ReplayVelocitySetAxisComponent( angularVelocity, gesture.axis,
-                                            std::clamp( component, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX,
-                                                        REPLAY_VELOCITY_EDIT_ANGULAR_MAX ) );
-        }
-        else
-        {
-            float axisT = 0.0f;
-
-            if ( !TryReplayVelocityAxisRayParameter( body, gesture.axis, dragRayOrigin, dragRayDirection, axisT ) )
-            {
-                return;
-            }
-
-            const float component = ReplayVelocityAxisComponent( VelocityEdit().dragStartLinearVelocity, gesture.axis ) +
-                                    ( axisT - VelocityEdit().dragStartAxisT ) * ReplayVelocityLinearUnitsPerWorld();
-
-            ReplayVelocitySetAxisComponent( linearVelocity, gesture.axis,
-                                            std::clamp( component, -REPLAY_VELOCITY_EDIT_LINEAR_MAX,
-                                                        REPLAY_VELOCITY_EDIT_LINEAR_MAX ) );
-        }
-
-        linearVelocity.x = std::clamp( linearVelocity.x, -REPLAY_VELOCITY_EDIT_LINEAR_MAX, REPLAY_VELOCITY_EDIT_LINEAR_MAX );
-
-        linearVelocity.y = std::clamp( linearVelocity.y, -REPLAY_VELOCITY_EDIT_LINEAR_MAX, REPLAY_VELOCITY_EDIT_LINEAR_MAX );
-
-        linearVelocity.z = std::clamp( linearVelocity.z, -REPLAY_VELOCITY_EDIT_LINEAR_MAX, REPLAY_VELOCITY_EDIT_LINEAR_MAX );
-
-        angularVelocity.x = std::clamp( angularVelocity.x, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX,
-                                        REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
-
-        angularVelocity.y = std::clamp( angularVelocity.y, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX,
-                                        REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
-
-        angularVelocity.z = std::clamp( angularVelocity.z, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX,
-                                        REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
+        auto& value = gesture.angular ? angularVelocity : linearVelocity;
+        const float maximum = gesture.angular ? REPLAY_VELOCITY_EDIT_ANGULAR_MAX : REPLAY_VELOCITY_EDIT_LINEAR_MAX;
+        const float component = ReplayVelocityAxisComponent( value, gesture.axis ) + VelocityEdit().screenDrag.Delta( static_cast<float>( frame.mouseX ), static_cast<float>( frame.mouseY ) );
+        ReplayVelocitySetAxisComponent( value, gesture.axis, std::clamp( component, -maximum, maximum ) );
 
         constexpr float VELOCITY_CHANGE_EPSILON_SQUARED = 1.0e-10f;
-        const bool velocityChanged = VectorMagSquared( linearVelocity - body.linearVelocity ) >
-                                         VELOCITY_CHANGE_EPSILON_SQUARED ||
-                                     VectorMagSquared( angularVelocity - body.angularVelocity ) >
-                                         VELOCITY_CHANGE_EPSILON_SQUARED;
+        const bool velocityChanged = VectorMagSquared( linearVelocity - body.linearVelocity ) > VELOCITY_CHANGE_EPSILON_SQUARED ||
+                                     VectorMagSquared( angularVelocity - body.angularVelocity ) > VELOCITY_CHANGE_EPSILON_SQUARED;
 
         // A stationary held pointer resolves to the velocity already stored.
         // Skipping that no-op prevents needless replacement generations while
@@ -658,9 +348,9 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 
     if ( velocityDragActive() )
     {
-        if ( frame.leftDown && !uiBlocksMouse )
+        if ( frame.leftDown )
         {
-            applyReplayVelocityEditDrag( pointerRay.rayOrigin, pointerRay.rayDirection );
+            applyReplayVelocityEditDrag();
         }
 
         if ( frame.leftReleased || !frame.leftDown )
@@ -673,14 +363,9 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 
     ReplayVelocityBodyView hotBody;
     const bool hasHotBody = !uiBlocksMouse && tryResolveVelocityBody( hotBody );
-    const int hotAngularAxis = hasHotBody
-                                   ? HitReplayVelocityAngularAxis( hotBody, pointerRay.rayOrigin, pointerRay.rayDirection )
-                                   : -1;
-    const int hotLinearAxis = ( !hasHotBody || hotAngularAxis >= 0 )
-                                  ? -1
-                                  : HitReplayVelocityLinearAxis( hotBody, pointerRay.rayOrigin, pointerRay.rayDirection );
-
-    SetVelocityEditHoverAxes( hotLinearAxis, hotAngularAxis );
+    ReplayVelocityScreenDrag screenDrag;
+    const int hotAxis = hasHotBody ? HitVelocityAxis( hotBody, frame, VelocityEdit().angular, screenDrag ) : -1;
+    SetVelocityEditHoverAxes( VelocityEdit().angular ? -1 : hotAxis, VelocityEdit().angular ? hotAxis : -1 );
 
     const auto armBaselineComparisonForDrag = [&]()
     {
@@ -693,9 +378,9 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
         }
     };
 
-    // Invariant: angular and linear handles publish the same world-owner,
-    // inspection-camera, baseline, and gesture transition in that order.
-    const auto beginVelocityDrag = [&]( const ReplayVelocityBodyView& body, int axis, bool angular, float initialCoordinate )
+    // App prepares the inspection camera before either handle captures the mouse.
+    // Both modes retain the stock baseline before publishing the drag gesture.
+    const auto beginVelocityDrag = [&]( const ReplayVelocityBodyView& body, int axis, bool angular )
     {
         outResult.enterInteractive = true;
         if ( scrubberOwner.SetLiveAdvanceHeld( true ) && !frame.replayToolOwnsWorld )
@@ -703,21 +388,13 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
             outResult.interaction.RequestWorldOwner( ReplayWorldOwnerRequest::Scrub );
         }
 
-        outInspectionCameraAction = shouldUseInspectionCamera() ? ReplayInspectionCameraAction::Enter
-                                                                : ReplayInspectionCameraAction::Exit;
+        outInspectionCameraAction = ReplayInspectionCameraAction::None;
 
         ReplayVelocityEditDragStart dragStart;
         dragStart.targetId = path.targetId;
         dragStart.linearVelocity = body.linearVelocity;
         dragStart.angularVelocity = body.angularVelocity;
-        if ( angular )
-        {
-            dragStart.angle = initialCoordinate;
-        }
-        else
-        {
-            dragStart.axisT = initialCoordinate;
-        }
+        dragStart.screenDrag = screenDrag;
 
         armBaselineComparisonForDrag();
         BeginVelocityEditDrag( dragStart );
@@ -731,33 +408,16 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 
         if ( frame.hasClientPosition && tryResolveVelocityBody( body ) && !body.fixed )
         {
-            if ( VelocityEdit().hotAngularAxis >= 0 )
+            if ( hotAxis >= 0 )
             {
-                float startAngle = 0.0f;
-
-                if ( TryReplayVelocityAngularRayAngle( body, VelocityEdit().hotAngularAxis, pointerRay.rayOrigin,
-                                                       pointerRay.rayDirection, startAngle ) )
-                {
-                    beginVelocityDrag( body, VelocityEdit().hotAngularAxis, true, startAngle );
-                    return true;
-                }
-            }
-            else if ( VelocityEdit().hotLinearAxis >= 0 )
-            {
-                float axisT = 0.0f;
-
-                if ( TryReplayVelocityAxisRayParameter( body, VelocityEdit().hotLinearAxis, pointerRay.rayOrigin,
-                                                        pointerRay.rayDirection, axisT ) )
-                {
-                    beginVelocityDrag( body, VelocityEdit().hotLinearAxis, false, axisT );
-                    return true;
-                }
+                beginVelocityDrag( body, hotAxis, VelocityEdit().angular );
+                return true;
             }
         }
 
-        // Target picking needs scene publications that gizmo mutation does not.
-        // Defer that phase to ReplayRuntime instead of carrying another source pack.
-        outResult.pathPickRequested = true;
+        // A scene press outside the handle abandons this complete experiment.
+        // App restores the stock seed and returns the camera/workspace together.
+        outResult.cancelExperiment = true;
         outResult.consumesMouse = true;
         return true;
     }
@@ -767,8 +427,10 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 }
 
 
-bool ReplayAuthoring::ApplyVelocityEditTargetPick( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
-                                                   const ReplayPathPickResult& pickResult, double now,
+bool ReplayAuthoring::ApplyVelocityEditTargetPick( ReplayPresentation& presentationOwner,
+                                                   ReplayScrubber& scrubberOwner,
+                                                   const ReplayPathPickResult& pickResult,
+                                                   double now,
                                                    ReplayVelocityInputResult& outResult,
                                                    ReplayInspectionCameraAction& outInspectionCameraAction )
 {
@@ -796,8 +458,7 @@ bool ReplayAuthoring::ApplyVelocityEditTargetPick( ReplayPresentation& presentat
     {
         outResult.enterInteractive = true;
         const ReplayScrubberView scrubber = scrubberOwner.View();
-        const bool shouldUseInspectionCamera = ReplayScrubNeedsInspectionCamera( scrubber.liveAdvanceHeld,
-                                                                                 presentationOwner.CameraView().focusKind );
+        const bool shouldUseInspectionCamera = ReplayScrubNeedsInspectionCamera( scrubber.liveAdvanceHeld, presentationOwner.CameraView().focusKind );
 
         if ( scrubberOwner.SetLiveAdvanceHeld( true ) && shouldUseInspectionCamera )
         {
@@ -814,8 +475,10 @@ bool ReplayAuthoring::ApplyVelocityEditTargetPick( ReplayPresentation& presentat
 }
 
 
-bool ReplayAuthoring::BuildVelocityOverlayCommand( Physics::PhysicsSceneObjectId targetId, ModelRowHint targetModelRow,
-                                                   PhysicsEngine& velocityPhysics, bool editorModeEnabled,
+bool ReplayAuthoring::BuildVelocityOverlayCommand( Physics::PhysicsSceneObjectId targetId,
+                                                   ModelRowHint targetModelRow,
+                                                   PhysicsEngine& velocityPhysics,
+                                                   bool editorModeEnabled,
                                                    const ReplayToolGestureView& gesture,
                                                    ReplayVelocityOverlayCommand& outCommand ) const
 {
@@ -829,7 +492,8 @@ bool ReplayAuthoring::BuildVelocityOverlayCommand( Physics::PhysicsSceneObjectId
 
     ReplayVelocityBodyView body;
 
-    if ( !TryResolveReplayVelocityBodyView( targetId, targetModelRow,
+    if ( !TryResolveReplayVelocityBodyView( targetId,
+                                            targetModelRow,
                                             SkullbonezCore::Physics::PhysicsEngine::ReadBodies( velocityPhysics ),
                                             SkullbonezCore::Physics::PhysicsEngine::ReadColliders( velocityPhysics ),
                                             body ) ||
@@ -847,6 +511,6 @@ bool ReplayAuthoring::BuildVelocityOverlayCommand( Physics::PhysicsSceneObjectId
     outCommand.hotLinearAxis = m_velocityEdit.hotLinearAxis;
     outCommand.hotAngularAxis = m_velocityEdit.hotAngularAxis;
     outCommand.activeAxis = gesture.kind == ReplayToolGestureKind::VelocityDrag ? gesture.axis : -1;
-    outCommand.activeAngular = gesture.kind == ReplayToolGestureKind::VelocityDrag && gesture.angular;
+    outCommand.activeAngular = m_velocityEdit.angular;
     return true;
 }

@@ -72,6 +72,7 @@ struct ReplayAuthoringPredictionRequest
 
 struct ReplayVelocityEditDragStart
 {
+    ReplayVelocityScreenDrag screenDrag;
     Physics::PhysicsSceneObjectId targetId;
     float axisT = 0.0f;
     float angle = 0.0f;
@@ -326,6 +327,11 @@ class ReplayAuthoring
         m_velocityEdit.keyboardAltWasDown = isDown;
     }
 
+    void SetVelocityEditAngular( bool angular ) noexcept
+    {
+        m_velocityEdit.angular = angular;
+    }
+
     void SetVelocityEditHoverAxes( int linearAxis, int angularAxis ) noexcept
     {
         m_velocityEdit.hotLinearAxis = linearAxis;
@@ -334,6 +340,7 @@ class ReplayAuthoring
 
     void BeginVelocityEditDrag( const ReplayVelocityEditDragStart& start ) noexcept
     {
+        m_velocityEdit.screenDrag = start.screenDrag;
         m_velocityEdit.dragTargetId = start.targetId;
         m_velocityEdit.dragChanged = false;
         m_velocityEdit.dragStartAxisT = start.axisT;

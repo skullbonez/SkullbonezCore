@@ -613,7 +613,7 @@ bool ReplayRuntime::SavePresentationFromScrubber( double now )
 {
     if ( m_planningOwner.VelocityDivergence().active )
     {
-        PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", now );
+        PublishTransportFeedback( "ACCEPT ORIGINAL OR MODIFIED FIRST", now );
         return false;
     }
     // Invariant: App advances the process-local sequence and publishes success
@@ -995,7 +995,6 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
 {
     output = ReplayWorkspaceOutput {};
     Physics::PhysicsEngine& physics = world.Physics();
-    const SceneEntityStore& entities = world.Entities();
     const auto presentation = world.RenderPresentationRecords();
     Environment::CameraCollection* cameras = &world.Cameras();
     Geometry::Terrain* terrain = world.Terrain().Get();
@@ -1021,13 +1020,29 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
     const auto divergence = m_planningOwner.VelocityDivergence();
     const bool overRed = divergence.active && ReplayOverlay::ReplayDivergenceChoiceRect( planningViewport, true ).Contains( planningPointerEvent.clientX, planningPointerEvent.clientY );
     const bool overBlue = divergence.active && ReplayOverlay::ReplayDivergenceChoiceRect( planningViewport, false ).Contains( planningPointerEvent.clientX, planningPointerEvent.clientY );
-    const bool divergenceOwnsMouse = planningPointerEvent.hasClientPosition && !input.uiBlocksMouse && ( overRed || overBlue );
+    const bool overLab = divergence.active && ReplayOverlay::ReplayDivergenceToolRect( planningViewport, 0 ).Contains( planningPointerEvent.clientX, planningPointerEvent.clientY );
+    const bool overMode = divergence.active && ReplayOverlay::ReplayDivergenceToolRect( planningViewport, 1 ).Contains( planningPointerEvent.clientX, planningPointerEvent.clientY );
+    const bool divergenceOwnsMouse = planningPointerEvent.hasClientPosition && !input.uiBlocksMouse && ( overRed || overBlue || overLab || overMode );
     if ( divergenceOwnsMouse && inputRouter.UiSnapshot().mouse.leftPressed )
     {
+        if ( overLab )
+        {
+            output.openVelocitySolverLab = divergence.redReady;
+            output.consumesMouse = true;
+            return;
+        }
+        if ( overMode )
+        {
+            m_planningOwner.VelocityDivergence().angular = !divergence.angular;
+            m_authoring.SetVelocityEditAngular( !divergence.angular );
+            output.consumesMouse = true;
+            return;
+        }
         const bool accepted = AcceptVelocityDivergence( physics, overRed );
-        PublishTransportFeedback( accepted ? ( overRed ? "RED ACCEPTED" : "BLUE ACCEPTED" ) : "PREDICTION NOT READY", input.now );
+        PublishTransportFeedback( accepted ? ( overRed ? "MODIFIED ACCEPTED" : "ORIGINAL ACCEPTED" ) : "PREDICTION NOT READY", input.now );
         if ( accepted )
         {
+            output.velocityExperimentClosed = true;
             ReplayInteractionOperations::CancelToolDragState( interaction, inputRouter );
         }
     }
@@ -1307,6 +1322,44 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
 
     ApplyAuthoringPredictionRequest();
 
+    const bool velocityEditOwnsMouse = TickVelocityEditing( input,
+                                                            inputRouter,
+                                                            interaction,
+                                                            world,
+                                                            camera,
+                                                            mousePickup,
+                                                            input.uiBlocksMouse || scrubberOwnsMouse || causeTreeOwnsMouse || planningOwnsMouse,
+                                                            output );
+    if ( output.cancelVelocityExperiment )
+    {
+        return;
+    }
+
+    ApplyAuthoringPredictionRequest();
+
+    output.consumesMouse = output.consumesMouse || causeTreeOwnsMouse || solverDetailOwnsMouse || velocityEditOwnsMouse;
+
+    // ReplayAuthoring publishes focus as a value; InputFrame uses this result
+    // to block later runtime key bindings while text entry is active.
+    output.consumesKeyboard = output.consumesKeyboard || m_authoring.CauseTree().filterFocused;
+    output.enterInteractive = output.enterInteractive || output.restoreRequest.enterInteractive;
+}
+
+
+bool ReplayRuntime::TickVelocityEditing( const ReplayWorkspaceFrameInput& input,
+                                         InputRouter& inputRouter,
+                                         RuntimeInteractionController& interaction,
+                                         SceneWorld& world,
+                                         CameraControlState& camera,
+                                         RunMousePickupState& mousePickup,
+                                         bool pointerBlocked,
+                                         ReplayWorkspaceOutput& output )
+{
+    auto& physics = world.Physics();
+    const auto& entities = world.Entities();
+    const auto presentation = world.RenderPresentationRecords();
+    auto* cameras = &world.Cameras();
+    auto* terrain = world.Terrain().Get();
     bool velocityEditOwnsMouse = false;
     ReplayInspectionCameraAction velocityInspectionCameraAction = ReplayInspectionCameraAction::None;
     ReplayInteractionRequest velocityPreparationRequest;
@@ -1319,9 +1372,20 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
                                                velocityPreparationRequest ) )
     {
         const bool divergenceReady = BeginVelocityDivergence( physics );
+        if ( divergenceReady && !m_visualPresentation.CameraView().active )
+        {
+            // Prepare inspection before a mouse press owns capture. Switching
+            // cameras during the first drag must not unwind that gesture.
+            EnterInspectionCamera( cameras, camera, input.normalizedCurrentMode, interaction, inputRouter, mousePickup );
+        }
         const RuntimeMouseEdges& velocityPointerEdges = inputRouter.UiSnapshot().mouse;
         const RuntimePointerEvent& velocityPointer = inputRouter.RuntimeSnapshot().pointer;
         ReplayVelocityInputFrame velocityInput;
+        velocityInput.viewProjection = input.velocityViewProjection;
+        velocityInput.viewportX = static_cast<int>( input.velocityViewport.x );
+        velocityInput.viewportY = static_cast<int>( input.velocityViewport.y );
+        velocityInput.screenWidth = static_cast<int>( input.velocityViewport.w );
+        velocityInput.screenHeight = static_cast<int>( input.velocityViewport.h );
         velocityInput.gesture = ProjectReplayToolGesture( interaction.Gesture() );
         velocityInput.replayToolOwnsWorld = IsReplayScrubberToolOwner( interaction.Owner() );
         velocityInput.velocityEditOwnsWorld = interaction.Owner() == WorldInteractionOwner::ReplayVelocityEdit;
@@ -1335,13 +1399,41 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
         velocityEditOwnsMouse = m_authoring.TickVelocityEditInput( m_visualPresentation,
                                                                    m_scrubberOwner,
                                                                    input.pointerRay,
-                                                                   input.uiBlocksMouse || scrubberOwnsMouse || causeTreeOwnsMouse || planningOwnsMouse || !divergenceReady,
+                                                                   pointerBlocked || !divergenceReady,
                                                                    input.now,
                                                                    velocityInput,
                                                                    physics,
                                                                    entities.Count(),
                                                                    velocityResult,
                                                                    velocityInspectionCameraAction );
+        if ( velocityResult.interaction.BeginGestureKind() == ReplayToolGestureKind::VelocityDrag )
+        {
+            // A grab cancels even an unfinished worker slice before the next edit.
+            Prediction().CancelJob( false, true );
+            Prediction().SetGenerationPermitted( false );
+            m_planningOwner.VelocityDivergence().redReady = false;
+            m_planningOwner.VelocityDivergence().playing = false;
+            m_scrubberOwner.SetTrackPosition( RunReplayTrack::Solver, SolverPresentTrackPosition() );
+        }
+        if ( velocityResult.cancelExperiment && AcceptVelocityDivergence( physics, false ) )
+        {
+            ReplayInteractionOperations::CancelToolDragState( interaction, inputRouter );
+            ApplyTransportCommand( ReplayReturnToLiveCommand {},
+                                   cameras,
+                                   terrain,
+                                   camera,
+                                   input.normalizedRestoreMode,
+                                   input.attachedFollow,
+                                   input.directorGrabbed,
+                                   interaction,
+                                   inputRouter,
+                                   input.now,
+                                   output );
+            output.cancelVelocityExperiment = true;
+            output.velocityExperimentClosed = true;
+            output.consumesMouse = true;
+            return true;
+        }
         ApplyReplayInteractionRequest( velocityResult.interaction, inputRouter, interaction );
         output.enterInteractive |= velocityResult.enterInteractive;
 
@@ -1372,16 +1464,8 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
         ExitInspectionCamera( cameras, terrain, camera, input.normalizedRestoreMode, input.attachedFollow, input.directorGrabbed, interaction, inputRouter );
     }
 
-    ApplyAuthoringPredictionRequest();
-
-    output.consumesMouse = output.consumesMouse || causeTreeOwnsMouse || solverDetailOwnsMouse || velocityEditOwnsMouse;
-
-    // ReplayAuthoring publishes focus as a value; InputFrame uses this result
-    // to block later runtime key bindings while text entry is active.
-    output.consumesKeyboard = output.consumesKeyboard || m_authoring.CauseTree().filterFocused;
-    output.enterInteractive = output.enterInteractive || output.restoreRequest.enterInteractive;
+    return velocityEditOwnsMouse;
 }
-
 
 void ReplayRuntime::ResetSceneTimeline( const ReplaySceneTimelineResetInput& input,
                                         InputRouter& inputRouter,
@@ -1982,6 +2066,13 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
     if ( !scrubberAllowed || !replaySurfaceAvailable || frame.screenWidth <= 0 || frame.screenHeight <= 0 )
     {
         decision.cancelToolDrag = true;
+        if ( frame.velocityEditing )
+        {
+            // The unavailable recording bar cannot end a velocity gesture or
+            // its inspection camera. Ordinary replay keeps its existing exit.
+            decision.cancelToolDrag = frame.gesture == ReplayToolGestureKind::ScrubDrag || frame.gesture == ReplayToolGestureKind::PredictionHorizonDrag;
+            return decision;
+        }
         const ReplayScrubberUnavailableResult unavailable = ResetUnavailableSurface( frame.loadedPresentation, frame.inspectionCameraActive );
 
         decision.exitInspectionCamera = unavailable.exitInspectionCamera;
@@ -2329,7 +2420,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTogglePredictionCommand&,
 {
     if ( m_planningOwner.VelocityDivergence().active )
     {
-        PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", now );
+        PublishTransportFeedback( "ACCEPT ORIGINAL OR MODIFIED FIRST", now );
         return;
     }
     HandleReplayPredictionPressed( Prediction(), m_scrubberOwner, SolverPresentTrackPosition(), interaction, now, output.enterInteractive );
@@ -2363,7 +2454,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplaySetPredictionHorizonComma
 {
     if ( m_planningOwner.VelocityDivergence().active )
     {
-        PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", now );
+        PublishTransportFeedback( "ACCEPT ORIGINAL OR MODIFIED FIRST", now );
         return;
     }
     Prediction().SetHorizonSeconds( std::clamp( command.seconds, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS ) );
@@ -2420,7 +2511,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayRestoreBranchCommand&, Ru
 {
     if ( m_planningOwner.VelocityDivergence().active )
     {
-        PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", now );
+        PublishTransportFeedback( "ACCEPT ORIGINAL OR MODIFIED FIRST", now );
         return;
     }
     ReplayScrubberRestoreSources sources;
@@ -2436,7 +2527,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplaySaveCommand& command, dou
 {
     if ( m_planningOwner.VelocityDivergence().active )
     {
-        PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", now );
+        PublishTransportFeedback( "ACCEPT ORIGINAL OR MODIFIED FIRST", now );
         return;
     }
     output.enterInteractive = true;
@@ -2457,7 +2548,7 @@ ReplayTransportLoadResult ReplayRuntime::BeginTransportLoad( const ReplayLoadCom
     ReplayTransportLoadResult result;
     if ( m_planningOwner.VelocityDivergence().active )
     {
-        PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", now );
+        PublishTransportFeedback( "ACCEPT ORIGINAL OR MODIFIED FIRST", now );
         return result;
     }
     char path[MAX_PATH] = {};
@@ -2516,7 +2607,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayReturnToLiveCommand&,
 {
     if ( m_planningOwner.VelocityDivergence().active )
     {
-        PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", now );
+        PublishTransportFeedback( "ACCEPT ORIGINAL OR MODIFIED FIRST", now );
         return;
     }
     const ReplayCauseExitAction causeExit = m_planningOwner.CauseInspection().BeginReturn();
@@ -2604,6 +2695,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
     pointerFrame.loadedPresentation = loadedPresentation;
     pointerFrame.pathTargetAvailable = m_visualPresentation.PathVisualizer().hasTarget;
     pointerFrame.predictionEnabled = Prediction().State().enabled;
+    pointerFrame.velocityEditing = m_authoring.VelocityEdit().enabled;
     pointerFrame.predictionHighDetail = Prediction().PresentationView().diagnostics.detailMode == ReplayPredictionDetailMode::High;
     pointerFrame.predictionTimelineAvailable = Prediction().ActiveFrames().size() >= 2 || Prediction().State().BuildPrefixShouldBePresented();
 
@@ -2695,7 +2787,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
     case ReplayScrubberAction::SetPredictionHorizon:
         if ( m_planningOwner.VelocityDivergence().active )
         {
-            PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", input.now );
+            PublishTransportFeedback( "ACCEPT ORIGINAL OR MODIFIED FIRST", input.now );
             consumesMouse = true;
             break;
         }
@@ -2710,7 +2802,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
     case ReplayScrubberAction::TogglePrediction:
         if ( m_planningOwner.VelocityDivergence().active )
         {
-            PublishTransportFeedback( "ACCEPT RED OR BLUE FIRST", input.now );
+            PublishTransportFeedback( "ACCEPT ORIGINAL OR MODIFIED FIRST", input.now );
             consumesMouse = true;
             break;
         }

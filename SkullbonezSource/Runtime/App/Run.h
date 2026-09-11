@@ -223,6 +223,7 @@ class Run
     void PollComparisonLoad();
     bool LoadComparison( const char* path, bool finding = false );
     bool ChooseComparisonFile( char ( &path )[260], bool save );
+    void OpenVelocitySolverLab();
     void LoadSolverLab( UI::UISolverLabChoice choice );
     bool UpdateComparisonInput( bool textActive );
     void RenderComparison();

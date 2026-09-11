@@ -107,32 +107,6 @@ Vector3 TraceRingBasisB( int axis )
     return Vector3( 0.0f, 1.0f, 0.0f );
 }
 
-float TraceVelocityAxisComponent( const Vector3& value, int axis )
-{
-    return axis == 0 ? value.x : ( axis == 1 ? value.y : value.z );
-}
-
-float TraceVelocityLinearBaseLength( float radius )
-{
-    return (std::max)( 10.0f, radius + 7.0f );
-}
-
-float TraceVelocityLinearAxisT( float radius, float component )
-{
-    const float sign = component < 0.0f ? -1.0f : 1.0f;
-    const float heat = std::clamp( fabsf( component ) / SkullbonezCore::Runtime::REPLAY_VELOCITY_EDIT_LINEAR_MAX, 0.0f,
-                                   1.0f );
-    return sign *
-           ( TraceVelocityLinearBaseLength( radius ) + heat * SkullbonezCore::Runtime::REPLAY_VELOCITY_EDIT_LINEAR_EXTRA );
-}
-
-float TraceVelocityAngularRadius( float radius, float component )
-{
-    const float heat = std::clamp( fabsf( component ) / SkullbonezCore::Runtime::REPLAY_VELOCITY_EDIT_ANGULAR_MAX, 0.0f,
-                                   1.0f );
-    return (std::max)( 11.0f, radius + 6.0f ) + heat * (std::max)( 5.0f, radius * 0.85f );
-}
-
 void TraceVelocityAxisColor( int axis, float heat, bool hot, bool active, float& r, float& g, float& b )
 {
     r = axis == 0 ? 1.0f : 0.10f;
@@ -168,30 +142,20 @@ constexpr std::size_t EDITOR_TRACER_FLOATS_PER_LINE = 12;
 // Ordinary paths get 24,000 slots and causal priority evidence keeps 3,000.
 constexpr std::size_t EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET = 27000;
 constexpr std::size_t EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_SEGMENT_CAPACITY = 24000;
-constexpr std::size_t
-    EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_SEGMENT_CAPACITY = EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET -
-                                                            EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_SEGMENT_CAPACITY;
+constexpr std::size_t EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_SEGMENT_CAPACITY = EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET - EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_SEGMENT_CAPACITY;
 
 constexpr std::size_t EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT = 13;
-constexpr std::size_t
-    EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY = EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_SEGMENT_CAPACITY *
-                                                          EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+constexpr std::size_t EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY = EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_SEGMENT_CAPACITY * EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
 
-constexpr std::size_t
-    EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY = EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_SEGMENT_CAPACITY *
-                                                          EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+constexpr std::size_t EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY = EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_SEGMENT_CAPACITY * EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
 
 constexpr std::size_t EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX = 19;
 constexpr std::size_t EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT = 6;
-constexpr std::size_t
-    EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_VERTEX_FLOAT_CAPACITY = EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_SEGMENT_CAPACITY *
-                                                                 EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
-                                                                 EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX;
+constexpr std::size_t EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_VERTEX_FLOAT_CAPACITY = EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_SEGMENT_CAPACITY * EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
+                                                                                   EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX;
 
-constexpr std::size_t
-    EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_VERTEX_FLOAT_CAPACITY = EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_SEGMENT_CAPACITY *
-                                                                 EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
-                                                                 EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX;
+constexpr std::size_t EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_VERTEX_FLOAT_CAPACITY = EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_SEGMENT_CAPACITY * EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
+                                                                                   EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX;
 
 constexpr float EDITOR_TRACER_REPLAY_LINE_OPACITY = 0.5f;
 constexpr uint64_t REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET = 1469598103934665603ull;
@@ -246,8 +210,7 @@ uint64_t HashReplaySubmissionCanonicalRecords( const std::vector<float>& values,
     for ( std::size_t index = 0; index + floatsPerRecord <= values.size(); index += floatsPerRecord )
     {
         uint64_t recordHash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
-        HashReplaySubmissionBytes( recordHash, SkullbonezCore::Core::ObjectBytes(
-                                                   std::span<const float>( values ).subspan( index, floatsPerRecord ) ) );
+        HashReplaySubmissionBytes( recordHash, SkullbonezCore::Core::ObjectBytes( std::span<const float>( values ).subspan( index, floatsPerRecord ) ) );
 
         sum += recordHash;
 
@@ -272,8 +235,7 @@ uint64_t HashReplaySubmissionCanonicalRecords( const std::vector<float>& values,
 } // namespace
 
 
-EditorTracer::EditorTracer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
-    : m_resultDiagnostics( resultDiagnostics )
+EditorTracer::EditorTracer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) : m_resultDiagnostics( resultDiagnostics )
 {
     // Runtime allocation policy: overlay line storage is paid once during tool
     // construction. EmitLine refuses overflow so replay prediction, gizmos, and
@@ -300,29 +262,21 @@ bool EditorTracer::SetPredictionOutlineVisibility( bool blueVisible, bool greyVi
 bool EditorTracer::SetReplayTrajectoryAppearance( const Core::ReplayTrajectoryAppearanceConfig& appearance )
 {
     const auto boundedStyle = []( float width, float alpha, float edgeFeather )
-    {
-        return ReplayRibbonStyle { std::clamp( width, 1.0f, 6.0f ), std::clamp( alpha, 0.05f, 1.0f ),
-                                   std::clamp( edgeFeather, 0.25f, 1.25f ), 0.0f };
-    };
+    { return ReplayRibbonStyle { std::clamp( width, 1.0f, 6.0f ), std::clamp( alpha, 0.05f, 1.0f ), std::clamp( edgeFeather, 0.25f, 1.25f ), 0.0f }; };
 
-    const ReplayRibbonStyle path = boundedStyle( appearance.futureWidth, appearance.futureAlpha,
-                                                 appearance.futureEdgeFeather );
+    const ReplayRibbonStyle path = boundedStyle( appearance.futureWidth, appearance.futureAlpha, appearance.futureEdgeFeather );
 
-    const ReplayRibbonStyle causal = boundedStyle( appearance.causalWidth, appearance.causalAlpha,
-                                                   appearance.causalEdgeFeather );
+    const ReplayRibbonStyle causal = boundedStyle( appearance.causalWidth, appearance.causalAlpha, appearance.causalEdgeFeather );
 
-    const ReplayRibbonStyle baseline = boundedStyle( appearance.baselineWidth, appearance.baselineAlpha,
-                                                     appearance.baselineEdgeFeather );
+    const ReplayRibbonStyle baseline = boundedStyle( appearance.baselineWidth, appearance.baselineAlpha, appearance.baselineEdgeFeather );
 
-    const ReplayRibbonStyle marker = boundedStyle( appearance.markerWidth, appearance.markerAlpha,
-                                                   appearance.markerEdgeFeather );
+    const ReplayRibbonStyle marker = boundedStyle( appearance.markerWidth, appearance.markerAlpha, appearance.markerEdgeFeather );
 
     const float selectedEmphasis = std::clamp( appearance.selectedEmphasis, 0.0f, 1.0f );
     const auto sameStyle = []( const ReplayRibbonStyle& a, const ReplayRibbonStyle& b )
     { return a.width == b.width && a.alpha == b.alpha && a.edgeFeather == b.edgeFeather && a.emphasis == b.emphasis; };
 
-    if ( m_replayTrajectoryAppearanceInitialized && sameStyle( path, m_replayPathStyle ) &&
-         sameStyle( causal, m_replayCausalStyle ) && sameStyle( baseline, m_replayBaselineStyle ) &&
+    if ( m_replayTrajectoryAppearanceInitialized && sameStyle( path, m_replayPathStyle ) && sameStyle( causal, m_replayCausalStyle ) && sameStyle( baseline, m_replayBaselineStyle ) &&
          sameStyle( marker, m_replayMarkerStyle ) && selectedEmphasis == m_replaySelectedEmphasis )
     {
         return false;
@@ -366,8 +320,7 @@ const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& EditorTracer::Repla
 }
 
 
-void EditorTracer::RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
-                                                      std::size_t count )
+void EditorTracer::RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane, std::size_t count )
 {
     const std::size_t laneIndex = static_cast<std::size_t>( lane );
 
@@ -400,8 +353,7 @@ ReplayVisualPacket EditorTracer::BuildReplayVisualPacket( const Vector3& cameraE
     ReplayVisualPacket packet;
     packet.header.cameraEye = cameraEye;
     packet.header.cameraUp = cameraUp;
-    packet.combinedLines = m_priorityLineData.empty() ? std::span<const float>( m_lineData )
-                                                      : std::span<const float>( m_renderLineData );
+    packet.combinedLines = m_priorityLineData.empty() ? std::span<const float>( m_lineData ) : std::span<const float>( m_renderLineData );
 
     packet.ordinaryLines = m_lineData;
     packet.priorityLines = m_priorityLineData;
@@ -421,8 +373,7 @@ std::size_t EditorTracer::ReplayPathRibbonSegmentCapacityRemaining() const
         return 0;
     }
 
-    return ( m_replayRibbonSegments.capacity() - m_replayRibbonSegments.size() ) /
-           EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+    return ( m_replayRibbonSegments.capacity() - m_replayRibbonSegments.size() ) / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
 }
 
 std::size_t EditorTracer::ReplayPriorityRibbonSegmentCapacityRemaining() const
@@ -432,8 +383,7 @@ std::size_t EditorTracer::ReplayPriorityRibbonSegmentCapacityRemaining() const
         return 0;
     }
 
-    return ( m_priorityReplayRibbonSegments.capacity() - m_priorityReplayRibbonSegments.size() ) /
-           EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+    return ( m_priorityReplayRibbonSegments.capacity() - m_priorityReplayRibbonSegments.size() ) / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
 }
 
 
@@ -469,8 +419,7 @@ void EditorTracer::EmitArrow( const Vector3& a, const Vector3& b, float r, float
 
     dir /= len;
 
-    Vector3 side = fabsf( dir.y ) < 0.8f ? CrossProduct( dir, Vector3( 0.0f, 1.0f, 0.0f ) )
-                                         : CrossProduct( dir, Vector3( 1.0f, 0.0f, 0.0f ) );
+    Vector3 side = fabsf( dir.y ) < 0.8f ? CrossProduct( dir, Vector3( 0.0f, 1.0f, 0.0f ) ) : CrossProduct( dir, Vector3( 1.0f, 0.0f, 0.0f ) );
 
     const float sideLen = VectorMag( side );
 
@@ -505,8 +454,7 @@ void EditorTracer::EmitRing( const Vector3& center, int axis, float radius, floa
 }
 
 
-void EditorTracer::EmitSphereTo( std::vector<float>& lineData, const Vector3& center, float radius, float r, float g,
-                                 float bl )
+void EditorTracer::EmitSphereTo( std::vector<float>& lineData, const Vector3& center, float radius, float r, float g, float bl )
 {
     constexpr int segments = 32;
 
@@ -554,19 +502,18 @@ void EditorTracer::EmitSphere( const Vector3& center, float radius, float r, flo
 }
 
 
-void EditorTracer::EmitBoxTo( std::vector<float>& lineData, const Vector3& center, const Vector3& xAxis,
-                              const Vector3& yAxis, const Vector3& zAxis, float r, float g, float bl )
+void EditorTracer::EmitBoxTo( std::vector<float>& lineData, const Vector3& center, const Vector3& xAxis, const Vector3& yAxis, const Vector3& zAxis, float r, float g, float bl )
 {
-    const Vector3 corners[8] = {
-        center - xAxis - yAxis - zAxis, center + xAxis - yAxis - zAxis, center + xAxis + yAxis - zAxis,
-        center - xAxis + yAxis - zAxis, center - xAxis - yAxis + zAxis, center + xAxis - yAxis + zAxis,
-        center + xAxis + yAxis + zAxis, center - xAxis + yAxis + zAxis,
-    };
+    const Vector3 corners[8] = { center - xAxis - yAxis - zAxis,
+                                 center + xAxis - yAxis - zAxis,
+                                 center + xAxis + yAxis - zAxis,
+                                 center - xAxis + yAxis - zAxis,
+                                 center - xAxis - yAxis + zAxis,
+                                 center + xAxis - yAxis + zAxis,
+                                 center + xAxis + yAxis + zAxis,
+                                 center - xAxis + yAxis + zAxis, };
 
-    static constexpr int kEdges[12][2] = {
-        { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 }, { 4, 5 }, { 5, 6 },
-        { 6, 7 }, { 7, 4 }, { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 },
-    };
+    static constexpr int kEdges[12][2] = { { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 }, { 4, 5 }, { 5, 6 }, { 6, 7 }, { 7, 4 }, { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 }, };
 
     for ( const auto& edge : kEdges )
     {
@@ -575,15 +522,13 @@ void EditorTracer::EmitBoxTo( std::vector<float>& lineData, const Vector3& cente
 }
 
 
-void EditorTracer::EmitBox( const Vector3& center, const Vector3& xAxis, const Vector3& yAxis, const Vector3& zAxis, float r,
-                            float g, float bl )
+void EditorTracer::EmitBox( const Vector3& center, const Vector3& xAxis, const Vector3& yAxis, const Vector3& zAxis, float r, float g, float bl )
 {
     EmitBoxTo( m_lineData, center, xAxis, yAxis, zAxis, r, g, bl );
 }
 
 
-bool EditorTracer::CanEmitShapeOutlineTo( const std::vector<float>& lineData,
-                                          const CollisionShapeReference& shape ) const noexcept
+bool EditorTracer::CanEmitShapeOutlineTo( const std::vector<float>& lineData, const CollisionShapeReference& shape ) const noexcept
 {
     std::size_t segmentCount = 0u;
 
@@ -604,8 +549,7 @@ bool EditorTracer::CanEmitShapeOutlineTo( const std::vector<float>& lineData,
 }
 
 
-void EditorTracer::EmitShapeOutlineTo( std::vector<float>& lineData, const Vector3& position, const Quaternion& orientation,
-                                       const CollisionShapeReference& shape, float r, float g, float b )
+void EditorTracer::EmitShapeOutlineTo( std::vector<float>& lineData, const Vector3& position, const Quaternion& orientation, const CollisionShapeReference& shape, float r, float g, float b )
 {
     Quaternion outlineOrientation = orientation;
     const RotationMatrix rot = outlineOrientation.GetOrientationMatrix();
@@ -620,8 +564,7 @@ void EditorTracer::EmitShapeOutlineTo( std::vector<float>& lineData, const Vecto
     {
         const Vector3& he = box->GetHalfExtents();
         const Vector3 center = position + rot * box->GetPosition();
-        EmitBoxTo( lineData, center, rot * Vector3( he.x, 0.0f, 0.0f ), rot * Vector3( 0.0f, he.y, 0.0f ),
-                   rot * Vector3( 0.0f, 0.0f, he.z ), r, g, b );
+        EmitBoxTo( lineData, center, rot * Vector3( he.x, 0.0f, 0.0f ), rot * Vector3( 0.0f, he.y, 0.0f ), rot * Vector3( 0.0f, 0.0f, he.z ), r, g, b );
 
         return;
     }
@@ -633,22 +576,25 @@ void EditorTracer::EmitShapeOutlineTo( std::vector<float>& lineData, const Vecto
         for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
         {
             const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
-            EmitLineTo( lineData, hullCenter + rot * hull->GetVertex( edge.vertexA ),
-                        hullCenter + rot * hull->GetVertex( edge.vertexB ), r, g, b );
+            EmitLineTo( lineData, hullCenter + rot * hull->GetVertex( edge.vertexA ), hullCenter + rot * hull->GetVertex( edge.vertexB ), r, g, b );
         }
     }
 }
 
 
-void EditorTracer::EmitShapeOutline( const Vector3& position, const Quaternion& orientation,
-                                     const CollisionShapeReference& shape, float r, float g, float b )
+void EditorTracer::EmitShapeOutline( const Vector3& position, const Quaternion& orientation, const CollisionShapeReference& shape, float r, float g, float b )
 {
     EmitShapeOutlineTo( m_lineData, position, orientation, shape, r, g, b );
 }
 
 
-void EditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData, const Vector3& a, const Vector3& b, float r,
-                                              float g, float bl, const ReplayRibbonStyle& style,
+void EditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData,
+                                              const Vector3& a,
+                                              const Vector3& b,
+                                              float r,
+                                              float g,
+                                              float bl,
+                                              const ReplayRibbonStyle& style,
                                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
     if ( VectorMagSquared( b - a ) <= TOLERANCE * TOLERANCE )
@@ -657,11 +603,9 @@ void EditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData, co
     }
 
     const std::size_t laneIndex = static_cast<std::size_t>( lane );
-    const std::size_t combinedSegments = ( m_replayRibbonSegments.size() + m_priorityReplayRibbonSegments.size() ) /
-                                         EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+    const std::size_t combinedSegments = ( m_replayRibbonSegments.size() + m_priorityReplayRibbonSegments.size() ) / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
 
-    if ( combinedSegments >= EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET ||
-         ribbonData.size() + EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT > ribbonData.capacity() )
+    if ( combinedSegments >= EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET || ribbonData.size() + EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT > ribbonData.capacity() )
     {
         if ( laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
         {
@@ -696,8 +640,13 @@ void EditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData, co
 }
 
 
-void EditorTracer::EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData, const Vector3& a, const Vector3& b, float r,
-                                               float g, float bl, const ReplayRibbonStyle& glow,
+void EditorTracer::EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData,
+                                               const Vector3& a,
+                                               const Vector3& b,
+                                               float r,
+                                               float g,
+                                               float bl,
+                                               const ReplayRibbonStyle& glow,
                                                const ReplayRibbonStyle& core,
                                                SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
@@ -726,26 +675,20 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
 
     {
         PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/BuildFrameLocalPacket/BuildRibbonVertices/CompareCompactSources" );
-        ordinarySourceChanged = !m_replayRibbonCacheValid ||
-                                !compactSourceMatches( m_replayRibbonSegments, m_cachedReplayRibbonSegments );
+        ordinarySourceChanged = !m_replayRibbonCacheValid || !compactSourceMatches( m_replayRibbonSegments, m_cachedReplayRibbonSegments );
 
-        prioritySourceChanged = !m_replayRibbonCacheValid || !compactSourceMatches( m_priorityReplayRibbonSegments,
-                                                                                    m_cachedPriorityReplayRibbonSegments );
+        prioritySourceChanged = !m_replayRibbonCacheValid || !compactSourceMatches( m_priorityReplayRibbonSegments, m_cachedPriorityReplayRibbonSegments );
     }
 
-    auto rebuildRibbonData = [&]( const std::vector<float>& ribbonData, std::vector<float>& cachedRibbonData,
-                                  std::vector<float>& vertexData, std::size_t& expandedSegmentCount )
+    auto rebuildRibbonData = [&]( const std::vector<float>& ribbonData, std::vector<float>& cachedRibbonData, std::vector<float>& vertexData, std::size_t& expandedSegmentCount )
     {
         const std::size_t sourceSegmentCount = ribbonData.size() / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
 
         vertexData.clear();
 
-        for ( std::size_t i = 0; i + EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT <= ribbonData.size();
-              i += EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT )
+        for ( std::size_t i = 0; i + EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT <= ribbonData.size(); i += EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT )
         {
-            if ( vertexData.size() +
-                     EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT * EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX >
-                 vertexData.capacity() )
+            if ( vertexData.size() + EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT * EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX > vertexData.capacity() )
             {
                 return;
             }
@@ -771,18 +714,14 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
             if ( i >= EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT )
             {
                 const std::size_t previousIndex = i - EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
-                const Vector3 previousEnd( ribbonData[previousIndex + 3], ribbonData[previousIndex + 4],
-                                           ribbonData[previousIndex + 5] );
+                const Vector3 previousEnd( ribbonData[previousIndex + 3], ribbonData[previousIndex + 4], ribbonData[previousIndex + 5] );
 
-                const bool samePresentation = ribbonData[previousIndex + 9] == ribbonData[i + 9] &&
-                                              ribbonData[previousIndex + 10] == ribbonData[i + 10] &&
-                                              ribbonData[previousIndex + 11] == ribbonData[i + 11] &&
-                                              ribbonData[previousIndex + 12] == ribbonData[i + 12];
+                const bool samePresentation = ribbonData[previousIndex + 9] == ribbonData[i + 9] && ribbonData[previousIndex + 10] == ribbonData[i + 10] &&
+                                              ribbonData[previousIndex + 11] == ribbonData[i + 11] && ribbonData[previousIndex + 12] == ribbonData[i + 12];
 
                 if ( samePresentation && VectorMagSquared( previousEnd - a ) <= TOLERANCE * TOLERANCE )
                 {
-                    previous = Vector3( ribbonData[previousIndex + 0], ribbonData[previousIndex + 1],
-                                        ribbonData[previousIndex + 2] );
+                    previous = Vector3( ribbonData[previousIndex + 0], ribbonData[previousIndex + 1], ribbonData[previousIndex + 2] );
                 }
             }
 
@@ -791,9 +730,7 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
             if ( nextIndex + EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT <= ribbonData.size() )
             {
                 const Vector3 nextStart( ribbonData[nextIndex + 0], ribbonData[nextIndex + 1], ribbonData[nextIndex + 2] );
-                const bool samePresentation = ribbonData[nextIndex + 9] == ribbonData[i + 9] &&
-                                              ribbonData[nextIndex + 10] == ribbonData[i + 10] &&
-                                              ribbonData[nextIndex + 11] == ribbonData[i + 11] &&
+                const bool samePresentation = ribbonData[nextIndex + 9] == ribbonData[i + 9] && ribbonData[nextIndex + 10] == ribbonData[i + 10] && ribbonData[nextIndex + 11] == ribbonData[i + 11] &&
                                               ribbonData[nextIndex + 12] == ribbonData[i + 12];
 
                 if ( samePresentation && VectorMagSquared( nextStart - b ) <= TOLERANCE * TOLERANCE )
@@ -855,14 +792,12 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
 
         if ( ordinarySourceChanged )
         {
-            rebuildRibbonData( m_replayRibbonSegments, m_cachedReplayRibbonSegments, m_replayRibbonVertexData,
-                               m_expandedOrdinarySegmentCount );
+            rebuildRibbonData( m_replayRibbonSegments, m_cachedReplayRibbonSegments, m_replayRibbonVertexData, m_expandedOrdinarySegmentCount );
         }
 
         if ( prioritySourceChanged )
         {
-            rebuildRibbonData( m_priorityReplayRibbonSegments, m_cachedPriorityReplayRibbonSegments,
-                               m_priorityReplayRibbonVertexData, m_expandedPrioritySegmentCount );
+            rebuildRibbonData( m_priorityReplayRibbonSegments, m_cachedPriorityReplayRibbonSegments, m_priorityReplayRibbonVertexData, m_expandedPrioritySegmentCount );
         }
 
         m_replayRibbonCacheValid = true;
@@ -877,12 +812,10 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
     // absence cannot alias a skipped sample in the golden manifest.
     {
         PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/BuildFrameLocalPacket/BuildRibbonVertices/HashLineSources" );
-        HashReplaySubmissionFloatStream( m_lineData, m_replaySubmissionStats.ordinaryLineHash,
-                                         m_replaySubmissionStats.ordinaryLineBytes );
+        HashReplaySubmissionFloatStream( m_lineData, m_replaySubmissionStats.ordinaryLineHash, m_replaySubmissionStats.ordinaryLineBytes );
 
         m_replaySubmissionStats.ordinaryLineVertexCount = static_cast<uint32_t>( m_lineData.size() / 6u );
-        HashReplaySubmissionFloatStream( m_priorityLineData, m_replaySubmissionStats.priorityLineHash,
-                                         m_replaySubmissionStats.priorityLineBytes );
+        HashReplaySubmissionFloatStream( m_priorityLineData, m_replaySubmissionStats.priorityLineHash, m_replaySubmissionStats.priorityLineBytes );
 
         m_replaySubmissionStats.priorityLineCanonicalHash = HashReplaySubmissionCanonicalRecords( m_priorityLineData, 12u );
         m_replaySubmissionStats.priorityLineVertexCount = static_cast<uint32_t>( m_priorityLineData.size() / 6u );
@@ -890,26 +823,20 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
 
     if ( ordinarySourceChanged )
     {
-        HashReplaySubmissionFloatStream( m_replayRibbonSegments, m_cachedRibbonSubmissionStats.ordinaryRibbonHash,
-                                         m_cachedRibbonSubmissionStats.ordinaryRibbonBytes );
+        HashReplaySubmissionFloatStream( m_replayRibbonSegments, m_cachedRibbonSubmissionStats.ordinaryRibbonHash, m_cachedRibbonSubmissionStats.ordinaryRibbonBytes );
 
-        m_cachedRibbonSubmissionStats.ordinaryRibbonSegmentCount = static_cast<uint32_t>(
-            m_replayRibbonSegments.size() / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
+        m_cachedRibbonSubmissionStats.ordinaryRibbonSegmentCount = static_cast<uint32_t>( m_replayRibbonSegments.size() / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
     }
 
     if ( prioritySourceChanged )
     {
-        HashReplaySubmissionFloatStream( m_priorityReplayRibbonSegments, m_cachedRibbonSubmissionStats.priorityRibbonHash,
-                                         m_cachedRibbonSubmissionStats.priorityRibbonBytes );
+        HashReplaySubmissionFloatStream( m_priorityReplayRibbonSegments, m_cachedRibbonSubmissionStats.priorityRibbonHash, m_cachedRibbonSubmissionStats.priorityRibbonBytes );
 
-        m_cachedRibbonSubmissionStats.priorityRibbonCanonicalHash = HashReplaySubmissionCanonicalRecords(
-            m_priorityReplayRibbonSegments, EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
-        m_cachedRibbonSubmissionStats.priorityRibbonSegmentCount = static_cast<uint32_t>(
-            m_priorityReplayRibbonSegments.size() / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
+        m_cachedRibbonSubmissionStats.priorityRibbonCanonicalHash = HashReplaySubmissionCanonicalRecords( m_priorityReplayRibbonSegments, EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
+        m_cachedRibbonSubmissionStats.priorityRibbonSegmentCount = static_cast<uint32_t>( m_priorityReplayRibbonSegments.size() / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
     }
 
-    m_replaySubmissionStats.hasGeometry = !m_lineData.empty() || !m_priorityLineData.empty() ||
-                                          !m_replayRibbonSegments.empty() || !m_priorityReplayRibbonSegments.empty();
+    m_replaySubmissionStats.hasGeometry = !m_lineData.empty() || !m_priorityLineData.empty() || !m_replayRibbonSegments.empty() || !m_priorityReplayRibbonSegments.empty();
 
     if ( ordinarySourceChanged || prioritySourceChanged )
     {
@@ -919,8 +846,7 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
         // submitted to DrawTransientColoredTriangles. It deliberately ignores
         // vector capacity and camera data because the trajectory-ribbon shader
         // performs camera-facing expansion from this stable segment payload.
-        const std::size_t combinedVertexFloatCount = m_replayRibbonVertexData.size() +
-                                                     m_priorityReplayRibbonVertexData.size();
+        const std::size_t combinedVertexFloatCount = m_replayRibbonVertexData.size() + m_priorityReplayRibbonVertexData.size();
 
         if ( combinedVertexFloatCount == 0u )
         {
@@ -935,12 +861,10 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
         else
         {
             const std::size_t byteCount = combinedVertexFloatCount * sizeof( float );
-            m_cachedRibbonSubmissionStats.vertexHash = HashReplaySubmissionFloatStreams( m_replayRibbonVertexData,
-                                                                                         m_priorityReplayRibbonVertexData );
+            m_cachedRibbonSubmissionStats.vertexHash = HashReplaySubmissionFloatStreams( m_replayRibbonVertexData, m_priorityReplayRibbonVertexData );
 
             m_cachedRibbonSubmissionStats.ordinaryVertexBytes = ordinaryVertexFloatCount * sizeof( float );
-            m_cachedRibbonSubmissionStats.ordinaryVertexCount = static_cast<uint32_t>(
-                ordinaryVertexFloatCount / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
+            m_cachedRibbonSubmissionStats.ordinaryVertexCount = static_cast<uint32_t>( ordinaryVertexFloatCount / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
 
             uint64_t ordinaryHash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
             const uint64_t ordinaryFloatCount = static_cast<uint64_t>( ordinaryVertexFloatCount );
@@ -948,18 +872,14 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
 
             if ( ordinaryVertexFloatCount > 0u )
             {
-                HashReplaySubmissionBytes( ordinaryHash, SkullbonezCore::Core::ObjectBytes(
-                                                             std::span<const float>( m_replayRibbonVertexData )
-                                                                 .first( ordinaryVertexFloatCount ) ) );
+                HashReplaySubmissionBytes( ordinaryHash, SkullbonezCore::Core::ObjectBytes( std::span<const float>( m_replayRibbonVertexData ).first( ordinaryVertexFloatCount ) ) );
             }
 
             m_cachedRibbonSubmissionStats.ordinaryVertexHash = ordinaryHash;
             m_cachedRibbonSubmissionStats.vertexBytes = static_cast<uint64_t>( byteCount );
-            m_cachedRibbonSubmissionStats.vertexCount = static_cast<uint32_t>(
-                combinedVertexFloatCount / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
+            m_cachedRibbonSubmissionStats.vertexCount = static_cast<uint32_t>( combinedVertexFloatCount / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
 
-            m_cachedRibbonSubmissionStats.segmentCount = static_cast<uint32_t>(
-                m_cachedRibbonSubmissionStats.vertexCount / EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT );
+            m_cachedRibbonSubmissionStats.segmentCount = static_cast<uint32_t>( m_cachedRibbonSubmissionStats.vertexCount / EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT );
         }
     }
 
@@ -990,8 +910,7 @@ void EditorTracer::AddLine( const Vector3& start, const Vector3& end, float r, f
     EmitLine( start, end, r, g, b );
 }
 
-void EditorTracer::AddBoxOutline( const Vector3& center, const Vector3& xAxis, const Vector3& yAxis, const Vector3& zAxis,
-                                  float r, float g, float b )
+void EditorTracer::AddBoxOutline( const Vector3& center, const Vector3& xAxis, const Vector3& yAxis, const Vector3& zAxis, float r, float g, float b )
 {
     EmitBox( center, xAxis, yAxis, zAxis, r, g, b );
 }
@@ -1001,8 +920,7 @@ void EditorTracer::AddSphereOutline( const Vector3& center, float radius, float 
     EmitSphere( center, radius, r, g, b );
 }
 
-void EditorTracer::AddRagdollOutline( const Vector3& center, float scale, const Quaternion& orientation, float r, float g,
-                                      float b )
+void EditorTracer::AddRagdollOutline( const Vector3& center, float scale, const Quaternion& orientation, float r, float g, float b )
 {
     Ragdoll::AddPreviewLines( m_lineData, center, scale, orientation, r, g, b );
 }
@@ -1023,7 +941,11 @@ void EditorTracer::AddRayCastTestLine( const Vector3& start, const Vector3& end,
     EmitLine( start, end, r * alpha, g * alpha, b * alpha );
 }
 
-void EditorTracer::AddReplayPathSegment( const Vector3& start, const Vector3& end, float r, float g, float b,
+void EditorTracer::AddReplayPathSegment( const Vector3& start,
+                                         const Vector3& end,
+                                         float r,
+                                         float g,
+                                         float b,
                                          SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
                                          ReplayPathSegmentPresentation presentation )
 {
@@ -1043,8 +965,7 @@ void EditorTracer::AddReplayPathSegment( const Vector3& start, const Vector3& en
 }
 
 
-void EditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const Vector3& end, float r, float g, float b,
-                                                float opacity )
+void EditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const Vector3& end, float r, float g, float b, float opacity )
 {
     // Why: retained causal trails are the evidence attached to yellow/grey/ghost
     // boxes. They live with the priority ribbons so overflow in ordinary root
@@ -1053,20 +974,17 @@ void EditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const Vect
     ReplayRibbonStyle core = m_replayCausalStyle;
     glow.alpha *= std::clamp( opacity, 0.0f, 1.0f );
     core.alpha = glow.alpha;
-    EmitReplayRibbonGlowPairTo( m_priorityReplayRibbonSegments, start, end, r, g, b, glow, core,
-                                SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail );
+    EmitReplayRibbonGlowPairTo( m_priorityReplayRibbonSegments, start, end, r, g, b, glow, core, SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail );
 }
 
 
-void EditorTracer::AddReplayBaselinePathSegment( const Vector3& start, const Vector3& end, float r, float g, float b,
-                                                 float opacity )
+void EditorTracer::AddReplayBaselinePathSegment( const Vector3& start, const Vector3& end, float r, float g, float b, float opacity )
 {
     ReplayRibbonStyle glow = m_replayBaselineStyle;
     ReplayRibbonStyle core = m_replayBaselineStyle;
     glow.alpha *= std::clamp( opacity, 0.0f, 1.0f );
     core.alpha = glow.alpha;
-    EmitReplayRibbonGlowPairTo( m_replayRibbonSegments, start, end, r, g, b, glow, core,
-                                SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
+    EmitReplayRibbonGlowPairTo( m_replayRibbonSegments, start, end, r, g, b, glow, core, SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
 }
 
 
@@ -1101,8 +1019,7 @@ void EditorTracer::AddReplayImpulseVector( const Vector3& point, const Vector3& 
 }
 
 
-bool EditorTracer::AddReplayCausalEntryMarker( const Vector3& position, const Quaternion& orientation,
-                                               const CollisionShapeReference& shape )
+bool EditorTracer::AddReplayCausalEntryMarker( const Vector3& position, const Quaternion& orientation, const CollisionShapeReference& shape )
 {
     if ( !m_blueOutlinesVisible )
     {
@@ -1123,8 +1040,7 @@ bool EditorTracer::AddReplayCausalEntryMarker( const Vector3& position, const Qu
 }
 
 
-bool EditorTracer::AddReplayCausalRestMarker( const Vector3& position, const Quaternion& orientation,
-                                              const CollisionShapeReference& shape )
+bool EditorTracer::AddReplayCausalRestMarker( const Vector3& position, const Quaternion& orientation, const CollisionShapeReference& shape )
 {
     if ( !m_greyOutlinesVisible )
     {
@@ -1141,8 +1057,7 @@ bool EditorTracer::AddReplayCausalRestMarker( const Vector3& position, const Qua
 }
 
 
-bool EditorTracer::AddReplayCausalHorizonMarker( const Vector3& position, const Quaternion& orientation,
-                                                 const CollisionShapeReference& shape )
+bool EditorTracer::AddReplayCausalHorizonMarker( const Vector3& position, const Quaternion& orientation, const CollisionShapeReference& shape )
 {
     if ( !m_blueOutlinesVisible )
     {
@@ -1162,8 +1077,7 @@ bool EditorTracer::AddReplayCausalHorizonMarker( const Vector3& position, const 
 }
 
 
-void EditorTracer::AddReplayBaselineEntryMarker( const Vector3& position, const Quaternion& orientation,
-                                                 const CollisionShapeReference& shape )
+void EditorTracer::AddReplayBaselineEntryMarker( const Vector3& position, const Quaternion& orientation, const CollisionShapeReference& shape )
 {
     if ( !m_blueOutlinesVisible )
     {
@@ -1176,8 +1090,7 @@ void EditorTracer::AddReplayBaselineEntryMarker( const Vector3& position, const 
 }
 
 
-void EditorTracer::AddReplayBaselineRestMarker( const Vector3& position, const Quaternion& orientation,
-                                                const CollisionShapeReference& shape )
+void EditorTracer::AddReplayBaselineRestMarker( const Vector3& position, const Quaternion& orientation, const CollisionShapeReference& shape )
 {
     if ( !m_blueOutlinesVisible )
     {
@@ -1188,16 +1101,14 @@ void EditorTracer::AddReplayBaselineRestMarker( const Vector3& position, const Q
 }
 
 
-void EditorTracer::AddReplayTargetMarker( const Vector3& position, const Quaternion& orientation,
-                                          const CollisionShapeReference& shape, float radius )
+void EditorTracer::AddReplayTargetMarker( const Vector3& position, const Quaternion& orientation, const CollisionShapeReference& shape, float radius )
 {
     AddSelectionOutline( position, orientation, shape );
     EmitRing( position, 1, (std::max)( 1.0f, radius ), 1.0f, 1.0f, 1.0f );
 }
 
 
-void EditorTracer::AddAttachedCameraTargetMarker( const Vector3& position, const Quaternion& orientation,
-                                                  const CollisionShapeReference& shape, float radius, bool activeFollow )
+void EditorTracer::AddAttachedCameraTargetMarker( const Vector3& position, const Quaternion& orientation, const CollisionShapeReference& shape, float radius, bool activeFollow )
 {
     AddSelectionOutline( position, orientation, shape );
     radius = (std::max)( 1.0f, radius );
@@ -1209,8 +1120,7 @@ void EditorTracer::AddAttachedCameraTargetMarker( const Vector3& position, const
 }
 
 
-void EditorTracer::AddSelectionOutline( const Vector3& position, const Quaternion& orientation,
-                                        const CollisionShapeReference& shape )
+void EditorTracer::AddSelectionOutline( const Vector3& position, const Quaternion& orientation, const CollisionShapeReference& shape )
 {
     constexpr float outlineR = 1.0f;
     constexpr float outlineG = 1.0f;
@@ -1219,8 +1129,7 @@ void EditorTracer::AddSelectionOutline( const Vector3& position, const Quaternio
 }
 
 
-void EditorTracer::AddGizmo( const Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis,
-                             bool activeRotation, bool scaleMode, bool activeScale )
+void EditorTracer::AddGizmo( const Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis, bool activeRotation, bool scaleMode, bool activeScale )
 {
     // Concept: Translate and scale share axis lines, while rotate owns rings.
     // Keeping both in one tracer method makes hover/active color priority
@@ -1253,8 +1162,7 @@ void EditorTracer::AddGizmo( const Vector3& origin, float radius, int hotTransla
         {
             const float handle = (std::max)( 0.75f, length * 0.045f );
             EmitLine( origin, endpoint, r, g, b );
-            EmitBox( endpoint, Vector3( handle, 0.0f, 0.0f ), Vector3( 0.0f, handle, 0.0f ), Vector3( 0.0f, 0.0f, handle ),
-                     r, g, b );
+            EmitBox( endpoint, Vector3( handle, 0.0f, 0.0f ), Vector3( 0.0f, handle, 0.0f ), Vector3( 0.0f, 0.0f, handle ), r, g, b );
         }
         else
         {
@@ -1293,45 +1201,26 @@ void EditorTracer::AddGizmo( const Vector3& origin, float radius, int hotTransla
 }
 
 
-void EditorTracer::AddReplayVelocityGizmo( const Vector3& origin, const Quaternion& orientation,
-                                           const CollisionShapeReference& shape, float radius, const Vector3& linearVelocity,
-                                           const Vector3& angularVelocity, int hotLinearAxis, int hotAngularAxis,
-                                           int activeAxis, bool activeAngular )
+void EditorTracer::AddReplayVelocityGizmo( const Vector3& origin,
+                                           const Quaternion& orientation,
+                                           const CollisionShapeReference& shape,
+                                           float radius,
+                                           const Vector3& linearVelocity,
+                                           const Vector3& angularVelocity,
+                                           int hotLinearAxis,
+                                           int hotAngularAxis,
+                                           int activeAxis,
+                                           bool activeAngular )
 {
     AddSelectionOutline( origin, orientation, shape );
 
-    const float baseLength = TraceVelocityLinearBaseLength( radius );
-
+    const float length = ReplayVelocityHandleLength( radius );
+    const Vector3 tip = origin + ( activeAngular ? angularVelocity : linearVelocity ) * ReplayVelocityVectorScale( activeAngular );
+    EmitArrow( origin, tip, 0.95f, 0.95f, 0.95f );
     for ( int axis = 0; axis < 3; ++axis )
     {
-        const Vector3 axisVector = TraceAxisVector( axis );
-        const float component = TraceVelocityAxisComponent( linearVelocity, axis );
-        const float heat = std::clamp( fabsf( component ) / REPLAY_VELOCITY_EDIT_LINEAR_MAX, 0.0f, 1.0f );
-        const bool hot = hotLinearAxis == axis;
-        const bool active = !activeAngular && activeAxis == axis;
-        float r = 0.0f;
-        float g = 0.0f;
-        float b = 0.0f;
-        TraceVelocityAxisColor( axis, heat, hot, active, r, g, b );
-
-        const float axisT = TraceVelocityLinearAxisT( radius, component );
-        const Vector3 endpoint = origin + axisVector * axisT;
-        EmitLine( origin - axisVector * ( baseLength * 0.24f ), origin + axisVector * ( baseLength * 0.24f ), r * 0.34f,
-                  g * 0.34f, b * 0.34f );
-
-        EmitArrow( origin, endpoint, r, g, b );
-    }
-
-    for ( int axis = 0; axis < 3; ++axis )
-    {
-        const float component = TraceVelocityAxisComponent( angularVelocity, axis );
-        const float heat = std::clamp( fabsf( component ) / REPLAY_VELOCITY_EDIT_ANGULAR_MAX, 0.0f, 1.0f );
-        const bool hot = hotAngularAxis == axis;
-        const bool active = activeAngular && activeAxis == axis;
-        float r = 0.0f;
-        float g = 0.0f;
-        float b = 0.0f;
-        TraceVelocityAxisColor( axis, heat, hot, active, r, g, b );
-        EmitRing( origin, axis, TraceVelocityAngularRadius( radius, component ), r, g, b );
+        float r, g, b;
+        TraceVelocityAxisColor( axis, 0.0f, ( activeAngular ? hotAngularAxis : hotLinearAxis ) == axis, activeAxis == axis, r, g, b );
+        EmitArrow( tip, tip + TraceAxisVector( axis ) * length, r, g, b );
     }
 }

@@ -110,6 +110,7 @@ struct ReplayScrubberPointerFrame
     bool pathTargetAvailable = false;
     bool predictionEnabled = false;
     bool predictionHighDetail = true;
+    bool velocityEditing = false;
     bool predictionTimelineAvailable = false;
     bool currentPresentationAvailable = false;
     bool currentSolverAvailable = false;

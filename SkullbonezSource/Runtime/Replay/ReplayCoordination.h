@@ -110,6 +110,8 @@ struct ReplayWorkspaceFrameInput
     UI::UIRect causeBounds;
     bool causeUiBlocksMouse = false;
     UI::UIRect planningBounds;
+    Math::Transformation::Matrix4 velocityViewProjection;
+    UI::UIRect velocityViewport;
     bool transportPinned = false; // The presenting UI keeps its reserved transport strip visible.
 };
 
@@ -130,6 +132,9 @@ struct ReplayWorkspaceOutput
     // Cold native-file selection remains at TickWorkspace, after the scrubber
     // has completed its pointer and visibility phase.
     bool loadPresentationRequested = false;
+    bool openVelocitySolverLab = false;
+    bool cancelVelocityExperiment = false;
+    bool velocityExperimentClosed = false;
 };
 
 enum class ReplayTransportAction : uint8_t

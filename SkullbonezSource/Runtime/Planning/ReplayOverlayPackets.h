@@ -161,6 +161,7 @@ struct ReplayVelocityDivergenceView
 {
     bool active = false;
     bool redReady = false;
+    bool angular = false;
     bool playing = false;
     double playbackTime = 0.0;
 };
@@ -170,6 +171,13 @@ inline UI::UIRect ReplayDivergenceChoiceRect( const UI::UIRect& viewport, bool r
 {
     const float width = (std::min)( 128.0f, (std::max)( 0.0f, ( viewport.w - 24.0f ) * 0.5f ) );
     return { viewport.x + 8.0f + ( red ? 0.0f : width + 8.0f ), viewport.y + (std::max)( 0.0f, viewport.h - 40.0f ), width, (std::min)( 30.0f, viewport.h ) };
+}
+
+// Additional experiment controls wrap vertically inside the scene viewport.
+inline UI::UIRect ReplayDivergenceToolRect( const UI::UIRect& viewport, int index ) noexcept
+{
+    const auto choice = ReplayDivergenceChoiceRect( viewport, true );
+    return { choice.x, (std::max)( viewport.y, choice.y - 36.0f * ( index + 1 ) ), (std::min)( 264.0f, (std::max)( 0.0f, viewport.w - 16.0f ) ), choice.h };
 }
 
 struct ReplayOverlayPlanningSurfacesView

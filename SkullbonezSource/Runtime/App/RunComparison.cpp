@@ -119,6 +119,27 @@ bool Run::LoadComparison( const char* path, bool finding )
     return started;
 }
 
+void Run::OpenVelocitySolverLab()
+{
+    if ( m_comparisonLoad.Pending() )
+    {
+        return;
+    }
+    if ( !m_replayRuntime.OpenVelocityComparison( m_comparison ) )
+    {
+        return;
+    }
+    Core::Allocation::RuntimeAllocationScope loading( Core::Allocation::RuntimeAllocationPhase::Capture );
+    m_comparisonPanel.ReleaseComparison();
+    m_comparisonPanel.Prepare( m_sceneController.Scene().Colliders(), m_sceneController.Scene().RenderInstances() );
+    m_comparison.Select( m_replayRuntime.BuildInputView().pathTargetId );
+    m_comparisonCamera = CameraSample( m_sceneController.Scene().Cameras() );
+    m_comparisonCameraValid = true;
+    m_operatorUi->SetPresentationWorkspace( UI::GameLayout::Workspace::SolverLab );
+    m_sceneController.EnterInteractiveRun();
+    m_capture.DisableAutomationExit();
+}
+
 void Run::LoadSolverLab( UI::UISolverLabChoice choice )
 {
     switch ( choice )

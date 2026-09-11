@@ -216,6 +216,12 @@ void PhysicsComparisonPanel::BuildModels( const PhysicsComparison& comparison )
             }
             Rendering::ModelViewItem item;
             item.material = shape.material;
+            if ( comparison.IsVelocityExperiment() )
+            {
+                item.material.baseColor[0] = side ? 0.95f : 0.18f;
+                item.material.baseColor[1] = 0.3f;
+                item.material.baseColor[2] = side ? 0.2f : 0.95f;
+            }
             const auto rotation = Matrix4::FromQuaternion( Math::Orientation::Quaternion( body->orientation[0], body->orientation[1], body->orientation[2], body->orientation[3] ) );
             item.shape = shape.collider.shapeKind == Physics::ColliderShapeKind::Box      ? Rendering::RenderInstanceShapeKind::Box
                          : shape.collider.shapeKind == Physics::ColliderShapeKind::Sphere ? Rendering::RenderInstanceShapeKind::Sphere
@@ -895,8 +901,8 @@ void PhysicsComparisonPanel::ComposeViewLabels( const PhysicsComparison& compari
             view.x += side * view.w;
         }
         m_draw.PushClip( view );
-        m_draw.AddRoundedRect( { view.x + 12, view.y + 12, 32, 26 }, 5, UI::Style::Palette().window );
-        m_draw.AddText( { view.x + 23, view.y + 17 }, 14, side ? coral : cyan, side ? "B" : "A" );
+        m_draw.AddRoundedRect( { view.x + 12, view.y + 12, comparison.IsVelocityExperiment() ? 176.0f : 32.0f, 26 }, 5, UI::Style::Palette().window );
+        m_draw.AddText( { view.x + 23, view.y + 17 }, 14, side ? coral : cyan, comparison.IsVelocityExperiment() ? ( side ? "Modified" : "Original" ) : ( side ? "B" : "A" ) );
         m_draw.PopClip();
     }
 }
@@ -916,7 +922,14 @@ void PhysicsComparisonPanel::ComposeShellControls( const PhysicsComparison& comp
     ButtonAt( { x + half + 6, y + 56, half, 28 }, "Load finding", 4 );
     if ( comparison.Active() )
     {
-        ButtonAt( { x, y + 90, half, 28 }, "Save finding", 3 );
+        if ( comparison.IsVelocityExperiment() )
+        {
+            m_draw.AddText( { x, y + 98 }, 11, muted, "Session only" );
+        }
+        else
+        {
+            ButtonAt( { x, y + 90, half, 28 }, "Save finding", 3 );
+        }
         ButtonAt( { x + half + 6, y + 90, half, 28 }, "Exit Solver Lab", 5 );
         m_draw.AddText( { x, y + 132 }, 12, muted, "View" );
         const char* modes[] = { "Split", "Overlay", "Toggle", "Heatmap", "Pixels" };

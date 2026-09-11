@@ -2,7 +2,74 @@
 
 Date: 2026-09-11
 Branch: `codex/unified-ui`
-Status: Modify Velocity mouse editing committed in 83955e37e; closure checks complete. Owner approved the two replay provenance hashes and push/update of PR #169. Branch review is committed in be5e7a7a5 and formatting in 6e94df4e0. Portfolio 138/144 unchanged.
+Status: Velocity XYZ editing, Original/Modified Solver Lab comparison and viewport picking/startup follow-up complete for PR #169. Owner authorized commit/push/PR update. Prior release fix is 83955e37e; approved provenance metadata is 5e9975e27. Portfolio 138/144 unchanged.
+
+## Velocity XYZ editing and Solver Lab - 2026-09-11
+
+Velocity editing now shows a white vector with world-aligned XYZ handles for
+linear or angular components. Picking and drag deltas use the rendered camera's
+screen projection into Window's presentation rectangle, fixed at press; nearly end-on axes are excluded and short
+projections have bounded sensitivity. Inspection activates before capture so
+the first press works. A hidden recording bar no longer cancels velocity capture.
+Re-grabbing cancels an unfinished prediction, holds generation during editing,
+and an edited release starts one replacement. A scene click outside the handles
+restores the original seed, discards the experiment and returns to Scene mode.
+
+The choices are named Original and Modified, retaining blue and red colours.
+Open in Solver Lab copies the two completed futures into its existing capped
+comparison owner and aligns elapsed time, preserving identity, poses, linear
+velocity and sleep. Its paired views retain both colours and permit normal
+playback, scrubbing and difference inspection. Detailed solver/contact evidence
+is unavailable because prediction motion samples do not contain it. The import
+is session-only; accepting/cancelling discards the imported experiment too.
+
+Native evidence: TestOutput/skarness/velocity-viewport-acceptance3 and
+TestOutput/velocity-viewport-native3.log. The harness selects path_striker_02 in
+interaction_replay_prediction_harness.scene.json and tests the first linear
+grab, all angular axes, a rotated camera, stationary clicks, held edits,
+identity-matched futures, Solver Lab seeking/playback, cancellation, RAW scene
+replacement and interrupting/restarting a real 120-second prediction build.
+The final check opens Replay and Causes before the angular drags. The second
+prediction owner is allocated only after Modify Velocity is enabled; owned
+sessions stop with zero gameplay/policy allocation violations.
+
+Five cold Solver Lab import growth sites are recorded in the allocation ledger.
+The EditorTracer constructor entry was refreshed for its unchanged reserve's
+formatted context. The remaining 80 static allocation findings match HEAD
+5e9975e27 exactly; no new finding remains. Evidence:
+TestOutput/velocity-xyz-allocation-baseline.json. No golden or shader asset is changed here.
+
+Actual PC mouse testing reproduced the displaced hit area with Replay expanded.
+The corrected build changed ID 7's linear X velocity from 95 to 117.4638 via the
+visible arrow. Angular clicks captured the matching axis. The PC helper's short
+drag sometimes moved to its endpoint before the sampled press, yielding a
+stationary click; preserved sampled pointer/gesture evidence distinguishes that
+from a picking failure. Held angular movement is verified by the native regression.
+Evidence: TestOutput/skarness/velocity-pc-desktop-before,
+velocity-pc-desktop-after and velocity-pc-pointer-diagnostics, plus
+TestOutput/velocity-pc-angular-samples.json. All owned PC sessions were stopped.
+
+Saved panel bounds are now published before renderer/scene startup. A clean boot
+with expanded panels uses [264,42,1070,891] in the 1784x961 client; folded panels
+also pass the first-frame viewport/projection assertion. Screenshots and native
+states: TestOutput/skarness/viewport-startup-final. The current Automation build
+already used the correct rectangle at its first recorded input/render frame;
+the added initialization also covers the earlier startup interval.
+
+Final build/unit evidence: TestOutput/velocity-viewport-build-all.log (Automation,
+Debug and Profile, zero warnings/errors), velocity-viewport-tests.log (1,038
+tests, 3,485,948 assertions, one existing skip), velocity-viewport-physics-final.log
+(unchanged golden), velocity-viewport-divergence.log (both acceptance choices).
+The persistent matrix initially passed 14/15 scenes; its demo camera check passes
+on rerun after restricting the unavailable-bar change to velocity editing
+(velocity-viewport-demo.log). Compiler source checks pass for the repaired and
+newly touched translation units; dependency and plain-language gates pass.
+The immutable 200-body, 2,401-tick replay visual oracle and all negative controls
+pass: TestOutput/velocity-viewport-replay-final.log.
+The DX12 screenshot gate also passes unchanged references with zero InfoQueue
+errors: TestOutput/velocity-viewport-dx12-final.log. Local critique resolved the
+identified capture, viewport, elapsed-time and cancellation findings; no blocking
+implementation finding remains (TestOutput/velocity-xyz-review.md).
 
 ## Modify Velocity mouse release fix - 2026-09-11
 

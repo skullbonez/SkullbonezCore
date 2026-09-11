@@ -477,6 +477,9 @@ struct SkarnessFrameState
         float projectionX = 0.0f;
         float projectionY = 0.0f;
         bool pointerHasWorldRay = false;
+        std::array<int, 2> pointerClientPosition {};
+        std::array<bool, 3> pointerLeftState {};
+        std::array<int, 3> pointerGesture {};
         std::array<float, 3> pointerRayDirection = {};
         std::array<float, 4> transportBounds = {};
         std::array<float, 4> replayControlsBounds = {};
