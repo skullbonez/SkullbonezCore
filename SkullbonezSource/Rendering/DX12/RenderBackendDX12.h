@@ -1022,6 +1022,7 @@ class Dx12RaytracingOwner
     void Shutdown();
 
   private:
+    Dx12RaytracingSetupOutcome BuildSceneGeometry( const RaytracingSetupDesc& setup );
     SkullbonezCore::Core::SbResult CreateRootSignature( ID3D12Device* device );
     SkullbonezCore::Core::SbResult CreatePipeline();
     SkullbonezCore::Core::SbResult CreateReflectionTexture( ID3D12Device* device, Dx12DescriptorHeaps& descriptors, int width, int height );

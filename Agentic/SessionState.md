@@ -2,7 +2,41 @@
 
 Date: 2026-09-11
 Branch: `codex/unified-ui`
-Status: Modify Velocity now opens only its widget; original prediction and causal contents remain intact until an actual vector edit. Validated for commit/push to PR #169. Dense-memory fix a5b86f596 remains intact; Profile has been rebuilt. Portfolio 138/144 unchanged.
+Status: Terrain brushing after new-level creation now replaces stale DXR mesh references during scene activation. Native RAW-to-flat/import creation strokes pass with zero DX12 errors. Prior velocity and viewport fixes remain intact. Portfolio 138/144 unchanged.
+
+## Terrain brush after new-level creation - 2026-09-11
+
+Reproduced the reported crash with native Scene-menu creation after default RAW
+terrain, followed by a brush stroke. The debugger stack reaches
+`VerifyGPUVirtualAddress`, triangle-descriptor validation and `BLAS::Rebuild`
+with exception `0x87a`. The previous equal-sized flat fixture missed the stale
+GPU address. DXR now drains the previous scene, rebuilds terrain/sphere BLAS
+recipes from the new mesh addresses and sizes, and refreshes TLAS/SBT storage.
+Pipeline and reflection texture identity survive the transition; terrain strokes
+continue to reuse their bounded workspace.
+
+The terrain gate now raises and lowers both newly created flat and imported
+levels after RAW terrain, binds assertions to scene generation 2, and preserves
+each session's zero-error DX12 report. Save/reload, unchanged-map reuse, UI
+exclusion and maximum-size imports also passed. Screenshots were inspected.
+Artifacts: `TestOutput/skarness/terrain-crash-fixed-final/`, failing reproduction
+under `TestOutput/skarness/terrain-raw-create-before/`, and debugger stack at
+`TestOutput/terrain-crash-before-stacks.log`. Renderer screenshots match the
+unchanged references and InfoQueue reports zero errors. A competing Debug build
+interrupted the renderer gate's final ready-build step; rerunning that step
+serially passed, leaving Debug and Profile ready. Compiler source design,
+dependency graph/proof, plain language and the mandatory staged physics gate
+passed (fingerprint `f9767ef9f4bf`, unchanged golden). Local review is recorded
+in `TestOutput/terrain-crash-review.md`. No allocation cap, growth privilege,
+physics-body field or dependency rule changed. The user-owned untracked
+`asdasd.scene.json` remains excluded from the isolated staged-tree validation.
+All 1,041 unit tests passed (one existing skip; 3,485,053 assertions).
+All 15 persistent Skarness scene-transition cases passed, including the generated
+demo and the second 200-body wall load, in
+`TestOutput/skarness/terrain-crash-matrix/`.
+The standard one-minute graphics stress gate passed (wrapper exit 0; samples
+through 60.175 seconds, then PID timeout cleanup after graceful-close timeout).
+Its log and memory samples are retained under `TestOutput/terrain-crash-stress*`.
 
 ## Idle velocity widget - 2026-09-11
 

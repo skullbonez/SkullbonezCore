@@ -399,13 +399,11 @@ Dx12RaytracingOwner::BeginSetup( ID3D12Device* device, ID3D12GraphicsCommandList
         return outcome;
     }
 
-    // Skip re-initialisation if DXR is already set up (scene reload path). The terrain and sphere
-    // meshes (and their BLAS) do not change between scenes — only the TLAS is rebuilt per-frame.
-    // The full init path is only needed after a new DX12 device/backend is created, where
-    // m_commandList4 is null and we fall through to the full init below.
+    // Lifetime: the pipeline survives scene changes, but scene mesh addresses do
+    // not. InitDXR drains the queue before replacing these acceleration structures.
     if ( m_commandList4 )
     {
-        return outcome;
+        return BuildSceneGeometry( setup );
     }
 
     // Query the command list for the DXR-capable interface. If the runtime
@@ -495,15 +493,23 @@ Dx12RaytracingOwner::BeginSetup( ID3D12Device* device, ID3D12GraphicsCommandList
         }
     }
 
-    // Build the static BLAS objects once. The terrain BLAS holds terrain
-    // triangles; the sphere BLAS is reused by every moving sphere instance.
-    setupResult = m_terrainBlas.Build( m_device5,
-                                       m_commandList4,
-                                       static_cast<D3D12_GPU_VIRTUAL_ADDRESS>( setup.terrain.vertexBufferAddress ),
-                                       setup.terrain.vertexCount,
-                                       setup.terrain.vertexStride,
-                                       DXGI_FORMAT_R32G32B32_FLOAT,
-                                       true );
+    return BuildSceneGeometry( setup );
+}
+
+Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BuildSceneGeometry( const RaytracingSetupDesc& setup )
+{
+    // Invariant: scene activation has fenced old consumers before replacing BLAS
+    // storage and the vertex-buffer recipe retained for later terrain strokes.
+    m_terrainBlas.Reset();
+    m_sphereBlas.Reset();
+    Dx12RaytracingSetupOutcome outcome;
+    auto setupResult = m_terrainBlas.Build( m_device5,
+                                            m_commandList4,
+                                            static_cast<D3D12_GPU_VIRTUAL_ADDRESS>( setup.terrain.vertexBufferAddress ),
+                                            setup.terrain.vertexCount,
+                                            setup.terrain.vertexStride,
+                                            DXGI_FORMAT_R32G32B32_FLOAT,
+                                            true );
 
     if ( !setupResult.Ok() )
     {
@@ -535,6 +541,10 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CompleteSetup( ID3D12Device*
     // recorded BLAS builds complete. Scratch can then be released safely.
     // Lifetime: terrain can be sculpted; retain its bounded rebuild workspace.
     m_sphereBlas.ReleaseAfterBuild();
+
+    // InitDXR has fenced the old scene and the replacement geometry builds.
+    m_tlas.Reset();
+    m_sbt.Reset();
 
     m_maxInstances = std::clamp( maxInstances, 1, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     SkullbonezCore::Core::SbResult setupResult = m_tlas.Init( m_device5, m_maxInstances + 1, m_device.FrameCount() );
@@ -574,9 +584,18 @@ bool Dx12RaytracingOwner::RefreshTerrainGeometry()
 
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::InitDXR( const RaytracingSetupDesc& setup )
 {
-    if ( !Supported() || Initialized() )
+    if ( !Supported() )
     {
         return SkullbonezCore::Core::SbResult::Success();
+    }
+
+    if ( Initialized() )
+    {
+        const auto drainResult = m_frame.FlushGPU();
+        if ( !drainResult.Ok() )
+        {
+            return drainResult;
+        }
     }
 
     const SkullbonezCore::Core::SbResult openResult = m_frame.EnsureOpen();
@@ -643,7 +662,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::InitDXR( const RaytracingSet
     // registry under the runtime allocation guard.
     const UINT reflectionSrvIndex = ReflectionSrvIndex();
 
-    if ( reflectionSrvIndex != 0 )
+    if ( reflectionSrvIndex != 0 && ReflectionTextureHandle() == 0 )
     {
         PublishReflectionTextureHandle( m_textures.RegisterSRV( reflectionSrvIndex, ReflectionResource() ) );
     }

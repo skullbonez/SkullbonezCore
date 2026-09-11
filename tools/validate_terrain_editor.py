@@ -14,6 +14,12 @@ from skarness import SkarnessConnection, launch
 REPO = Path(__file__).resolve().parents[1]
 
 
+def check_dx12(session: Path) -> None:
+    report = (REPO / "dx12_validation.txt").read_text(encoding="utf-8")
+    (session / "dx12_validation.txt").write_text(report, encoding="utf-8")
+    assert report.strip().splitlines()[-1] == "0", report
+
+
 def run(session: Path, executable: Path) -> None:
     session.mkdir(parents=True, exist_ok=True)
     scene = session / "flat.scene.json"
@@ -140,6 +146,7 @@ def run(session: Path, executable: Path) -> None:
         time.sleep(0.05)
     assert "[allocation-guard] PASS:" in shutdown, "native allocation guard did not pass"
     assert "gameplay_violations=0" in shutdown and "policy_violations=0" in shutdown
+    check_dx12(session)
     (session / "result.json").write_text(json.dumps({
         "passed": True, "allocationGuard": "pass", "mapCount": 1,
         "heightMapSha256": hashlib.sha256(saved_bytes).hexdigest(),
@@ -161,7 +168,9 @@ def validate_creation(root: Path, executable: Path) -> None:
         created = (REPO / "SkullbonezData/scenes" / f"{name}.scene.json").resolve()
         assert not created.exists()
         fixture = json.loads((root / "flat.scene.json").read_text(encoding="utf-8"))
-        fixture["terrain"] = {"flatSlope": {"baseY": 30, "slopeX": 0, "slopeZ": 0}}
+        # Start with the default RAW mesh so creation replaces both geometry and
+        # vertex count; an equal-size flat mesh can reuse the old GPU address.
+        fixture.pop("terrain", None)
         fixture["ui"] = {"visible": True, "minimized": False, "tab": "scene",
                          "sceneCombo": True, "sceneFilter": name}
         path = session / "input.scene.json"
@@ -207,15 +216,42 @@ def validate_creation(root: Path, executable: Path) -> None:
                 sculpted = json.loads((root / "lowered.json").read_text())
                 assert latest["payload"]["terrainMinimumHeight"] == sculpted["terrainMinimumHeight"]
                 assert latest["payload"]["terrainMaximumHeight"] == sculpted["terrainMaximumHeight"]
-            else:
+            elif mode == "flat":
                 assert latest["payload"]["terrainFlat"]
+            if mode != "cancel":
+                send("editor.set_terrain_brush", enabled=True)
+                send("run.step_frames", count=3)
+                events = [json.loads(line) for line in (session / "runtime.skarness.ndjson").read_text(encoding="utf-8").splitlines()]
+                ui = next(event["payload"] for event in reversed(events) if event.get("topic") == "ui.presentation")
+                x, y, width, height = ui["viewport"]
+                send("input.pointer_drag", button="left", x=int(x + width / 2), y=int(y + height / 2),
+                     deltaX=0, deltaY=0, holdMilliseconds=450)
+                send("run.step_frames", count=3)
+                events = [json.loads(line) for line in (session / "runtime.skarness.ndjson").read_text(encoding="utf-8").splitlines()]
+                sculpted = next(event for event in reversed(events) if event.get("topic") == "ui.presentation")
+                assert sculpted["sceneGeneration"] == 2
+                assert sculpted["payload"]["terrainRevision"] > 0
+                assert sculpted["payload"]["terrainMaximumHeight"] > ui["terrainMaximumHeight"]
+                (session / "sculpted.json").write_text(json.dumps(sculpted, indent=2), encoding="utf-8")
+                send("capture.screenshot", path=str(session / "sculpted.png"))
+                send("input.pointer_drag", button="right", x=int(x + width / 2), y=int(y + height / 2),
+                     deltaX=0, deltaY=0, holdMilliseconds=800)
+                send("run.step_frames", count=3)
+                events = [json.loads(line) for line in (session / "runtime.skarness.ndjson").read_text(encoding="utf-8").splitlines()]
+                lowered = next(event for event in reversed(events) if event.get("topic") == "ui.presentation")
+                assert lowered["sceneGeneration"] == 2
+                assert lowered["payload"]["terrainRevision"] > sculpted["payload"]["terrainRevision"]
+                assert lowered["payload"]["terrainMinimumHeight"] < ui["terrainMinimumHeight"]
+                (session / "lowered.json").write_text(json.dumps(lowered, indent=2), encoding="utf-8")
         finally:
-            send("session.stop")
-            connection.close()
-            # Only the exact file created by this test is removed; evidence remains in session.
-            assert created.parent == (REPO / "SkullbonezData/scenes").resolve()
-            if created.exists():
-                created.unlink()
+            try:
+                send("session.stop")
+            finally:
+                connection.close()
+                # Only the exact file created by this test is removed; evidence remains in session.
+                assert created.parent == (REPO / "SkullbonezData/scenes").resolve()
+                if created.exists():
+                    created.unlink()
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
             output = (session / "process.stdout.log").read_text(encoding="utf-8", errors="replace")
@@ -223,6 +259,7 @@ def validate_creation(root: Path, executable: Path) -> None:
                 break
             time.sleep(0.05)
         assert "[allocation-guard] PASS:" in output, mode
+        check_dx12(session)
         for label in ("menu", "result"):
             with Image.open(session / f"{label}.png") as captured:
                 captured.save(session / f"{label}-view.png")
@@ -276,6 +313,7 @@ def validate_largest_import(root: Path, executable: Path) -> None:
             break
         time.sleep(0.05)
     assert "[allocation-guard] PASS:" in output
+    check_dx12(session)
     with Image.open(session / "sculpted.png") as captured:
         captured.save(session / "sculpted-view.png")
     print("PASS: 257 by 257 imported map loads and sculpts within the fixed GPU arena")
