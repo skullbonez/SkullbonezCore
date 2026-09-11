@@ -152,6 +152,11 @@ class Terrain
     {
         return m_editRevision;
     }
+    // Saved maps stay below half the fixed 32 MiB frame upload arena, leaving
+    // room for preparation and the rest of the scene during the load turn.
+    static constexpr int MAX_SAVED_POSTS_PER_SIDE = 257;
+    static constexpr float MIN_SAVED_GRID_SPACING = 0.001f;
+
     float GridSpacing() const noexcept
     {
         return m_gridSpacing;

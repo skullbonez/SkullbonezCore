@@ -392,7 +392,7 @@ EditorMiniPaletteLayout UIWindowInteractionOwner::PresentedEditorPalette() const
         {},
         m_editorMiniPalettePressedEntry,
         m_editorMiniPaletteFlyoutOpen,
-        { content.x, content.y + 316.0f - scroll, content.w, content.h },
+        { content.x, content.y + EDITOR_PALETTE_TOP - scroll, content.w, content.h },
         content
     );
 }
@@ -929,7 +929,9 @@ int UIWindowInteractionOwner::ContentHeight() const
     case InGameUITab::Memory:
         return MemoryTab::ContentHeight();
     case InGameUITab::Editor:
-        return m_presentationEnabled ? 500 : EditorTab::ContentHeight();
+        return m_presentationEnabled
+                   ? static_cast<int>( EditorContentHeight( ComputeToolsChromeRects( { static_cast<float>( m_window.x ), static_cast<float>( m_window.y ), static_cast<float>( m_window.width ), static_cast<float>( m_window.height ) }, true ) .content.w ) )
+                   : EditorTab::ContentHeight();
     case InGameUITab::Physics:
         return PhysicsTab::ContentHeight();
     case InGameUITab::Options:

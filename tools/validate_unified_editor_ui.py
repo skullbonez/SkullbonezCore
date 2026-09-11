@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from pathlib import Path
 
 from skarness import SkarnessConnection, launch
@@ -25,6 +26,9 @@ def run(session: Path) -> None:
 
     def sample(label: str) -> dict:
         nonlocal offset
+        deadline = time.monotonic() + 0.25
+        while time.monotonic() < deadline:
+            send("run.step_frames", count=3)
         send("run.step_frames", count=3)
         with (session / "runtime.skarness.ndjson").open(encoding="utf-8") as trace:
             trace.seek(offset)
@@ -37,6 +41,10 @@ def run(session: Path) -> None:
         return latest["ui.presentation"]
 
     def click(x: float, y: float) -> None:
+        send("input.pointer_position", enabled=True, x=int(x), y=int(y))
+        send("run.step_frames", count=2)
+        time.sleep(0.22)
+        send("run.step_frames", count=2)
         send("input.pointer_drag", button="left", x=int(x), y=int(y), deltaX=0, deltaY=0)
 
     def middle(bounds: list[float]) -> None:
@@ -55,9 +63,13 @@ def run(session: Path) -> None:
         scene_identity = dict(latest["scene.objects"])
         camera = latest["camera.state"]["selectedCameraHash"]
         width, _ = ui["window"]
-        click(width - 110, 20)
+        middle(ui["headerLayoutBounds"])
         ui = sample("editor-layout")
         assert ui["layout"] == "Editor" and not ui["editorMode"]
+        middle(ui["editorTabBounds"])
+        ui = sample("editor-panel-open")
+        middle(ui["causeTabBounds"])
+        ui = sample("cause-panel-open")
         assert ui["editorControlsBounds"][2] > 0 and ui["replayControlsBounds"][2] == 0
         assert latest["camera.state"]["selectedCameraHash"] == camera
         capture("editor-layout")
@@ -77,7 +89,7 @@ def run(session: Path) -> None:
         ui = sample("right-unfolded")
         assert ui["viewport"] == before
 
-        for y_offset, key in ((54, "editorMode"), (88, "editorPlacement"), (122, "editorStaticObject"), (262, "editorTerrainAlign")):
+        for y_offset, key in ((54, "editorMode"), (208, "editorPlacement"), (242, "editorStaticObject"), (382, "editorTerrainAlign")):
             x, y, _, _ = ui["editorControlsBounds"]
             if key == "editorPlacement":
                 click(x + 25, y + 54)
@@ -96,7 +108,7 @@ def run(session: Path) -> None:
         total = ui["editorObjectOptions"]
         for index in range(total):
             x, y, _, _ = ui["editorControlsBounds"]
-            click(x + 110, y + 166)
+            click(x + 110, y + 286)
             ui = sample(f"object-{index}-popup")
             assert ui["editorPopupOpen"]
             while not ui["editorPopupFirstOption"] <= index < ui["editorPopupFirstOption"] + ui["editorPopupVisibleOptions"]:
@@ -118,14 +130,14 @@ def run(session: Path) -> None:
         columns = max(1, int((pane_width + 4) / 36))
         entries = list(range(13)) + list(range(30, 37)) + [16, 22, 25, 28]
         for entry, object_type in enumerate(entries):
-            bx, by = x + (entry % columns) * 36 + 16, y + 316 + (entry // columns) * 36 + 16
+            bx, by = x + (entry % columns) * 36 + 16, y + 424 + (entry // columns) * 36 + 16
             click(bx, by)
             ui = sample(f"quick-object-{entry}")
             assert ui["editorObjectType"] == object_type, (entry, object_type, ui["editorObjectType"])
             assert ui["editorPlacement"]
             assert latest["scene.objects"] == scene_identity
         for entry, variants in ((20, [15, 16, 17]), (21, [21, 22, 23]), (22, [24, 25, 26]), (23, [28, 29])):
-            bx, by = x + (entry % columns) * 36 + 16, y + 316 + (entry // columns) * 36 + 16
+            bx, by = x + (entry % columns) * 36 + 16, y + 424 + (entry // columns) * 36 + 16
             for option, object_type in enumerate(variants):
                 send("input.pointer_drag", button="left", x=int(bx), y=int(by), deltaX=44 + option * 35,
                      deltaY=0, moveClient=True, holdMilliseconds=500)
@@ -135,19 +147,25 @@ def run(session: Path) -> None:
                 assert latest["scene.objects"] == scene_identity
         capture("quick-object-grid")
         editing = (ui["editorMode"], ui["editorPlacement"], ui["editorObjectType"])
-        click(width - 110, 20)
+        middle(ui["headerLayoutBounds"])
         ui = sample("canvas-retained-editor")
         assert (ui["editorMode"], ui["editorPlacement"], ui["editorObjectType"]) == editing
         # Canvas uses the same catalog and palette inside the Tools drawer.
-        click(width - 38, 20)
+        middle(ui["replayDetailsBounds"])
         ui = sample("canvas-tools")
-        top = ui["viewport"][1] + ui["viewport"][3]
+        top = ui["drawerBounds"][1]
         click(14 + (width - 28) * 2.5 / 11, top + 66)
         ui = sample("canvas-tools-editor")
         assert ui["activeTool"] == 2
+        # The brush controls put the catalog below the initial drawer viewport.
+        x, y, _, height = ui["toolsContentBounds"]
+        desired = max(0, 286 - height / 2)
+        send("input.pointer_wheel", x=int(x + 60), y=int(y + height / 2),
+             wheelDelta=-round(desired * 120 / 42))
+        ui = sample("drawer-catalog-revealed")
         for index in range(total):
             x, y, _, _ = ui["toolsContentBounds"]
-            click(x + 110, y + 166 - ui["toolsScroll"])
+            click(x + 110, y + 286 - ui["toolsScroll"])
             ui = sample(f"canvas-object-{index}-popup")
             assert ui["editorPopupOpen"]
             while not ui["editorPopupFirstOption"] <= index < ui["editorPopupFirstOption"] + ui["editorPopupVisibleOptions"]:
@@ -163,10 +181,10 @@ def run(session: Path) -> None:
             assert latest["scene.objects"] == scene_identity
         x, y, pane_width, pane_height = ui["toolsContentBounds"]
         send("input.pointer_wheel", x=int(x + 60), y=int(y + pane_height / 2),
-             wheelDelta=-round((316 - pane_height / 2) * 120 / 42))
+             wheelDelta=-round((424 - pane_height / 2) * 120 / 42))
         ui = sample("canvas-palette-scrolled")
         columns = max(1, int((pane_width + 4) / 36))
-        palette_y = y + 316 - ui["toolsScroll"]
+        palette_y = y + 424 - ui["toolsScroll"]
         for entry, object_type in enumerate(entries):
             bx, by = x + (entry % columns) * 36 + 16, palette_y + (entry // columns) * 36 + 16
             click(bx, by)
@@ -184,13 +202,12 @@ def run(session: Path) -> None:
                 assert latest["scene.objects"] == scene_identity
         capture("canvas-quick-objects")
         editing = (ui["editorMode"], ui["editorPlacement"], ui["editorObjectType"])
-        click(width - 38, 20)
-        sample("canvas-tools-closed")
-        click(width - 110, 20)
+        middle(ui["replayDetailsBounds"])
         ui = sample("editor-retained-editor")
+        assert ui["layout"] == "Editor" and not ui["toolsVisible"]
         assert (ui["editorMode"], ui["editorPlacement"], ui["editorObjectType"]) == editing
         capture("editor-retained-editor")
-        print(f"PASS: native Editor controls, all {total} catalog choices, 24 quick-object buttons and 11 hold variants in both layouts, dock resizing/folding and retained editing state")
+        print(f"PASS: native Editor controls, all {total} catalog choices, 24 quick-object buttons and 11 hold variants in the dock and Tools drawer, dock resizing/folding and retained editing state")
     finally:
         try:
             send("session.stop")

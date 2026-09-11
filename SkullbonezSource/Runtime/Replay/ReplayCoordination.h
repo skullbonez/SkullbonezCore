@@ -255,22 +255,34 @@ struct ReplaySetCauseInspectorOpenCommand
 // that action. The dispatcher cannot observe a stale scalar, row, or toggle
 // value left behind by a different UI command.
 using ReplayTransportCommand = std::variant<
-    ReplaySetRecordingEnabledCommand, ReplayJumpToStartCommand, ReplayJumpToEndCommand, ReplayTogglePlayPauseCommand,
-    ReplayStepBackwardCommand, ReplayStepForwardCommand, ReplaySetRevealSpeedCommand, ReplayScrubCommand,
-    ReplayTogglePredictionCommand, ReplaySetPredictionDetailModeCommand, ReplaySetPredictionHorizonCommand,
-    ReplaySetVelocityEditEnabledCommand, ReplaySetRagdollVisualsEnabledCommand, ReplaySetPastPathVisibleCommand,
-    ReplayRestoreBranchCommand, ReplaySaveCommand, ReplayLoadCommand, ReplayReturnToLiveCommand, ReplaySelectCauseRowCommand,
+    ReplaySetRecordingEnabledCommand,
+    ReplayJumpToStartCommand,
+    ReplayJumpToEndCommand,
+    ReplayTogglePlayPauseCommand,
+    ReplayStepBackwardCommand,
+    ReplayStepForwardCommand,
+    ReplaySetRevealSpeedCommand,
+    ReplayScrubCommand,
+    ReplayTogglePredictionCommand,
+    ReplaySetPredictionDetailModeCommand,
+    ReplaySetPredictionHorizonCommand,
+    ReplaySetVelocityEditEnabledCommand,
+    ReplaySetRagdollVisualsEnabledCommand,
+    ReplaySetPastPathVisibleCommand,
+    ReplayRestoreBranchCommand,
+    ReplaySaveCommand,
+    ReplayLoadCommand,
+    ReplayReturnToLiveCommand,
+    ReplaySelectCauseRowCommand,
     ReplaySetCauseInspectorOpenCommand>;
 
 inline ReplayTransportAction ReplayTransportCommandAction( const ReplayTransportCommand& command ) noexcept
 {
-    return std::visit(
-        []( const auto& value ) noexcept
+    return std::visit( []( const auto& value ) noexcept
         {
             using Command = std::remove_cvref_t<decltype( value )>;
             return Command::action;
-        },
-        command );
+        }, command );
 }
 
 struct ReplayTransportLoadResult
@@ -289,6 +301,7 @@ struct ReplayInputView
     bool restoreConsumedThisFrame = false;
     bool scrubPaused = false;
     bool liveAdvanceHeld = false;
+    bool velocityComparisonActive = false;
     bool velocityEditEnabled = false;
     bool predictionEnabled = false;
     bool captureEnabled = false;
@@ -435,15 +448,17 @@ inline uint32_t SceneTimelineGeneratedConfigFlags( const ReplaySceneTimelineRese
     flags |= ( input.solverBallCount > 0 || input.solverBoxCount > 0 ) ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS : 0u;
     flags |= input.hasUiModelCountOverride ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
     flags |= input.hasUiSolverCountOverride ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS : 0u;
-    flags |= ( input.generatedObjectTypeOverride << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
-             REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
+    flags |= ( input.generatedObjectTypeOverride << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) & REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
     return flags;
 }
 
-ReplaySceneTimelineResetInput DescribeReplaySceneTimeline( const SceneController& sceneController,
-                                                           const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                                           const SceneSessionState& scene, int sceneObjectCapacity,
-                                                           uint32_t generatedObjectTypeOverride );
+ReplaySceneTimelineResetInput DescribeReplaySceneTimeline(
+    const SceneController& sceneController,
+    const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+    const SceneSessionState& scene,
+    int sceneObjectCapacity,
+    uint32_t generatedObjectTypeOverride
+);
 } // namespace ReplayTimelineOperations
 
 struct ReplaySceneTimelineResetResult

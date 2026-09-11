@@ -587,6 +587,7 @@ class ReplayRuntime
 
     // Publishes scalar input decisions without exposing replay owner storage.
     ReplayInputView BuildInputView() const noexcept;
+    bool VelocityComparisonActive() const noexcept;
     bool CauseFilterHasKeyboardFocus() const noexcept;
     void RestoreEvidenceSummarySections( int section ) noexcept;
     const RunReplayCauseTreeState& CauseTree() const noexcept;

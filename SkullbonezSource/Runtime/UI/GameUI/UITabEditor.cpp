@@ -69,7 +69,7 @@ namespace EditorTab
 
 int ContentHeight()
 {
-    return 402;
+    return static_cast<int>( EDITOR_CONTROLS_HEIGHT );
 }
 
 

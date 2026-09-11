@@ -801,7 +801,8 @@ bool InGameUI::BlocksCameraMouse() const
 
 bool InGameUI::BlocksReplayMouse() const
 {
-    return m_windowInteraction.BlocksReplayMouse() || m_panelTransitions->BlocksPointer( { static_cast<float>( m_windowInteraction.m_mouseX ), static_cast<float>( m_windowInteraction.m_mouseY ) } );
+    return m_windowInteraction.BlocksReplayMouse() ||
+           m_panelTransitions->BlocksPointer( { static_cast<float>( m_windowInteraction.m_mouseX ), static_cast<float>( m_windowInteraction.m_mouseY ) }, UIPanel::Transport );
 }
 
 bool InGameUI::BlocksCauseMouse() const

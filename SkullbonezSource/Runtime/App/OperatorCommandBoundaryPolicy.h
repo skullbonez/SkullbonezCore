@@ -63,8 +63,7 @@ inline float NormalizeFloat( float value, float minValue, float maxValue, float 
 
 inline float NormalizeTimeScale( float value ) noexcept
 {
-    return NormalizeFloat( value, UI::OperatorControlPolicy::UI_TIME_SCALE_MIN, UI::OperatorControlPolicy::UI_TIME_SCALE_MAX,
-                           UI::OperatorControlPolicy::UI_TIME_SCALE_STEP );
+    return NormalizeFloat( value, UI::OperatorControlPolicy::UI_TIME_SCALE_MIN, UI::OperatorControlPolicy::UI_TIME_SCALE_MAX, UI::OperatorControlPolicy::UI_TIME_SCALE_STEP );
 }
 
 inline constexpr int ClampSeed( int value )
@@ -74,23 +73,22 @@ inline constexpr int ClampSeed( int value )
 
 inline float NormalizeWorldGravity( float gravity ) noexcept
 {
-    return NormalizeFloat( gravity, -UI::OperatorControlPolicy::UI_WORLD_GRAVITY_MAX,
-                           -UI::OperatorControlPolicy::UI_WORLD_GRAVITY_MIN,
-                           UI::OperatorControlPolicy::UI_WORLD_GRAVITY_STEP );
+    return NormalizeFloat( gravity, -UI::OperatorControlPolicy::UI_WORLD_GRAVITY_MAX, -UI::OperatorControlPolicy::UI_WORLD_GRAVITY_MIN, UI::OperatorControlPolicy::UI_WORLD_GRAVITY_STEP );
 }
 
 inline float NormalizeWorldFluidHeight( float height ) noexcept
 {
-    return NormalizeFloat( height, UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_MIN,
-                           UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_MAX,
-                           UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_STEP );
+    return NormalizeFloat( height, UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_MIN, UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_MAX, UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_STEP );
 }
 
 inline float NormalizeWorldFluidDensity( float density ) noexcept
 {
-    return NormalizeFloat( density, UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MIN,
-                           UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MAX,
-                           UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_STEP );
+    return NormalizeFloat(
+        density,
+        UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MIN,
+        UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MAX,
+        UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_STEP
+    );
 }
 
 inline float NormalizeOrdinaryRenderParameter( UI::UIRenderParam param, float value ) noexcept
@@ -119,6 +117,37 @@ inline float NormalizeCinematicParameter( UI::UICinematicParam param, float valu
     return NormalizeFloat( value, policy.minValue, policy.maxValue, policy.step );
 }
 
+// Invariant: comparison keeps two futures from one world. Only velocity edits
+// may change that world until acceptance; view controls and explicit scene loads
+// remain available. Run applies this after both UI command queues converge.
+inline void PreserveComparedWorld( UI::InGameUICommands& commands ) noexcept
+{
+    commands.editor.requestDeleteSelection = false;
+    commands.editor.requestDuplicateSelection = false;
+    commands.editor.requestUndo = false;
+    commands.editor.requestRedo = false;
+    commands.physics.togglePhysicsSleepPolicy = false;
+    commands.physics.toggleTornado = false;
+    commands.physics.requestTornadoRadius = false;
+    commands.physics.requestTornadoHeight = false;
+    commands.physics.requestTornadoInward = false;
+    commands.physics.requestTornadoSwirl = false;
+    commands.physics.requestTornadoLift = false;
+    commands.physics.requestTerrainFrictionCoeff = false;
+    commands.physics.requestObjectFrictionCoeff = false;
+    commands.physics.requestRollingFrictionCoeff = false;
+    commands.water.requestWorldGravity = false;
+    commands.water.requestWorldFluidHeight = false;
+    commands.water.requestWorldFluidDensity = false;
+    commands.sceneOptions.requestedModelCount = -1;
+    commands.sceneOptions.requestedTimeScale = -1.0f;
+    commands.run.requestedSeed = -1;
+    commands.run.requestedSolverBallCount = -1;
+    commands.run.requestedSolverBoxCount = -1;
+    commands.scene.saveSceneDefaults = false;
+    commands.replayMemory = {};
+}
+
 inline void NormalizeOperatorCommands( UI::InGameUICommands& commands ) noexcept
 {
     using namespace UI::OperatorControlPolicy;
@@ -131,51 +160,49 @@ inline void NormalizeOperatorCommands( UI::InGameUICommands& commands ) noexcept
         }
     };
 
-    normalizeRequested( commands.sceneOptions.requestedTimeScale > 0.0f, commands.sceneOptions.requestedTimeScale,
-                        UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
-    normalizeRequested( commands.physics.requestedPhysicsDebugAlpha >= 0.0f, commands.physics.requestedPhysicsDebugAlpha,
-                        UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX, UI_PHYSICS_ALPHA_STEP );
-    normalizeRequested( commands.physics.requestedPhysicsDebugContactLinger >= 0.0f,
-                        commands.physics.requestedPhysicsDebugContactLinger, UI_CONTACT_LINGER_MIN, UI_CONTACT_LINGER_MAX,
-                        UI_CONTACT_LINGER_STEP );
-    normalizeRequested( commands.physics.requestRayCastImpulseStrength, commands.physics.requestedRayCastImpulseStrength,
-                        UI_RAY_IMPULSE_MIN, UI_RAY_IMPULSE_MAX, UI_RAY_IMPULSE_STEP );
-    normalizeRequested( commands.physics.requestLauncherProjectileSpeed, commands.physics.requestedLauncherProjectileSpeed,
-                        UI_LAUNCHER_PROJECTILE_SPEED_MIN, UI_LAUNCHER_PROJECTILE_SPEED_MAX,
-                        UI_LAUNCHER_PROJECTILE_SPEED_STEP );
-    normalizeRequested( commands.physics.requestTerrainFrictionCoeff, commands.physics.requestedTerrainFrictionCoeff,
-                        UI_FRICTION_COEFF_MIN, UI_FRICTION_COEFF_MAX, UI_FRICTION_COEFF_STEP );
-    normalizeRequested( commands.physics.requestObjectFrictionCoeff, commands.physics.requestedObjectFrictionCoeff,
-                        UI_FRICTION_COEFF_MIN, UI_FRICTION_COEFF_MAX, UI_FRICTION_COEFF_STEP );
-    normalizeRequested( commands.physics.requestRollingFrictionCoeff, commands.physics.requestedRollingFrictionCoeff,
-                        UI_ROLLING_FRICTION_COEFF_MIN, UI_ROLLING_FRICTION_COEFF_MAX, UI_ROLLING_FRICTION_COEFF_STEP );
-    normalizeRequested( commands.physics.requestTornadoRadius, commands.physics.requestedTornadoRadius,
-                        UI_TORNADO_RADIUS_MIN, UI_TORNADO_RADIUS_MAX, UI_TORNADO_RADIUS_STEP );
-    normalizeRequested( commands.physics.requestTornadoHeight, commands.physics.requestedTornadoHeight,
-                        UI_TORNADO_HEIGHT_MIN, UI_TORNADO_HEIGHT_MAX, UI_TORNADO_HEIGHT_STEP );
-    normalizeRequested( commands.physics.requestTornadoInward, commands.physics.requestedTornadoInward,
-                        UI_TORNADO_INWARD_MIN, UI_TORNADO_INWARD_MAX, UI_TORNADO_INWARD_STEP );
-    normalizeRequested( commands.physics.requestTornadoSwirl, commands.physics.requestedTornadoSwirl, UI_TORNADO_SWIRL_MIN,
-                        UI_TORNADO_SWIRL_MAX, UI_TORNADO_SWIRL_STEP );
-    normalizeRequested( commands.physics.requestTornadoLift, commands.physics.requestedTornadoLift, UI_TORNADO_LIFT_MIN,
-                        UI_TORNADO_LIFT_MAX, UI_TORNADO_LIFT_STEP );
-    normalizeRequested( commands.water.requestWorldGravity, commands.water.requestedWorldGravity, -UI_WORLD_GRAVITY_MAX,
-                        -UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_STEP );
-    normalizeRequested( commands.water.requestWorldFluidHeight, commands.water.requestedWorldFluidHeight,
-                        UI_WORLD_FLUID_HEIGHT_MIN, UI_WORLD_FLUID_HEIGHT_MAX, UI_WORLD_FLUID_HEIGHT_STEP );
-    normalizeRequested( commands.water.requestWorldFluidDensity, commands.water.requestedWorldFluidDensity,
-                        UI_WORLD_FLUID_DENSITY_MIN, UI_WORLD_FLUID_DENSITY_MAX, UI_WORLD_FLUID_DENSITY_STEP );
+    normalizeRequested( commands.sceneOptions.requestedTimeScale > 0.0f, commands.sceneOptions.requestedTimeScale, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
+    normalizeRequested( commands.physics.requestedPhysicsDebugAlpha >= 0.0f, commands.physics.requestedPhysicsDebugAlpha, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX, UI_PHYSICS_ALPHA_STEP );
+    normalizeRequested(
+        commands.physics.requestedPhysicsDebugContactLinger >= 0.0f,
+        commands.physics.requestedPhysicsDebugContactLinger,
+        UI_CONTACT_LINGER_MIN,
+        UI_CONTACT_LINGER_MAX,
+        UI_CONTACT_LINGER_STEP
+    );
+    normalizeRequested( commands.physics.requestRayCastImpulseStrength, commands.physics.requestedRayCastImpulseStrength, UI_RAY_IMPULSE_MIN, UI_RAY_IMPULSE_MAX, UI_RAY_IMPULSE_STEP );
+    normalizeRequested(
+        commands.physics.requestLauncherProjectileSpeed,
+        commands.physics.requestedLauncherProjectileSpeed,
+        UI_LAUNCHER_PROJECTILE_SPEED_MIN,
+        UI_LAUNCHER_PROJECTILE_SPEED_MAX,
+        UI_LAUNCHER_PROJECTILE_SPEED_STEP
+    );
+    normalizeRequested( commands.physics.requestTerrainFrictionCoeff, commands.physics.requestedTerrainFrictionCoeff, UI_FRICTION_COEFF_MIN, UI_FRICTION_COEFF_MAX, UI_FRICTION_COEFF_STEP );
+    normalizeRequested( commands.physics.requestObjectFrictionCoeff, commands.physics.requestedObjectFrictionCoeff, UI_FRICTION_COEFF_MIN, UI_FRICTION_COEFF_MAX, UI_FRICTION_COEFF_STEP );
+    normalizeRequested(
+        commands.physics.requestRollingFrictionCoeff,
+        commands.physics.requestedRollingFrictionCoeff,
+        UI_ROLLING_FRICTION_COEFF_MIN,
+        UI_ROLLING_FRICTION_COEFF_MAX,
+        UI_ROLLING_FRICTION_COEFF_STEP
+    );
+    normalizeRequested( commands.physics.requestTornadoRadius, commands.physics.requestedTornadoRadius, UI_TORNADO_RADIUS_MIN, UI_TORNADO_RADIUS_MAX, UI_TORNADO_RADIUS_STEP );
+    normalizeRequested( commands.physics.requestTornadoHeight, commands.physics.requestedTornadoHeight, UI_TORNADO_HEIGHT_MIN, UI_TORNADO_HEIGHT_MAX, UI_TORNADO_HEIGHT_STEP );
+    normalizeRequested( commands.physics.requestTornadoInward, commands.physics.requestedTornadoInward, UI_TORNADO_INWARD_MIN, UI_TORNADO_INWARD_MAX, UI_TORNADO_INWARD_STEP );
+    normalizeRequested( commands.physics.requestTornadoSwirl, commands.physics.requestedTornadoSwirl, UI_TORNADO_SWIRL_MIN, UI_TORNADO_SWIRL_MAX, UI_TORNADO_SWIRL_STEP );
+    normalizeRequested( commands.physics.requestTornadoLift, commands.physics.requestedTornadoLift, UI_TORNADO_LIFT_MIN, UI_TORNADO_LIFT_MAX, UI_TORNADO_LIFT_STEP );
+    normalizeRequested( commands.water.requestWorldGravity, commands.water.requestedWorldGravity, -UI_WORLD_GRAVITY_MAX, -UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_STEP );
+    normalizeRequested( commands.water.requestWorldFluidHeight, commands.water.requestedWorldFluidHeight, UI_WORLD_FLUID_HEIGHT_MIN, UI_WORLD_FLUID_HEIGHT_MAX, UI_WORLD_FLUID_HEIGHT_STEP );
+    normalizeRequested( commands.water.requestWorldFluidDensity, commands.water.requestedWorldFluidDensity, UI_WORLD_FLUID_DENSITY_MIN, UI_WORLD_FLUID_DENSITY_MAX, UI_WORLD_FLUID_DENSITY_STEP );
 
     if ( commands.renderTuning.requestedParam != UI::UIRenderParam::None )
     {
-        commands.renderTuning.requestedValue = NormalizeOrdinaryRenderParameter( commands.renderTuning.requestedParam,
-                                                                                 commands.renderTuning.requestedValue );
+        commands.renderTuning.requestedValue = NormalizeOrdinaryRenderParameter( commands.renderTuning.requestedParam, commands.renderTuning.requestedValue );
     }
 
     if ( commands.cinematic.requestedParam != UI::UICinematicParam::None )
     {
-        commands.cinematic.requestedValue = NormalizeCinematicParameter( commands.cinematic.requestedParam,
-                                                                         commands.cinematic.requestedValue );
+        commands.cinematic.requestedValue = NormalizeCinematicParameter( commands.cinematic.requestedParam, commands.cinematic.requestedValue );
     }
 }
 } // namespace SkullbonezCore::Runtime::OperatorCommandBoundaryPolicy

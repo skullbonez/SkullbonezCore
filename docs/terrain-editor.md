@@ -14,7 +14,7 @@ level save cannot invalidate its previous terrain reference.
 
 To create a level, type its name in the Scene dropdown. **Create new scene**
 starts flat. **Create from height map...** lets you choose an existing
-`.heightmap` or a legacy 256 x 256 unsigned-byte `.raw` map. Imported files
+`.heightmap` (2 to 257 posts per side, spacing at least 0.001) or a legacy 256 x 256 unsigned-byte `.raw` map. Imported files
 are referenced in place and remain unchanged. Sculpting an import writes
 a separate map beside the new level when you save.
 

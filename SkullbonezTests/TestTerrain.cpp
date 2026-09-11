@@ -211,7 +211,8 @@ TEST_CASE( "Terrain editor: malformed saved maps preserve the current terrain" )
     Terrain* const original = terrain.get();
     const char* invalidMaps[] = {
         "SKULLBONEZ_HEIGHTMAP 1\n2 1 1\n0 0 0",
-        "SKULLBONEZ_HEIGHTMAP 1\n514 1 1\n",
+        "SKULLBONEZ_HEIGHTMAP 1\n513 1 1\n",
+        "SKULLBONEZ_HEIGHTMAP 1\n2 1e-30 1\n0 0 0 0",
         "SKULLBONEZ_HEIGHTMAP 1\n2 0 1\n0 0 0 0",
         "SKULLBONEZ_HEIGHTMAP 1\n2 1 1\n0 0 nan 0",
         "SKULLBONEZ_HEIGHTMAP 1\n2 1 1\n0 0 0 0 extra",
@@ -227,6 +228,37 @@ TEST_CASE( "Terrain editor: malformed saved maps preserve the current terrain" )
         CHECK( terrain.get() == original );
     }
     std::remove( path );
+}
+
+
+TEST_CASE( "Terrain editor: largest admitted map and uppercase RAW imports are usable" )
+{
+    EngineConfig config;
+    constexpr const char* path = "TestOutput/terrain_maximum.heightmap";
+    {
+        std::ofstream output( path, std::ios::trunc );
+        output << "SKULLBONEZ_HEIGHTMAP 1\n" << Terrain::MAX_SAVED_POSTS_PER_SIDE << " 4 8\n";
+        for ( int i = 0; i < Terrain::MAX_SAVED_POSTS_PER_SIDE * Terrain::MAX_SAVED_POSTS_PER_SIDE; ++i )
+        {
+            output << "30\n";
+        }
+    }
+    std::unique_ptr<Terrain> terrain;
+    REQUIRE( Terrain::LoadSavedHeightMap( diagnostics, path, config, terrain ).Ok() );
+    terrain->PrepareEditing();
+    REQUIRE( terrain->Sculpt( Vector3( 500, 30, 500 ), 40, 10 ) );
+    CHECK( terrain->GetTerrainHeightAt( 500, 500 ) == doctest::Approx( 40 ) );
+    CHECK( terrain->BuildRenderVertexData().size() * sizeof( float ) < 16u * 1024u * 1024u );
+    std::remove( path );
+    constexpr const char* rawPath = "TestOutput/terrain_uppercase.RAW";
+    {
+        std::ofstream output( rawPath, std::ios::binary | std::ios::trunc );
+        const std::array<char, 256 * 256> bytes = {};
+        output.write( bytes.data(), bytes.size() );
+    }
+    REQUIRE( Terrain::LoadSavedHeightMap( diagnostics, rawPath, config, terrain ).Ok() );
+    CHECK( terrain->HeightMapSource().ends_with( "terrain_uppercase.RAW" ) );
+    std::remove( rawPath );
 }
 
 

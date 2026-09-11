@@ -1459,9 +1459,12 @@ void Run::ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInpu
         }
         else if ( command.type == SkarnessCommandType::SceneSave )
         {
-            m_sceneController.SubmitSaveCurrentDefaults();
-            application.applied = true;
-            application.reason = nullptr;
+            application.applied = !m_replayRuntime.VelocityComparisonActive();
+            application.reason = application.applied ? nullptr : "Accept Red or Blue before saving the scene.";
+            if ( application.applied )
+            {
+                m_sceneController.SubmitSaveCurrentDefaults();
+            }
         }
         else
         {
@@ -1630,6 +1633,14 @@ void Run::ApplyEditorModeToggleCommand( RuntimeUIFrameResult& result, const Runt
 
 void Run::ApplyEditorModeCommands( RuntimeUIFrameResult& result, bool keyboardToggleEditorMode, const RuntimeInputFrameFacts& facts, const SkullbonezCore::UI::InGameUICommands& commands )
 {
+    if ( m_replayRuntime.VelocityComparisonActive() )
+    {
+        if ( m_editorTools.Editor().editorModeEnabled && ( commands.editor.toggleEditorMode || keyboardToggleEditorMode ) )
+        {
+            ApplyEditorModeToggleCommand( result, facts, keyboardToggleEditorMode ? RuntimeInputActionSource::Keyboard : RuntimeInputActionSource::UI );
+        }
+        return;
+    }
     const EditorPlacementPreModeUICommandResult preMode = ApplyEditorPlacementPreModeUICommands( m_editorTools.Editor(), m_interaction, commands.editor );
     if ( preMode.setPlaceStatic )
     {
@@ -1978,12 +1989,16 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
         return result;
     }
 
+    ApplyReplayOperatorCommands( result, facts, editorCommands.commands );
+    ApplyForecastOperatorCommands( result, facts, editorCommands.commands );
+
+    if ( m_replayRuntime.VelocityComparisonActive() )
+    {
+        OperatorCommandBoundaryPolicy::PreserveComparedWorld( result.commands );
+    }
     const SkullbonezCore::UI::InGameUICommands& commands = result.commands;
     OperatorCommandTransaction transaction( commands );
     const OperatorCommandAcceptanceLedger& acceptance = transaction.Acceptance();
-
-    ApplyReplayOperatorCommands( result, facts, editorCommands.commands );
-    ApplyForecastOperatorCommands( result, facts, editorCommands.commands );
 
     RuntimeRenderer& renderer = Renderer();
     transaction.ApplyDeviceAndMode( renderer, renderer.RenderDevice() );

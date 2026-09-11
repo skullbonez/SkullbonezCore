@@ -1853,3 +1853,37 @@ TEST_CASE( "Floating diagnostics reserve no dock space in either Tools state" )
         }
     }
 }
+
+TEST_CASE( "Editor palette follows terrain controls and its final row remains scrollable" )
+{
+    using namespace SkullbonezCore::UI::GameLayout;
+    CHECK( EDITOR_PALETTE_TOP > EDITOR_CONTROLS_HEIGHT );
+    for ( float width : { 60.0f, 320.0f, 1200.0f } )
+    {
+        const float columns = (std::max)( 1.0f, std::floor( ( width + 4.0f ) / 36.0f ) );
+        const float lastRowBottom = EDITOR_PALETTE_TOP + std::ceil( 24.0f / columns ) * 36.0f;
+        CHECK( EditorContentHeight( width ) >= lastRowBottom );
+    }
+    PresentationState state;
+    state.preferences.layout = LayoutMode::Editor;
+    state.preferences.leftFolded = false;
+    state.editorScroll = 10000.0f;
+    const auto layout = ComputePresentationRects( state, 320, 240 );
+    CHECK( layout.editorScroll + layout.editorControls.h == doctest::Approx( EditorContentHeight( layout.editorControls.w ) ) );
+}
+
+TEST_CASE( "UI transport reveal cannot block its own hover while shielding the world" )
+{
+    using namespace SkullbonezCore::UI;
+    auto transitions = std::make_unique<UIPanelTransitions>();
+    auto draw = std::make_unique<UIDrawList>();
+    draw->SetPanel( UIPanel::Transport );
+    draw->AddRect( { 0, 900, 1000, 28 }, { 0, 0, 0, 1 } );
+    transitions->BeginFrame();
+    transitions->Append( *draw );
+    transitions->Compose( 0 );
+    CHECK( transitions->BlocksPointer( { 200, 915 } ) );
+    CHECK_FALSE( transitions->BlocksPointer( { 200, 915 }, UIPanel::Transport ) );
+    transitions->Compose( .08 );
+    CHECK_FALSE( transitions->BlocksPointer( { 200, 915 }, UIPanel::Transport ) );
+}

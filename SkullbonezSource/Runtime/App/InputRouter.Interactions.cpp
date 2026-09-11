@@ -299,19 +299,21 @@ RuntimePointerRouteResult Run::RouteRuntimePointer( const RuntimePointerEvent& p
     // earlier owner declined the gesture. The phase cursor fatal-invariant fails a
     // reordered, skipped, or repeated stage.
     (void)arbitration.BeginStage( RuntimePointerRouteStage::Editor );
-    const EditorPointerRouteResult editorResult = inputRouter.RouteEditorPointer(
-        pointer,
-        hasWorldRay,
-        rayOrigin,
-        rayDirection,
-        cameraMode,
-        replayInspectionActive,
-        activeModelCapacity,
-        m_assets,
-        m_editorTools,
-        m_interaction,
-        m_sceneController
-    );
+    // Existing editor mode must not mutate the body identities retained by Blue.
+    const EditorPointerRouteResult editorResult = m_replayRuntime.VelocityComparisonActive() ? EditorPointerRouteResult {}
+                                                                                             : inputRouter.RouteEditorPointer(
+                                                                                                 pointer,
+                                                                                                 hasWorldRay,
+                                                                                                 rayOrigin,
+                                                                                                 rayDirection,
+                                                                                                 cameraMode,
+                                                                                                 replayInspectionActive,
+                                                                                                 activeModelCapacity,
+                                                                                                 m_assets,
+                                                                                                 m_editorTools,
+                                                                                                 m_interaction,
+                                                                                                 m_sceneController
+                                                                                             );
 
     result.enteredInteractiveScene = editorResult.enteredInteractiveScene;
 
@@ -453,7 +455,7 @@ RuntimePointerRouteResult Run::RouteRuntimePointer( const RuntimePointerEvent& p
 
     bool launcherConsumed = false;
 
-    if ( arbitration.BeginStage( RuntimePointerRouteStage::Launcher ) )
+    if ( arbitration.BeginStage( RuntimePointerRouteStage::Launcher ) && !m_replayRuntime.VelocityComparisonActive() )
     {
         const LauncherPointerResult launcherResult = m_runtimeTools.RouteLauncherPointer( { RunCameraModeUsesLauncher( cameraMode ), pointer.leftPressed, pointer.suppressWorldAction, pointer.uiWantsNativeMouseCursor, activeModelCapacity }, m_sceneController.Scene(), scene );
 
@@ -809,7 +811,10 @@ InputCaptureActionResult InputRouter::DispatchCaptureActions(
         switch ( event.action )
         {
         case RuntimeInputAction::SaveSceneSnapshot:
-            HandleEditorSceneSaveHotkey( m_resultDiagnostics, sceneController.Scene(), sceneController.State(), presentation, true );
+            if ( !replayInput.velocityComparisonActive )
+            {
+                HandleEditorSceneSaveHotkey( m_resultDiagnostics, sceneController.Scene(), sceneController.State(), presentation, true );
+            }
 
             break;
         case RuntimeInputAction::SaveScreenshot:

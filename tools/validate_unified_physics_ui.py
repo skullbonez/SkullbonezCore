@@ -2,6 +2,7 @@
 from __future__ import annotations
 import argparse
 import json
+import time
 import math
 from pathlib import Path
 import re
@@ -21,6 +22,9 @@ def run(session: Path) -> None:
         return result
     def sample() -> dict:
         nonlocal offset
+        deadline = time.monotonic() + 0.25
+        while time.monotonic() < deadline:
+            send("run.step_frames", count=3)
         send('run.step_frames', count=2)
         with (session / 'runtime.skarness.ndjson').open() as stream:
             stream.seek(offset)
@@ -31,7 +35,15 @@ def run(session: Path) -> None:
             offset = stream.tell()
         return latest['ui.presentation']
     def click(x: float, y: float, hold: int = 0) -> None:
+        send("input.pointer_position", enabled=True, x=int(x), y=int(y))
+        send("run.step_frames", count=2)
+        time.sleep(0.22)
+        send("run.step_frames", count=2)
         send('input.pointer_drag', button='left', x=int(x), y=int(y), deltaX=0, deltaY=0, holdMilliseconds=hold)
+    def middle(bounds: list) -> None:
+        x, y, width, height = bounds
+        assert width > 0 and height > 0, bounds
+        click(x + width / 2, y + height / 2)
     def reveal(ui: dict, row: float) -> tuple[dict, float]:
         x, y, w, h = ui['toolsContentBounds']
         desired = max(0, row - h / 2)
@@ -53,12 +65,12 @@ def run(session: Path) -> None:
         assert 'input.pointer_drag' in send('capabilities.get')['commands']
         send('state.subscribe', topics=[], detail='normal')
         ui = sample()
-        for layout in ('Canvas','Editor'):
+        for layout in ('Editor',):
             if ui['layout'] != layout:
-                click(ui['window'][0]-110,20)
+                middle(ui['headerLayoutBounds'])
                 ui = sample()
             if not ui['toolsVisible']:
-                click(ui['window'][0]-38,20)
+                middle(ui['replayDetailsBounds'])
                 ui = sample()
             top = ui['viewport'][1]+ui['viewport'][3]+(28 if layout=='Editor' else 0)
             click(14+(ui['window'][0]-28)*3.5/11,top+66)

@@ -3061,7 +3061,7 @@
       "owner": "World Terrain height-map authoring",
       "phase": "scene_load",
       "reason": "Terrain reserves editable grid storage at scene load. Sculpt strokes reuse the posts, collision cells, CPU vertex image and GPU mesh. Source paths change only while importing a height map.",
-      "cap": "Flat levels use 129 squared posts; imported saved maps are checked before allocation and limited to 513 squared posts. Legacy RAW imports use the existing fixed 256/8 grid. One terrain and one source path per scene.",
+      "cap": "Flat levels use 129 squared posts; imported saved maps are checked before allocation and limited to 257 squared posts. Legacy RAW imports use the existing fixed 256/8 grid. One terrain and one source path per scene.",
       "removal_or_wrapper_plan": "Keep authoring growth at scene creation/loading boundaries; fixed grid spans service every brush stroke.",
       "match_mode": "exact_finding"
     },
@@ -3076,7 +3076,7 @@
       "owner": "World Terrain height-map authoring",
       "phase": "scene_load",
       "reason": "Terrain reserves editable grid storage at scene load. Sculpt strokes reuse the posts, collision cells, CPU vertex image and GPU mesh. Source paths change only while importing a height map.",
-      "cap": "Flat levels use 129 squared posts; imported saved maps are checked before allocation and limited to 513 squared posts. Legacy RAW imports use the existing fixed 256/8 grid. One terrain and one source path per scene.",
+      "cap": "Flat levels use 129 squared posts; imported saved maps are checked before allocation and limited to 257 squared posts. Legacy RAW imports use the existing fixed 256/8 grid. One terrain and one source path per scene.",
       "removal_or_wrapper_plan": "Keep authoring growth at scene creation/loading boundaries; fixed grid spans service every brush stroke.",
       "match_mode": "exact_finding"
     }

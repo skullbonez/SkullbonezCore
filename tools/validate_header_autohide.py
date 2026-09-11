@@ -27,6 +27,9 @@ def run(session: Path) -> None:
 
     def sample(label: str) -> dict:
         nonlocal offset
+        deadline = time.monotonic() + 0.25
+        while time.monotonic() < deadline:
+            send('run.step_frames', count=3)
         send('run.step_frames', count=3)
         with (session / 'runtime.skarness.ndjson').open() as stream:
             stream.seek(offset)

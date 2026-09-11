@@ -1698,7 +1698,9 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned, 
     }
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
 
-    if ( replayInput.scrubPaused )
+    // A comparison animates stored futures; Space and launcher mode must not
+    // advance the live seed that Accept Red/Blue will commit.
+    if ( replayInput.scrubPaused || replayInput.velocityComparisonActive )
     {
         PROFILE_SCOPED( "Frame/Replay/ScrubCamera" );
         UpdateLogic( 0.0f, static_cast<float>( secondsPerFrame ), 1.0f );

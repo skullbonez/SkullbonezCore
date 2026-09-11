@@ -6,36 +6,26 @@ namespace SkullbonezCore::UI
 {
 namespace
 {
-constexpr std::array<UIPoint, static_cast<size_t>( UIPanel::Count )> PANEL_DIRECTIONS = { { { 0, 0 },
-                                                                                            { -20, 0 },
-                                                                                            { 20, 0 },
-                                                                                            { 0, 12 },
-                                                                                            { 0, 20 },
-                                                                                            { 0, 16 },
-                                                                                            { 0, 16 },
-                                                                                            { 0, 12 },
-                                                                                            { 0, 12 },
-                                                                                            { 0, 12 },
-                                                                                            { 0, 12 },
-                                                                                            { 0, -12 },
-                                                                                            { 0, -6 },
-                                                                                            { -20, 0 },
-                                                                                            { 20, 0 } } };
-constexpr std::array<UIPanel, static_cast<size_t>( UIPanel::Count )> PANEL_ORDER = { UIPanel::None,
-                                                                                     UIPanel::Left,
-                                                                                     UIPanel::LowerLeft,
-                                                                                     UIPanel::Right,
-                                                                                     UIPanel::Transport,
-                                                                                     UIPanel::Drawer,
-                                                                                     UIPanel::QuickTools,
-                                                                                     UIPanel::AuxiliaryPrimary,
-                                                                                     UIPanel::AuxiliarySecondary,
-                                                                                     UIPanel::AuxiliaryGrid,
-                                                                                     UIPanel::AttachedRight,
-                                                                                     UIPanel::Header,
-                                                                                     UIPanel::DiagnosticPrimary,
-                                                                                     UIPanel::DiagnosticSecondary,
-                                                                                     UIPanel::Popup };
+constexpr std::array<UIPoint, static_cast<size_t>( UIPanel::Count )> PANEL_DIRECTIONS = {
+    { { 0, 0 }, { -20, 0 }, { 20, 0 }, { 0, 12 }, { 0, 20 }, { 0, 16 }, { 0, 16 }, { 0, 12 }, { 0, 12 }, { 0, 12 }, { 0, 12 }, { 0, -12 }, { 0, -6 }, { -20, 0 }, { 20, 0 } }
+};
+constexpr std::array<UIPanel, static_cast<size_t>( UIPanel::Count )> PANEL_ORDER = {
+    UIPanel::None,
+    UIPanel::Left,
+    UIPanel::LowerLeft,
+    UIPanel::Right,
+    UIPanel::Transport,
+    UIPanel::Drawer,
+    UIPanel::QuickTools,
+    UIPanel::AuxiliaryPrimary,
+    UIPanel::AuxiliarySecondary,
+    UIPanel::AuxiliaryGrid,
+    UIPanel::AttachedRight,
+    UIPanel::Header,
+    UIPanel::DiagnosticPrimary,
+    UIPanel::DiagnosticSecondary,
+    UIPanel::Popup
+};
 
 UIPoint PanelTravel( const UIDrawList& draw, UIPanel id )
 {
@@ -49,8 +39,7 @@ UIPoint PanelTravel( const UIDrawList& draw, UIPanel id )
     float height = 30;
     for ( const auto& command : draw.Commands() )
     {
-        if ( command.panel == id &&
-             ( command.type == UIDrawList::CommandType::Rect || command.type == UIDrawList::CommandType::RoundedRect ) )
+        if ( command.panel == id && ( command.type == UIDrawList::CommandType::Rect || command.type == UIDrawList::CommandType::RoundedRect ) )
         {
             width = (std::max)( width, command.w );
             height = (std::max)( height, command.h );
@@ -98,32 +87,29 @@ void UIPanelTransitions::SetClip( UIPanel panel, const UIRect& bounds )
     m_panels[static_cast<size_t>( panel )].clip = bounds;
 }
 
-bool UIPanelTransitions::BlocksPointer( UIPoint point ) const
+bool UIPanelTransitions::BlocksPointer( UIPoint point, UIPanel receivingPanel ) const
 {
     for ( size_t index = 1; index < m_panels.size(); ++index )
     {
         const Panel& panel = m_panels[index];
-        // Header controls remain available for reversing a transition.
-        if ( index == static_cast<size_t>( UIPanel::Header ) || !panel.motion.Active() )
+        // Header controls can reverse transitions. A panel's own input owner
+        // also keeps receiving input, so hover reveal cannot block itself.
+        if ( index == static_cast<size_t>( UIPanel::Header ) || index == static_cast<size_t>( receivingPanel ) || !panel.motion.Active() )
         {
             continue;
         }
-        const UIPoint displaced = { point.x - panel.travel.x * ( 1.0f - panel.motion.Value() ),
-                                    point.y - panel.travel.y * ( 1.0f - panel.motion.Value() ) };
+        const UIPoint displaced = { point.x - panel.travel.x * ( 1.0f - panel.motion.Value() ), point.y - panel.travel.y * ( 1.0f - panel.motion.Value() ) };
         for ( const auto& command : panel.draw.Commands() )
         {
-            if ( command.type != UIDrawList::CommandType::Rect && command.type != UIDrawList::CommandType::RoundedRect &&
-                 command.type != UIDrawList::CommandType::PreviewImage )
+            if ( command.type != UIDrawList::CommandType::Rect && command.type != UIDrawList::CommandType::RoundedRect && command.type != UIDrawList::CommandType::PreviewImage )
             {
                 continue;
             }
-            if ( point.x >= command.x0 && point.x < command.x0 + command.w && point.y >= command.y0 &&
-                 point.y < command.y0 + command.h )
+            if ( point.x >= command.x0 && point.x < command.x0 + command.w && point.y >= command.y0 && point.y < command.y0 + command.h )
             {
                 return true;
             }
-            if ( displaced.x >= command.x0 && displaced.x < command.x0 + command.w && displaced.y >= command.y0 &&
-                 displaced.y < command.y0 + command.h )
+            if ( displaced.x >= command.x0 && displaced.x < command.x0 + command.w && displaced.y >= command.y0 && displaced.y < command.y0 + command.h )
             {
                 return true;
             }

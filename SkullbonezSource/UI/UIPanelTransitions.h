@@ -44,7 +44,7 @@ class UIPanelTransitions
     void SetClockOverride( double seconds, bool enabled );
     void Finish( UIPanel panel, bool visible );
     void SetClip( UIPanel panel, const UIRect& bounds );
-    bool BlocksPointer( UIPoint point ) const;
+    bool BlocksPointer( UIPoint point, UIPanel receivingPanel = UIPanel::None ) const;
     void BeginFrame();
     void Append( const UIDrawList& draw );
     const UIDrawList& Compose( double now );

@@ -1021,6 +1021,7 @@ ReplayInputView ReplayRuntime::BuildInputView() const noexcept
     view.restoreConsumedThisFrame = scrubber.restoreConsumedThisFrame;
     view.scrubPaused = scrubber.historicalSamplePaused;
     view.liveAdvanceHeld = scrubber.liveAdvanceHeld || m_planningOwner.VelocityDivergence().active;
+    view.velocityComparisonActive = VelocityComparisonActive();
     view.velocityEditEnabled = m_authoring.VelocityEdit().enabled;
     view.predictionEnabled = Prediction().State().enabled;
     view.captureEnabled = m_timeline.Presentation().IsEnabled() || m_timeline.Solver().IsEnabled();

@@ -38,6 +38,11 @@ bool PredictionSeedMatches( const Physics::PhysicsEngine& physics, const ReplayP
 }
 } // namespace
 
+bool ReplayRuntime::VelocityComparisonActive() const noexcept
+{
+    return m_planningOwner.VelocityDivergence().active;
+}
+
 bool ReplayRuntime::BeginVelocityDivergence( Physics::PhysicsEngine& physics )
 {
     m_scrubberOwner.SetLiveAdvanceHeld( true );

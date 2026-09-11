@@ -26,6 +26,10 @@ Related:
 
 namespace SkullbonezCore::UI::GameLayout
 {
+inline constexpr float EDITOR_CONTROLS_HEIGHT = 402.0f;
+inline constexpr float EDITOR_PALETTE_TOP = EDITOR_CONTROLS_HEIGHT + 22.0f;
+float EditorContentHeight( float width );
+
 std::array<char, 64> HeaderTitle( const char* sceneName );
 
 enum class LayoutMode : uint8_t
@@ -163,8 +167,7 @@ struct ToolsChromeRects
     bool compact = false;
 };
 ToolsChromeRects ComputeToolsChromeRects( const UIRect& bounds, bool sharedShell );
-inline constexpr const char* TOOL_NAMES[] = { "Profiler", "Scene", "Editor", "Physics",   "Options", "Render",
-                                              "Targets",  "Keys",  "Sky",    "Cinematic", "Memory" };
+inline constexpr const char* TOOL_NAMES[] = { "Profiler", "Scene", "Editor", "Physics", "Options", "Render", "Targets", "Keys", "Sky", "Cinematic", "Memory" };
 
 HeaderRects ComputeHeaderRects( const UIRect& header, Workspace workspace = Workspace::Scene );
 UIRect DiagnosticDetailsBounds( const UIRect& panel );

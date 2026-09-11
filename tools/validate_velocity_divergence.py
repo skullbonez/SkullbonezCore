@@ -121,6 +121,35 @@ def run(session: Path, executable: Path) -> None:
             for index, normalized in enumerate((0.7, 0.85, 1.0)):
                 compared = verify_scrub(normalized, original, f"round-{round_index}-scrub-{index}")
 
+            # Editor entry and Delete cannot invalidate the frozen stock topology.
+            before_objects = send("scene.object.list")["result"]["objects"]
+            send("input.set_key", key=192, down=True)
+            state()
+            send("input.set_key", key=192, down=False)
+            selection = connection.wait(connection.send("scene.object.select", {"scope": "editor", "name": "path_striker"}))
+            assert selection["status"] == "rejected" and "editor mode" in selection["reason"]
+            send("input.set_key", key=46, down=True)
+            state()
+            send("input.set_key", key=46, down=False)
+            assert send("scene.object.list")["result"]["objects"] == before_objects
+            assert not topics()["ui.presentation"]["editorMode"]
+
+            # Space and launcher mode normally force live stepping. Neither may
+            # move the seed while a comparison is unresolved.
+            live_before = send("scene.object.resolve", name="path_striker")["result"]
+            send("input.set_key", key=32, down=True)
+            send("run.step_frames", count=30)
+            send("input.set_key", key=32, down=False)
+            send("input.set_key", key=78, down=True)
+            state()
+            send("input.set_key", key=78, down=False)
+            send("run.step_frames", count=30)
+            live_after = send("scene.object.resolve", name="path_striker")["result"]
+            assert live_after == live_before, (live_before, live_after)
+            send("input.set_key", key=78, down=True)
+            state()
+            send("input.set_key", key=78, down=False)
+
             # Transport actions cannot silently commit or erase either branch.
             blocked_save = session / f"unaccepted-{round_index}.skreplay"
             send("replay.set_prediction_enabled", enabled=False)

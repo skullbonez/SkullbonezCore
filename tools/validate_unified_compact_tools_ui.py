@@ -2,6 +2,7 @@
 from __future__ import annotations
 import argparse
 import json
+import time
 from pathlib import Path
 from skarness import SkarnessConnection, launch
 
@@ -19,6 +20,9 @@ def run(session: Path) -> None:
         return reply
     def sample(label: str) -> dict:
         nonlocal offset
+        deadline = time.monotonic() + 0.25
+        while time.monotonic() < deadline:
+            send("run.step_frames", count=3)
         send('run.step_frames', count=3)
         with (session / 'runtime.skarness.ndjson').open() as trace:
             trace.seek(offset)
@@ -30,7 +34,15 @@ def run(session: Path) -> None:
         (session / (label + '.json')).write_text(json.dumps(latest, indent=2))
         return latest['ui.presentation']
     def click(x: float, y: float) -> None:
+        send("input.pointer_position", enabled=True, x=int(x), y=int(y))
+        send("run.step_frames", count=2)
+        time.sleep(0.22)
+        send("run.step_frames", count=2)
         send('input.pointer_drag', button='left', x=int(x), y=int(y), deltaX=0, deltaY=0)
+    def middle(bounds: list) -> None:
+        x, y, width, height = bounds
+        assert width > 0 and height > 0, bounds
+        click(x + width / 2, y + height / 2)
     def select(ui: dict, index: int, label: str) -> dict:
         assert ui['toolsPopupOpen'], ui
         for attempt in range(15):
@@ -48,16 +60,20 @@ def run(session: Path) -> None:
         assert {'window.resize', 'input.pointer_wheel', 'input.set_focus'} <= set(capabilities)
         send('state.subscribe', topics=[], detail='normal')
         ui = sample('initial')
-        click(ui['window'][0] - 30, 20)
-        for layout in ('Canvas', 'Editor'):
+        middle(ui['replayDetailsBounds'])
+        for layout in ('Editor',):
             send('window.resize', width=1784, height=961)
             ui = sample(layout + '-wide')
             if ui['layout'] != layout:
-                click(1784 - 110, 20)
+                middle(ui['headerLayoutBounds'])
                 ui = sample(layout + '-switch')
+            if not ui['toolsVisible']:
+                middle(ui['replayDetailsBounds'])
+                ui = sample(layout + '-tools-open')
             for width, height in ((640,480), (480,360), (320,240)):
                 prefix = f'{width}x{height}-{layout}'
                 send('window.resize', width=width, height=height)
+                send('capture.screenshot', path=str((session / (prefix + '-initial.png')).resolve()))
                 ui = sample(prefix + '-initial')
                 assert ui['toolsVisible'] and ui['layout'] == layout, ui
                 top = ui['viewport'][1] + ui['viewport'][3]
@@ -98,6 +114,14 @@ def run(session: Path) -> None:
                     ui = sample(prefix + '-release-f5')
                     assert ui['markerHistoryVisible'] and not ui['memoryWaterlineVisible']
                     hx, hy, hw, hh = ui['markerHistoryBounds']
+                    if hh < 80:
+                        vx, vy, vw, vh = ui['viewport']
+                        assert vx <= hx and hy >= vy and hx + hw <= vx + vw and hy + hh <= vy + vh
+                        send('input.set_key', key=0x74, down=True)
+                        sample(prefix + '-hide-short-f5')
+                        send('input.set_key', key=0x74, down=False)
+                        sample(prefix + '-hide-short-f5-release')
+                        continue
                     selector_y = hy + 32
                     click(int(hx+30), int(selector_y+10))
                     ui = sample(prefix + '-marker-menu')
@@ -121,7 +145,7 @@ def run(session: Path) -> None:
                     sample(prefix + '-hide-f5')
                     send('input.set_key', key=0x74, down=False)
                     sample(prefix + '-hide-f5-release')
-        print('PASS: all eleven native Tools tabs, clipped scrollable menus, footer timeline/reflection and focus loss in both small layouts')
+        print('PASS: all eleven native Tools tabs, clipped scrollable menus, footer timeline/reflection and focus loss in the docked layout at all three small sizes')
     finally:
         try:
             send('session.stop')

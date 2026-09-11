@@ -231,6 +231,56 @@ def validate_creation(root: Path, executable: Path) -> None:
     print("PASS: flat creation, existing-map import and cancellation through native Scene menu")
 
 
+def validate_largest_import(root: Path, executable: Path) -> None:
+    """Exercise both cold and brush uploads at the admitted map size limit."""
+    session = root / "largest-import"
+    session.mkdir()
+    height_map = session / "largest.heightmap"
+    height_map.write_text("SKULLBONEZ_HEIGHTMAP 1 257 4 8\n" + "30 " * (257 * 257), encoding="ascii")
+    fixture = json.loads((root / "flat.scene.json").read_text(encoding="utf-8"))
+    fixture["terrain"] = {"heightMap": str(height_map)}
+    scene = session / "input.scene.json"
+    scene.write_text(json.dumps(fixture), encoding="utf-8")
+    assert launch(session, executable, scene, hidden=True, allocation_guard="gameplay",
+                  layout_file=session / "layout.preferences") == 0
+    connection = SkarnessConnection(session)
+
+    def send(command: str, **arguments: object) -> dict:
+        reply = connection.wait(connection.send(command, arguments))
+        assert reply.get("status") == "applied", reply
+        return reply
+
+    try:
+        assert "editor.set_terrain_brush" in send("capabilities.get")["commands"]
+        send("state.subscribe", topics=[], detail="normal")
+        send("editor.set_terrain_brush", enabled=True)
+        send("run.step_frames", count=3)
+        events = [json.loads(line) for line in (session / "runtime.skarness.ndjson").read_text().splitlines()]
+        ui = next(row["payload"] for row in reversed(events) if row.get("topic") == "ui.presentation")
+        x, y, width, height = ui["viewport"]
+        send("input.pointer_drag", button="left", x=int(x + width / 2), y=int(y + height / 2),
+             deltaX=0, deltaY=0, holdMilliseconds=400)
+        send("run.step_frames", count=3)
+        events = [json.loads(line) for line in (session / "runtime.skarness.ndjson").read_text().splitlines()]
+        ui = next(row["payload"] for row in reversed(events) if row.get("topic") == "ui.presentation")
+        assert ui["terrainRevision"] > 0 and ui["terrainMaximumHeight"] > 30
+        (session / "result.json").write_text(json.dumps(ui, indent=2))
+        send("capture.screenshot", path=str(session / "sculpted.png"))
+    finally:
+        send("session.stop")
+        connection.close()
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:
+        output = (session / "process.stdout.log").read_text(encoding="utf-8", errors="replace")
+        if "[allocation-guard] PASS:" in output:
+            break
+        time.sleep(0.05)
+    assert "[allocation-guard] PASS:" in output
+    with Image.open(session / "sculpted.png") as captured:
+        captured.save(session / "sculpted-view.png")
+    print("PASS: 257 by 257 imported map loads and sculpts within the fixed GPU arena")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--session", type=Path, default=REPO / "TestOutput/skarness/terrain-editor")
@@ -238,3 +288,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     run(args.session.resolve(), args.exe.resolve())
     validate_creation(args.session.resolve(), args.exe.resolve())
+    validate_largest_import(args.session.resolve(), args.exe.resolve())

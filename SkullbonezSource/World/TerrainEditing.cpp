@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cctype>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -119,7 +121,9 @@ Core::SbResult Terrain::LoadSavedHeightMap( Core::SbDiagnosticStore& diagnostics
         return diagnostics.Failure( "World/Terrain", "Height map path is empty." );
     }
     const std::filesystem::path source( path );
-    if ( source.extension() == ".raw" )
+    std::string extension = source.extension().string();
+    std::transform( extension.begin(), extension.end(), extension.begin(), []( unsigned char value ) { return static_cast<char>( std::tolower( value ) ); } );
+    if ( extension == ".raw" )
     {
         const auto loaded = TryCreatePhysicsFromHeightMap( diagnostics, path, 256, 8, 15, config, result );
         if ( loaded.Ok() )
@@ -130,13 +134,13 @@ Core::SbResult Terrain::LoadSavedHeightMap( Core::SbDiagnosticStore& diagnostics
     }
     std::ifstream input( source );
     input.imbue( std::locale::classic() );
-    std::string magic;
+    char magic[32] = {};
     int version = 0;
     int side = 0;
     float spacing = 0;
     int wrap = 0;
-    if ( !( input >> magic >> version >> side >> spacing >> wrap ) || magic != "SKULLBONEZ_HEIGHTMAP" || version != 1 || side < 2 || side > 513 || !std::isfinite( spacing ) || spacing <= 0.0f ||
-         spacing * ( side - 1 ) > 100000.0f || wrap < 1 || wrap > 1024 )
+    if ( !( input >> std::setw( sizeof( magic ) ) >> magic >> version >> side >> spacing >> wrap ) || std::strcmp( magic, "SKULLBONEZ_HEIGHTMAP" ) != 0 || version != 1 || side < 2 ||
+         side > MAX_SAVED_POSTS_PER_SIDE || !std::isfinite( spacing ) || spacing < MIN_SAVED_GRID_SPACING || spacing * ( side - 1 ) > 100000.0f || wrap < 1 || wrap > 1024 )
     {
         return diagnostics.Failure( "World/Terrain", "Invalid height map header: %s", path );
     }

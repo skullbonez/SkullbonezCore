@@ -2,7 +2,52 @@
 
 Date: 2026-09-11
 Branch: `codex/unified-ui`
-Status: Four UI fixes committed in f8b3ef948; Modify Velocity divergence committed in 2bd78ef29. Terrain editor implemented and closure checks complete; terrain feature commit prepared. Existing formatter work remains user-owned. Portfolio 138/144 unchanged.
+Status: Four UI fixes committed in f8b3ef948; Modify Velocity divergence committed in 2bd78ef29; terrain editor committed in 098274d1e. Branch-wide adversarial review and corrective validation complete; review-fix commit prepared. Existing formatter work remains user-owned. Portfolio 138/144 unchanged.
+
+## Branch adversarial review - 2026-09-11
+
+Reviewed all 17 commits after merge-base c88106035 against origin/main in separate
+source, lifetime/allocation, input/UI and Physics passes in the same session.
+No independent reviewer or agent review is claimed. Coverage includes the UI
+migration and animation, native event queue, speculative angular contacts,
+floating diagnostics, causal playback, velocity divergence and terrain editor.
+
+Fixed oversized height-map imports exceeding the 32 MiB GPU frame arena:
+saved maps now accept at most 257 posts per side, reject degenerate spacing and
+bound the header token. Legacy RAW extensions are case-insensitive. During an
+unresolved velocity comparison, editor mutations, world settings, saving and
+forced live stepping can no longer invalidate the retained Blue seed. Camera,
+comparison playback and explicit scene replacement remain available.
+
+Moved the quick-object palette below the terrain controls and made its scroll
+extent follow the number of rows. The transport bar now receives its own hover
+during animation, preventing a reveal/hide feedback loop while preserving world
+input blocking. Renderer validation uses isolated layout preferences; all three
+captures match the committed baselines (maximum differences 0, 1 and 0; no
+pixels differ by more than 10). The old claim below that these baselines predated
+the layout was incorrect. No visual or Physics baseline was refreshed.
+
+Updated the UI validation entry point and native assertions to exercise the
+current dock, Tools drawer and live layout bounds instead of retired floating
+Tools rectangles. All native cases pass individually, including all 37 object
+catalog entries, 24 quick buttons, 11 hold variants, small-window containment,
+causal scrubbing, autohide, diagnostics, options and Physics controls. Terrain
+tests include sculpting the largest accepted import; divergence tests prove
+both choices, identity-bound ghosts, lazy allocation/release, and rejection of
+Delete, Space and launcher mutation. Allocation diagnostics report no violations.
+
+Final Profile tests: 1,036 passed, 3,483,509 assertions, one skipped. Whole-branch
+compiler design checks cover 184 sources and 1,589 contexts with zero findings;
+focused checks cover the final fixes. Dependency, allocation and plain-language
+checks pass. Automation, Profile and Debug builds pass. DX12 capture, InfoQueue,
+baseline comparison and ready-build phases pass. The full fast/UI wrappers remain
+limited by the user's concurrent formatter changes; shader freshness likewise
+reports generated whitespace drift under that style. Those user-owned files were
+left untouched, and unrelated branch sources were not reformatted.
+
+Evidence: TestOutput/branch-review-summary.json and the branch-review logs/native
+sessions it references. The final commit hook supplies exact staged Physics
+validation evidence. No push is requested or performed.
 
 ## Terrain editor - 2026-09-11
 
@@ -27,7 +72,8 @@ Renderer gate limitations are established as pre-existing: reflection metadata
 matches byte-for-byte with the committed formatter style (the user's in-progress
 style changes produce only generated whitespace drift). All three render captures
 match the saved pre-change executable 2386e9e3 pixel-for-pixel in isolated layouts;
-the committed visual baselines predate that layout. No image or Physics baseline
+the branch review also confirms matching committed visual baselines once the
+renderer gate isolates layout preferences. No image or Physics baseline
 was refreshed. The Editor draw-command fingerprint was deliberately updated for
 the visible brush controls, with a corresponding label assertion.
 
