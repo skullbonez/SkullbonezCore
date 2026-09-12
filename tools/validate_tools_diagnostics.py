@@ -203,4 +203,3 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--session", type=Path, required=True)
     run(parser.parse_args().session.resolve())
-
