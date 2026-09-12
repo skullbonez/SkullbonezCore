@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-09-12
-Status: 143/151 tasks complete; PHYSICS_SCALE active at 5/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
+Status: 144/151 tasks complete; PHYSICS_SCALE active at 6/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
 
 ## Owner Direction
 
@@ -466,7 +466,7 @@ completion-ledger artifacts are fabricated.
 
 | Plan | Code | Total | Complete | Next task | File |
 |---|---|---|---|---|---|
-| Physics Scale Optimization | `PHYSICS_SCALE` | 7 | 5 | PS5-PS6: normal performance gate and cumulative evidence | `TODO/physics-scale-optimization.md` |
+| Physics Scale Optimization | `PHYSICS_SCALE` | 7 | 6 | PS6: final portable and measured closure evidence | `TODO/physics-scale-optimization.md` |
 | Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
@@ -505,7 +505,7 @@ One detail in that table is recorded:
 ## Binding Order
 
 `PHYSICS_SCALE` PS0-PS6 executes first on the current branch, with unchanged
-baselines and measured before/after performance. Current portfolio is 143/151.
+baselines and measured before/after performance. Current portfolio is 144/151.
 
 `UNIFIED_UI` UU0-UU7 is complete at 8/8.
 `RAGDOLL_PHYSICS` is complete at 10/10. The owner's requested ragdoll-playground
@@ -598,7 +598,7 @@ read-only review passes closed nine matcher, scope, fixture, and metadata
 findings; the final pass is clean. No scanner, fixture, build, test, or
 validation command ran by explicit owner direction.
 Ragdoll Physics is complete at 10/10 and its completed plan is removed. Current
-portfolio progress is 143/151, including PHYSICS_SCALE and queued PHYSICS_AB.
+portfolio progress is 144/151, including PHYSICS_SCALE and queued PHYSICS_AB.
 Previously completed phases remain represented in the historical count.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.

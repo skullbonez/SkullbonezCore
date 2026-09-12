@@ -2,7 +2,7 @@
 
 Date: 2026-09-12
 Branch: `codex/unified-ui`
-Status: PHYSICS_SCALE active at 5/7 on the current branch; portfolio 143/151. Complete all seven phases and report measured performance benefit. No baseline modification is allowed.
+Status: PHYSICS_SCALE active at 6/7 on the current branch; portfolio 144/151. Complete all seven phases and report measured performance benefit. No baseline modification is allowed.
 
 ## Physics Scale Optimization — 2026-09-12
 
@@ -36,6 +36,28 @@ The historical work ledger has an unfinished governance goal/task GOV1 owned
 by another session; `start-goal` rejected this run. Preserve that record and
 continue implementation without fabricated usage accounting. The inherited
 200-box authored-sleep replay mismatch remains separate and unchanged.
+
+Closure checkpoint: implementation commits b801544ec, f9aa698fd and
+2689bbcde are pushed. Full Profile tests pass 1,047 cases/3,735,350
+assertions; Debug coverage passes all ten floors. All 15 native prediction
+scene-transition cases and remaining state/query/render/playback/shortcut
+constituents pass. The Automation command-coverage velocity-comparison
+failure reproduces on preserved pre-change Debug with the same commands.
+Canonical replay visual/causal projections match the retained pre-change
+report exactly; archive round-trip and determinism negative controls pass.
+The normal perf gate passed all ten new workload checks and both absolute
+budgets. Its sixteen legacy relative UI/frame/memory failures reproduce on
+the preserved pre-change producer. Those failures remain unmodified. Hosted run 34690166699 passes
+Clang warning-clean and ASan; UBSan is running. GCC stops on a signedness
+warning in a compile-time bound, now repaired locally with no runtime change.
+Earlier portable configuration/link omissions were repaired by adding six
+existing production sources. Commit 7be64f85c contains the compile-only signedness repair. Hosted run
+34690480793 passes all Clang lanes but exposes an existing enum/integer
+conversion warning in GCC. Its explicit conversion repair produces identical
+Windows machine code to the final measured executable (3,749,376 .text bytes).
+The final thirty-run matrix passes: 2,000 bodies 51.3% faster, sleepy 5,000
+92.4%, gravity 1,024 16.2%, and joints 320 40.2%. GCC/TSan will rerun after
+this final compiler-only correction. No baseline has changed.
 
 ## Original and Modified reveal - 2026-09-12
 

@@ -1,7 +1,7 @@
 # Physics Scale Optimization
 
 Date: 2026-09-12
-Status: Active by owner direction — 5/7 phases complete
+Status: Active by owner direction — 6/7 phases complete
 Plan ID: `PHYSICS_SCALE`
 Owner: Physics broadphase and force stages; performance tooling owns measurement and regression checks
 Impact areas: Physics, collision candidate generation, joint filtering, mutual gravity, tests, and performance tooling
@@ -173,7 +173,7 @@ all seven phases must be resolved before closure.
   candidate, retain the current path and record the measured decision; do not
   claim an optimization or leave an unmeasured replacement enabled.
 
-- [ ] **PS5 — Enforce scale performance regressions.**
+- [x] **PS5 — Enforce scale performance regressions.**
   Extend the existing performance scripts and their documentation to check
   the scale, joint-heavy, and gravity cases established in PS0. Use
   machine-matched relative comparisons and justified absolute limits where
@@ -400,7 +400,7 @@ Keep the subject under 72 characters and provide substantive `Why:`,
 `Ownership:`, `What:`, `Validation:`, `Baselines/Artifacts:`, and `Review:`
 sections in that order. Use `git commit -F <message-file>` and the repository
 message verifier and hooks. A plan-authoring commit does not claim phase
-progress. Current implementation progress is **5/7**, active by owner direction.
+progress. Current implementation progress is **6/7**, active by owner direction.
 
 Final timing comparison passes all 30 identified runs (`final/comparison.json`):
 2000 2.8480 -> 1.4161 ms (50.3% faster); sleepy-5000 12.4594 -> 0.9423 ms
@@ -424,7 +424,7 @@ test file passes both compiler contexts. Both 5,000-body sweep and 1,024-body
 gravity allocation guards pass with zero gameplay violations and foreign frees.
 Static allocation metadata repairs preserve the same scene-load capacities.
 
-A 5/7 checkpoint enables the required hosted Linux diagnostics while the
+A 6/7 checkpoint enables the required hosted Linux diagnostics while the
 exactly-once Windows umbrella continues. PS5 and PS6 are not closed by that
 checkpoint. Deep seeded-solver output matches the preserved pre-change Debug
 producer exactly despite the inherited golden mismatch. The at-rest gate
@@ -443,3 +443,15 @@ review confirmed 524 additional bytes in the three-body/two-joint witness
 and no weakening of unique-owner or monotonic-growth checks. DX12 passes.
 The staged Physics gate independently passes the unchanged worker matrix
 with staged fingerprint 3b6aadcf4bcd.
+
+PS5 closure: the normal validate_perf entry point executed all ten scale
+workloads and the negative controls successfully. Both legacy absolute budgets,
+allocation guards, selected-path structural proof and dense causal-inspection
+cost checks pass. The overall gate remains failed (exit 7) on eight relative
+UI/frame/memory findings for each legacy workload. The preserved pre-change
+Profile producer reproduces all eight corresponding failures in BOTH workloads
+with the same commands and unchanged baselines. These are inherited failures,
+not acceptance passes or baseline-update authority. Before/current legacy
+raw CSVs and comparisons are retained in legacy-perf-before/ and perf-final.log.
+Final producer repeated measurements are being refreshed after the bounded
+portable integer-sort repair; no floating-point expression changed.

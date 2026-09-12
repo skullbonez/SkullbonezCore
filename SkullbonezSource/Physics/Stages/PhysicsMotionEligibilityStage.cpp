@@ -227,7 +227,7 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore,
         const int b = joint.BodyBIndex( bodyStore );
         if ( a >= 0 && b >= 0 && a != b && a < modelCount && b < modelCount )
         {
-            const uint8_t path = PhysicsMotionEligibilityArticulated | ( speculativeEnabled ? 0u : PhysicsMotionEligibilitySpeculativeDisabled );
+            const uint8_t path = PhysicsMotionEligibilityArticulated | ( speculativeEnabled ? 0u : static_cast<unsigned>( PhysicsMotionEligibilitySpeculativeDisabled ) );
             m_collisionPathState[a] = path;
             m_collisionPathState[b] = path;
         }
