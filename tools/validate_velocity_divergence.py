@@ -121,11 +121,10 @@ def run(session: Path, executable: Path) -> None:
             for index, normalized in enumerate((0.7, 0.85, 1.0)):
                 compared = verify_scrub(normalized, original, f"round-{round_index}-scrub-{index}")
 
-            # Editor entry and Delete cannot invalidate the frozen stock topology.
+            # Selection and Delete outside Edit cannot invalidate frozen topology.
+            # Entering Edit intentionally cancels the comparison and restores
+            # authored frame zero; validate_editor_velocity covers that transition.
             before_objects = send("scene.object.list")["result"]["objects"]
-            send("input.set_key", key=192, down=True)
-            state()
-            send("input.set_key", key=192, down=False)
             selection = connection.wait(connection.send("scene.object.select", {"scope": "editor", "name": "path_striker"}))
             assert selection["status"] == "rejected" and "editor mode" in selection["reason"]
             send("input.set_key", key=46, down=True)

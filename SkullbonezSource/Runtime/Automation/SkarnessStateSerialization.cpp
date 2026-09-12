@@ -606,8 +606,15 @@ Json BuildVisualPacket( const ReplayAutomationView& replay, SkarnessStateDetail 
     AddFloatBuffer( payload, "retainedPriorityRibbonSegments", packet.retainedPredictionPriorityRibbonSegments, detail );
     AddFloatBuffer( payload, "retainedRibbonVertices", packet.retainedPredictionRibbonVertices, detail );
     AddFloatBuffer( payload, "retainedPriorityRibbonVertices", packet.retainedPredictionPriorityRibbonVertices, detail );
+    AddFloatBuffer( payload, "retainedCompactRecords", packet.retainedPredictionCompactRibbonRecords, detail );
     if ( detail == SkarnessStateDetail::Full )
     {
+        Json ranges = Json::array();
+        for ( const auto& range : packet.retainedPredictionRibbonRanges )
+        {
+            ranges.push_back( { { "identity", range.identity }, { "firstRecord", range.firstRecord }, { "recordCount", range.recordCount } } );
+        }
+        payload["retainedRanges"] = std::move( ranges );
         Json markers = Json::array();
         for ( const ReplayPredictionRetainedMarker& marker : packet.retainedMarkers )
         {

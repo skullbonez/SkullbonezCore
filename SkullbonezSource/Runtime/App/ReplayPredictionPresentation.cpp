@@ -811,10 +811,11 @@ void AppendDivergencePaths( ReplayOverlay::ReplayPredictionRetainedGeometry& geo
     const std::size_t budget = ReplayOverlay::PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY / 2u;
     const std::size_t perBody = (std::max)( std::size_t { 1 }, budget / frames.front().bodies.size() );
     const std::size_t stride = (std::max)( std::size_t { 1 }, ( frames.size() - 1u + perBody - 1u ) / perBody );
+    // Invariant: comparisons share one range per branch. Per-body ranges would
+    // exhaust the 4,096 range slots before both paths cover a full scene.
+    const std::size_t range = geometry.BeginRange( blue ? 1u : 2u, blue ? 1u : 2u, false, budget, blue ? 0u : 1u );
     for ( const auto& identity : frames.front().bodies )
     {
-        const std::size_t capacity = ( frames.size() - 1u + stride - 1u ) / stride;
-        const std::size_t range = geometry.BeginRange( identity.id.value, blue ? 1u : 2u, false, capacity, blue ? 0u : 1u );
         const auto* previous = &identity;
         for ( std::size_t index = (std::min)( stride, frames.size() - 1u );; index = (std::min)( index + stride, frames.size() - 1u ) )
         {

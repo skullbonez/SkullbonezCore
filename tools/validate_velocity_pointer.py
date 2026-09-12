@@ -30,19 +30,27 @@ def run(session: Path) -> None:
         send('run.step_frames', count=2)
         return reader.latest()['payload']
 
-    def ui_state() -> dict:
+    owner_topics = {}
+    topic_offset = 0
+    handle_samples = 0
+
+    def topic_state(name: str) -> dict:
+        nonlocal topic_offset
         path = session / 'runtime.skarness.ndjson'
         with path.open('rb') as stream:
-            stream.seek(max(0, path.stat().st_size - 262144))
-            lines = stream.read().splitlines()[1:]
-        for line in reversed(lines):
-            try:
+            stream.seek(topic_offset)
+            for line in stream:
+                if not line.endswith(b'\n'):
+                    break
+                topic_offset += len(line)
                 event = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if event.get('topic') == 'ui.presentation':
-                return event['payload']
-        raise AssertionError('UI viewport was not published')
+                if 'topic' in event:
+                    owner_topics[event['topic']] = event['payload']
+        assert name in owner_topics, f'{name} was not published'
+        return owner_topics[name]
+
+    def ui_state() -> dict:
+        return topic_state('ui.presentation')
 
     def click_bounds(bounds) -> None:
         x, y, w, h = bounds
@@ -91,9 +99,15 @@ def run(session: Path) -> None:
             return send('scene.object.resolve', name='path_striker_02')['result']['objects'][0]
 
         def handle( angular, axis ):
-            observed = state()
+            nonlocal handle_samples
+            state()
             body = body_state()
-            eye, center, up = (observed[key] for key in ('cameraPrimaryEye', 'cameraPrimaryView', 'cameraPrimaryUp'))
+            # A returning camera can still be tweening after scene cancellation.
+            # Pick the handle where it is drawn, not at the destination camera.
+            camera = topic_state('camera.state')
+            eye, center, up = (camera[key] for key in ('renderEye', 'renderView', 'renderUp'))
+            save(f'handle-camera-{handle_samples}', camera)
+            handle_samples += 1
             def sub(a, b): return [x-y for x, y in zip(a, b)]
             def dot(a, b): return sum(x*y for x, y in zip(a, b))
             def unit(a): return [x/math.sqrt(dot(a, a)) for x in a]

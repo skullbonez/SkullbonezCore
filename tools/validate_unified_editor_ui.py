@@ -10,6 +10,8 @@ from pathlib import Path
 from skarness import SkarnessConnection, launch
 
 REPO = Path(__file__).resolve().parents[1]
+# GameUILayout places quick objects below the two velocity-authoring rows.
+PALETTE_TOP = 492
 
 
 def run(session: Path) -> None:
@@ -130,14 +132,14 @@ def run(session: Path) -> None:
         columns = max(1, int((pane_width + 4) / 36))
         entries = list(range(13)) + list(range(30, 37)) + [16, 22, 25, 28]
         for entry, object_type in enumerate(entries):
-            bx, by = x + (entry % columns) * 36 + 16, y + 424 + (entry // columns) * 36 + 16
+            bx, by = x + (entry % columns) * 36 + 16, y + PALETTE_TOP + (entry // columns) * 36 + 16
             click(bx, by)
             ui = sample(f"quick-object-{entry}")
             assert ui["editorObjectType"] == object_type, (entry, object_type, ui["editorObjectType"])
             assert ui["editorPlacement"]
             assert latest["scene.objects"] == scene_identity
         for entry, variants in ((20, [15, 16, 17]), (21, [21, 22, 23]), (22, [24, 25, 26]), (23, [28, 29, 37, 38])):
-            bx, by = x + (entry % columns) * 36 + 16, y + 424 + (entry // columns) * 36 + 16
+            bx, by = x + (entry % columns) * 36 + 16, y + PALETTE_TOP + (entry // columns) * 36 + 16
             for option, object_type in enumerate(variants):
                 send("input.pointer_drag", button="left", x=int(bx), y=int(by), deltaX=44 + option * 35,
                      deltaY=0, moveClient=True, holdMilliseconds=500)
@@ -181,10 +183,10 @@ def run(session: Path) -> None:
             assert latest["scene.objects"] == scene_identity
         x, y, pane_width, pane_height = ui["toolsContentBounds"]
         send("input.pointer_wheel", x=int(x + 60), y=int(y + pane_height / 2),
-             wheelDelta=-round((424 - pane_height / 2) * 120 / 42))
+             wheelDelta=-round((PALETTE_TOP - pane_height / 2) * 120 / 42))
         ui = sample("canvas-palette-scrolled")
         columns = max(1, int((pane_width + 4) / 36))
-        palette_y = y + 424 - ui["toolsScroll"]
+        palette_y = y + PALETTE_TOP - ui["toolsScroll"]
         for entry, object_type in enumerate(entries):
             bx, by = x + (entry % columns) * 36 + 16, palette_y + (entry // columns) * 36 + 16
             click(bx, by)

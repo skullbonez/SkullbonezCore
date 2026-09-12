@@ -2,7 +2,34 @@
 
 Date: 2026-09-12
 Branch: `codex/unified-ui`
-Status: Editor velocity authoring and frame-zero enforcement are complete. Native mouse edits, undo/redo, unsaved placement, save/reload and entry from an active replay experiment pass. Prior terrain, sleeping ragdoll, replay velocity and viewport fixes remain intact. Portfolio 138/144 unchanged.
+Status: Full-branch adversarial review fixes are prepared for PR 169. Large comparisons now preserve both branches' path coverage; stale editor and camera-projection regression assumptions are corrected. Editor velocity authoring and frame-zero enforcement remain complete. The intentional 200-box replay/causal baseline transition still requires owner approval. Portfolio 138/144 unchanged.
+
+## PR 169 adversarial review - 2026-09-12
+
+The review reproduced Modified path loss with 3,000 moving bodies: Original
+covered 3,000 but Modified only 1,096 because per-body ranges exhausted 4,096
+renderer slots. Sharing one range per branch fixes coverage without changing
+the 24,000-record budget. Skarness now exposes retained compact records/ranges
+for an all-body, target-identity and ghost-coverage regression in the UI gate.
+
+Native regression repairs account for frame-zero entry cancelling a replay
+experiment, the editor palette's new rows, and camera return tweens. The pointer
+test now projects with the rendered camera rather than its destination. A
+recorded active tween demonstrates successful re-entry and handle editing.
+
+Fast validation passes all 1,044 tests with one existing skip. Native terrain,
+sleeping ragdoll placement/reload/wake, dense 200-box comparisons, renderer and
+one-minute stress checks pass. Final gate results and review evidence are in
+`Agentic/Reports/2026-09-12-pr169-adversarial.md` and `TestOutput/pr169-*.log`.
+
+The unchanged 200-box replay oracle differs due to the earlier authored-sleep
+fix. Reverting only queued construction-wake retirement in an isolated build
+reproduces the entire old oracle and its negative controls. Correct sleep keeps
+all 200 boxes participating and all 2,401 frames complete, but changes collision
+order and settles 198 boxes rather than 200. Reviewed candidate baselines and
+hashes are in `TestOutput/pr169-baseline-review/`; explicit owner approval is
+pending and canonical baselines remain unchanged. The unrelated untracked
+`SkullbonezData/scenes/asdasd.scene.json` remains untouched.
 
 ## Editor initial velocity and frame zero - 2026-09-12
 
