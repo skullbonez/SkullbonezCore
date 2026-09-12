@@ -348,7 +348,7 @@ void PhysicsBroadphaseStage::QuerySweepTargets( const BroadphasePairFilter& filt
     (void)SweepBoundsForBody( hotFields, envelope, moving, query );
     // Depth-first traversal needs one sibling per level plus the current node.
     // The fixed tree's 8,192-body ceiling needs at most fourteen stack entries.
-    static_assert( std::bit_width( PHYSICS_MAX_BODY_ROWS ) < 32u );
+    static_assert( std::bit_width( PHYSICS_MAX_BODY_ROWS ) < 32 );
     std::size_t stack[32] = { 1u };
     std::size_t pending = 1u;
     while ( pending > 0u )
