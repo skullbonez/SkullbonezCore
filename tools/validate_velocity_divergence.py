@@ -97,6 +97,9 @@ def run(session: Path, executable: Path) -> None:
         assert observed["divergence"]["allocatedOwnerBytes"] == 0
         assert observed["divergence"]["blueFrameCount"] == 0
         assert not observed["divergence"]["ghosts"]
+        packet = topics()["replay.visual_packet"]
+        assert packet["originalStreamId"] == 0
+        assert packet["originalPath"]["records"] == 0
         return observed
 
     try:

@@ -711,7 +711,7 @@ class Dx12GeometryOwner
     void DrawTransientColoredTriangles( std::span<const float> packedVertices, const Math::Transformation::Matrix4& viewProjection, TransientTriangleStyle style, const PassRasterStateBucket& bucket );
     void DrawRetainedGeometryRibbon( std::span<const float> packedVertices,
                                      RetainedGeometryStreamToken stream,
-                                     bool priorityLane,
+                                     RetainedRibbonInput input,
                                      const Math::Transformation::Matrix4& viewProjection,
                                      TransientTriangleStyle style,
                                      const PassRasterStateBucket& bucket );

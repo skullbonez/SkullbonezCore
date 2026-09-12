@@ -2,7 +2,23 @@
 
 Date: 2026-09-12
 Branch: `codex/unified-ui`
-Status: Full-branch adversarial review fixes are prepared for PR 169. Large comparisons now preserve both branches' path coverage; stale editor and camera-projection regression assumptions are corrected. Editor velocity authoring and frame-zero enforcement remain complete. The intentional 200-box replay/causal baseline transition still requires owner approval. Portfolio 138/144 unchanged.
+Status: PR 169 follow-up preserves Original displayed geometry and restores full-quality progressive Modified reveal after every changed-vector release. Final preflight, 1,044 tests, full UI, renderer, stress and staged physics gates pass. The canonical replay gate reproduces only the reviewed authored-sleep mismatch; candidate and negative controls pass. The earlier 200-box authored-sleep baseline transition still requires owner approval. Portfolio 138/144 unchanged.
+
+## Original and Modified reveal - 2026-09-12
+
+The comparison-only half-budget uniform sampler has been removed. App lazily
+captures the exact displayed Original compact geometry on the first changed
+vector, recolours/fades it once, and retains it unchanged through repeated edits.
+Modified uses the ordinary adaptive retained drawing and wall-clock reveal path.
+Every changed-vector release discards its previous publication so same-target
+refresh cannot preserve an already-complete reveal cursor. No extra GPU buffer
+is allocated: frozen per-lane records and active range records use independent
+existing renderer regions. CPU snapshot growth shares the registered 960 MiB cap.
+
+The dense native regression proves 15,916 Original records remain exact while
+15,250 Modified records reveal progressively, including a second edit. Allocation
+guard and DX12 checks pass. Final closure evidence is recorded in
+`Agentic/Reports/2026-09-12-velocity-reveal.md`.
 
 ## PR 169 adversarial review - 2026-09-12
 

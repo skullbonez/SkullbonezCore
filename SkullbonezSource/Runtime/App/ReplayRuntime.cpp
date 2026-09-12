@@ -1436,7 +1436,14 @@ void ReplayRuntime::PrepareRenderOverlay( PhysicsEngine& physics,
     if ( m_planningOwner.VelocityDivergence().active )
     {
         const auto blue = m_bluePrediction->PresentationView();
-        m_predictionPresentation.PrepareDivergenceGeometry( prediction, blue, trajectoryAppearance );
+        m_predictionPresentation.PrepareRetainedGeometryDrawList( prediction,
+                                                                  m_visualPresentation.PathVisualizer(),
+                                                                  entities,
+                                                                  PhysicsEngine::ReadColliders( physics ),
+                                                                  tracer,
+                                                                  trajectoryAppearance,
+                                                                  causeInspection.Display().blueOutlinesVisible,
+                                                                  causeInspection.Display().greyOutlinesVisible );
         // Comparison paths do not replace the authoring handles.
         AppendVelocityGizmo( physics, tracer, { editorModeEnabled, ProjectReplayToolGesture( gesture ), sceneFrame } );
         if ( m_scrubberOwner.TrackPosition( RunReplayTrack::Solver ) < SolverPresentTrackPosition() )
@@ -1580,11 +1587,16 @@ void ReplayRuntime::ApplyAuthoringPredictionRequest()
             // Modify Velocity or pressing a handle is not an edited seed.
             Prediction().SetGenerationPermitted( true );
             request.enablePrediction = true;
+            // Original is retained separately. Superseded Modified samples must
+            // not invoke the same-target refresh policy or inherit its reveal cursor.
+            request.clearPredictionCache = true;
         }
         if ( request.updateVelocityPreview || request.refreshPrediction )
         {
             m_planningOwner.VelocityDivergence().redReady = false;
         }
+        // Handles author the next seed; only release produces a new path.
+        request.updateVelocityPreview = false;
     }
     Prediction().ApplyAuthoringRequest( BuildReplayPredictionAuthoringCommand( request ), ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS, ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS );
 }
@@ -2355,6 +2367,7 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( stats.categoryBytes, SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderFocusMask, predictionVisualMemory.focusModelMaskCapacityBytes );
 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( stats.categoryBytes, SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderLauncherBackup, visualMemory.launcherVisualBytes );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( stats.categoryBytes, SkullbonezCore::Core::MainMemoryReplayByteCategory::TrajectoryStore, predictionVisualMemory.originalPathCapacityBytes );
 
     stats.renderScratchBytes = SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes( stats.categoryBytes, SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderGhostRequests, SkullbonezCore::Core::MainMemoryReplayByteCategory::TrajectoryStore );
 

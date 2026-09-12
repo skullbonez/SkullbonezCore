@@ -1,4 +1,4 @@
-"""Verify both comparison paths cover every moving body beyond the range limit."""
+"""Verify comparison preserves displayed paths and all-body ghosts in a large scene."""
 from __future__ import annotations
 
 import argparse
@@ -14,12 +14,15 @@ REPO = Path(__file__).resolve().parents[1]
 def run(session: Path, executable: Path, count: int) -> None:
     session.mkdir(parents=True, exist_ok=True)
     scene = json.loads((REPO / "SkullbonezData/scenes/interaction_replay_prediction_harness.scene.json").read_text())
+    # Original preserves the authored presentation policy. Request all-body
+    # paths explicitly; normal publication exposes at most 240 body paths.
+    scene["simulation"]["predictionPathPresentation"] = "allBodiesSpace"
     scene["objects"] = [dict(type="box", name=f"moving_{i}",
-                             position=[20.25 + (i % 80), 80.25, 20.25 + (i // 80)],
-                             halfExtents=[.05, .05, .05], mass=1, restitution=0, fixed=False, velocity=[.1, 0, 0])
+                             position=[20.25 + 20 * (i % 80), 80.25, 20.25 + (i // 80)],
+                             halfExtents=[.05, .05, .05], mass=1, restitution=0, fixed=False, velocity=[10, 0, 0])
                         for i in range(count)]
-    scene["cameras"] = [dict(name="capacity_overview", position=[60, 125, 95],
-                             view=[60, 80, 38], up=[0, 1, 0])]
+    scene["cameras"] = [dict(name="capacity_overview", position=[820, 1125, 950],
+                             view=[820, 80, 38], up=[0, 1, 0])]
     fixture = session / "moving-bodies.scene.json"
     fixture.write_text(json.dumps(scene))
     assert launch(session, executable, fixture, hidden=True, model_capacity=count + 16,
@@ -63,19 +66,25 @@ def run(session: Path, executable: Path, count: int) -> None:
         send("state.subscribe", topics=["frame.clocks"], detail="normal")
         send("prediction.select_target", name="moving_0")
         send("replay.set_prediction_horizon", seconds=1)
+        send("replay.set_prediction_detail", highDetail=True)
         send("replay.set_prediction_enabled", enabled=True)
-        stock = ready(lambda state: state.get("predictionComplete"))
+        stock = ready(lambda state: state.get("predictionComplete") and
+                      latest["replay.visual_packet"]["header"]["revealFrame"] >= 120)
+        original_geometry = latest["replay.visual_packet"]["activePath"]
         target = stock["pathTargetId"]
         assert target == stock["publishedPredictionTargetId"] == stock["submittedPredictionTargetId"]
         send("replay.set_velocity_edit_enabled", enabled=True)
-        send("replay.velocity_preview", linear=[.15, 0, 0], angular=[0, 0, 0])
+        send("replay.velocity_preview", linear=[15, 0, 0], angular=[0, 0, 0])
         send("replay.velocity_commit")
-        ready(lambda state: state.get("divergence", {}).get("redReady"))
+        ready(lambda state: state.get("divergence", {}).get("redReady") and
+              latest["replay.visual_packet"]["header"]["revealFrame"] >= 120)
         send("replay.scrub", normalized=1.0)
         send("state.subscribe", topics=["frame.clocks"], detail="full")
         state = observe()
         send("state.subscribe", topics=["frame.clocks"], detail="normal")
         packet = latest["replay.visual_packet"]
+        assert packet["originalPath"]["geometryHash"] == original_geometry["geometryHash"]
+        assert packet["originalPath"]["records"] == original_geometry["records"]
         values = packet["retainedCompactRecords"]["values"]
         assert len(values) % 19 == 0
         # Capacity gaps are not draw commands. Inspect only the published ranges
@@ -83,19 +92,24 @@ def run(session: Path, executable: Path, count: int) -> None:
         records = [values[index * 19:(index + 1) * 19]
                    for span in packet["retainedRanges"]
                    for index in range(span["firstRecord"], span["firstRecord"] + span["recordCount"])]
+        for lane in ("originalOrdinaryRecords", "originalPriorityRecords"):
+            values = packet[lane]["values"]
+            records.extend(values[index:index + 19] for index in range(0, len(values), 19))
         branches = {"original": set(), "modified": set()}
         for record in records:
             branch = "original" if record[9] > record[7] else "modified"
             # Initial x/z uniquely identifies the fixture body; every sampled
             # segment must stay on its body's one-second track.
-            column = round(record[0] - 20.25)
+            column = int((record[0] - 20.25 + .001) // 20)
             row = round(record[2] - 20.25)
             body = row * 80 + column
             assert 0 <= body < count
             assert abs(record[2] - scene["objects"][body]["position"][2]) < .001
-            assert 0 <= record[3] - scene["objects"][body]["position"][0] <= .16
+            assert 0 <= record[3] - scene["objects"][body]["position"][0] <= 15.1
             branches[branch].add(body)
-        expected = set(range(count))
+        # Comparison inherits the existing all-body publication limit. Creating
+        # paths for undisplayed bodies would violate the frozen-Original contract.
+        expected = set(range(min(count, 240)))
         assert branches["original"] == expected, ("Original", len(branches["original"]), count)
         assert branches["modified"] == expected, ("Modified", len(branches["modified"]), count)
         assert state["publishedPredictionTargetId"] == state["submittedPredictionTargetId"] == target
@@ -121,7 +135,7 @@ def run(session: Path, executable: Path, count: int) -> None:
     result["allocationGuard"] = "pass"
     result["dx12Errors"] = 0
     (session / "result.json").write_text(json.dumps(result, indent=2))
-    print(f"PASS: Original and Modified paths cover all {count} moving bodies")
+    print(f"PASS: Original and Modified preserve {len(expected)} displayed paths and all {count} ghosts")
 
 
 if __name__ == "__main__":

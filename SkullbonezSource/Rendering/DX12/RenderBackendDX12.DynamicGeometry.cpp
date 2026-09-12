@@ -1179,7 +1179,7 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( std::span<const float> pa
 
 void Dx12GeometryOwner::DrawRetainedGeometryRibbon( std::span<const float> packedVertices,
                                                     RetainedGeometryStreamToken stream,
-                                                    bool priorityLane,
+                                                    RetainedRibbonInput input,
                                                     const Math::Transformation::Matrix4& viewProjection,
                                                     TransientTriangleStyle style,
                                                     const PassRasterStateBucket& bucket )
@@ -1192,8 +1192,10 @@ void Dx12GeometryOwner::DrawRetainedGeometryRibbon( std::span<const float> packe
         return;
     }
 
+    const bool priorityLane = input == RetainedRibbonInput::ExpandedPriority || input == RetainedRibbonInput::CompactPriority;
+    const bool compactInput = input == RetainedRibbonInput::CompactOrdinary || input == RetainedRibbonInput::CompactPriority;
     const std::size_t laneIndex = priorityLane ? 1u : 0u;
-    constexpr std::size_t verticesPerSegment = 6u;
+    const std::size_t verticesPerSegment = compactInput ? 1u : 6u;
     const std::size_t floatsPerExpandedSegment = verticesPerSegment * capacity.floatsPerRecord;
     const std::size_t laneRecordCapacity = priorityLane ? capacity.priorityRecordCapacity : capacity.ordinaryRecordCapacity;
 

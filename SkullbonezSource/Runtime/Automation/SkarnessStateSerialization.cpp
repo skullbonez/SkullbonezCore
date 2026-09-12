@@ -7,6 +7,7 @@
 #include "../Replay/ReplayVisualPacketFingerprint.h"
 
 #include <algorithm>
+#include <bit>
 #include <span>
 #include <vector>
 
@@ -570,6 +571,52 @@ Json BuildRenderGeometryEvidence( const ReplayVisualPacket& packet )
              { "spanMismatch", spanMismatch ? spanMismatch : "" } };
 }
 
+Json BuildPathGeometryEvidence( const ReplayVisualPacket& packet, bool secondary )
+{
+    uint64_t hash = 14695981039346656037ull;
+    uint64_t count = 0;
+    bool red = true;
+    bool blue = true;
+    const auto append = [&]( std::span<const float> records )
+    {
+        for ( std::size_t index = 0; index + 19u <= records.size(); index += 19u )
+        {
+            ++count;
+            red = red && records[index + 7u] == 1.0f && records[index + 8u] == 0.12f && records[index + 9u] == 0.12f;
+            blue = blue && records[index + 7u] == 0.12f && records[index + 8u] == 0.42f && records[index + 9u] == 1.0f;
+            for ( std::size_t component = 0; component < 19u; ++component )
+            {
+                // Colour and opacity may change; every geometric and style
+                // component, including neighbouring points, must stay exact.
+                if ( component < 7u || component > 10u )
+                {
+                    hash ^= std::bit_cast<uint32_t>( records[index + component] );
+                    hash *= 1099511628211ull;
+                }
+            }
+        }
+    };
+    if ( secondary )
+    {
+        append( packet.retainedSecondaryOrdinaryRecords );
+        append( packet.retainedSecondaryPriorityRecords );
+    }
+    else
+    {
+        for ( const auto lane : { Rendering::RetainedGeometryLane::Ordinary, Rendering::RetainedGeometryLane::Priority } )
+        {
+            for ( const auto& range : packet.retainedPredictionRibbonRanges )
+            {
+                if ( range.lane == lane )
+                {
+                    append( packet.retainedPredictionCompactRibbonRecords.subspan( range.firstRecord * 19u, range.recordCount * 19u ) );
+                }
+            }
+        }
+    }
+    return { { "records", count }, { "geometryHash", hash }, { "allRed", count > 0u && red }, { "allBlue", count > 0u && blue } };
+}
+
 Json BuildVisualPacket( const ReplayAutomationView& replay, SkarnessStateDetail detail )
 {
     const ReplayVisualPacket& packet = replay.visualPacket;
@@ -607,6 +654,11 @@ Json BuildVisualPacket( const ReplayAutomationView& replay, SkarnessStateDetail 
     AddFloatBuffer( payload, "retainedRibbonVertices", packet.retainedPredictionRibbonVertices, detail );
     AddFloatBuffer( payload, "retainedPriorityRibbonVertices", packet.retainedPredictionPriorityRibbonVertices, detail );
     AddFloatBuffer( payload, "retainedCompactRecords", packet.retainedPredictionCompactRibbonRecords, detail );
+    AddFloatBuffer( payload, "originalOrdinaryRecords", packet.retainedSecondaryOrdinaryRecords, detail );
+    AddFloatBuffer( payload, "originalPriorityRecords", packet.retainedSecondaryPriorityRecords, detail );
+    payload["originalStreamId"] = packet.retainedSecondaryStreamId;
+    payload["originalPath"] = BuildPathGeometryEvidence( packet, true );
+    payload["activePath"] = BuildPathGeometryEvidence( packet, false );
     if ( detail == SkarnessStateDetail::Full )
     {
         Json ranges = Json::array();

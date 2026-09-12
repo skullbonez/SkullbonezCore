@@ -63,12 +63,14 @@ namespace Runtime
 class EditorTracer;
 class SceneEntityStore;
 struct ReplayPredictionPresentationRetainedState;
+struct ReplayOriginalPathGeometry;
 
 struct ReplayPredictionPresentationMemoryStats
 {
     uint64_t ghostRequestCapacityBytes = 0;
     uint64_t focusModelMaskCapacityBytes = 0;
     uint64_t ghostRequestCount = 0;
+    uint64_t originalPathCapacityBytes = 0;
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats trajectory;
 };
 
@@ -128,7 +130,8 @@ class ReplayPredictionPresentation
                               const Physics::PhysicsBodyStore& bodyStore,
                               const Physics::ColliderStore& colliderStore,
                               const RunReplayPredictionFrame& frame );
-    bool PrepareDivergenceGeometry( const ReplayPredictionPresentationView& red, const ReplayPredictionPresentationView& blue, const Core::ReplayTrajectoryAppearanceConfig& appearance );
+    bool CaptureOriginalPathGeometry();
+    void ClearOriginalPathGeometry();
     bool
     BuildDivergenceGhosts( const RunReplayPredictionFrame& blueFrame, std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords, const Physics::PhysicsBodyStore& bodyStore );
     bool BuildGhostDrawRequests( const ReplayPredictionPresentationView& prediction, std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords, const Physics::PhysicsBodyStore& bodyStore );
@@ -180,9 +183,7 @@ class ReplayPredictionPresentation
     void ResetTrajectorySubmissionWindow() noexcept;
 
     // Lifetime: startup-bound diagnostics borrow; never retained by worker work.
-    bool m_divergenceGeometry = false;
-    std::size_t m_divergenceRedFrameCount = 0;
-    uint32_t m_divergenceRedGeneration = 0;
+    std::unique_ptr<ReplayOriginalPathGeometry> m_originalPathGeometry;
     Core::Profiler* m_profiler;
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats m_trajectoryVisualStats;
     ReplayTrajectorySubmissionProbeStats m_trajectorySubmissionProbe;

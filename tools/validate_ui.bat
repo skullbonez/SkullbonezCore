@@ -21,7 +21,7 @@ if errorlevel 1 exit /b 3
 "%PYTHON_EXE%" "%~dp0validate_skarness_causal_playback.py" --session "%REPO%\TestOutput\skarness\ui-gate-causal-%RANDOM%"
 if errorlevel 1 exit /b 3
 
-for %%t in (velocity_pointer velocity_divergence editor_velocity velocity_path_capacity scrubber_autohide header_autohide tools_diagnostics floating_diagnostics docked_navigation ui_themes ui_side_panels ui_panel_transitions unified_compact_tools_ui unified_editor_ui unified_options_keys_ui unified_physics_ui) do (
+for %%t in (velocity_pointer velocity_divergence velocity_reveal editor_velocity velocity_path_capacity scrubber_autohide header_autohide tools_diagnostics floating_diagnostics docked_navigation ui_themes ui_side_panels ui_panel_transitions unified_compact_tools_ui unified_editor_ui unified_options_keys_ui unified_physics_ui) do (
     call :native_case %%t
     if errorlevel 1 exit /b 4
 )

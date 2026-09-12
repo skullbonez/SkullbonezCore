@@ -162,13 +162,13 @@ void RenderReplayVisualPacket( const ReplayVisualPacket& packet, const Matrix4& 
     {
         renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionRibbonVertices,
                                                    retainedStream,
-                                                   false,
+                                                   Rendering::RetainedRibbonInput::ExpandedOrdinary,
                                                    viewProjection,
                                                    Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
                                                    REPLAY_RIBBON_DEPTH_HINT_RASTER );
         renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionRibbonVertices,
                                                    retainedStream,
-                                                   false,
+                                                   Rendering::RetainedRibbonInput::ExpandedOrdinary,
                                                    viewProjection,
                                                    Rendering::TransientTriangleStyle::InstancedRibbon,
                                                    REPLAY_RIBBON_VISIBLE_RASTER );
@@ -178,13 +178,47 @@ void RenderReplayVisualPacket( const ReplayVisualPacket& packet, const Matrix4& 
     {
         renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionPriorityRibbonVertices,
                                                    retainedStream,
-                                                   true,
+                                                   Rendering::RetainedRibbonInput::ExpandedPriority,
                                                    viewProjection,
                                                    Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
                                                    REPLAY_RIBBON_DEPTH_HINT_RASTER );
         renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionPriorityRibbonVertices,
                                                    retainedStream,
-                                                   true,
+                                                   Rendering::RetainedRibbonInput::ExpandedPriority,
+                                                   viewProjection,
+                                                   Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                   REPLAY_RIBBON_VISIBLE_RASTER );
+    }
+
+    // Lifetime: the frozen stream uses the separate per-lane storage; active ranges use the compact arena.
+    const Rendering::RetainedGeometryStreamToken secondaryStream = { packet.retainedSecondaryStreamId, 1u };
+    if ( !packet.retainedSecondaryOrdinaryRecords.empty() )
+    {
+        renderCommands.DrawRetainedGeometryRibbon( packet.retainedSecondaryOrdinaryRecords,
+                                                   secondaryStream,
+                                                   Rendering::RetainedRibbonInput::CompactOrdinary,
+                                                   viewProjection,
+                                                   Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                   REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        renderCommands.DrawRetainedGeometryRibbon( packet.retainedSecondaryOrdinaryRecords,
+                                                   secondaryStream,
+                                                   Rendering::RetainedRibbonInput::CompactOrdinary,
+                                                   viewProjection,
+                                                   Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                   REPLAY_RIBBON_VISIBLE_RASTER );
+    }
+
+    if ( !packet.retainedSecondaryPriorityRecords.empty() )
+    {
+        renderCommands.DrawRetainedGeometryRibbon( packet.retainedSecondaryPriorityRecords,
+                                                   secondaryStream,
+                                                   Rendering::RetainedRibbonInput::CompactPriority,
+                                                   viewProjection,
+                                                   Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                   REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        renderCommands.DrawRetainedGeometryRibbon( packet.retainedSecondaryPriorityRecords,
+                                                   secondaryStream,
+                                                   Rendering::RetainedRibbonInput::CompactPriority,
                                                    viewProjection,
                                                    Rendering::TransientTriangleStyle::InstancedRibbon,
                                                    REPLAY_RIBBON_VISIBLE_RASTER );

@@ -39,7 +39,9 @@ inline constexpr const char* REPLAY_PREDICTION_RESERVE_OWNER = "replay_predictio
 // the original's spare evidence bank. Each additional-owner generation releases
 // its superseded diagnostics and reserves both path banks before optional
 // evidence capture. Original committed evidence stays intact; neither the cap
-// nor the Replay-only growth privilege expands.
+// nor the Replay-only growth privilege expands. App's optional Original path
+// snapshot shares this registration and cap; its at-most 27,000 compact records
+// are allocated on the first changed vector and released on accept/cancel.
 inline constexpr int REPLAY_PREDICTION_RESERVE_HARD_BYTES = 960 * 1024 * 1024;
 
 inline constexpr ReplayGrowthOwnerPolicy REPLAY_PREDICTION_GROWTH_OWNER_POLICY { REPLAY_PREDICTION_RESERVE_OWNER,
@@ -47,4 +49,16 @@ inline constexpr ReplayGrowthOwnerPolicy REPLAY_PREDICTION_GROWTH_OWNER_POLICY {
                                                                                  REPLAY_PREDICTION_RESERVE_HARD_BYTES,
                                                                                  653016512u,
                                                                                  ReplayGrowthExhaustionRule::CancelPredictionBuild };
+namespace ReplayPredictionReserveOperations
+{
+SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() noexcept;
+bool RequestReplayPredictionReserveGrowth( const char* targetName,
+                                           int frameNumber,
+                                           int oldCapacityBytes,
+                                           int requestedCapacityBytes,
+                                           int elementSizeBytes,
+                                           SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult& outResult,
+                                           uint64_t allocationBytes = 0u ) noexcept;
+
+} // namespace ReplayPredictionReserveOperations
 } // namespace SkullbonezCore::Runtime

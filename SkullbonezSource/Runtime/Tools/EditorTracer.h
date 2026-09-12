@@ -59,6 +59,8 @@ class EditorTracer
         float emphasis = 0.0f;
     };
 
+    Math::Vector::Vector3 m_uniformTint = Math::Vector::ZERO_VECTOR;
+    bool m_uniformTintEnabled = false;
     ReplayRibbonStyle m_replayPathStyle = { 1.25f, 1.0f, 1.0f, 0.0f };
     ReplayRibbonStyle m_replayCausalStyle = { 1.25f, 1.0f, 1.0f, 0.0f };
     ReplayRibbonStyle m_replayBaselineStyle = { 1.0f, 1.0f, 1.0f, 0.0f };
@@ -137,6 +139,14 @@ class EditorTracer
   public:
     explicit EditorTracer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );
 
+    void SetRibbonTint( const Math::Vector::Vector3* tint ) noexcept
+    {
+        m_uniformTintEnabled = tint != nullptr;
+        if ( tint )
+        {
+            m_uniformTint = *tint;
+        }
+    }
     bool SetPredictionOutlineVisibility( bool blueVisible, bool greyVisible ) noexcept;
     bool SetReplayTrajectoryAppearance( const SkullbonezCore::Core::ReplayTrajectoryAppearanceConfig& appearance );
     void Clear();

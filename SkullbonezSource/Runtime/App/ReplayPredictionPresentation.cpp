@@ -22,6 +22,7 @@ Related:
 #include "ReplayPredictionPresentation.h"
 
 #include "../../Core/Profiler.h"
+#include "../Prediction/ReplayPredictionRetainedMemory.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Rendering/RenderInstanceStore.h"
@@ -30,6 +31,17 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
+// Lifetime: allocated only at the first changed vector, retained unchanged until
+// accept/cancel. Positions, widths and adjacency are copied from displayed records.
+// Invariant: both lanes and their stream identity are immutable during comparison;
+// validate_velocity_reveal checks exact geometry through reveals and repeated edits.
+struct ReplayOriginalPathGeometry
+{
+    std::vector<float> ordinary;
+    std::vector<float> priority;
+    uint64_t streamId = 0;
+};
+
 struct ReplayPredictionPresentationRetainedState
 {
     ReplayOverlay::ReplayPredictionRetainedGeometry geometry;
@@ -193,6 +205,10 @@ ReplayPredictionPresentationMemoryStats ReplayPredictionPresentation::CollectMem
     stats.ghostRequestCapacityBytes = VectorCapacityBytes( m_ghostDrawRequests );
     stats.focusModelMaskCapacityBytes = VectorCapacityBytes( m_focusModelMask );
     stats.ghostRequestCount = static_cast<uint64_t>( m_ghostDrawRequests.size() );
+    if ( m_originalPathGeometry )
+    {
+        stats.originalPathCapacityBytes = sizeof( ReplayOriginalPathGeometry ) + VectorCapacityBytes( m_originalPathGeometry->ordinary ) + VectorCapacityBytes( m_originalPathGeometry->priority );
+    }
     stats.trajectory = m_trajectoryVisualStats;
     return stats;
 }
@@ -556,12 +572,6 @@ bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList( const Replay
         return false;
     }
 
-    if ( m_divergenceGeometry )
-    {
-        m_retainedState->drawList.Reset();
-        m_retainedState->geometry.Clear();
-        m_divergenceGeometry = false;
-    }
     const ReplayOverlay::ReplayPredictionDrawListUpdate
         drawListUpdate = ReplayOverlay::UpdateReplayPredictionDrawList( prediction, path, entities, colliderStore, m_retainedState->geometry, m_retainedMarkerDrawList, m_retainedState->drawList );
 
@@ -575,7 +585,10 @@ bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList( const Replay
         m_retainedDrawPacketDirty = true;
     }
 
+    const Math::Vector::Vector3 modifiedTint { 1.0f, 0.12f, 0.12f };
+    frameTracer.SetRibbonTint( m_originalPathGeometry ? &modifiedTint : nullptr );
     ReplayOverlay::AppendReplayPredictionProvisionalTails( prediction, path, m_retainedState->drawList, colliderStore, m_retainedState->geometry.InspectionFocus(), frameTracer );
+    frameTracer.SetRibbonTint( nullptr );
 
     m_retainedRenderingActive = m_retainedState->drawList.valid;
     return m_retainedRenderingActive;
@@ -584,6 +597,12 @@ bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList( const Replay
 
 void ReplayPredictionPresentation::AttachRetainedPredictionGeometry( ReplayVisualPacket& packet, const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp )
 {
+    if ( m_originalPathGeometry )
+    {
+        packet.retainedSecondaryOrdinaryRecords = m_originalPathGeometry->ordinary;
+        packet.retainedSecondaryPriorityRecords = m_originalPathGeometry->priority;
+        packet.retainedSecondaryStreamId = m_originalPathGeometry->streamId;
+    }
     if ( !m_retainedRenderingActive )
     {
         return;
@@ -787,79 +806,89 @@ void ReplayPredictionPresentation::RecordTrajectoryRebuildCause( SkullbonezCore:
     }
 }
 
-namespace
+bool ReplayPredictionPresentation::CaptureOriginalPathGeometry()
 {
-const RunReplayPredictionBodySample* DivergenceBody( const RunReplayPredictionFrame& frame, const RunReplayPredictionBodySample& identity )
-{
-    const auto row = static_cast<std::size_t>( identity.modelRow.value );
-    if ( row < frame.bodies.size() && frame.bodies[row].id == identity.id )
+    if ( m_originalPathGeometry )
     {
-        return &frame.bodies[row];
+        return true;
     }
-    const auto found = std::find_if( frame.bodies.begin(), frame.bodies.end(), [&]( const auto& body ) { return body.id == identity.id; } );
-    return found == frame.bodies.end() ? nullptr : &*found;
-}
-
-void AppendDivergencePaths( ReplayOverlay::ReplayPredictionRetainedGeometry& geometry, std::span<const RunReplayPredictionFrame> frames, bool blue )
-{
-    if ( frames.size() < 2 || frames.front().bodies.empty() )
+    using namespace Core::Allocation;
+    using namespace ReplayPredictionReserveOperations;
+    // The existing registered owner accounts for this optional snapshot as well
+    // as both simulation owners. No allocation occurs when merely showing handles.
+    constexpr uint64_t bytes = sizeof( ReplayOriginalPathGeometry ) + ReplayOverlay::PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY * sizeof( float ) + 1024u;
+    RuntimeReserveGrowthResult result;
+    if ( !RequestReplayPredictionReserveGrowth( "Original displayed path snapshot", 0, 0, static_cast<int>( bytes ), 1, result, bytes ) )
     {
-        return;
+        return false;
     }
-    // Each branch receives half the existing renderer budget. Sampling affects
-    // ribbons only; both owners retain every simulation frame for scrubbing.
-    const std::size_t budget = ReplayOverlay::PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY / 2u;
-    const std::size_t perBody = (std::max)( std::size_t { 1 }, budget / frames.front().bodies.size() );
-    const std::size_t stride = (std::max)( std::size_t { 1 }, ( frames.size() - 1u + perBody - 1u ) / perBody );
-    // Invariant: comparisons share one range per branch. Per-body ranges would
-    // exhaust the 4,096 range slots before both paths cover a full scene.
-    const std::size_t range = geometry.BeginRange( blue ? 1u : 2u, blue ? 1u : 2u, false, budget, blue ? 0u : 1u );
-    for ( const auto& identity : frames.front().bodies )
+    RuntimeReserveAllocationScope allocation( ReplayPredictionReserveOwner(), RuntimeReservePhase::Replay, result );
+    auto original = std::make_unique<ReplayOriginalPathGeometry>();
+    constexpr std::size_t stride = ReplayOverlay::PREDICTION_TRAJECTORY_FLOATS_PER_RECORD;
+    original->ordinary.reserve( ReplayOverlay::PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY * stride );
+    original->priority.reserve( ReplayOverlay::PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY * stride );
+    const auto& packet = m_publishedVisualPacket;
+    for ( const auto& range : packet.retainedPredictionRibbonRanges )
     {
-        const auto* previous = &identity;
-        for ( std::size_t index = (std::min)( stride, frames.size() - 1u );; index = (std::min)( index + stride, frames.size() - 1u ) )
+        auto& destination = range.lane == Rendering::RetainedGeometryLane::Priority ? original->priority : original->ordinary;
+        const auto records = packet.retainedPredictionCompactRibbonRecords.subspan( range.firstRecord * stride, range.recordCount * stride );
+        destination.insert( destination.end(), records.begin(), records.end() );
+    }
+    // Preserve the displayed interpolated heads as well as sealed records.
+    // Expanded ribbons repeat one camera-neutral record for each triangle vertex.
+    const auto appendTails = []( std::vector<float>& destination, std::span<const float> vertices )
+    {
+        for ( std::size_t index = 0; index + 6u * stride <= vertices.size(); index += 6u * stride )
         {
-            const auto* current = DivergenceBody( frames[index], identity );
-            if ( current && previous )
-            {
-                if ( blue )
-                {
-                    geometry.AddBaselinePathSegment( range, previous->position, current->position, 0.12f, 0.42f, 1.0f, 0.55f );
-                }
-                else
-                {
-                    geometry.AddPathSegment( range, previous->position, current->position, 1.0f, 0.12f, 0.12f, Core::MainMemoryReplayTrajectoryLane::FutureRoot );
-                }
-            }
-            previous = current;
-            if ( index + 1u == frames.size() )
+            if ( destination.size() + stride > destination.capacity() )
             {
                 break;
             }
+            destination.insert( destination.end(), vertices.begin() + index, vertices.begin() + index + stride );
+        }
+    };
+    appendTails( original->ordinary, packet.expandedRibbonVertices );
+    appendTails( original->priority, packet.priorityExpandedRibbonVertices );
+    for ( auto* records : { &original->ordinary, &original->priority } )
+    {
+        for ( std::size_t index = 0; index < records->size(); index += stride )
+        {
+            ( *records )[index + 7u] = 0.12f;
+            ( *records )[index + 8u] = 0.42f;
+            ( *records )[index + 9u] = 1.0f;
+            ( *records )[index + 10u] *= 0.55f;
         }
     }
-}
-} // namespace
-
-bool ReplayPredictionPresentation::PrepareDivergenceGeometry( const ReplayPredictionPresentationView& red, const ReplayPredictionPresentationView& blue, const Core::ReplayTrajectoryAppearanceConfig& appearance )
-{
-    const bool appearanceChanged = m_retainedState->geometry.SetAppearance( appearance );
-    if ( !m_divergenceGeometry || appearanceChanged || m_divergenceRedFrameCount != red.timeline.frames.size() || m_divergenceRedGeneration != red.timeline.generation )
-    {
-        m_retainedState->geometry.Clear();
-        m_retainedState->geometry.SetInspectionFocus( {} );
-        m_retainedState->drawList.Reset();
-        m_retainedMarkerDrawList.Clear();
-        AppendDivergencePaths( m_retainedState->geometry, blue.timeline.frames, true );
-        AppendDivergencePaths( m_retainedState->geometry, red.timeline.frames, false );
-        m_divergenceRedFrameCount = red.timeline.frames.size();
-        m_divergenceRedGeneration = red.timeline.generation;
-        m_retainedDrawPacketDirty = true;
-        ++m_retainedDrawStreamId;
-    }
-    m_divergenceGeometry = true;
-    m_retainedRenderingActive = true;
+    original->streamId = ++m_retainedDrawStreamId;
+    m_originalPathGeometry = std::move( original );
+    m_retainedState->geometry.Clear();
+    const Math::Vector::Vector3 modifiedTint { 1.0f, 0.12f, 0.12f };
+    m_retainedState->geometry.SetRibbonTint( &modifiedTint );
+    m_retainedState->drawList.Reset();
+    m_retainedMarkerDrawList.Clear();
+    m_retainedDrawPacketDirty = true;
+    m_retainedRenderingActive = false;
+    ++m_retainedDrawStreamId;
     return true;
+}
+
+void ReplayPredictionPresentation::ClearOriginalPathGeometry()
+{
+    if ( !m_originalPathGeometry )
+    {
+        return;
+    }
+    m_publishedVisualPacket.retainedSecondaryOrdinaryRecords = {};
+    m_publishedVisualPacket.retainedSecondaryPriorityRecords = {};
+    m_publishedVisualPacket.retainedSecondaryStreamId = 0;
+    m_originalPathGeometry.reset();
+    m_retainedState->geometry.SetRibbonTint( nullptr );
+    m_retainedState->geometry.Clear();
+    m_retainedState->drawList.Reset();
+    m_retainedMarkerDrawList.Clear();
+    m_retainedDrawPacketDirty = true;
+    m_retainedRenderingActive = false;
+    ++m_retainedDrawStreamId;
 }
 
 bool ReplayPredictionPresentation::BuildDivergenceGhosts( const RunReplayPredictionFrame& blueFrame, std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords, const Physics::PhysicsBodyStore& bodyStore )

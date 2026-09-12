@@ -80,14 +80,14 @@ bool ReplayRuntime::BeginVelocityDivergence( Physics::PhysicsEngine& physics )
     // The second owner uses the same registered, capped prediction allocator.
     const auto settings = Prediction().PresentationView();
     auto replacement = Prediction().CreateAdditionalOwner( m_resultDiagnostics );
-    if ( !replacement )
+    if ( !replacement || !m_predictionPresentation.CaptureOriginalPathGeometry() )
     {
         return false;
     }
     ReplayPrediction& modified = *replacement;
     modified.ApplyDetailModeCommand( { settings.diagnostics.detailMode } );
     modified.SetHorizonSeconds( settings.controls.horizonSeconds );
-    modified.SetRevealRatePreservingCursor( settings.controls.revealSecondsPerSecond );
+    modified.SetRevealRatePreservingCursor( (std::min)( settings.controls.revealSecondsPerSecond, 1.0 ) );
     // The first changed vector allocates the comparison; simulation waits for release.
     modified.SetGenerationPermitted( false );
     modified.SetEnabled( true );
@@ -155,6 +155,7 @@ bool ReplayRuntime::AcceptVelocityDivergence( Physics::PhysicsEngine& physics, b
         }
         m_prediction.swap( m_bluePrediction );
     }
+    m_predictionPresentation.ClearOriginalPathGeometry();
     m_bluePrediction.reset();
     m_planningOwner.VelocityDivergence() = {};
     m_authoring.ResetVelocityEdit();
@@ -211,6 +212,7 @@ void ReplayRuntime::ClearVelocityDivergence()
         // Restore the stock production policy before reusing the red owner.
         Prediction().SetGenerationPermitted( m_bluePrediction->GenerationPermitted() );
     }
+    m_predictionPresentation.ClearOriginalPathGeometry();
     m_bluePrediction.reset();
     m_planningOwner.VelocityDivergence() = {};
 }

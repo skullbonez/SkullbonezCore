@@ -211,7 +211,7 @@
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h",
       "patterns": [
         "{\"symbol\":\"ReserveReplayPredictionFramePayloadVectors\",\"before\":[\"for ( std::size_t i = 0; i < requestedFrameCount; ++i )\",\"{\"],\"statement\":\"( frames[i].*member ).reserve( requestedCapacityPerFrame );\",\"after\":[\"}\",\"return true;\"]}",
-        "{\"symbol\":\"ReserveReplayPredictionVector\",\"before\":[\"SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope\",\"allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );\"],\"statement\":\"values.reserve( requestedCapacity );\",\"after\":[\"return requestedCapacity <= values.capacity();\",\"}\"]}"
+        "{\"symbol\":\"ReserveReplayPredictionVector\",\"before\":[\"const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();\",\"SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );\"],\"statement\":\"values.reserve( requestedCapacity );\",\"after\":[\"return requestedCapacity <= values.capacity();\",\"}\"]}"
       ],
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
@@ -317,8 +317,8 @@
     {
       "path": "SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp",
       "patterns": [
-        "{\"symbol\":\"DrawReplayPredictionVisualizer\",\"before\":[\"{\",\"ReplayPredictionRetainedGeometry::ReplayPredictionRetainedGeometry()\"],\"statement\":\": m_records( std::make_unique<float[]>( PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY ) ),\",\"after\":[\"m_baseAlphas( std::make_unique<float[]>( PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY +\",\"PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY ) )\"]}",
-        "{\"symbol\":\"DrawReplayPredictionVisualizer\",\"before\":[\"ReplayPredictionRetainedGeometry::ReplayPredictionRetainedGeometry()\",\": m_records( std::make_unique<float[]>( PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY ) ),\"],\"statement\":\"m_baseAlphas( std::make_unique<float[]>( PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY +\",\"after\":[\"PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY ) )\",\"{\"]}"
+        "{\"symbol\":\"DrawReplayPredictionVisualizer\",\"before\":[\"{\",\"ReplayPredictionRetainedGeometry::ReplayPredictionRetainedGeometry()\"],\"statement\":\": m_records( std::make_unique<float[]>( PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY ) ),\",\"after\":[\"m_baseAlphas( std::make_unique<float[]>( PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY + PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY ) )\",\"{\"]}",
+        "{\"symbol\":\"DrawReplayPredictionVisualizer\",\"before\":[\"ReplayPredictionRetainedGeometry::ReplayPredictionRetainedGeometry()\",\": m_records( std::make_unique<float[]>( PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY ) ),\"],\"statement\":\"m_baseAlphas( std::make_unique<float[]>( PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY + PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY ) )\",\"after\":[\"{\",\"}\"]}"
       ],
       "owner": "ReplayPrediction retained ribbon record arena",
       "phase": "startup",
@@ -1449,7 +1449,7 @@
         "{\"symbol\":\"EditorTracer::EditorTracer\",\"before\":[\"m_replayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY );\",\"m_priorityReplayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY );\"],\"statement\":\"m_cachedReplayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY );\",\"after\":[\"m_cachedPriorityReplayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY );\",\"m_replayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_VERTEX_FLOAT_CAPACITY );\"]}",
         "{\"symbol\":\"EditorTracer::EditorTracer\",\"before\":[\"{\",\"m_lineData.reserve( EDITOR_TRACER_LINE_FLOAT_CAPACITY );\"],\"statement\":\"m_priorityLineData.reserve( EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );\",\"after\":[\"m_renderLineData.reserve( EDITOR_TRACER_LINE_FLOAT_CAPACITY + EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );\",\"m_replayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY );\"]}",
         "{\"symbol\":\"EditorTracer::EmitLineTo\",\"before\":[\"return;\",\"}\"],\"statement\":\"lineData.insert( lineData.end(), { a.x, a.y, a.z, r, g, bl, b.x, b.y, b.z, r, g, bl } );\",\"after\":[\"++m_replayGeometryRevision;\",\"}\"]}",
-        "{\"symbol\":\"EditorTracer::EmitReplayRibbonSegmentTo\",\"before\":[\"++m_replayTrajectoryStats.emittedSegments[laneIndex];\",\"}\"],\"statement\":\"ribbonData.push_back( a.x );\",\"after\":[\"ribbonData.push_back( a.y );\",\"ribbonData.push_back( a.z );\"]}",
+        "{\"symbol\":\"EditorTracer::EmitReplayRibbonSegmentTo\",\"before\":[\"bl = m_uniformTint.z;\",\"}\"],\"statement\":\"ribbonData.push_back( a.x );\",\"after\":[\"ribbonData.push_back( a.y );\",\"ribbonData.push_back( a.z );\"]}",
         "{\"symbol\":\"EditorTracer::EmitReplayRibbonSegmentTo\",\"before\":[\"ribbonData.push_back( a.x );\",\"ribbonData.push_back( a.y );\"],\"statement\":\"ribbonData.push_back( a.z );\",\"after\":[\"ribbonData.push_back( b.x );\",\"ribbonData.push_back( b.y );\"]}",
         "{\"symbol\":\"EditorTracer::EmitReplayRibbonSegmentTo\",\"before\":[\"ribbonData.push_back( a.y );\",\"ribbonData.push_back( a.z );\"],\"statement\":\"ribbonData.push_back( b.x );\",\"after\":[\"ribbonData.push_back( b.y );\",\"ribbonData.push_back( b.z );\"]}",
         "{\"symbol\":\"EditorTracer::EmitReplayRibbonSegmentTo\",\"before\":[\"ribbonData.push_back( a.z );\",\"ribbonData.push_back( b.x );\"],\"statement\":\"ribbonData.push_back( b.y );\",\"after\":[\"ribbonData.push_back( b.z );\",\"ribbonData.push_back( r );\"]}",
@@ -2849,7 +2849,8 @@
         "{\"symbol\":\"BuildVisualPacket\",\"before\":[\"for ( const ReplayPredictionGhostDrawRequest& ghost : packet.ghostRequests )\",\"{\"],\"statement\":\"ghosts.push_back( { { \\\"modelRow\\\", ghost.modelRow.value },\",\"after\":[\"{ , Vec3( ghost.position ) },\",\"{ , Quaternion( ghost.orientation ) },\"]}",
         "{\"symbol\":\"BuildPositionGates\",\"before\":[\"for ( const auto& gate : gates )\",\"{\"],\"statement\":\"rows.push_back( { { \\\"sceneObjectId\\\", gate.sceneObjectId }, { \\\"frame\\\", gate.frame }, { \\\"center\\\", gate.center }, { \\\"visible\\\", gate.visible } } );\",\"after\":[\"}\",\"return rows;\"]}",
         "{\"symbol\":\"BuildDivergenceFrame\",\"before\":[\"for ( const auto& body : frame->bodies )\",\"{\"],\"statement\":\"bodies.push_back( { { \\\"id\\\", body.id.value }, { \\\"modelRow\\\", body.modelRow.value }, { \\\"position\\\", Vec3( body.position ) }, { \\\"velocity\\\", Vec3( body.linearVelocity ) } } );\",\"after\":[\"}\",\"}\"]}",
-        "{\"symbol\":\"BuildDivergence\",\"before\":[\"for ( const auto& ghost : replay.divergenceGhosts )\",\"{\"],\"statement\":\"ghosts.push_back( { { \\\"modelRow\\\", ghost.modelRow.value }, { \\\"position\\\", Vec3( ghost.position ) }, { \\\"tint\\\", { ghost.tintR, ghost.tintG, ghost.tintB } }, { \\\"alpha\\\", ghost.alpha } } );\",\"after\":[\"}\",\"return { { , replay.divergenceAllocatedBytes },\"]}"
+        "{\"symbol\":\"BuildDivergence\",\"before\":[\"for ( const auto& ghost : replay.divergenceGhosts )\",\"{\"],\"statement\":\"ghosts.push_back( { { \\\"modelRow\\\", ghost.modelRow.value }, { \\\"position\\\", Vec3( ghost.position ) }, { \\\"tint\\\", { ghost.tintR, ghost.tintG, ghost.tintB } }, { \\\"alpha\\\", ghost.alpha } } );\",\"after\":[\"}\",\"return { { , replay.divergenceAllocatedBytes },\"]}",
+        "{\"symbol\":\"BuildVisualPacket\",\"before\":[\"for ( const auto& range : packet.retainedPredictionRibbonRanges )\",\"{\"],\"statement\":\"ranges.push_back( { { \\\"identity\\\", range.identity }, { \\\"firstRecord\\\", range.firstRecord }, { \\\"recordCount\\\", range.recordCount } } );\",\"after\":[\"}\",\"payload[ ] = std::move( ranges );\"]}"
       ],
       "owner": "Skarness diagnostic snapshot serialization",
       "phase": "Diagnostics",
@@ -3106,6 +3107,22 @@
       "reason": "Modify Velocity reserves the additional owner's path banks before optional solver evidence. ReserveRecords succeeds before resizing this already-reserved outer vector; nested points use the existing ReserveRecordPoints registered growth scope. Dormant slots do not change the visible publication. Unit tests verify the reserve and no-growth append sequence.",
       "cap": "Existing 960 MiB shared owner limit; horizon-bounded point count and six records per visible body plus root/past slots. No new allocation phase or registration.",
       "removal_or_wrapper_plan": "Retain the capacity-checked trajectory store operation; no general gameplay growth permission.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/App/ReplayPredictionPresentation.cpp",
+      "patterns": [
+        "{\"symbol\":\"ReplayPredictionPresentation::CaptureOriginalPathGeometry\",\"before\":[\"}\",\"RuntimeReserveAllocationScope allocation( ReplayPredictionReserveOwner(), RuntimeReservePhase::Replay, result );\"],\"statement\":\"auto original = std::make_unique<ReplayOriginalPathGeometry>();\",\"after\":[\"constexpr std::size_t stride = ReplayOverlay::PREDICTION_TRAJECTORY_FLOATS_PER_RECORD;\",\"original->ordinary.reserve( ReplayOverlay::PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY * stride );\"]}",
+        "{\"symbol\":\"ReplayPredictionPresentation::CaptureOriginalPathGeometry\",\"before\":[\"auto original = std::make_unique<ReplayOriginalPathGeometry>();\",\"constexpr std::size_t stride = ReplayOverlay::PREDICTION_TRAJECTORY_FLOATS_PER_RECORD;\"],\"statement\":\"original->ordinary.reserve( ReplayOverlay::PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY * stride );\",\"after\":[\"original->priority.reserve( ReplayOverlay::PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY * stride );\",\"const auto& packet = m_publishedVisualPacket;\"]}",
+        "{\"symbol\":\"ReplayPredictionPresentation::CaptureOriginalPathGeometry\",\"before\":[\"constexpr std::size_t stride = ReplayOverlay::PREDICTION_TRAJECTORY_FLOATS_PER_RECORD;\",\"original->ordinary.reserve( ReplayOverlay::PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY * stride );\"],\"statement\":\"original->priority.reserve( ReplayOverlay::PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY * stride );\",\"after\":[\"const auto& packet = m_publishedVisualPacket;\",\"for ( const auto& range : packet.retainedPredictionRibbonRanges )\"]}",
+        "{\"symbol\":\"ReplayPredictionPresentation::CaptureOriginalPathGeometry\",\"before\":[\"auto& destination = range.lane == Rendering::RetainedGeometryLane::Priority ? original->priority : original->ordinary;\",\"const auto records = packet.retainedPredictionCompactRibbonRecords.subspan( range.firstRecord * stride, range.recordCount * stride );\"],\"statement\":\"destination.insert( destination.end(), records.begin(), records.end() );\",\"after\":[\"}\",\"const auto appendTails = []( std::vector<float>& destination, std::span<const float> vertices )\"]}",
+        "{\"symbol\":\"ReplayPredictionPresentation::CaptureOriginalPathGeometry\",\"before\":[\"break;\",\"}\"],\"statement\":\"destination.insert( destination.end(), vertices.begin() + index, vertices.begin() + index + stride );\",\"after\":[\"}\",\"};\"]}"
+      ],
+      "owner": "replay_prediction_working_set Original displayed path snapshot",
+      "phase": "Replay",
+      "reason": "The first changed velocity allocates a frozen copy of displayed geometry after RequestReplayPredictionReserveGrowth and inside RuntimeReserveAllocationScope. Both vectors reserve their fixed lane capacity before bounded copies. Checkbox-only and normal drawing do not allocate this snapshot.",
+      "cap": "One optional snapshot with 24000 ordinary and 3000 priority compact records; shares the existing 960 MiB registered prediction cap and counters. Released on accept, cancel or scene replacement.",
+      "removal_or_wrapper_plan": "Keep the allocation scoped to the optional Original path lifetime; replace with an equivalent capped arena if presentation storage changes.",
       "match_mode": "exact_finding"
     }
   ]

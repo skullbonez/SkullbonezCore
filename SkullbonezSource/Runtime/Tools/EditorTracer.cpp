@@ -620,6 +620,12 @@ void EditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData,
         ++m_replayTrajectoryStats.emittedSegments[laneIndex];
     }
 
+    if ( m_uniformTintEnabled )
+    {
+        r = m_uniformTint.x;
+        g = m_uniformTint.y;
+        bl = m_uniformTint.z;
+    }
     // Runtime allocation policy: replay ribbon storage is reserved during
     // tracer construction. Explicit appends keep the steady-gameplay path
     // inside that fixed budget.
