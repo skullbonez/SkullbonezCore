@@ -36,19 +36,21 @@ class BLAS
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     ID3D12Resource* m_scratch;
     ID3D12Resource* m_result;
+    D3D12_RAYTRACING_GEOMETRY_DESC m_geometry = {};
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS m_buildFlags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
 
   public:
     explicit BLAS( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );
     ~BLAS();
 
-    SkullbonezCore::Core::SbResult Build( ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList,
-                                          D3D12_GPU_VIRTUAL_ADDRESS vbVA, int vertexCount, int vertexStride,
-                                          DXGI_FORMAT vertexPosFormat, bool preferFastTrace );
+    SkullbonezCore::Core::SbResult
+    Build( ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, D3D12_GPU_VIRTUAL_ADDRESS vbVA, int vertexCount, int vertexStride, DXGI_FORMAT vertexPosFormat, bool preferFastTrace );
     D3D12_GPU_VIRTUAL_ADDRESS GetResultVA() const;
 
     // Release the temporary build workspace while keeping the finished BLAS
     // result buffer alive for TLAS instances and ray traversal.
     void ReleaseAfterBuild();
+    bool Rebuild( ID3D12GraphicsCommandList4* commandList );
     void Reset();
 };
 } // namespace Rendering

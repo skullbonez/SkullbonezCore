@@ -2,6 +2,7 @@
 // angular cone policy. Linear point joints are solved by the shared constraint
 // transaction; this file does not own its velocity iteration or warm cache.
 #include "Ragdoll.h"
+#include <array>
 
 #include "../Core/Common.h"
 #include "../Maths/DeterministicMath.h"
@@ -55,22 +56,21 @@ void AppendPreviewLine( std::vector<float>& lineData, const Vector3& a, const Ve
     lineData.insert( lineData.end(), { a.x, a.y, a.z, r, g, bl, b.x, b.y, b.z, r, g, bl } );
 }
 
-void AppendPreviewBox( std::vector<float>& lineData, const Vector3& center, const RotationMatrix& rotation,
-                       const Vector3& halfExtents, float r, float g, float b )
+void AppendPreviewBox( std::vector<float>& lineData, const Vector3& center, const RotationMatrix& rotation, const Vector3& halfExtents, float r, float g, float b )
 {
     const Vector3 xAxis = rotation * Vector3( halfExtents.x, 0.0f, 0.0f );
     const Vector3 yAxis = rotation * Vector3( 0.0f, halfExtents.y, 0.0f );
     const Vector3 zAxis = rotation * Vector3( 0.0f, 0.0f, halfExtents.z );
-    const Vector3 corners[8] = {
-        center - xAxis - yAxis - zAxis, center + xAxis - yAxis - zAxis, center + xAxis + yAxis - zAxis,
-        center - xAxis + yAxis - zAxis, center - xAxis - yAxis + zAxis, center + xAxis - yAxis + zAxis,
-        center + xAxis + yAxis + zAxis, center - xAxis + yAxis + zAxis,
-    };
+    const Vector3 corners[8] = { center - xAxis - yAxis - zAxis,
+                                 center + xAxis - yAxis - zAxis,
+                                 center + xAxis + yAxis - zAxis,
+                                 center - xAxis + yAxis - zAxis,
+                                 center - xAxis - yAxis + zAxis,
+                                 center + xAxis - yAxis + zAxis,
+                                 center + xAxis + yAxis + zAxis,
+                                 center - xAxis + yAxis + zAxis, };
 
-    constexpr int edges[12][2] = {
-        { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 }, { 4, 5 }, { 5, 6 },
-        { 6, 7 }, { 7, 4 }, { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 },
-    };
+    constexpr int edges[12][2] = { { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 }, { 4, 5 }, { 5, 6 }, { 6, 7 }, { 7, 4 }, { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 }, };
 
     for ( const auto& edge : edges )
     {
@@ -109,8 +109,7 @@ float Ragdoll::SurfaceEpsilon()
 }
 
 
-bool Ragdoll::TryBuildNeckSwingCorrection( float rawDot, const Vector3& correctionCross, const Vector3& fallbackAxis,
-                                           Vector3& outCorrectionAxis, float& outCorrectionAngle ) noexcept
+bool Ragdoll::TryBuildNeckSwingCorrection( float rawDot, const Vector3& correctionCross, const Vector3& fallbackAxis, Vector3& outCorrectionAxis, float& outCorrectionAngle ) noexcept
 {
     // Invariant: roundoff may move a dot just outside [-1, 1]. Clamp before
     // deterministic Atan2 so both endpoint domains remain finite and explicit.
@@ -147,60 +146,174 @@ bool Ragdoll::TryBuildNeckSwingCorrection( float rawDot, const Vector3& correcti
 }
 
 
-const RagdollPartDesc* Ragdoll::SimpleParts()
+const RagdollPartDesc* Ragdoll::SimpleParts( RagdollPose pose )
 {
     // Invariant: this table order is the prefab body index order and is paired
     // with SimpleJoints plus SIMPLE_PART_COUNT.
-    static const RagdollPartDesc parts[PART_COUNT] = {
-        { SIMPLE_PART_SUFFIXES[PART_TORSO], Vector3( 0.0f, 12.8f, 0.0f ), Vector3( 2.2f, 3.2f, 1.1f ), 0.18f, 0.62f, 0.72f,
-          1.0f },
-        { SIMPLE_PART_SUFFIXES[PART_HEAD], Vector3( 0.0f, 17.25f, 0.0f ), Vector3( 1.2f, 1.2f, 1.2f ), 0.15f, 0.95f, 0.82f,
-          0.58f },
-        { SIMPLE_PART_SUFFIXES[PART_LEFT_UPPER_ARM], Vector3( -3.0f, 13.8f, 0.0f ), Vector3( 0.65f, 2.2f, 0.65f ), 0.14f,
-          0.42f, 0.50f, 0.90f },
-        { SIMPLE_PART_SUFFIXES[PART_LEFT_LOWER_ARM], Vector3( -3.0f, 9.4f, 0.0f ), Vector3( 0.58f, 2.2f, 0.58f ), 0.14f,
-          0.42f, 0.50f, 0.90f },
-        { SIMPLE_PART_SUFFIXES[PART_RIGHT_UPPER_ARM], Vector3( 3.0f, 13.8f, 0.0f ), Vector3( 0.65f, 2.2f, 0.65f ), 0.14f,
-          0.42f, 0.50f, 0.90f },
-        { SIMPLE_PART_SUFFIXES[PART_RIGHT_LOWER_ARM], Vector3( 3.0f, 9.4f, 0.0f ), Vector3( 0.58f, 2.2f, 0.58f ), 0.14f,
-          0.42f, 0.50f, 0.90f },
-        { SIMPLE_PART_SUFFIXES[PART_LEFT_UPPER_LEG], Vector3( -0.85f, 7.2f, 0.0f ), Vector3( 0.8f, 2.4f, 0.75f ), 0.12f,
-          0.36f, 0.42f, 0.80f },
-        { SIMPLE_PART_SUFFIXES[PART_LEFT_LOWER_LEG], Vector3( -0.85f, 2.4f, 0.0f ), Vector3( 0.72f, 2.4f, 0.72f ), 0.12f,
-          0.36f, 0.42f, 0.80f },
-        { SIMPLE_PART_SUFFIXES[PART_RIGHT_UPPER_LEG], Vector3( 0.85f, 7.2f, 0.0f ), Vector3( 0.8f, 2.4f, 0.75f ), 0.12f,
-          0.36f, 0.42f, 0.80f },
-        { SIMPLE_PART_SUFFIXES[PART_RIGHT_LOWER_LEG], Vector3( 0.85f, 2.4f, 0.0f ), Vector3( 0.72f, 2.4f, 0.72f ), 0.12f,
-          0.36f, 0.42f, 0.80f },
-    };
+    static const RagdollPartDesc parts[PART_COUNT] = { { SIMPLE_PART_SUFFIXES[PART_TORSO], Vector3( 0.0f, 12.8f, 0.0f ), Vector3( 2.2f, 3.2f, 1.1f ), 0.18f, 0.62f, 0.72f, 1.0f },
+                                                       { SIMPLE_PART_SUFFIXES[PART_HEAD],
+                                                                                                                                                                                     Vector3( 0.0f, 17.25f, 0.0f ),
+                                                                                                                                                                                     Vector3( 1.2f, 1.2f, 1.2f ),
+                                                                                                                                                                                     0.15f,
+                                                                                                                                                                                     0.95f,
+                                                                                                                                                                                     0.82f,
+                                                                                                                                                                                     0.58f },
+                                                       { SIMPLE_PART_SUFFIXES[PART_LEFT_UPPER_ARM],
+                                                                                                                                                                                                Vector3( -3.0f, 13.8f, 0.0f ),
+                                                                                                                                                                                                Vector3( 0.65f, 2.2f, 0.65f ),
+                                                                                                                                                                                                0.14f,
+                                                                                                                                                                                                0.42f,
+                                                                                                                                                                                                0.50f,
+                                                                                                                                                                                                0.90f },
+                                                       { SIMPLE_PART_SUFFIXES[PART_LEFT_LOWER_ARM],
+                                                                                                                                                                                                           Vector3( -3.0f, 9.4f, 0.0f ),
+                                                                                                                                                                                                           Vector3( 0.58f, 2.2f, 0.58f ),
+                                                                                                                                                                                                           0.14f,
+                                                                                                                                                                                                           0.42f,
+                                                                                                                                                                                                           0.50f,
+                                                                                                                                                                                                           0.90f },
+                                                       { SIMPLE_PART_SUFFIXES[PART_RIGHT_UPPER_ARM],
+                                                                                                                                                                                                                      Vector3( 3.0f, 13.8f, 0.0f ),
+                                                                                                                                                                                                                      Vector3( 0.65f, 2.2f, 0.65f ),
+                                                                                                                                                                                                                      0.14f,
+                                                                                                                                                                                                                      0.42f,
+                                                                                                                                                                                                                      0.50f,
+                                                                                                                                                                                                                      0.90f },
+                                                       { SIMPLE_PART_SUFFIXES[PART_RIGHT_LOWER_ARM],
+                                                                                                                                                                                                                                 Vector3( 3.0f, 9.4f, 0.0f ),
+                                                                                                                                                                                                                                 Vector3( 0.58f, 2.2f, 0.58f ),
+                                                                                                                                                                                                                                 0.14f,
+                                                                                                                                                                                                                                 0.42f,
+                                                                                                                                                                                                                                 0.50f,
+                                                                                                                                                                                                                                 0.90f },
+                                                       { SIMPLE_PART_SUFFIXES[PART_LEFT_UPPER_LEG],
+                                                                                                                                                                                                                                            Vector3( -0.85f, 7.2f, 0.0f ),
+                                                                                                                                                                                                                                            Vector3( 0.8f, 2.4f, 0.75f ),
+                                                                                                                                                                                                                                            0.12f,
+                                                                                                                                                                                                                                            0.36f,
+                                                                                                                                                                                                                                            0.42f,
+                                                                                                                                                                                                                                            0.80f },
+                                                       { SIMPLE_PART_SUFFIXES[PART_LEFT_LOWER_LEG],
+                                                                                                                                                                                                                                                       Vector3( -0.85f, 2.4f, 0.0f ),
+                                                                                                                                                                                                                                                       Vector3( 0.72f, 2.4f, 0.72f ),
+                                                                                                                                                                                                                                                       0.12f,
+                                                                                                                                                                                                                                                       0.36f,
+                                                                                                                                                                                                                                                       0.42f,
+                                                                                                                                                                                                                                                       0.80f },
+                                                       { SIMPLE_PART_SUFFIXES[PART_RIGHT_UPPER_LEG],
+                                                                                                                                                                                                                                                                  Vector3( 0.85f, 7.2f, 0.0f ),
+                                                                                                                                                                                                                                                                  Vector3( 0.8f, 2.4f, 0.75f ),
+                                                                                                                                                                                                                                                                  0.12f,
+                                                                                                                                                                                                                                                                  0.36f,
+                                                                                                                                                                                                                                                                  0.42f,
+                                                                                                                                                                                                                                                                  0.80f },
+                                                       { SIMPLE_PART_SUFFIXES[PART_RIGHT_LOWER_LEG],
+                                                                                                                                                                                                                                                                             Vector3( 0.85f, 2.4f, 0.0f ),
+                                                                                                                                                                                                                                                                             Vector3( 0.72f, 2.4f, 0.72f ),
+                                                                                                                                                                                                                                                                             0.12f,
+                                                                                                                                                                                                                                                                             0.36f,
+                                                                                                                                                                                                                                                                             0.42f,
+                                                                                                                                                                                                                                                                             0.80f }, };
 
-    return parts;
+    // Concept: these boxes are symmetric about their local axes. Reflecting arm
+    // centers about the shoulder endpoint raises them without rotating the boxes;
+    // SimpleJoints reflects their local anchors by the same rule.
+    static const auto oneArm = [&]
+    {
+        std::array<RagdollPartDesc, PART_COUNT> raised;
+        std::copy_n( parts, PART_COUNT, raised.begin() );
+        raised[PART_LEFT_UPPER_ARM].localCenter.y = 32.0f - parts[PART_LEFT_UPPER_ARM].localCenter.y;
+        raised[PART_LEFT_LOWER_ARM].localCenter.y = 32.0f - parts[PART_LEFT_LOWER_ARM].localCenter.y;
+        return raised;
+    }();
+    static const auto bothArms = [&]
+    {
+        auto raised = oneArm;
+        raised[PART_RIGHT_UPPER_ARM].localCenter.y = 32.0f - parts[PART_RIGHT_UPPER_ARM].localCenter.y;
+        raised[PART_RIGHT_LOWER_ARM].localCenter.y = 32.0f - parts[PART_RIGHT_LOWER_ARM].localCenter.y;
+        return raised;
+    }();
+    return pose == RagdollPose::OneArmRaised ? oneArm.data() : pose == RagdollPose::BothArmsRaised ? bothArms.data() : parts;
 }
 
 
-const RagdollJointDesc* Ragdoll::SimpleJoints( int& outCount )
+const RagdollJointDesc* Ragdoll::SimpleJoints( int& outCount, RagdollPose pose )
 {
-    static const RagdollJointDesc joints[] = {
-        { PART_TORSO, PART_HEAD, Vector3( 0.0f, 3.2f, 0.0f ), Vector3( 0.0f, -1.2f, 0.0f ), 0.28f,
-          PointJointConstraint::FLAG_LIMIT_NECK_SWING },
-        { PART_TORSO, PART_LEFT_UPPER_ARM, Vector3( -2.2f, 2.25f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.35f, 0 },
-        { PART_LEFT_UPPER_ARM, PART_LEFT_LOWER_ARM, Vector3( 0.0f, -2.2f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.30f, 0 },
-        { PART_TORSO, PART_RIGHT_UPPER_ARM, Vector3( 2.2f, 2.25f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.35f, 0 },
-        { PART_RIGHT_UPPER_ARM, PART_RIGHT_LOWER_ARM, Vector3( 0.0f, -2.2f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.30f, 0 },
-        { PART_TORSO, PART_LEFT_UPPER_LEG, Vector3( -0.85f, -3.2f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.35f, 0 },
-        { PART_LEFT_UPPER_LEG, PART_LEFT_LOWER_LEG, Vector3( 0.0f, -2.4f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.30f, 0 },
-        { PART_TORSO, PART_RIGHT_UPPER_LEG, Vector3( 0.85f, -3.2f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.35f, 0 },
-        { PART_RIGHT_UPPER_LEG, PART_RIGHT_LOWER_LEG, Vector3( 0.0f, -2.4f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.30f, 0 },
-    };
+    static const RagdollJointDesc joints[] = { { PART_TORSO, PART_HEAD, Vector3( 0.0f, 3.2f, 0.0f ), Vector3( 0.0f, -1.2f, 0.0f ), 0.28f, PointJointConstraint::FLAG_LIMIT_NECK_SWING },
+                                               { PART_TORSO,
+                                                                                                                                                                                           PART_LEFT_UPPER_ARM,
+                                                                                                                                                                                           Vector3( -2.2f, 2.25f, 0.0f ),
+                                                                                                                                                                                           Vector3( 0.0f, 2.2f, 0.0f ),
+                                                                                                                                                                                           0.35f,
+                                                                                                                                                                                           0 },
+                                               { PART_LEFT_UPPER_ARM,
+                                                                                                                                                                                                  PART_LEFT_LOWER_ARM,
+                                                                                                                                                                                                  Vector3( 0.0f, -2.2f, 0.0f ),
+                                                                                                                                                                                                  Vector3( 0.0f, 2.2f, 0.0f ),
+                                                                                                                                                                                                  0.30f,
+                                                                                                                                                                                                  0 },
+                                               { PART_TORSO,
+                                                                                                                                                                                                         PART_RIGHT_UPPER_ARM,
+                                                                                                                                                                                                         Vector3( 2.2f, 2.25f, 0.0f ),
+                                                                                                                                                                                                         Vector3( 0.0f, 2.2f, 0.0f ),
+                                                                                                                                                                                                         0.35f,
+                                                                                                                                                                                                         0 },
+                                               { PART_RIGHT_UPPER_ARM,
+                                                                                                                                                                                                                PART_RIGHT_LOWER_ARM,
+                                                                                                                                                                                                                Vector3( 0.0f, -2.2f, 0.0f ),
+                                                                                                                                                                                                                Vector3( 0.0f, 2.2f, 0.0f ),
+                                                                                                                                                                                                                0.30f,
+                                                                                                                                                                                                                0 },
+                                               { PART_TORSO,
+                                                                                                                                                                                                                       PART_LEFT_UPPER_LEG,
+                                                                                                                                                                                                                       Vector3( -0.85f, -3.2f, 0.0f ),
+                                                                                                                                                                                                                       Vector3( 0.0f, 2.4f, 0.0f ),
+                                                                                                                                                                                                                       0.35f,
+                                                                                                                                                                                                                       0 },
+                                               { PART_LEFT_UPPER_LEG,
+                                                                                                                                                                                                                              PART_LEFT_LOWER_LEG,
+                                                                                                                                                                                                                              Vector3( 0.0f, -2.4f, 0.0f ),
+                                                                                                                                                                                                                              Vector3( 0.0f, 2.4f, 0.0f ),
+                                                                                                                                                                                                                              0.30f,
+                                                                                                                                                                                                                              0 },
+                                               { PART_TORSO,
+                                                                                                                                                                                                                                     PART_RIGHT_UPPER_LEG,
+                                                                                                                                                                                                                                     Vector3( 0.85f, -3.2f, 0.0f ),
+                                                                                                                                                                                                                                     Vector3( 0.0f, 2.4f, 0.0f ),
+                                                                                                                                                                                                                                     0.35f,
+                                                                                                                                                                                                                                     0 },
+                                               { PART_RIGHT_UPPER_LEG,
+                                                                                                                                                                                                                                            PART_RIGHT_LOWER_LEG,
+                                                                                                                                                                                                                                            Vector3( 0.0f, -2.4f, 0.0f ),
+                                                                                                                                                                                                                                            Vector3( 0.0f, 2.4f, 0.0f ),
+                                                                                                                                                                                                                                            0.30f,
+                                                                                                                                                                                                                                            0 }, };
 
     outCount = static_cast<int>( sizeof( joints ) / sizeof( joints[0] ) );
-    return joints;
+    static const auto oneArm = [&]
+    {
+        std::array<RagdollJointDesc, 9> raised;
+        std::copy_n( joints, 9, raised.begin() );
+        raised[1].localAnchorB.y *= -1.0f;
+        raised[2].localAnchorA.y *= -1.0f;
+        raised[2].localAnchorB.y *= -1.0f;
+        return raised;
+    }();
+    static const auto bothArms = [&]
+    {
+        auto raised = oneArm;
+        raised[3].localAnchorB.y *= -1.0f;
+        raised[4].localAnchorA.y *= -1.0f;
+        raised[4].localAnchorB.y *= -1.0f;
+        return raised;
+    }();
+    return pose == RagdollPose::OneArmRaised ? oneArm.data() : pose == RagdollPose::BothArmsRaised ? bothArms.data() : joints;
 }
 
 
-Vector3 Ragdoll::DefaultPreviewCenter( const Vector3& terrainPoint, float scale, const Quaternion& orientation )
+Vector3 Ragdoll::DefaultPreviewCenter( const Vector3& terrainPoint, float scale, const Quaternion& orientation, RagdollPose pose )
 {
-    const RagdollPartDesc* parts = SimpleParts();
+    const RagdollPartDesc* parts = SimpleParts( pose );
     float minY = FLT_MAX;
     float maxY = -FLT_MAX;
 
@@ -216,10 +329,9 @@ Vector3 Ragdoll::DefaultPreviewCenter( const Vector3& terrainPoint, float scale,
     return terrainPoint + rotation * Vector3( 0.0f, ( minY + maxY ) * 0.5f * clampedScale, 0.0f );
 }
 
-void Ragdoll::AddPreviewLines( std::vector<float>& lineData, const Vector3& terrainPoint, float scale,
-                               const Quaternion& orientation, float r, float g, float b )
+void Ragdoll::AddPreviewLines( std::vector<float>& lineData, const Vector3& terrainPoint, float scale, const Quaternion& orientation, float r, float g, float b, RagdollPose pose )
 {
-    const RagdollPartDesc* parts = SimpleParts();
+    const RagdollPartDesc* parts = SimpleParts( pose );
     Quaternion q = orientation;
     const RotationMatrix rotation = q.GetOrientationMatrix();
     const float clampedScale = ClampScale( scale );
@@ -227,14 +339,12 @@ void Ragdoll::AddPreviewLines( std::vector<float>& lineData, const Vector3& terr
 
     for ( int i = 0; i < PART_COUNT; ++i )
     {
-        AppendPreviewBox( lineData, base + rotation * ScaleVector( parts[i].localCenter, clampedScale ), rotation,
-                          ScaleVector( parts[i].halfExtents, clampedScale ), r, g, b );
+        AppendPreviewBox( lineData, base + rotation * ScaleVector( parts[i].localCenter, clampedScale ), rotation, ScaleVector( parts[i].halfExtents, clampedScale ), r, g, b );
     }
 }
 
 
-bool Ragdoll::ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> constraints,
-                                    std::span<const uint8_t> sleepState )
+bool Ragdoll::ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> constraints, std::span<const uint8_t> sleepState )
 {
     const PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
     const int modelCount = bodyStore.Count();
@@ -277,8 +387,7 @@ bool Ragdoll::ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore, std::span<const
         Vector3 correctionAxis;
         float correctionAngle = 0.0f;
 
-        if ( !Ragdoll::TryBuildNeckSwingCorrection( rawDot, correctionCross, fallbackAxis, correctionAxis,
-                                                    correctionAngle ) )
+        if ( !Ragdoll::TryBuildNeckSwingCorrection( rawDot, correctionCross, fallbackAxis, correctionAxis, correctionAngle ) )
         {
             continue;
         }

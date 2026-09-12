@@ -38,7 +38,7 @@ Related:
 //
 //  The dynamic VB layer maps vertex attributes to HLSL semantics as:
 //    attrib[0] → POSITION    attrib[1] → TEXCOORD0    attrib[2] → TEXCOORD1
-//  so the color float3 uses TEXCOORD1 (not COLOR) to match that convention.
+//  so the color float4 uses TEXCOORD1 (not COLOR) to match that convention.
 //
 // Docs: https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-packing-rules
 // =============================================================================
@@ -69,7 +69,7 @@ struct VS_IN
 {
     float2 position : POSITION;   // 2D screen position
     float2 texCoord : TEXCOORD0;  // UV into font atlas
-    float3 color    : TEXCOORD1;  // Per-vertex RGB — baked at batch-build time
+    float4 color    : TEXCOORD1;  // Per-vertex RGBA — baked at batch-build time
                                   // (DX dynamic VB maps attrib[2] to TEXCOORD1)
 };
 
@@ -77,7 +77,7 @@ struct VS_OUT
 {
     float4 position : SV_POSITION;  // Screen-space output for rasterizer
     float2 texCoord : TEXCOORD0;    // UV for pixel shader to sample
-    float3 color    : TEXCOORD1;    // Forwarded to pixel shader
+    float4 color    : TEXCOORD1;    // Forwarded to pixel shader
 };
 
 VS_OUT main_vs(VS_IN input)
@@ -103,5 +103,5 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float sdf   = fontTexture.Sample(sSampler0, input.texCoord).r;
     float fw    = (abs(ddx(sdf)) + abs(ddy(sdf))) * 0.7;
     float alpha = smoothstep(0.5 - fw, 0.5 + fw, sdf);
-    return float4(input.color, alpha);
+    return float4(input.color.rgb, alpha * input.color.a);
 }

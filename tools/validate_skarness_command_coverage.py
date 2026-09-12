@@ -9,6 +9,9 @@ from pathlib import Path
 import subprocess
 import sys
 import uuid
+import time
+
+from validate_skarness_prediction_matrix import ReplayStateReader
 
 from skarness import SkarnessConnection
 
@@ -16,6 +19,7 @@ from skarness import SkarnessConnection
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_SCENE = REPO / "SkullbonezData" / "scenes" / "interaction_replay_prediction_harness.scene.json"
 EXPECTED_COMMANDS = {
+    "editor.set_terrain_brush", "scene.save",
     "capabilities.get", "session.stop", "capture.screenshot", "scene.load", "scene.reset", "scene.load_demo",
     "scene.object.list", "scene.object.resolve", "scene.object.select", "scene.object.clear_selection", "run.pause",
     "run.resume", "run.step", "run.step_frames", "run.until", "replay.set_recording_enabled",
@@ -33,7 +37,10 @@ EXPECTED_COMMANDS = {
     "replay.trip_plan", "replay.trip_commit", "replay.trip_cancel", "prediction.forecast_start",
     "prediction.forecast_reset", "prediction.forecast_stop", "prediction.select_target", "replay.set_path_target",
     "camera.orbit_inspection", "state.subscribe", "input.pointer_drag", "input.pointer_wheel", "input.set_arrows", "input.set_movement",
-    "input.set_prediction_key",
+    "input.set_prediction_key", "physics.speculative_validation",
+    # UI migration routes are exercised by the native unified UI control suites.
+    "input.file_dialog_response", "input.pointer_position", "window.resize", "input.set_focus", "input.set_key",
+    "ui.animation_clock",
     "comparison.setting", "comparison.step", "comparison.mode", "comparison.state", "comparison.seek",
     "comparison.select", "comparison.camera", "comparison.event", "comparison.focus", "comparison.finding.load",
     "comparison.loop", "comparison.next_difference", "comparison.finding.save", "comparison.close",
@@ -115,10 +122,31 @@ def validate_routes(connection: SkarnessConnection, output: Path) -> None:
     require_applied(connection, "replay.set_intercept_target", {"sceneObjectId": object_id})
     require_applied(connection, "replay.set_prediction_enabled", {"enabled": True})
     require_applied(connection, "replay.set_prediction_detail", {"highDetail": True})
+    require_applied(connection, "prediction.select_target", {"sceneObjectId": object_id})
+    require_applied(connection, "state.subscribe", {"topics": [], "detail": "normal"})
+    reader = ReplayStateReader(output / "runtime.skarness.ndjson")
+    deadline = time.monotonic() + 90
+    while time.monotonic() < deadline:
+        require_applied(connection, "run.step_frames", {"count": 2})
+        observed = reader.latest()["payload"]
+        if observed["predictionComplete"] and observed["publishedPredictionFrames"] > 2:
+            break
+    else:
+        raise RuntimeError("stock prediction did not complete before velocity comparison")
     require_applied(connection, "replay.set_velocity_edit_enabled", {"enabled": True})
+    deadline = time.monotonic() + 90
+    while time.monotonic() < deadline:
+        require_applied(connection, "run.step_frames", {"count": 2})
+        if reader.latest()["payload"]["divergence"]["active"]:
+            break
+    else:
+        raise RuntimeError("velocity comparison did not become active")
     require_applied(connection, "replay.velocity_preview", {"linear": [0.0, 0.0, 0.0], "angular": [0.0, 0.0, 0.0]})
     require_applied(connection, "replay.velocity_cancel")
     require_applied(connection, "scene.object.clear_selection", {"scope": "inspect"})
+    # A canceled drag still leaves the two-future choice open; reset this fixture
+    # before testing unrelated replay settings.
+    require_applied(connection, "scene.reset")
 
     numeric = [
         ("replay.set_retention_seconds", {"seconds": 45}, "seconds", 45),
@@ -180,9 +208,12 @@ def main() -> int:
     try:
         validate_catalog(connection)
         validate_routes(connection, session)
-        require_applied(connection, "session.stop")
     finally:
-        connection.close()
+        # Failed assertions must also release the owned native session.
+        try:
+            require_applied(connection, "session.stop")
+        finally:
+            connection.close()
     print(f"PASS: Skarness command catalog and shared routes ({session})")
     return 0
 

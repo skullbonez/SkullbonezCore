@@ -97,10 +97,10 @@ bool PhysicsSleepController::CanRestoreReplayState( const PhysicsSolverSnapshot&
     }
 
     const std::size_t bodyRows = static_cast<std::size_t>( modelCount );
-#define REQUIRE_SLEEP_BODY_ROWS( snapshotField, ownerField )                                                                \
-    if ( snapshot.snapshotField.size() != bodyRows || snapshot.snapshotField.size() > ownerField.capacity() )               \
-    {                                                                                                                       \
-        return false;                                                                                                       \
+#define REQUIRE_SLEEP_BODY_ROWS( snapshotField, ownerField )                                                                                                                                           \
+    if ( snapshot.snapshotField.size() != bodyRows || snapshot.snapshotField.size() > ownerField.capacity() )                                                                                          \
+    {                                                                                                                                                                                                  \
+        return false;                                                                                                                                                                                  \
     }
 
     REQUIRE_SLEEP_BODY_ROWS( sleepSupportedThisFrame, m_sleepSupportedThisFrame )
@@ -128,8 +128,7 @@ bool PhysicsSleepController::CanRestoreReplayState( const PhysicsSolverSnapshot&
 
     for ( const auto& edge : snapshot.sleepSupportEdges )
     {
-        if ( edge.first < 0 || edge.first >= modelCount || edge.second < 0 || edge.second >= modelCount ||
-             edge.first == edge.second )
+        if ( edge.first < 0 || edge.first >= modelCount || edge.second < 0 || edge.second >= modelCount || edge.first == edge.second )
         {
             return false;
         }
@@ -164,9 +163,7 @@ void PhysicsSleepController::RestoreReplayState( const PhysicsSolverSnapshot& sn
     m_sleepPoseAnchors.clear();
     for ( std::size_t index = 0; index < snapshot.sleepPoseAnchorPosition.size(); ++index )
     {
-        m_sleepPoseAnchors.push_back( PhysicsSleepPoseAnchor { snapshot.sleepPoseAnchorPosition[index],
-                                                               snapshot.sleepPoseAnchorOrientation[index],
-                                                               snapshot.sleepPoseAnchorValid[index] } );
+        m_sleepPoseAnchors.push_back( PhysicsSleepPoseAnchor { snapshot.sleepPoseAnchorPosition[index], snapshot.sleepPoseAnchorOrientation[index], snapshot.sleepPoseAnchorValid[index] } );
     }
     RestoreList( snapshot.underwaterSleepLocked, m_underwaterSleepLocked );
     RestoreList( snapshot.sleepIslandVisualId, m_sleepIslandVisualId );
@@ -174,8 +171,7 @@ void PhysicsSleepController::RestoreReplayState( const PhysicsSolverSnapshot& sn
 
     // Invariant: replay restore is a cold copy, but it still may not enlarge a
     // hot owner beyond the same scene-committed support-edge ceiling.
-    ValidateSleepSupportEdgeCount( snapshot.sleepSupportEdges.size(), m_sleepSupportEdges.capacity(),
-                                   m_sleepSupportEdges.size(), "replay_restore" );
+    ValidateSleepSupportEdgeCount( snapshot.sleepSupportEdges.size(), m_sleepSupportEdges.capacity(), m_sleepSupportEdges.size(), "replay_restore" );
 
     RestoreList( snapshot.sleepSupportEdges, m_sleepSupportEdges );
     RestoreList( snapshot.sleepIslandParent, m_sleepIslandParent );
@@ -186,14 +182,16 @@ void PhysicsSleepController::RestoreReplayState( const PhysicsSolverSnapshot& sn
     RestoreList( snapshot.sleepIslandCanSleep, m_sleepIslandCanSleep );
     m_nextSleepIslandVisualId = snapshot.nextSleepIslandVisualId;
     m_sleepEnabled = snapshot.sleepEnabled;
+    // Body pose restore invalidates dense topology before this solver snapshot
+    // is applied. Its validated counters and anchors now replace that history;
+    // the deferred topology reset must not erase them on the next replay tick.
+    m_resetDenseSleepHistoryForBodyTopologyChange = false;
     m_pendingConstraintWakeBodyCount = 0;
     m_awakeListNeedsRebuild = true;
     m_simulationIslands.Invalidate();
 }
 
-void PhysicsSleepController::RestoreSimulationIslandTopology( const PhysicsBodyStore& bodyStore,
-                                                              std::span<const PersistentContact> persistentContacts,
-                                                              std::span<const PointJointConstraint> pointJointConstraints )
+void PhysicsSleepController::RestoreSimulationIslandTopology( const PhysicsBodyStore& bodyStore, std::span<const PersistentContact> persistentContacts, std::span<const PointJointConstraint> pointJointConstraints )
 {
     // Invariant: the contact solver and point-joint owner have already restored
     // their authoritative rows. Seed the persistent island owner from those

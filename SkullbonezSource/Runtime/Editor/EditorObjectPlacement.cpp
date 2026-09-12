@@ -87,30 +87,30 @@ void ApplyEditorSpawnMaterial( SceneEntityCreateDesc& model, bool fixedObject, b
 }
 } // namespace
 
-PhysicsColliderCreateDesc MakeEditorColliderDesc( CollisionShape shape, float restitution,
-                                                  HullShapeIdentity hullIdentity = {} )
+PhysicsColliderCreateDesc MakeEditorColliderDesc( CollisionShape shape, float restitution, HullShapeIdentity hullIdentity = {} )
 {
     // Why: placement commit already owns the primitive geometry selected by the
     // editor. Pass that value into physics at append time so the collider store
     // receives exact shape facts without a legacy object record readback.
-    return MakeColliderCreateDesc( std::move( shape ), restitution, HashStr( "default" ), nullptr,
-                                   std::move( hullIdentity ) );
+    return MakeColliderCreateDesc( std::move( shape ), restitution, HashStr( "default" ), nullptr, std::move( hullIdentity ) );
 }
 
 
-PhysicsBodyCreateDesc MakeEditorBodyDesc( const CollisionShape& shape, const Vector3& position,
-                                          const Quaternion& orientation, const Vector3& linearVelocity,
-                                          const Vector3& angularVelocity, const Vector3& rotationalInertia, float mass,
+PhysicsBodyCreateDesc MakeEditorBodyDesc( const CollisionShape& shape,
+                                          const Vector3& position,
+                                          const Quaternion& orientation,
+                                          const Vector3& linearVelocity,
+                                          const Vector3& angularVelocity,
+                                          const Vector3& rotationalInertia,
+                                          float mass,
                                           float restitution )
 {
-    return MakePhysicsBodyCreateDesc( PhysicsSceneObjectId {}, shape, position, orientation, linearVelocity, angularVelocity,
-                                      rotationalInertia, mass, restitution, PhysicsBodyMotionKind::Dynamic );
+    return MakePhysicsBodyCreateDesc( PhysicsSceneObjectId {}, shape, position, orientation, linearVelocity, angularVelocity, rotationalInertia, mass, restitution, PhysicsBodyMotionKind::Dynamic );
 }
 
 
-static bool TryResolveEditorObjectPlacementPreflight( SceneWorld& world, const Assets::AssetSystem& assets,
-                                                      int activeModelCapacity, EditorObjectPlacementRequest request,
-                                                      int& outType, bool reportErrors )
+static bool
+TryResolveEditorObjectPlacementPreflight( SceneWorld& world, const Assets::AssetSystem& assets, int activeModelCapacity, EditorObjectPlacementRequest request, int& outType, bool reportErrors )
 {
     // Invariant: This preflight is the single capacity and asset-count gate
     // for both CanPlace and Place. Add new multi-part object families here
@@ -121,7 +121,7 @@ static bool TryResolveEditorObjectPlacementPreflight( SceneWorld& world, const A
     const EditorHouseDefinition* house = EditorHouseDefinitionForType( type );
     const EditorBuildingDefinition* building = EditorBuildingDefinitionForType( type );
     const int buildingPartCount = building ? EditorBuildingPartCount( type, assets ) : 0;
-    const bool isRagdollType = type == UI::EditorTab::OBJECT_RAGDOLL || type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
+    const bool isRagdollType = UI::EditorTab::IsRagdollObjectType( type );
 
     if ( building && buildingPartCount <= 0 )
     {
@@ -133,10 +133,7 @@ static bool TryResolveEditorObjectPlacementPreflight( SceneWorld& world, const A
         return false;
     }
 
-    const int requiredModelCount = isRagdollType
-                                       ? Ragdoll::SIMPLE_PART_COUNT
-                                       : ( building ? buildingPartCount
-                                                    : ( house ? house->partCount : ( tree ? tree->partCount : 1 ) ) );
+    const int requiredModelCount = isRagdollType ? Ragdoll::SIMPLE_PART_COUNT : ( building ? buildingPartCount : ( house ? house->partCount : ( tree ? tree->partCount : 1 ) ) );
 
     if ( modelCount + requiredModelCount > activeModelCapacity )
     {
@@ -153,67 +150,189 @@ static bool TryResolveEditorObjectPlacementPreflight( SceneWorld& world, const A
 }
 
 
-bool CanPlaceEditorObjectAtTerrainPoint( SceneWorld& world, const Assets::AssetSystem& assets, int activeModelCapacity,
-                                         EditorObjectPlacementRequest request )
+bool CanPlaceEditorObjectAtTerrainPoint( SceneWorld& world, const Assets::AssetSystem& assets, int activeModelCapacity, EditorObjectPlacementRequest request )
 {
     int type = 0;
     return TryResolveEditorObjectPlacementPreflight( world, assets, activeModelCapacity, request, type, true );
 }
 
 
-bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, RunEditorPlacementState& editor,
-                                      SceneWorld& world, SceneSessionState& scene, const Assets::AssetSystem& assets,
-                                      int activeModelCapacity, EditorObjectPlacementRequest request,
-                                      EditorObjectPlacementResult& outResult )
+namespace
 {
-    int type = 0;
-
-    if ( !TryResolveEditorObjectPlacementPreflight( world, assets, activeModelCapacity, request, type, false ) )
+// Invariant: a placement batch keeps one effective transform and scene-id source
+// for all of its parts, and reports success only after its append operations finish.
+// Lifetime: the owner is synchronous; its scene, recipe and diagnostic borrows
+// expire when PlaceEditorObjectAtTerrainPoint returns. Native placement tests
+// bind the reported object type to all ten ragdoll bodies and their saved joints.
+class EditorObjectPlacementBatch
+{
+  public:
+    EditorObjectPlacementBatch( Core::SbDiagnosticStore& diagnostics,
+                                RunEditorPlacementState& editor,
+                                SceneWorld& world,
+                                SceneSessionState& scene,
+                                const Assets::AssetSystem& assets,
+                                int type,
+                                EditorObjectPlacementRequest request )
+        : m_diagnostics( diagnostics ), m_world( world ), m_scene( scene ), m_assets( assets ), m_type( type ), m_autoTerrainAlign( editor.autoTerrainAlign ),
+          m_placementYawRadians( editor.placementYawRadians )
     {
-        outResult = EditorObjectPlacementResult {};
+        m_modelCount = m_world.SceneEntityCount();
+        m_tree = EditorTreeDefinitionForType( m_type );
+        m_house = EditorHouseDefinitionForType( m_type );
+        m_building = EditorBuildingDefinitionForType( m_type );
+        m_terrainPoint = request.terrainPoint;
+        m_fixedObject = request.fixedObject;
+        m_placementScale = EditorClampPlacementScale( m_type, editor.placementScale );
+        m_serial = editor.placedObjectSerial++;
+        Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
+        Geometry::Terrain* terrain = m_world.Terrain().Get();
 
-        return false;
+        if ( terrain && terrain->IsInBounds( m_terrainPoint.x, m_terrainPoint.z ) )
+        {
+            float ignoredHeight = 0.0f;
+            terrain->GetTerrainHeightAndNormalAt( m_terrainPoint.x, m_terrainPoint.z, ignoredHeight, terrainNormal );
+        }
+
+        m_alignToTerrain = EditorObjectAlignsToTerrainNormal( m_type, editor.autoTerrainAlign );
+        m_placementOrientation = EditorPlacementOrientation( m_type, terrainNormal, editor.autoTerrainAlign, editor.placementYawRadians );
+
+        Quaternion placementOrientationCopy = m_placementOrientation;
+        m_placementRotation = placementOrientationCopy.GetOrientationMatrix();
+        m_placementFixed = m_tree && m_tree->forceFixed ? true : m_fixedObject;
+        m_ragdollStartsAsleep = UI::EditorTab::IsRagdollObjectType( m_type ) && m_type != UI::EditorTab::OBJECT_RAGDOLL;
+        m_modePrefix = m_placementFixed ? "static" : ( ( m_tree && m_tree->seedAsleep ) || ( m_house && m_house->seedAsleep ) || m_building || m_ragdollStartsAsleep ? "sleeping" : "dynamic" );
     }
 
-    const int modelCount = world.SceneEntityCount();
-    const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
-    const EditorHouseDefinition* house = EditorHouseDefinitionForType( type );
-    const EditorBuildingDefinition* building = EditorBuildingDefinitionForType( type );
-    const Vector3& terrainPoint = request.terrainPoint;
-    const bool fixedObject = request.fixedObject;
-    const Vector3 placementScale = EditorClampPlacementScale( type, editor.placementScale );
-    const int serial = editor.placedObjectSerial++;
-    Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
-    Geometry::Terrain* terrain = world.Terrain().Get();
-
-    if ( terrain && terrain->IsInBounds( terrainPoint.x, terrainPoint.z ) )
+    bool Execute( EditorObjectPlacementResult& outResult )
     {
-        float ignoredHeight = 0.0f;
-        terrain->GetTerrainHeightAndNormalAt( terrainPoint.x, terrainPoint.z, ignoredHeight, terrainNormal );
+        switch ( m_type )
+        {
+        case UI::EditorTab::OBJECT_BOX:
+            AddBox();
+            break;
+        case UI::EditorTab::OBJECT_BALL:
+            AddSphere( "ball", m_placementScale.x, 0.45f );
+            break;
+        case UI::EditorTab::OBJECT_SPHERE:
+            AddSphere( "sphere", m_placementScale.x, 0.35f );
+            break;
+        case UI::EditorTab::OBJECT_HULL_WEDGE:
+            AddHull( EditorHullAsset::WEDGE );
+            break;
+        case UI::EditorTab::OBJECT_HULL_TRI_PRISM:
+            AddHull( EditorHullAsset::TRI_PRISM );
+            break;
+        case UI::EditorTab::OBJECT_HULL_TAPERED_BLOCK:
+            AddHull( EditorHullAsset::TAPERED_BLOCK );
+            break;
+        case UI::EditorTab::OBJECT_HULL_PYRAMID:
+            AddHull( EditorHullAsset::PYRAMID );
+            break;
+        case UI::EditorTab::OBJECT_HULL_HEX_PRISM:
+            AddHull( EditorHullAsset::HEX_PRISM );
+            break;
+        case UI::EditorTab::OBJECT_HULL_DIAMOND:
+            AddHull( EditorHullAsset::DIAMOND );
+            break;
+        case UI::EditorTab::OBJECT_ROCK_SLAB:
+            AddHull( EditorHullAsset::ROCK_SLAB_FLAT );
+            break;
+        case UI::EditorTab::OBJECT_ROCK_LUMP:
+            AddHull( EditorHullAsset::ROCK_LUMP_LARGE );
+            break;
+        case UI::EditorTab::OBJECT_ROCK_SHARD:
+            AddHull( EditorHullAsset::ROCK_SHARD_TALL );
+            break;
+        case UI::EditorTab::OBJECT_ROCK_CHIPPED:
+            AddHull( EditorHullAsset::ROCK_CHIPPED_BLOCK );
+            break;
+        case UI::EditorTab::OBJECT_ROOT_SMALL:
+            AddHull( EditorHullAsset::TREE_ROOT_SMALL );
+            break;
+        case UI::EditorTab::OBJECT_ROOT_LARGE:
+            AddHull( EditorHullAsset::TREE_ROOT_LARGE );
+            break;
+        case UI::EditorTab::OBJECT_TREE_SMALL:
+
+            if ( m_tree )
+            {
+                AddTree( *m_tree );
+            }
+
+            break;
+        case UI::EditorTab::OBJECT_TREE_BIG:
+        case UI::EditorTab::OBJECT_TREE_CEDAR:
+        case UI::EditorTab::OBJECT_TREE_SMALL_SLOPE:
+        case UI::EditorTab::OBJECT_TREE_BIG_SLOPE:
+        case UI::EditorTab::OBJECT_TREE_CEDAR_SLOPE:
+        case UI::EditorTab::OBJECT_TREE_SMALL_SLEEP:
+        case UI::EditorTab::OBJECT_TREE_BIG_SLEEP:
+        case UI::EditorTab::OBJECT_TREE_CEDAR_SLEEP:
+        case UI::EditorTab::OBJECT_TREE_SMALL_ROOTED:
+        case UI::EditorTab::OBJECT_TREE_BIG_ROOTED:
+        case UI::EditorTab::OBJECT_TREE_CEDAR_ROOTED:
+        case UI::EditorTab::OBJECT_TREE_PINE_SHEDDING:
+
+            if ( m_tree )
+            {
+                AddTree( *m_tree );
+            }
+
+            break;
+        case UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP:
+        case UI::EditorTab::OBJECT_BRICK_HOUSE_HIGH_SLEEP:
+        case UI::EditorTab::OBJECT_CUTE_HOUSE_SLEEP:
+        case UI::EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP:
+        case UI::EditorTab::OBJECT_TRIPLE_DECKER_SLEEP:
+        case UI::EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP:
+        case UI::EditorTab::OBJECT_BRICK_WALL_200_SLEEP:
+
+            if ( m_building )
+            {
+                AddBuilding( *m_building );
+            }
+
+            break;
+        case UI::EditorTab::OBJECT_RAGDOLL:
+        case UI::EditorTab::OBJECT_RAGDOLL_SLEEP:
+        case UI::EditorTab::OBJECT_RAGDOLL_ONE_ARM_SLEEP:
+        case UI::EditorTab::OBJECT_RAGDOLL_BOTH_ARMS_SLEEP:
+            AddRagdoll();
+            break;
+        default:
+            break;
+        }
+
+        if ( m_appendFailed )
+        {
+            outResult = EditorObjectPlacementResult {};
+            return false;
+        }
+
+        m_scene.modelCount = m_world.SceneEntityCount();
+        const bool placed = m_scene.modelCount > m_modelCount;
+        outResult.placed = placed;
+        outResult.modelCountBefore = m_modelCount;
+        outResult.modelCountAfter = m_scene.modelCount;
+        outResult.placedBody = m_lastPlacedBody;
+
+        if ( placed && m_lastPlacedModelIndex >= 0 )
+        {
+            outResult.placedCollider = m_world.Colliders().HandleForBodyHandle( m_lastPlacedBody );
+        }
+
+        outResult.objectType = m_type;
+        outResult.fixedObject = m_fixedObject;
+        outResult.autoTerrainAlign = m_autoTerrainAlign;
+        outResult.terrainPoint = m_terrainPoint;
+        outResult.placementScale = m_placementScale;
+        outResult.placementYawRadians = m_placementYawRadians;
+        return placed;
     }
 
-    const bool alignToTerrain = EditorObjectAlignsToTerrainNormal( type, editor.autoTerrainAlign );
-    const Quaternion placementOrientation = EditorPlacementOrientation( type, terrainNormal, editor.autoTerrainAlign,
-                                                                        editor.placementYawRadians );
-
-    Quaternion placementOrientationCopy = placementOrientation;
-    const RotationMatrix placementRotation = placementOrientationCopy.GetOrientationMatrix();
-    const bool placementFixed = tree && tree->forceFixed ? true : fixedObject;
-    const bool ragdollStartsAsleep = type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
-    const char* modePrefix = placementFixed ? "static"
-                                            : ( ( tree && tree->seedAsleep ) || ( house && house->seedAsleep ) || building ||
-                                                        ragdollStartsAsleep
-                                                    ? "sleeping"
-                                                    : "dynamic" );
-
-    // Invariant: placement selection preserves the last added row to keep the
-    // existing multi-part object behavior while carrying store-owned identity.
-    Physics::PhysicsBodyHandle lastPlacedBody;
-    int lastPlacedModelIndex = -1;
-    bool appendFailed = false;
-
-    auto addModel = [&]( SceneEntityCreateDesc model, PhysicsBodyCreateDesc bodyDesc, PhysicsColliderCreateDesc colliderDesc,
-                         bool modelFixed, bool modelStartsAsleep = false ) -> bool
+  private:
+    bool AddModel( SceneEntityCreateDesc model, PhysicsBodyCreateDesc bodyDesc, PhysicsColliderCreateDesc colliderDesc, bool modelFixed, bool modelStartsAsleep = false )
     {
         // Lifetime: the transaction publishes the new scene, physics, and
         // render rows together before the returned handle becomes observable.
@@ -221,82 +340,79 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
         // placement result reports only the before/after count.
         if ( bodyDesc.shape.valueless_by_exception() )
         {
-            SB_FATAL( "Runtime/EditorObjectPlacement",
-                      "Cannot place editor object: body collision shape is valueless before scene registration." );
+            SB_FATAL( "Runtime/EditorObjectPlacement", "Cannot place editor object: body collision shape is valueless before scene registration." );
         }
 
         bodyDesc.motionKind = modelFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
 
         if ( !model.sceneObjectId.IsValid() )
         {
-            model.sceneObjectId = scene.AllocateSceneObjectId();
+            model.sceneObjectId = m_scene.AllocateSceneObjectId();
         }
 
-        const int index = world.SceneEntityCount();
-        const auto appendResult = world.TryCreateSceneEntity( std::move( model ), std::move( bodyDesc ),
-                                                              std::move( colliderDesc ) );
+        const int index = m_world.SceneEntityCount();
+        const auto appendResult = m_world.TryCreateSceneEntity( std::move( model ), std::move( bodyDesc ), std::move( colliderDesc ) );
 
         if ( !appendResult.status.Ok() )
         {
-            appendFailed = true;
+            m_appendFailed = true;
             fprintf( stderr, "[editor] Cannot place object: %s\n", appendResult.status.ErrorMessage() );
             return false;
         }
 
-        lastPlacedBody = appendResult.body;
-        lastPlacedModelIndex = index;
+        m_lastPlacedBody = appendResult.body;
+        m_lastPlacedModelIndex = index;
 
         if ( !modelFixed )
         {
             if ( modelStartsAsleep )
             {
-                SeedEditorPhysicsBodyAsleep( world, index );
+                SeedEditorPhysicsBodyAsleep( m_world, index );
             }
             else
             {
-                WakeEditorPhysicsBody( world, index );
+                WakeEditorPhysicsBody( m_world, index );
             }
         }
 
         return true;
-    };
+    }
 
-    auto addSphere = [&]( const char* label, float radius, float restitution )
+    void AddSphere( const char* label, float radius, float restitution )
     {
         const float mass = CalculateSphereMass( radius );
 
         const Vector3 inertia = CalculateSphereInertia( radius, mass );
-        const Vector3 center( terrainPoint.x, terrainPoint.y + radius + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        const Vector3 center( m_terrainPoint.x, m_terrainPoint.y + radius + EDITOR_PLACEMENT_SURFACE_EPSILON, m_terrainPoint.z );
 
         SceneEntityCreateDesc model;
         model.SetRenderTint( 1.0f, 1.0f, 1.0f, EDITOR_TEXTURE_MODE_INVERTED );
         char name[64];
-        sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
+        sprintf_s( name, sizeof( name ), "%s_%s_%03d", m_modePrefix, label, m_serial );
         model.SetName( name );
         const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
-        addModel( std::move( model ),
-                  MakeEditorBodyDesc( shape, center, IDENTITY_QUATERNION, Vector3( 0.0f, 0.0f, 0.0f ),
-                                      Vector3( 0.0f, 0.0f, 0.0f ), inertia, mass, restitution ),
-                  MakeEditorColliderDesc( shape, restitution ), placementFixed );
-    };
+        AddModel( std::move( model ),
+                  MakeEditorBodyDesc( shape, center, IDENTITY_QUATERNION, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), inertia, mass, restitution ),
+                  MakeEditorColliderDesc( shape, restitution ),
+                  m_placementFixed );
+    }
 
-    auto addBox = [&]()
+    void AddBox()
     {
-        const Vector3 halfExtents = placementScale;
+        const Vector3 halfExtents = m_placementScale;
 
         const float mass = CalculateBoxMass( halfExtents );
         Vector3 center;
 
-        if ( !TryComputeEditorObjectCenter( diagnostics, type, terrainPoint, placementScale, placementOrientation, assets,
-                                            center ) )
+        if ( !TryComputeEditorObjectCenter( m_diagnostics, m_type, m_terrainPoint, m_placementScale, m_placementOrientation, m_assets, center ) )
         {
             return;
         }
 
         SceneEntityCreateDesc model;
-        ApplyEditorSpawnMaterial( model, fixedObject, true );
+        ApplyEditorSpawnMaterial( model, m_fixedObject, true );
         char name[64];
-        sprintf_s( name, sizeof( name ), "%s_box_%03d", modePrefix, serial );
+        sprintf_s( name, sizeof( name ), "%s_box_%03d", m_modePrefix, m_serial );
         model.SetName( name );
         const Vector3 inertia = CalculateBoxInertiaForHalfExtents( halfExtents, mass );
         const BoundingBox shape( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) );
@@ -305,16 +421,20 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
         // The body helper borrows this stable value and the collider helper gets
         // its own copy, avoiding an implicit by-value conversion temporary.
         const CollisionShape bodyShape = shape;
-        PhysicsBodyCreateDesc bodyDesc = MakeEditorBodyDesc( bodyShape, center,
-                                                             alignToTerrain ? placementOrientation : IDENTITY_QUATERNION,
-                                                             Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
-                                                             inertia, mass, 0.25f );
+        PhysicsBodyCreateDesc bodyDesc = MakeEditorBodyDesc( bodyShape,
+                                                             center,
+                                                             m_alignToTerrain ? m_placementOrientation : IDENTITY_QUATERNION,
+                                                             Vector3( 0.0f, 0.0f, 0.0f ),
+                                                             Vector3( 0.0f, 0.0f, 0.0f ),
+                                                             inertia,
+                                                             mass,
+                                                             0.25f );
 
         PhysicsColliderCreateDesc colliderDesc = MakeEditorColliderDesc( shape, 0.25f );
-        addModel( std::move( model ), std::move( bodyDesc ), std::move( colliderDesc ), placementFixed );
-    };
+        AddModel( std::move( model ), std::move( bodyDesc ), std::move( colliderDesc ), m_placementFixed );
+    }
 
-    auto addHull = [&]( EditorHullAsset asset )
+    void AddHull( EditorHullAsset asset )
     {
         const char* label = EditorHullAssetToken( asset );
 
@@ -326,7 +446,7 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
         }
 
         ConvexHullShape hull;
-        const SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( diagnostics, path, hull );
+        const SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( m_diagnostics, path, hull );
 
         if ( !hullLoad.Ok() )
         {
@@ -335,17 +455,14 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
         }
 
         ConvexHullShape scaledHull = hull;
-        scaledHull.ScaleAxis( 0, placementScale.x );
-        scaledHull.ScaleAxis( 1, placementScale.y );
-        scaledHull.ScaleAxis( 2, placementScale.z );
+        scaledHull.ScaleAxis( 0, m_placementScale.x );
+        scaledHull.ScaleAxis( 1, m_placementScale.y );
+        scaledHull.ScaleAxis( 2, m_placementScale.z );
         const float mass = scaledHull.GetDefaultMass();
-        const bool alignHull = alignToTerrain;
-        const RotationMatrix hullRotation = alignHull ? placementRotation : IDENTITY_MATRIX;
-        const Quaternion hullOrientation = alignHull ? placementOrientation : IDENTITY_QUATERNION;
-        const Vector3 authoredOrigin = terrainPoint + hullRotation * Vector3( 0.0f,
-                                                                              HullAuthoredBottomOffset( scaledHull ) +
-                                                                                  EDITOR_PLACEMENT_SURFACE_EPSILON,
-                                                                              0.0f );
+        const bool alignHull = m_alignToTerrain;
+        const RotationMatrix hullRotation = alignHull ? m_placementRotation : IDENTITY_MATRIX;
+        const Quaternion hullOrientation = alignHull ? m_placementOrientation : IDENTITY_QUATERNION;
+        const Vector3 authoredOrigin = m_terrainPoint + hullRotation * Vector3( 0.0f, HullAuthoredBottomOffset( scaledHull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
 
         const Vector3 center = authoredOrigin + hullRotation * scaledHull.GetAuthoredCenterOfMass();
         SceneEntityCreateDesc model;
@@ -361,20 +478,19 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
         }
         else
         {
-            ApplyEditorSpawnMaterial( model, fixedObject, false );
+            ApplyEditorSpawnMaterial( model, m_fixedObject, false );
         }
 
         char name[64];
-        sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
+        sprintf_s( name, sizeof( name ), "%s_%s_%03d", m_modePrefix, label, m_serial );
         model.SetName( name );
-        addModel( std::move( model ),
-                  MakeEditorBodyDesc( scaledHull, center, hullOrientation, Vector3( 0.0f, 0.0f, 0.0f ),
-                                      Vector3( 0.0f, 0.0f, 0.0f ), scaledHull.ComputeBoxApproxInertia( mass ), mass, 0.25f ),
-                  MakeEditorColliderDesc( scaledHull, 0.25f, MakeShareableHullShapeIdentity( path, placementScale ) ),
-                  placementFixed );
-    };
+        AddModel( std::move( model ),
+                  MakeEditorBodyDesc( scaledHull, center, hullOrientation, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), scaledHull.ComputeBoxApproxInertia( mass ), mass, 0.25f ),
+                  MakeEditorColliderDesc( scaledHull, 0.25f, MakeShareableHullShapeIdentity( path, m_placementScale ) ),
+                  m_placementFixed );
+    }
 
-    auto addTree = [&]( const EditorTreeDefinition& treeDefinition )
+    void AddTree( const EditorTreeDefinition& treeDefinition )
     {
         PhysicsSceneObjectId treeRootObjectId;
 
@@ -382,10 +498,9 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
         {
             const EditorTreePartDefinition& part = treeDefinition.parts[partIndex];
 
-            if ( !CachedEditorHullForAsset( diagnostics, part.hullAsset ) )
+            if ( !CachedEditorHullForAsset( m_diagnostics, part.hullAsset ) )
             {
-                fprintf( stderr, "[editor] Cannot place tree: missing hull asset %s.\n",
-                         EditorHullAssetToken( part.hullAsset ) );
+                fprintf( stderr, "[editor] Cannot place tree: missing hull asset %s.\n", EditorHullAssetToken( part.hullAsset ) );
 
                 return;
             }
@@ -394,7 +509,7 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
         for ( int partIndex = 0; partIndex < treeDefinition.partCount; ++partIndex )
         {
             const EditorTreePartDefinition& part = treeDefinition.parts[partIndex];
-            const ConvexHullShape* sourceHull = CachedEditorHullForAsset( diagnostics, part.hullAsset );
+            const ConvexHullShape* sourceHull = CachedEditorHullForAsset( m_diagnostics, part.hullAsset );
 
             if ( !sourceHull )
             {
@@ -403,85 +518,51 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
 
             ConvexHullShape hull = *sourceHull;
             const Vector3 localOffset( part.offsetX, part.offsetY, part.offsetZ );
-            const Vector3 authoredOrigin = terrainPoint +
-                                           placementRotation *
-                                               ( localOffset + Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f ) );
+            const Vector3 authoredOrigin = m_terrainPoint + m_placementRotation * ( localOffset + Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f ) );
 
-            const Vector3 center = authoredOrigin + placementRotation * hull.GetAuthoredCenterOfMass();
+            const Vector3 center = authoredOrigin + m_placementRotation * hull.GetAuthoredCenterOfMass();
             const float mass = hull.GetDefaultMass();
             const Vector3 inertia = hull.ComputeBoxApproxInertia( mass );
             SceneEntityCreateDesc model;
             model.SetRenderMaterial( EditorTreePartMaterial( part ) );
             char name[64];
-            sprintf_s( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, treeDefinition.label, serial, part.suffix );
+            sprintf_s( name, sizeof( name ), "%s_%s_%03d_%s", m_modePrefix, treeDefinition.label, m_serial, part.suffix );
             model.SetName( name );
-            model.sceneObjectId = scene.AllocateSceneObjectId();
+            model.sceneObjectId = m_scene.AllocateSceneObjectId();
 
             if ( partIndex == 0 )
             {
                 treeRootObjectId = model.sceneObjectId;
             }
 
-            const bool partFixed = treeDefinition.forceFixed || part.startsFixed || placementFixed;
+            const bool partFixed = treeDefinition.forceFixed || part.startsFixed || m_placementFixed;
 
             // Invariant: editor tree grouping is prefab metadata known before
             // append. Pass it directly instead of making the collection recover
             // group identity from display-name suffixes.
             model.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, treeRootObjectId, partIndex );
-            PhysicsBodyCreateDesc bodyDesc = MakeEditorBodyDesc( hull, center, placementOrientation,
-                                                                 Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
-                                                                 inertia, mass, part.restitution );
+            PhysicsBodyCreateDesc bodyDesc = MakeEditorBodyDesc( hull, center, m_placementOrientation, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), inertia, mass, part.restitution );
 
             bodyDesc.releasesFromFixedOnContact = part.contactReleaseOnImpact;
             bodyDesc.contactReleaseImpulseThreshold = part.contactReleaseImpulseThreshold;
 
-            if ( !addModel( std::move( model ), std::move( bodyDesc ),
-                            MakeEditorColliderDesc( hull, part.restitution,
-                                                    MakeShareableHullShapeIdentity( EditorHullAssetPath( part.hullAsset ),
-                                                                                    Vector3( 1.0f, 1.0f, 1.0f ) ) ),
-                            partFixed, treeDefinition.seedAsleep && !partFixed ) )
+            if ( !AddModel( std::move( model ),
+                            std::move( bodyDesc ),
+                            MakeEditorColliderDesc( hull, part.restitution, MakeShareableHullShapeIdentity( EditorHullAssetPath( part.hullAsset ), Vector3( 1.0f, 1.0f, 1.0f ) ) ),
+                            partFixed,
+                            treeDefinition.seedAsleep && !partFixed ) )
             {
                 return;
             }
         }
-    };
+    }
 
-    auto addHouse = [&]( const EditorHouseDefinition& houseDefinition )
-    {
-        const Vector3 base = terrainPoint + placementRotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
-
-        for ( int partIndex = 0; partIndex < houseDefinition.partCount; ++partIndex )
-        {
-            const EditorHousePartDefinition& part = houseDefinition.parts[partIndex];
-            const Vector3 halfExtents( part.halfX, part.halfY, part.halfZ );
-            const float mass = CalculateBoxMass( halfExtents );
-            const Vector3 center = base + placementRotation * Vector3( part.offsetX, part.offsetY, part.offsetZ );
-            const Vector3 inertia = CalculateBoxInertiaForHalfExtents( halfExtents, mass );
-            SceneEntityCreateDesc model;
-            model.SetRenderMaterial( EditorHousePartMaterial( part ) );
-            char name[64];
-            sprintf_s( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, houseDefinition.label, serial, part.suffix );
-            model.SetName( name );
-            const BoundingBox shape( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) );
-
-            if ( !addModel( std::move( model ),
-                            MakeEditorBodyDesc( shape, center, placementOrientation, Vector3( 0.0f, 0.0f, 0.0f ),
-                                                Vector3( 0.0f, 0.0f, 0.0f ), inertia, mass, part.restitution ),
-                            MakeEditorColliderDesc( shape, part.restitution ), placementFixed,
-                            houseDefinition.seedAsleep && !placementFixed ) )
-            {
-                return;
-            }
-        }
-    };
-
-    auto addBuilding = [&]( const EditorBuildingDefinition& buildingDefinition )
+    void AddBuilding( const EditorBuildingDefinition& buildingDefinition )
     {
         bool failed = false;
 
-        const Vector3 base = terrainPoint + placementRotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
-        const bool ok = ForEachEditorBuildingPart( type, assets,
-                                                   [&]( const Json& part )
+        const Vector3 base = m_terrainPoint + m_placementRotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+        const bool ok = ForEachEditorBuildingPart( m_type, m_assets, [&]( const Json& part )
                                                    {
                                                        if ( failed )
                                                        {
@@ -490,13 +571,12 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
 
                                                        const float restitution = EditorJsonFloatOr( part, "restitution", 0.08f );
                                                        const Vector3 offset = EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
-                                                       const Quaternion partOrientation = EditorBuildingPartOrientation( placementOrientation, part );
+                                                       const Quaternion partOrientation = EditorBuildingPartOrientation( m_placementOrientation, part );
                                                        Quaternion partCopy = partOrientation;
                                                        const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
-                                                       const Vector3 authoredOrigin = base + placementRotation * offset;
+                                                       const Vector3 authoredOrigin = base + m_placementRotation * offset;
                                                        const std::string primitiveType = EditorAssetPrimitiveType( part );
-                                                       auto finishPartModel = [&]( SceneEntityCreateDesc&& model, PhysicsBodyCreateDesc bodyDesc,
-                                                                                   PhysicsColliderCreateDesc colliderDesc )
+                                                       auto finishPartModel = [&]( SceneEntityCreateDesc&& model, PhysicsBodyCreateDesc bodyDesc, PhysicsColliderCreateDesc colliderDesc )
                                                        {
                                                            model.SetRenderMaterial( EditorBuildingPartMaterial( part ) );
 
@@ -522,22 +602,16 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
 
                                                            char name[64];
                                                            const std::string partName = EditorJsonStringOr( part, "name", "part" );
-                                                           snprintf( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, buildingDefinition.label, serial,
-                                                                     partName.c_str() );
+                                                           snprintf( name, sizeof( name ), "%s_%s_%03d_%s", m_modePrefix, buildingDefinition.label, m_serial, partName.c_str() );
 
                                                            name[sizeof( name ) - 1] = '\0';
                                                            model.SetName( name );
-                                                           const bool partFixed = placementFixed || EditorJsonBoolOr( part, "fixed", false );
+                                                           const bool partFixed = m_placementFixed || EditorJsonBoolOr( part, "fixed", false );
                                                            const bool partSleeping = EditorJsonBoolOr( part, "sleeping", true );
                                                            bodyDesc.releasesFromFixedOnContact = EditorJsonBoolOr( part, "contactReleaseOnImpact", false );
-                                                           bodyDesc.contactReleaseImpulseThreshold = (std::max)( 0.0f,
-                                                                                                                 EditorJsonFloatOr( part,
-                                                                                                                                    "contactReleaseImpulseThre"
-                                                                                                                                    "shold",
-                                                                                                                                    1.0f ) );
+                                                           bodyDesc.contactReleaseImpulseThreshold = (std::max)( 0.0f, EditorJsonFloatOr( part, "contactReleaseImpulseThre" "shold", 1.0f ) );
 
-                                                           if ( !addModel( std::move( model ), std::move( bodyDesc ), std::move( colliderDesc ), partFixed,
-                                                                           partSleeping && !partFixed ) )
+                                                           if ( !AddModel( std::move( model ), std::move( bodyDesc ), std::move( colliderDesc ), partFixed, partSleeping && !partFixed ) )
                                                            {
                                                                failed = true;
                                                            }
@@ -546,8 +620,7 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
                                                        if ( primitiveType == "convexHull" )
                                                        {
                                                            const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
-                                                           const ConvexHullShape* sourceHull = hullPath.empty() ? nullptr
-                                                                                                                : CachedEditorBuildingHull( diagnostics, hullPath );
+                                                           const ConvexHullShape* sourceHull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( m_diagnostics, hullPath );
 
                                                            if ( !sourceHull )
                                                            {
@@ -560,13 +633,14 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
                                                            const Vector3 center = authoredOrigin + partRotation * hull.GetAuthoredCenterOfMass();
                                                            const Vector3 inertia = hull.ComputeBoxApproxInertia( mass );
                                                            SceneEntityCreateDesc model;
-                                                           finishPartModel( std::move( model ),
-                                                                            MakeEditorBodyDesc( hull, center, partOrientation, Vector3( 0.0f, 0.0f, 0.0f ),
-                                                                                                Vector3( 0.0f, 0.0f, 0.0f ), inertia, mass, restitution ),
-                                                                            MakeEditorColliderDesc( hull, restitution,
-                                                                                                    MakeShareableHullShapeIdentity( ResolveEditorHullAssetPath( hullPath.c_str() ),
-                                                                                                                                    Vector3( 1.0f, 1.0f,
-                                                                                                                                             1.0f ) ) ) );
+                                                           finishPartModel( std::move( model ), MakeEditorBodyDesc( hull,
+                                                                                                center,
+                                                                                                partOrientation,
+                                                                                                Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                                Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                                inertia,
+                                                                                                mass,
+                                                                                                restitution ), MakeEditorColliderDesc( hull, restitution, MakeShareableHullShapeIdentity( ResolveEditorHullAssetPath( hullPath.c_str() ), Vector3( 1.0f, 1.0f, 1.0f ) ) ) );
 
                                                            return;
                                                        }
@@ -585,10 +659,14 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
                                                            const Vector3 inertia = CalculateBoxInertiaForHalfExtents( halfExtents, mass );
                                                            SceneEntityCreateDesc model;
                                                            const BoundingBox shape( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) );
-                                                           finishPartModel( std::move( model ),
-                                                                            MakeEditorBodyDesc( shape, authoredOrigin, partOrientation, Vector3( 0.0f, 0.0f, 0.0f ),
-                                                                                                Vector3( 0.0f, 0.0f, 0.0f ), inertia, mass, restitution ),
-                                                                            MakeEditorColliderDesc( shape, restitution ) );
+                                                           finishPartModel( std::move( model ), MakeEditorBodyDesc( shape,
+                                                                                                authoredOrigin,
+                                                                                                partOrientation,
+                                                                                                Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                                Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                                inertia,
+                                                                                                mass,
+                                                                                                restitution ), MakeEditorColliderDesc( shape, restitution ) );
 
                                                            return;
                                                        }
@@ -607,10 +685,14 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
                                                            const Vector3 inertia = CalculateSphereInertia( radius, mass );
                                                            SceneEntityCreateDesc model;
                                                            const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
-                                                           finishPartModel( std::move( model ),
-                                                                            MakeEditorBodyDesc( shape, authoredOrigin, partOrientation, Vector3( 0.0f, 0.0f, 0.0f ),
-                                                                                                Vector3( 0.0f, 0.0f, 0.0f ), inertia, mass, restitution ),
-                                                                            MakeEditorColliderDesc( shape, restitution ) );
+                                                           finishPartModel( std::move( model ), MakeEditorBodyDesc( shape,
+                                                                                                authoredOrigin,
+                                                                                                partOrientation,
+                                                                                                Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                                Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                                inertia,
+                                                                                                mass,
+                                                                                                restitution ), MakeEditorColliderDesc( shape, restitution ) );
 
                                                            return;
                                                        }
@@ -622,152 +704,79 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
         {
             fprintf( stderr, "[editor] Cannot place building asset: %s.\n", buildingDefinition.assetName );
         }
-    };
+    }
 
-    auto addRagdoll = [&]()
+    void AddRagdoll()
     {
         RagdollBuildOptions options;
 
         char prefix[64];
-        sprintf_s( prefix, sizeof( prefix ), "%s_ragdoll_%03d", modePrefix, serial );
+        sprintf_s( prefix, sizeof( prefix ), "%s_ragdoll_%03d", m_modePrefix, m_serial );
         options.namePrefix = prefix;
-        options.terrainPoint = terrainPoint;
-        options.orientation = placementOrientation;
-        options.scale = placementScale.x;
-        options.fixed = placementFixed;
-        options.startsAsleep = ragdollStartsAsleep && !placementFixed;
-        options.firstSceneObjectId = scene.AllocateSceneObjectIdRange( Ragdoll::SIMPLE_PART_COUNT );
-        const SkullbonezCore::Core::SbResult appendResult = SceneAuthoredSetup::AppendSimpleRagdoll( diagnostics, world,
-                                                                                                     options );
+        options.terrainPoint = m_terrainPoint;
+        options.orientation = m_placementOrientation;
+        options.scale = m_placementScale.x;
+        options.fixed = m_placementFixed;
+        options.startsAsleep = m_ragdollStartsAsleep && !m_placementFixed;
+        options.pose = EditorRagdollPose( m_type );
+        options.firstSceneObjectId = m_scene.AllocateSceneObjectIdRange( Ragdoll::SIMPLE_PART_COUNT );
+        const SkullbonezCore::Core::SbResult appendResult = SceneAuthoredSetup::AppendSimpleRagdoll( m_diagnostics, m_world, options );
 
         if ( !appendResult.Ok() )
         {
-            appendFailed = true;
+            m_appendFailed = true;
             fprintf( stderr, "[editor] Cannot place ragdoll: %s\n", appendResult.ErrorMessage() );
         }
-    };
-
-    switch ( type )
-    {
-    case UI::EditorTab::OBJECT_BOX:
-        addBox();
-        break;
-    case UI::EditorTab::OBJECT_BALL:
-        addSphere( "ball", placementScale.x, 0.45f );
-        break;
-    case UI::EditorTab::OBJECT_SPHERE:
-        addSphere( "sphere", placementScale.x, 0.35f );
-        break;
-    case UI::EditorTab::OBJECT_HULL_WEDGE:
-        addHull( EditorHullAsset::WEDGE );
-        break;
-    case UI::EditorTab::OBJECT_HULL_TRI_PRISM:
-        addHull( EditorHullAsset::TRI_PRISM );
-        break;
-    case UI::EditorTab::OBJECT_HULL_TAPERED_BLOCK:
-        addHull( EditorHullAsset::TAPERED_BLOCK );
-        break;
-    case UI::EditorTab::OBJECT_HULL_PYRAMID:
-        addHull( EditorHullAsset::PYRAMID );
-        break;
-    case UI::EditorTab::OBJECT_HULL_HEX_PRISM:
-        addHull( EditorHullAsset::HEX_PRISM );
-        break;
-    case UI::EditorTab::OBJECT_HULL_DIAMOND:
-        addHull( EditorHullAsset::DIAMOND );
-        break;
-    case UI::EditorTab::OBJECT_ROCK_SLAB:
-        addHull( EditorHullAsset::ROCK_SLAB_FLAT );
-        break;
-    case UI::EditorTab::OBJECT_ROCK_LUMP:
-        addHull( EditorHullAsset::ROCK_LUMP_LARGE );
-        break;
-    case UI::EditorTab::OBJECT_ROCK_SHARD:
-        addHull( EditorHullAsset::ROCK_SHARD_TALL );
-        break;
-    case UI::EditorTab::OBJECT_ROCK_CHIPPED:
-        addHull( EditorHullAsset::ROCK_CHIPPED_BLOCK );
-        break;
-    case UI::EditorTab::OBJECT_ROOT_SMALL:
-        addHull( EditorHullAsset::TREE_ROOT_SMALL );
-        break;
-    case UI::EditorTab::OBJECT_ROOT_LARGE:
-        addHull( EditorHullAsset::TREE_ROOT_LARGE );
-        break;
-    case UI::EditorTab::OBJECT_TREE_SMALL:
-
-        if ( tree )
-        {
-            addTree( *tree );
-        }
-
-        break;
-    case UI::EditorTab::OBJECT_TREE_BIG:
-    case UI::EditorTab::OBJECT_TREE_CEDAR:
-    case UI::EditorTab::OBJECT_TREE_SMALL_SLOPE:
-    case UI::EditorTab::OBJECT_TREE_BIG_SLOPE:
-    case UI::EditorTab::OBJECT_TREE_CEDAR_SLOPE:
-    case UI::EditorTab::OBJECT_TREE_SMALL_SLEEP:
-    case UI::EditorTab::OBJECT_TREE_BIG_SLEEP:
-    case UI::EditorTab::OBJECT_TREE_CEDAR_SLEEP:
-    case UI::EditorTab::OBJECT_TREE_SMALL_ROOTED:
-    case UI::EditorTab::OBJECT_TREE_BIG_ROOTED:
-    case UI::EditorTab::OBJECT_TREE_CEDAR_ROOTED:
-    case UI::EditorTab::OBJECT_TREE_PINE_SHEDDING:
-
-        if ( tree )
-        {
-            addTree( *tree );
-        }
-
-        break;
-    case UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP:
-    case UI::EditorTab::OBJECT_BRICK_HOUSE_HIGH_SLEEP:
-    case UI::EditorTab::OBJECT_CUTE_HOUSE_SLEEP:
-    case UI::EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP:
-    case UI::EditorTab::OBJECT_TRIPLE_DECKER_SLEEP:
-    case UI::EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP:
-    case UI::EditorTab::OBJECT_BRICK_WALL_200_SLEEP:
-
-        if ( building )
-        {
-            addBuilding( *building );
-        }
-
-        break;
-    case UI::EditorTab::OBJECT_RAGDOLL:
-    case UI::EditorTab::OBJECT_RAGDOLL_SLEEP:
-        addRagdoll();
-        break;
-    default:
-        break;
     }
 
-    if ( appendFailed )
+    Core::SbDiagnosticStore& m_diagnostics;
+    SceneWorld& m_world;
+    SceneSessionState& m_scene;
+    const Assets::AssetSystem& m_assets;
+    int m_type;
+    int m_modelCount;
+    const EditorTreeDefinition* m_tree;
+    const EditorHouseDefinition* m_house;
+    const EditorBuildingDefinition* m_building;
+    Vector3 m_terrainPoint;
+    bool m_fixedObject;
+    Vector3 m_placementScale;
+    int m_serial;
+    bool m_alignToTerrain;
+    Quaternion m_placementOrientation;
+    RotationMatrix m_placementRotation;
+    bool m_placementFixed;
+    bool m_ragdollStartsAsleep;
+    const char* m_modePrefix;
+    PhysicsBodyHandle m_lastPlacedBody;
+    int m_lastPlacedModelIndex = -1;
+    bool m_appendFailed = false;
+    bool m_autoTerrainAlign;
+    float m_placementYawRadians;
+};
+} // namespace
+
+bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                      RunEditorPlacementState& editor,
+                                      SceneWorld& world,
+                                      SceneSessionState& scene,
+                                      const Assets::AssetSystem& assets,
+                                      int activeModelCapacity,
+                                      EditorObjectPlacementRequest request,
+                                      EditorObjectPlacementResult& outResult )
+{
+    int type = 0;
+
+    if ( !TryResolveEditorObjectPlacementPreflight( world, assets, activeModelCapacity, request, type, false ) )
     {
         outResult = EditorObjectPlacementResult {};
+
         return false;
     }
 
-    scene.modelCount = world.SceneEntityCount();
-    const bool placed = scene.modelCount > modelCount;
-    outResult.placed = placed;
-    outResult.modelCountBefore = modelCount;
-    outResult.modelCountAfter = scene.modelCount;
-    outResult.placedBody = lastPlacedBody;
-
-    if ( placed && lastPlacedModelIndex >= 0 )
-    {
-        outResult.placedCollider = world.Colliders().HandleForBodyHandle( lastPlacedBody );
-    }
-
-    outResult.objectType = type;
-    outResult.fixedObject = fixedObject;
-    outResult.autoTerrainAlign = editor.autoTerrainAlign;
-    outResult.terrainPoint = terrainPoint;
-    outResult.placementScale = placementScale;
-    outResult.placementYawRadians = editor.placementYawRadians;
-    return placed;
+    EditorObjectPlacementBatch batch( diagnostics, editor, world, scene, assets, type, request );
+    return batch.Execute( outResult );
 }
+
 } // namespace Runtime
 } // namespace SkullbonezCore

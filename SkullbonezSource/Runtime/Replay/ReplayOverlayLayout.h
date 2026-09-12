@@ -176,6 +176,11 @@ struct ReplayScrubberSurfaceInput
     bool branchTargetAvailable = false;
     bool scrubTrackDragEnabled = false;
     bool hotZoneEnabled = true;
+    // Optional presentation rectangles. Empty transport retains the floating
+    // surface; control placement never changes the command or availability.
+    UI::UIRect transportBounds;
+    UI::UIRect controlsBounds;
+    float controlsScroll = 0.0f;
 };
 
 using ReplayScrubberSurface = ReplayOverlaySurface;
@@ -226,9 +231,7 @@ struct ReplayCauseWindowProjection
 
 // Derives track/tool availability from replay state. Callers then add their
 // one-frame screen, gesture, and pointer-blocking facts before surface layout.
-ReplayScrubberSurfaceInput DescribeReplayScrubberAvailability( const ReplayScrubberView& scrubber,
-                                                               const ReplayRecorderStats& solverStats,
-                                                               const ReplayScrubberSourceAvailability& sources );
+ReplayScrubberSurfaceInput DescribeReplayScrubberAvailability( const ReplayScrubberView& scrubber, const ReplayRecorderStats& solverStats, const ReplayScrubberSourceAvailability& sources );
 void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, ReplayScrubberSurface& outSurface );
 void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, ReplayCauseWindowSurface& outSurface );
 
@@ -244,9 +247,9 @@ float ReplayPredictionHorizonFromMouse( int mouseX, const UI::UIRect& horizon );
 UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH );
 UI::UIRect ReplayCauseWindowRect( const RunReplayCauseTreeState& state );
 UI::UIRect ReplayCauseWindowTitleRect( const RunReplayCauseTreeState& state );
-UI::UIRect ReplayCauseWindowFilterFieldRect( const RunReplayCauseTreeState& state );
-UI::UIRect ReplayCauseWindowFilterFunnelRect( const RunReplayCauseTreeState& state );
-UI::UIRect ReplayCauseWindowFilterChipRect( const RunReplayCauseTreeState& state, RunReplayCauseTreeFilter filter );
+UI::UIRect ReplayCauseWindowFilterFieldRect( const RunReplayCauseTreeState& state, const UI::UIRect& bounds = {} );
+UI::UIRect ReplayCauseWindowFilterFunnelRect( const RunReplayCauseTreeState& state, const UI::UIRect& bounds = {} );
+UI::UIRect ReplayCauseWindowFilterChipRect( const RunReplayCauseTreeState& state, RunReplayCauseTreeFilter filter, const UI::UIRect& bounds = {} );
 UI::UIRect ReplayCauseWindowContentRect( const RunReplayCauseTreeState& state );
 UI::UIRect ReplayCauseWindowResizeRect( const RunReplayCauseTreeState& state );
 
@@ -254,8 +257,7 @@ UI::UIRect ReplayCauseWindowResizeRect( const RunReplayCauseTreeState& state );
 bool ReplayCauseWindowContainsPoint( const RunReplayCauseTreeState& state, int x, int y );
 float ReplayCauseWindowContentHeight( const RunReplayCauseTreeState& state );
 float ReplayCauseWindowMaxScroll( const RunReplayCauseTreeState& state );
-void BuildReplayCauseWindowProjection( const RunReplayCauseTreeState& state,
-                                       ReplayCauseWindowProjection& outProjection ) noexcept;
+void BuildReplayCauseWindowProjection( const RunReplayCauseTreeState& state, ReplayCauseWindowProjection& outProjection ) noexcept;
 bool AppendReplayCauseFilterCharacter( RunReplayCauseTreeState& state, char value ) noexcept;
 bool BackspaceReplayCauseFilter( RunReplayCauseTreeState& state ) noexcept;
 bool ClearReplayCauseFilterText( RunReplayCauseTreeState& state ) noexcept;
@@ -264,15 +266,10 @@ bool ClearReplayCauseFilterText( RunReplayCauseTreeState& state ) noexcept;
 // preserving the hierarchy's minimum width and the viewport's outer margins.
 // The attachment owns no placement; callers project it from the hierarchy
 // anchor and pass the same desired/minimum widths to clamping and drawing.
-float ReplayCauseWindowAttachedWidth( const RunReplayCauseTreeState& state, int screenW, float desiredWidth,
-                                      float minimumWidth );
-void ClampReplayCauseWindow( RunReplayCauseTreeState& state, int screenW, int screenH, float desiredAttachedLeftWidth = 0.0f,
-                             float minimumAttachedLeftWidth = 0.0f );
-void EnsureReplayCauseWindowPlacement( RunReplayCauseTreeState& state, int screenW, int screenH,
-                                       float desiredAttachedLeftWidth = 0.0f, float minimumAttachedLeftWidth = 0.0f );
-void MoveReplayCauseWindow( RunReplayCauseTreeState& state, int mouseX, int mouseY, int screenW, int screenH,
-                            float desiredAttachedLeftWidth = 0.0f, float minimumAttachedLeftWidth = 0.0f );
-void ResizeReplayCauseWindow( RunReplayCauseTreeState& state, int mouseX, int mouseY, int screenW, int screenH,
-                              float desiredAttachedLeftWidth = 0.0f, float minimumAttachedLeftWidth = 0.0f );
+float ReplayCauseWindowAttachedWidth( const RunReplayCauseTreeState& state, int screenW, float desiredWidth, float minimumWidth );
+void ClampReplayCauseWindow( RunReplayCauseTreeState& state, int screenW, int screenH, float desiredAttachedLeftWidth = 0.0f, float minimumAttachedLeftWidth = 0.0f );
+void EnsureReplayCauseWindowPlacement( RunReplayCauseTreeState& state, int screenW, int screenH, float desiredAttachedLeftWidth = 0.0f, float minimumAttachedLeftWidth = 0.0f );
+void MoveReplayCauseWindow( RunReplayCauseTreeState& state, int mouseX, int mouseY, int screenW, int screenH, float desiredAttachedLeftWidth = 0.0f, float minimumAttachedLeftWidth = 0.0f );
+void ResizeReplayCauseWindow( RunReplayCauseTreeState& state, int mouseX, int mouseY, int screenW, int screenH, float desiredAttachedLeftWidth = 0.0f, float minimumAttachedLeftWidth = 0.0f );
 float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int screenH, RunReplayTrack trackName );
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

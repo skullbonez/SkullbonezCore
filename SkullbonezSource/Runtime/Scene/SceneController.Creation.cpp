@@ -26,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
 */
 #include "SceneController.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/WindowConstants.h"
 #include "../../Core/Common.h"
 #include "../../Core/Log.h"
@@ -49,8 +50,7 @@ using Json = nlohmann::ordered_json;
 
 bool IsSceneNameChar( char value )
 {
-    return ( value >= 'a' && value <= 'z' ) || ( value >= 'A' && value <= 'Z' ) || ( value >= '0' && value <= '9' ) ||
-           value == '-' || value == '_';
+    return ( value >= 'a' && value <= 'z' ) || ( value >= 'A' && value <= 'Z' ) || ( value >= '0' && value <= '9' ) || value == '-' || value == '_';
 }
 
 std::string SanitizeSceneFileName( const char* requestedName )
@@ -102,8 +102,7 @@ std::string NormalizeScenePathForCreate( const std::string& path )
     return normalized;
 }
 
-std::filesystem::path UniqueScenePath( const std::filesystem::path& sceneDir, const std::string& baseName,
-                                       std::error_code& error )
+std::filesystem::path UniqueScenePath( const std::filesystem::path& sceneDir, const std::string& baseName, std::error_code& error )
 {
     // Recoverable error: directory probing is editor-authored IO. Preserve filesystem
     // errors for the caller instead of invoking a throwing overload.
@@ -129,7 +128,7 @@ std::filesystem::path UniqueScenePath( const std::filesystem::path& sceneDir, co
     return std::filesystem::path();
 }
 
-bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string& displayName )
+bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string& displayName, const char* heightMap )
 {
     std::ofstream output( path, std::ios::trunc );
 
@@ -144,47 +143,25 @@ bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string
     scene["format"] = "skullbonez.scene.json";
     scene["version"] = 1;
     scene["name"] = displayName;
-    scene["simulation"] = {
-        { "physics", true },
-        { "text", true },
-        { "world",
-          {
-              { "gravity", -9.81f },
-              { "fluidHeight", 0.0f },
-              { "fluidDensity", 0.0f },
-          } },
-    };
+    scene["simulation"] = { { "physics", true }, { "text", true }, { "world", { { "gravity", -9.81f }, { "fluidHeight", 0.0f }, { "fluidDensity", 0.0f }, } }, };
 
-    scene["editor"] = {
-        { "editableScene", true },
-    };
+    scene["editor"] = { { "editableScene", true }, };
 
-    scene["playback"] = {
-        { "frames", "unlimited" },
-        { "fixedStep", true },
-    };
+    scene["playback"] = { { "frames", "unlimited" }, { "fixedStep", true }, };
 
-    scene["debug"] = {
-        { "waterHidden", true },
-    };
+    scene["debug"] = { { "waterHidden", true }, };
 
-    scene["terrain"] = {
-        { "flatSlope",
-          {
-              { "baseY", 30.0f },
-              { "slopeX", 0.0f },
-              { "slopeZ", 0.0f },
-          } },
-    };
+    scene["terrain"] = { { "flatSlope", { { "baseY", 30.0f }, { "slopeX", 0.0f }, { "slopeZ", 0.0f }, } }, };
 
-    scene["cameras"] = Json::array( {
-        {
-            { "name", "main" },
-            { "position", Json::array( { 500.0f, 120.0f, 760.0f } ) },
-            { "view", Json::array( { 500.0f, 45.0f, 500.0f } ) },
-            { "up", Json::array( { 0.0f, 1.0f, 0.0f } ) },
-        },
-    } );
+    if ( heightMap && *heightMap )
+    {
+        scene["terrain"] = { { "heightMap", std::filesystem::absolute( heightMap ).lexically_normal().generic_string() } };
+    }
+
+    scene["cameras"] = Json::array( { { { "name", "main" },
+                                        { "position", Json::array( { 500.0f, 120.0f, 760.0f } ) },
+                                        { "view", Json::array( { 500.0f, 45.0f, 500.0f } ) },
+                                        { "up", Json::array( { 0.0f, 1.0f, 0.0f } ) }, }, } );
 
     scene["objects"] = Json::array();
     output << scene.dump( 2 ) << '\n';
@@ -193,10 +170,11 @@ bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string
 
 } // namespace
 
-SceneLoadRequest SceneController::CreateScene( const char* requestedName )
+SceneLoadRequest SceneController::CreateScene( const char* requestedName, const char* heightMap )
 {
     // Concept: Creating a scene queues a load action instead of loading
     // directly, keeping filesystem work separate from Run's scene side effects.
+    Core::Allocation::RuntimeAllocationScope createScope( Core::Allocation::RuntimeAllocationPhase::SceneLoad );
     const std::string cleanName = SanitizeSceneFileName( requestedName );
 
     if ( cleanName.empty() )
@@ -210,15 +188,14 @@ SceneLoadRequest SceneController::CreateScene( const char* requestedName )
 
     if ( ec )
     {
-        SkullbonezCore::Core::Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"mkdir\" message=\"%s\"",
-                                                 cleanName.c_str(), ec.message().c_str() );
+        SkullbonezCore::Core::Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"mkdir\" message=\"%s\"", cleanName.c_str(), ec.message().c_str() );
 
         return SceneLoadRequest::None();
     }
 
     const std::filesystem::path scenePath = UniqueScenePath( sceneDir, cleanName, ec );
 
-    if ( scenePath.empty() || !WriteStarterSceneFile( scenePath, cleanName ) )
+    if ( scenePath.empty() || !WriteStarterSceneFile( scenePath, cleanName, heightMap ) )
     {
         SkullbonezCore::Core::Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"write\"", cleanName.c_str() );
 

@@ -35,6 +35,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "../SkullbonezSource/Runtime/Startup/Window.h"
 
 #include "../SkullbonezSource/Runtime/App/InputFrame.h"
 #include "../SkullbonezSource/Runtime/App/GraphicsStressApplication.h"
@@ -69,22 +70,38 @@ using namespace SkullbonezCore::Runtime::ReplayOverlay;
 TEST_CASE( "Graphics stress routes every authored action to one concrete owner" )
 {
     const std::array<GraphicsStressActionOwner, 32> expected = {
-        GraphicsStressActionOwner::Cinematic,           GraphicsStressActionOwner::Cinematic,
-        GraphicsStressActionOwner::Cinematic,           GraphicsStressActionOwner::SceneBrowser,
-        GraphicsStressActionOwner::Renderer,            GraphicsStressActionOwner::Renderer,
-        GraphicsStressActionOwner::PresentationOverlay, GraphicsStressActionOwner::PresentationOverlay,
-        GraphicsStressActionOwner::PresentationOverlay, GraphicsStressActionOwner::PresentationOverlay,
-        GraphicsStressActionOwner::PresentationOverlay, GraphicsStressActionOwner::PresentationOverlay,
-        GraphicsStressActionOwner::PresentationOverlay, GraphicsStressActionOwner::PresentationOverlay,
-        GraphicsStressActionOwner::PresentationOverlay, GraphicsStressActionOwner::TimeScale,
-        GraphicsStressActionOwner::World,               GraphicsStressActionOwner::OperatorUi,
-        GraphicsStressActionOwner::GeneratedScene,      GraphicsStressActionOwner::Tornado,
-        GraphicsStressActionOwner::Tornado,             GraphicsStressActionOwner::OperatorUi,
-        GraphicsStressActionOwner::ScenePhysics,        GraphicsStressActionOwner::ScenePhysics,
-        GraphicsStressActionOwner::RuntimeOverlay,      GraphicsStressActionOwner::RuntimeOverlay,
-        GraphicsStressActionOwner::RuntimeTool,         GraphicsStressActionOwner::Camera,
-        GraphicsStressActionOwner::GeneratedScene,      GraphicsStressActionOwner::OperatorUi,
-        GraphicsStressActionOwner::OperatorUi,          GraphicsStressActionOwner::RuntimeOverlay,
+        GraphicsStressActionOwner::Cinematic,
+        GraphicsStressActionOwner::Cinematic,
+        GraphicsStressActionOwner::Cinematic,
+        GraphicsStressActionOwner::SceneBrowser,
+        GraphicsStressActionOwner::Renderer,
+        GraphicsStressActionOwner::Renderer,
+        GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::TimeScale,
+        GraphicsStressActionOwner::World,
+        GraphicsStressActionOwner::OperatorUi,
+        GraphicsStressActionOwner::GeneratedScene,
+        GraphicsStressActionOwner::Tornado,
+        GraphicsStressActionOwner::Tornado,
+        GraphicsStressActionOwner::OperatorUi,
+        GraphicsStressActionOwner::ScenePhysics,
+        GraphicsStressActionOwner::ScenePhysics,
+        GraphicsStressActionOwner::RuntimeOverlay,
+        GraphicsStressActionOwner::RuntimeOverlay,
+        GraphicsStressActionOwner::RuntimeTool,
+        GraphicsStressActionOwner::Camera,
+        GraphicsStressActionOwner::GeneratedScene,
+        GraphicsStressActionOwner::OperatorUi,
+        GraphicsStressActionOwner::OperatorUi,
+        GraphicsStressActionOwner::RuntimeOverlay,
     };
 
     for ( int action = 0; action < static_cast<int>( expected.size() ); ++action )
@@ -104,8 +121,7 @@ TEST_CASE( "Passive camera floor follows the live fluid surface without inventin
 
     const float missingTerrain = -( std::numeric_limits<float>::max )();
     CHECK( InputController::ResolvePassiveCameraMinimumY( missingTerrain, 20.0f, 1.5f ) == missingTerrain );
-    CHECK( InputController::ResolvePassiveCameraY( 5.0f, 4.0f, 120.0f, 1.5f, 110.0f ) ==
-           doctest::Approx( 110.0f ) );
+    CHECK( InputController::ResolvePassiveCameraY( 5.0f, 4.0f, 120.0f, 1.5f, 110.0f ) == doctest::Approx( 110.0f ) );
     CHECK( InputController::ResolvePassiveCameraY( 140.0f, missingTerrain, 20.0f, 1.5f, 110.0f ) ==
            doctest::Approx( 110.0f ) );
     CHECK( InputController::ResolvePassiveCameraY( 50.0f, missingTerrain, 20.0f, 1.5f, 110.0f ) ==
@@ -138,13 +154,13 @@ TEST_CASE( "Replay coordination commands retain only their action payload" )
     CHECK( std::get<ReplaySelectCauseRowCommand>( selection ).rowIndex == 7 );
     CHECK_FALSE( std::holds_alternative<ReplayScrubCommand>( selection ) );
 
-    const ReplayStartupRequest startup {
-        ReplayStartupLoadRequest { "capture.sbrv2", true },
+    const ReplayStartupRequest startup { ReplayStartupLoadRequest { "capture.sbrv2", true },
 #ifdef _DEBUG
-        ReplayStartupRestoreFileProbeRequests { "checkpoint.sbrv2", "target.sbrv2", "branch.sbrv2", "failure.sbrv2" },
-        ReplayStartupNormalizedProbeRequest { true, 0.25f },
-        ReplayStartupNormalizedProbeRequest { true, 0.75f },
-        ReplayStartupSaveProbeRequest { true, "saved.sbrv2" }
+                                         ReplayStartupRestoreFileProbeRequests { "checkpoint.sbrv2", "target.sbrv2",
+                                                                                 "branch.sbrv2", "failure.sbrv2" },
+                                         ReplayStartupNormalizedProbeRequest { true, 0.25f },
+                                         ReplayStartupNormalizedProbeRequest { true, 0.75f },
+                                         ReplayStartupSaveProbeRequest { true, "saved.sbrv2" }
 #endif
     };
     CHECK( std::strcmp( startup.load.path, "capture.sbrv2" ) == 0 );
@@ -164,8 +180,8 @@ TEST_CASE( "Scene defaults save snapshot detaches every borrowed owner section" 
     presentation.textOnly = true;
     presentation.waterFreeze = true;
     presentation.terrainHidden = true;
-    presentation.physicsDebugFlags =
-        SkullbonezCore::Physics::PHYSICS_DEBUG_AXES | SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS;
+    presentation.physicsDebugFlags = SkullbonezCore::Physics::PHYSICS_DEBUG_AXES |
+                                     SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS;
     presentation.physicsDebugTransparent = true;
     presentation.physicsDebugAlpha = 0.625f;
 
@@ -180,8 +196,8 @@ TEST_CASE( "Scene defaults save snapshot detaches every borrowed owner section" 
 
     SkullbonezCore::UI::RunSceneUIOverrideState uiOverrides;
     uiOverrides.modelCountOverride = 9;
-    const SceneDefaultsSaveSnapshot snapshot =
-        ProjectSceneDefaultsSaveSnapshot( presentation, renderPolicy, camera, uiOverrides );
+    const SceneDefaultsSaveSnapshot snapshot = ProjectSceneDefaultsSaveSnapshot( presentation, renderPolicy, camera,
+                                                                                 uiOverrides );
     presentation.textOnly = false;
     renderPolicy.vsyncEnabled = true;
     camera.trackHeight = 900.0f;
@@ -272,8 +288,7 @@ TEST_CASE( "Operator UI phase: detached facts and GPU submission cross one order
 TEST_CASE( "Operator UI phase: only adjacent operations belong to the fatal phase walk" )
 {
     using Phase = OperatorUiPhaseOwner::Phase;
-    constexpr std::array phases { Phase::Idle, Phase::Snapshot, Phase::Composed,
-                                  Phase::Submitted, Phase::Complete };
+    constexpr std::array phases { Phase::Idle, Phase::Snapshot, Phase::Composed, Phase::Submitted, Phase::Complete };
 
     for ( std::size_t fromIndex = 0u; fromIndex < phases.size(); ++fromIndex )
     {
@@ -405,11 +420,11 @@ TEST_CASE( "Scene advance exit policy preserves queued load failure" )
 
     SkullbonezCore::Core::SbDiagnosticStore diagnostics;
     ApplicationExitState exitState( diagnostics );
-    const SkullbonezCore::Core::SbResult loadFailure =
-        diagnostics.Failure( "Runtime/SceneLoad", "queued scene could not be loaded" );
+    const SkullbonezCore::Core::SbResult loadFailure = diagnostics.Failure( "Runtime/SceneLoad",
+                                                                            "queued scene could not be loaded" );
     const SceneAdvanceExitDisposition failureDisposition = ResolveSceneAdvanceExitDisposition( false, false, true );
-    const SceneAdvanceExitAction failureAction =
-        ApplySceneAdvanceExitDisposition( failureDisposition, loadFailure, exitState );
+    const SceneAdvanceExitAction failureAction = ApplySceneAdvanceExitDisposition( failureDisposition, loadFailure,
+                                                                                   exitState );
     const SkullbonezCore::Core::SbResult processResult = exitState.Resolve( failureAction.messageExitCode );
 
     CHECK( failureAction.postQuit );
@@ -736,6 +751,59 @@ TEST_CASE( "Replay overlay: scrubber geometry clamps compact and wide screens" )
     CHECK( ReplayScrubberPositionFromMouse( 4000, 1920, 1080, RunReplayTrack::Solver ) == 1.0f );
 }
 
+TEST_CASE( "Unified Replay uses one thin track hit area and retains control actions across placements" )
+{
+    ReplayScrubberSurfaceInput input;
+    input.screenW = 1600;
+    input.screenH = 900;
+    input.solverToolsEnabled = true;
+    input.predictionToolsEnabled = true;
+    input.scrubTrackDragEnabled = true;
+    ReplayScrubberSurface original;
+    BuildReplayScrubberSurface( input, original );
+    input.transportBounds = { 280.0f, 732.0f, 888.0f, 28.0f };
+    input.controlsBounds = { 0.0f, 72.0f, 280.0f, 660.0f };
+    ReplayScrubberSurface docked;
+    BuildReplayScrubberSurface( input, docked );
+    REQUIRE( docked.controlCount == original.controlCount );
+    for ( std::size_t index = 0; index < original.controlCount; ++index )
+    {
+        CHECK( docked.controls[index].id == original.controls[index].id );
+        CHECK( docked.controls[index].action == original.controls[index].action );
+        CHECK( docked.controls[index].enabled == original.controls[index].enabled );
+    }
+    const ReplayOverlayControl* track = docked.Find( ReplayScrubberControlId( ReplayScrubberControl::ScrubTrack ) );
+    REQUIRE( track != nullptr );
+    CHECK( track->drawRect.h == 4.0f );
+    CHECK( track->hitRect.h == 28.0f );
+    docked.ResolvePointer( RectCenterX( track->drawRect ), static_cast<int>( track->hitRect.y + 2.0f ) );
+    REQUIRE( docked.hasHotControl );
+    CHECK( docked.hotControl == track->id );
+    const ReplayOverlayControl* branch = docked.Find( ReplayScrubberControlId( ReplayScrubberControl::Branch ) );
+    REQUIRE( branch != nullptr );
+    docked.ResolvePointer( RectCenterX( branch->drawRect ), RectCenterY( branch->drawRect ) );
+    CHECK( docked.hasPointerControl );
+    CHECK_FALSE( docked.hasHotControl ); // Disabled branch still blocks the world.
+
+    input.controlsBounds = {};
+    BuildReplayScrubberSurface( input, docked );
+    docked.ResolvePointer( 50, 90 );
+    CHECK_FALSE( docked.hasPointerControl );
+    CHECK_FALSE( docked.Find( ReplayScrubberControlId( ReplayScrubberControl::Load ) )->visible );
+
+    input.controlsBounds = { 0.0f, 72.0f, 280.0f, 140.0f };
+    input.controlsScroll = 1.0f;
+    BuildReplayScrubberSurface( input, docked );
+    CHECK_FALSE( docked.Find( ReplayScrubberControlId( ReplayScrubberControl::Branch ) )->visible );
+    const ReplayOverlayControl* load = docked.Find( ReplayScrubberControlId( ReplayScrubberControl::Load ) );
+    REQUIRE( load != nullptr );
+    REQUIRE( load->visible );
+    docked.ResolvePointer( RectCenterX( load->hitRect ), RectCenterY( load->hitRect ) );
+    CHECK( docked.hotControl == load->id );
+    docked.ResolvePointer( 50, 71 );
+    CHECK_FALSE( docked.hasPointerControl );
+}
+
 TEST_CASE( "Runtime UI components preserve pointer ownership and action identity" )
 {
     RuntimeUiSurface<3> surface;
@@ -770,7 +838,8 @@ TEST_CASE( "Planning UI components render detached trip controls in owner order"
     planner.visible = true;
     planner.available = true;
     ReplayTripPlannerSurface surface;
-    BuildReplayTripPlannerSurface( planner, 1280, surface );
+    const ReplayPlanningLayout layout( { 280.0f, 42.0f, 700.0f, 600.0f }, false, true, false );
+    BuildReplayTripPlannerSurface( planner, layout.Trip(), surface, true );
     REQUIRE( surface.controlCount == 6u );
 
     const ReplayTripPlannerControlRow* commit = surface.Find( ReplayTripPlannerControl::Commit );
@@ -791,7 +860,7 @@ TEST_CASE( "Planning UI components render detached trip controls in owner order"
     constexpr const char* labels[] = { "-", "+", "PLAN", "COMMIT", "CANCEL" };
     SkullbonezCore::UI::UIDrawList drawList;
     const SkullbonezCore::UI::UIDrawContext draw( 1280, 720, drawList );
-    SkullbonezCore::UI::Widgets::DrawPanel( draw, ReplayTripPlannerPanelRect( 1280 ),
+    SkullbonezCore::UI::Widgets::DrawPanel( draw, layout.Trip(),
                                             SkullbonezCore::UI::UIVisualState::Visible |
                                                 SkullbonezCore::UI::UIVisualState::Enabled,
                                             SkullbonezCore::UI::Widgets::ComponentAppearance::Compact );
@@ -815,7 +884,14 @@ TEST_CASE( "Planning UI components render detached trip controls in owner order"
         CHECK( std::strcmp( drawList.TextAt( text.textOffset ), labels[index] ) == 0 );
     }
 
-    CHECK( drawList.Fingerprint() == 309035145945859501ull );
+    // Geometry is intentionally responsive; assert the published control
+    // contract instead of freezing one window's command-list fingerprint.
+    for ( const auto& control : surface.controls )
+    {
+        CHECK( control.drawRect.x >= layout.Clip().x );
+        CHECK( control.drawRect.y >= layout.Clip().y );
+        CHECK( control.drawRect.x + control.drawRect.w <= layout.Clip().x + layout.Clip().w );
+    }
 }
 
 TEST_CASE( "Replay overlay: surface description publishes owner availability as values" )
@@ -827,8 +903,8 @@ TEST_CASE( "Replay overlay: surface description publishes owner availability as 
     stats.enabled = true;
     stats.sampleCount = 2u;
 
-    ReplayScrubberSurfaceInput input =
-        DescribeReplayScrubberAvailability( scrubber, stats, { false, true, true, false, true, true } );
+    ReplayScrubberSurfaceInput input = DescribeReplayScrubberAvailability( scrubber, stats,
+                                                                           { false, true, true, false, true, true } );
     input.screenW = 1920;
     input.screenH = 1080;
     input.gesture = ReplayToolGestureKind::ScrubDrag;
@@ -896,8 +972,8 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
     stats.enabled = true;
     stats.sampleCount = 1u;
 
-    ReplayScrubberSurfaceInput loaded =
-        DescribeReplayScrubberAvailability( scrubber, stats, { true, false, false, true, false, false } );
+    ReplayScrubberSurfaceInput loaded = DescribeReplayScrubberAvailability( scrubber, stats,
+                                                                            { true, false, false, true, false, false } );
     loaded.hotZoneEnabled = false;
     CHECK( loaded.track == RunReplayTrack::Presentation );
     CHECK_FALSE( loaded.solverToolsEnabled );
@@ -906,18 +982,20 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
     CHECK( loaded.branchTargetAvailable );
     CHECK_FALSE( loaded.hotZoneEnabled );
 
-    ReplayScrubberSurfaceInput livePast =
-        DescribeReplayScrubberAvailability( scrubber, stats, { false, false, false, false, false, false } );
+    ReplayScrubberSurfaceInput livePast = DescribeReplayScrubberAvailability( scrubber, stats,
+                                                                              { false, false, false, false, false, false } );
     CHECK( livePast.track == RunReplayTrack::Presentation );
 
     ReplayScrubberSurface loadedSurface;
     BuildReplayScrubberSurface( loaded, loadedSurface );
-    const ReplayOverlayControl* highDetail = loadedSurface.Find( ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
+    const ReplayOverlayControl* highDetail = loadedSurface.Find(
+        ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
     REQUIRE( highDetail != nullptr );
     CHECK_FALSE( highDetail->visible );
 
-    ReplayScrubberSurfaceInput unavailable =
-        DescribeReplayScrubberAvailability( scrubber, stats, { false, false, false, false, false, false } );
+    ReplayScrubberSurfaceInput unavailable = DescribeReplayScrubberAvailability( scrubber, stats,
+                                                                                 { false, false, false, false, false,
+                                                                                   false } );
     unavailable.screenW = 1280;
     unavailable.screenH = 720;
     CHECK_FALSE( unavailable.solverToolsEnabled );
@@ -1231,4 +1309,159 @@ TEST_CASE( "Replay overlay: cause filtering preserves source ancestry and identi
     CHECK( ClearReplayCauseFilterText( textState ) );
     CHECK( textState.filterText[0] == '\0' );
     CHECK_FALSE( ClearReplayCauseFilterText( textState ) );
+}
+
+TEST_CASE( "Planning panels scroll within the offset viewport and keep every trip action reachable" )
+{
+    for ( float width : { 150.0f, 300.0f, 520.0f, 1100.0f } )
+    {
+        const SkullbonezCore::UI::UIRect viewport { 280.0f, 42.0f, width, 140.0f };
+        const ReplayPlanningLayout start( viewport, true, true, true );
+        CHECK( start.Intercept().y >= viewport.y );
+        CHECK( start.Trip().y >= start.Intercept().y + start.Intercept().h );
+        CHECK( start.Porkchop().y >= start.Trip().y + start.Trip().h );
+        CHECK( start.MaximumScroll() > 0.0f );
+        ReplayTripPlannerView planner;
+        planner.visible = true;
+        planner.available = true;
+        ReplayTripPlannerSurface surface;
+        BuildReplayTripPlannerSurface( planner, start.Trip(), surface, true );
+        for ( const auto& control : surface.controls )
+        {
+            if ( control.id == ReplayTripPlannerControl::Panel )
+            {
+                continue;
+            }
+            const ReplayPlanningLayout scrolled( viewport, true, true, true, control.drawRect.y - viewport.y - 16.0f );
+            ReplayTripPlannerSurface visible;
+            BuildReplayTripPlannerSurface( planner, scrolled.Trip(), visible, true );
+            const auto* row = visible.Find( control.id );
+            REQUIRE( row != nullptr );
+            CHECK( row->hitRect.x >= viewport.x );
+            CHECK( row->hitRect.x + row->hitRect.w <= viewport.x + viewport.w );
+            CHECK( row->hitRect.y >= viewport.y );
+            CHECK( row->hitRect.y + row->hitRect.h <= viewport.y + viewport.h );
+            visible.ResolvePointer( RectCenterX( row->hitRect ), RectCenterY( row->hitRect ), false );
+            CHECK( visible.consumesPointer );
+            CHECK( visible.hasHotControl == row->enabled );
+            visible.ResolvePointer( RectCenterX( row->hitRect ), RectCenterY( row->hitRect ), true );
+            CHECK_FALSE( visible.consumesPointer );
+        }
+        const ReplayPlanningLayout bottom( viewport, true, true, true, 100000.0f );
+        CHECK( bottom.Scroll() == bottom.MaximumScroll() );
+        CHECK( bottom.Porkchop().y + bottom.Porkchop().h <= viewport.y + viewport.h );
+        const ReplayPlanningLayout hidden( viewport, false, false, false, bottom.Scroll() );
+        CHECK( hidden.Scroll() == 0.0f );
+        CHECK( hidden.Trip().w == 0.0f );
+        CHECK( hidden.Porkchop().w == 0.0f );
+    }
+}
+
+TEST_CASE( "Trip controls wait for a usable prediction baseline" )
+{
+    ReplayPredictionPresentationView prediction;
+    CHECK_FALSE( ReplayTripBaselineReady( prediction ) );
+    prediction.timeline.complete = true;
+    CHECK_FALSE( ReplayTripBaselineReady( prediction ) );
+    std::array<RunReplayPredictionFrame, 2> frames;
+    prediction.timeline.frames = frames;
+    CHECK( ReplayTripBaselineReady( prediction ) );
+    prediction.timeline.complete = false;
+    prediction.baseline.comparisonActive = true;
+    CHECK( ReplayTripBaselineReady( prediction ) );
+    ReplayTripPlannerView planner;
+    planner.available = true;
+    ReplayTripPlannerSurface surface;
+    BuildReplayTripPlannerSurface( planner, { 300.0f, 80.0f, 500.0f, 94.0f }, surface, false );
+    REQUIRE( surface.Find( ReplayTripPlannerControl::Plan ) );
+    CHECK_FALSE( surface.Find( ReplayTripPlannerControl::Plan )->enabled );
+    CHECK( surface.Find( ReplayTripPlannerControl::TimeOfFlightIncrease )->enabled );
+    BuildReplayTripPlannerSurface( planner, { 300.0f, 80.0f, 500.0f, 94.0f }, surface, true );
+    CHECK( surface.Find( ReplayTripPlannerControl::Plan )->enabled );
+    planner.liveAdvancing = true;
+    BuildReplayTripPlannerSurface( planner, { 300.0f, 80.0f, 500.0f, 94.0f }, surface, true );
+    CHECK_FALSE( surface.Find( ReplayTripPlannerControl::Plan )->enabled );
+}
+
+TEST_CASE( "Native window modal drags keep final resize without accumulating mouse input" )
+{
+    using namespace SkullbonezCore::Runtime;
+    NativeHostEventQueue queue;
+    NativeHostEvent event;
+    queue.Push( { NativeHostEventType::MouseWheel, nullptr, 120 } );
+    queue.SetMoveResizeActive( true );
+    for ( int sample = 0; sample < 10000; ++sample )
+    {
+        queue.Push( { NativeHostEventType::RawMouse, nullptr, 4, -3 } );
+        queue.Push( { NativeHostEventType::MouseWheel, nullptr, -120 } );
+        queue.Push( { NativeHostEventType::Resize, nullptr, 320 + sample, 240 + sample } );
+    }
+    REQUIRE( queue.Pop( event ) );
+    CHECK( event.type == NativeHostEventType::MouseWheel );
+    CHECK( event.first == 120 );
+    CHECK_FALSE( queue.Pop( event ) );
+    queue.SetMoveResizeActive( false );
+    queue.Push( { NativeHostEventType::RawMouse, nullptr, 7, -9, true, true } );
+    REQUIRE( queue.Pop( event ) );
+    CHECK( event.type == NativeHostEventType::Resize );
+    CHECK( event.first == 10319 );
+    CHECK( event.second == 10239 );
+    REQUIRE( queue.Pop( event ) );
+    CHECK( event.type == NativeHostEventType::RawMouse );
+    CHECK( event.first == 7 );
+    CHECK( event.second == -9 );
+    CHECK( event.absolute );
+    CHECK( event.virtualDesktop );
+    CHECK_FALSE( queue.Pop( event ) );
+}
+
+TEST_CASE( "Native window move-only loops and repeated resizes leave no stale events" )
+{
+    using namespace SkullbonezCore::Runtime;
+    NativeHostEventQueue queue;
+    NativeHostEvent event;
+    for ( int drag = 0; drag < 20; ++drag )
+    {
+        queue.SetMoveResizeActive( true );
+        for ( int sample = 0; sample < 10000; ++sample )
+        {
+            queue.Push( { NativeHostEventType::RawMouse, nullptr, 1, 2 } );
+        }
+        queue.SetMoveResizeActive( false );
+        CHECK_FALSE( queue.Pop( event ) );
+        queue.SetMoveResizeActive( true );
+        queue.Push( { NativeHostEventType::Resize, nullptr, 800 + drag, 600 } );
+        queue.SetMoveResizeActive( false );
+        REQUIRE( queue.Pop( event ) );
+        CHECK( event.first == 800 + drag );
+        CHECK_FALSE( queue.Pop( event ) );
+    }
+    queue.SetMoveResizeActive( true );
+    queue.Push( { NativeHostEventType::Resize, nullptr, 900, 700 } );
+    queue.Reset();
+    CHECK_FALSE( queue.MoveResizeActive() );
+    queue.SetMoveResizeActive( false );
+    CHECK_FALSE( queue.Pop( event ) );
+}
+
+TEST_CASE( "Native window ordinary events remain FIFO across queue wrap" )
+{
+    using namespace SkullbonezCore::Runtime;
+    NativeHostEventQueue queue;
+    NativeHostEvent event;
+    for ( int batch = 0; batch < 20; ++batch )
+    {
+        for ( int sample = 0; sample < 200; ++sample )
+        {
+            queue.Push( { NativeHostEventType::RawMouse, nullptr, batch, sample } );
+        }
+        for ( int sample = 0; sample < 200; ++sample )
+        {
+            REQUIRE( queue.Pop( event ) );
+            CHECK( event.type == NativeHostEventType::RawMouse );
+            CHECK( event.first == batch );
+            CHECK( event.second == sample );
+        }
+        CHECK_FALSE( queue.Pop( event ) );
+    }
 }

@@ -1,6 +1,7 @@
 {
   "version": 1,
   "actions": [
+    { "frame": 5, "resizeWindow": [1784, 961] },
     { "frame": 45, "showReplayScrubber": true },
     { "frame": 60, "clickObject": "prediction_striker_ball", "button": "left" },
     { "frame": 61, "setReplayPredictionHorizonSeconds": 1.0 },
@@ -12,7 +13,11 @@
     { "frame": 104, "assert": { "replayPredictionEnabled": false } },
     { "frame": 106, "selectReplayCauseRow": 2 },
     { "frame": 108, "assert": { "replayActiveTrack": "Solver" } },
-    { "frame": 900, "scrollPoint": [1000, 300, -120] },
+    { "frame": 110, "clickPoint": [1738, 21] },
+    { "frame": 140, "clickPoint": [1772, 152] },
+    { "frame": 400, "clickPoint": [1732, 91] },
+    { "frame": 600, "clickPoint": [1224, 144] },
+    { "frame": 900, "scrollPoint": [1224, 300, -120] },
     { "frame": 1100, "assert": { "replayActiveTrack": "Solver" } }
   ]
 }

@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "physics_plan": "Agentic/Plans/TODO/ragdoll-physics-unification.md",
+  "phase": "FP9",
+  "transition_id": "performance-references-8f40ec6e",
+  "source_commit": "bf8bbcd9b310f07becdb6c5fbc17af0cb9e7d379",
+  "goldens": [
+    {
+      "path": "TestOutput/baselines/dx12_perf.json",
+      "old_sha256": "bcb67b8d4e1bfcc4bc64f37185c2bc6f8b90e173cb25ef5bff503fbbac8643ef",
+      "new_sha256": "03cab7d929939fa36209f8549d3754c569150c7a8d2feafe8c96f394adfbb4ab"
+    },
+    {
+      "path": "TestOutput/baselines/physics_bench_perf.json",
+      "old_sha256": "6ef6b79741f713f454803f1d83907ea97e40db2b8af71e0002b64847f9dd3550",
+      "new_sha256": "68e3c163f446c270a96a277e23e36d6314d5540864d8cb34507fff1beec6837c"
+    }
+  ],
+  "old_behavior": {
+    "source_commit": "3a4b52e94c1bf61b2f04b975a4fa2e63fe3cbf5a",
+    "golden_sha256": {
+      "TestOutput/baselines/dx12_perf.json": "bcb67b8d4e1bfcc4bc64f37185c2bc6f8b90e173cb25ef5bff503fbbac8643ef",
+      "TestOutput/baselines/physics_bench_perf.json": "6ef6b79741f713f454803f1d83907ea97e40db2b8af71e0002b64847f9dd3550"
+    },
+    "executables": [
+      {
+        "configuration": "Profile|x64",
+        "path": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP9/golden-transitions/performance-references-8f40ec6e/old/SKULLBONEZ_CORE-Profile.exe",
+        "size": 4714496,
+        "sha256": "3eacb81542b5dc0b9d5ed8d6ff8a176fd0b1f83a6bdfec4904b846d1d183593d",
+        "launch_command": "\"Agentic/Plans/Artifacts/ragdoll-physics-unification/FP9/golden-transitions/performance-references-8f40ec6e/old/SKULLBONEZ_CORE-Profile.exe\" --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene.json\n\"Agentic/Plans/Artifacts/ragdoll-physics-unification/FP9/golden-transitions/performance-references-8f40ec6e/old/SKULLBONEZ_CORE-Profile.exe\" --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/physics_bench_varied.scene.json",
+        "dependency_scan_command": "\"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\dumpbin.exe\" /DEPENDENTS Agentic/Plans/Artifacts/ragdoll-physics-unification/FP9/golden-transitions/performance-references-8f40ec6e/old/SKULLBONEZ_CORE-Profile.exe",
+        "first_party_dlls": []
+      }
+    ]
+  },
+  "new_behavior": {
+    "source_commit": "bf8bbcd9b310f07becdb6c5fbc17af0cb9e7d379",
+    "golden_sha256": {
+      "TestOutput/baselines/dx12_perf.json": "03cab7d929939fa36209f8549d3754c569150c7a8d2feafe8c96f394adfbb4ab",
+      "TestOutput/baselines/physics_bench_perf.json": "68e3c163f446c270a96a277e23e36d6314d5540864d8cb34507fff1beec6837c"
+    },
+    "executables": [
+      {
+        "configuration": "Profile|x64",
+        "path": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP9/golden-transitions/performance-references-8f40ec6e/new/SKULLBONEZ_CORE-Profile.exe",
+        "size": 4594688,
+        "sha256": "8f40ec6ea98771486fcf0a30737fd0ed2a516689c5b9429816d528e10ca894fc",
+        "launch_command": "\"Agentic/Plans/Artifacts/ragdoll-physics-unification/FP9/golden-transitions/performance-references-8f40ec6e/new/SKULLBONEZ_CORE-Profile.exe\" --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene.json\n\"Agentic/Plans/Artifacts/ragdoll-physics-unification/FP9/golden-transitions/performance-references-8f40ec6e/new/SKULLBONEZ_CORE-Profile.exe\" --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/physics_bench_varied.scene.json",
+        "dependency_scan_command": "\"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\dumpbin.exe\" /DEPENDENTS Agentic/Plans/Artifacts/ragdoll-physics-unification/FP9/golden-transitions/performance-references-8f40ec6e/new/SKULLBONEZ_CORE-Profile.exe",
+        "first_party_dlls": []
+      }
+    ]
+  }
+}

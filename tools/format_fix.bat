@@ -4,14 +4,14 @@
 @rem   Documents and runs the format_fix.bat developer/validation helper script.
 @rem
 @rem Summary:
-@rem   Applies the pinned clang-format binary directly to changed first-party C++ source.
+@rem   Applies clang-format and argument-count wrapping to changed first-party C++ source.
 @rem
 @rem Glossary:
 @rem   Validation gate: Repository script that proves a class of changes before
 @rem   commit or PR.
 @rem
 @rem Invariants:
-@rem   - clang-format is the sole mechanical layout authority.
+@rem   - format_cpp.py owns the shared formatting pipeline.
 @rem   - Only changed first-party source is rewritten; untouched legacy layout
 @rem     does not create a repository-wide formatting diff.
 @rem
@@ -40,7 +40,7 @@ if errorlevel 1 exit /b 1
 call :format_range "HEAD"
 if errorlevel 1 exit /b 1
 
-echo Formatted !COUNT! changed C++ source files with clang-format.
+echo Formatted !COUNT! changed C++ source files with repository wrapping rules.
 exit /b 0
 
 :format_range
@@ -53,7 +53,7 @@ exit /b 0
 :format_file
 if /I not "%~x1"==".cpp" if /I not "%~x1"==".h" if /I not "%~x1"==".hpp" if /I not "%~x1"==".inl" exit /b 0
 if not exist "%REPO%\%~1" exit /b 0
-"%CLANG_FMT%" -i "%REPO%\%~1"
+python "%~dp0format_cpp.py" --write --clang-format "%CLANG_FMT%" "%REPO%\%~1"
 if errorlevel 1 exit /b 1
 set /a COUNT+=1
 exit /b 0

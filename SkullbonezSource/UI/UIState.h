@@ -56,6 +56,9 @@ struct UIInteractionState
 {
     bool isDragging = false;
     bool isResizing = false;
+    // The composing presenter assigns a bounded region ID; capture remains
+    // with its existing input router and uses these same resize offsets.
+    int resizeRegion = 0;
 
     int dragOffsetX = 0;
     int dragOffsetY = 0;

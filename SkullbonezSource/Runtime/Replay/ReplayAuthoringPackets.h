@@ -34,6 +34,9 @@ Related:
 
 #include "ReplayIdentity.h"
 #include "../../Maths/Vector3.h"
+#include "../../Maths/Matrix4.h"
+#include <cmath>
+#include <algorithm>
 #include "../../Physics/PhysicsHandles.h"
 
 #include <array>
@@ -46,6 +49,44 @@ namespace SkullbonezCore::Runtime
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_MAX = 140.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_ANGULAR_MAX = 5.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_EXTRA = 36.0f;
+
+// Drawing and picking share a world-aligned handle at the edited vector tip.
+inline float ReplayVelocityHandleLength( float radius ) noexcept
+{
+    return (std::max)( 10.0f, radius + 7.0f );
+}
+inline float ReplayVelocityVectorScale( bool angular ) noexcept
+{
+    return REPLAY_VELOCITY_EDIT_LINEAR_EXTRA / ( angular ? REPLAY_VELOCITY_EDIT_ANGULAR_MAX : REPLAY_VELOCITY_EDIT_LINEAR_MAX );
+}
+
+// Invariant: a gesture freezes its projected axis on press. Perspective and
+// foreshortening cannot introduce ray/plane singularities or change sensitivity
+// as the edited vector moves. Near end-on axes are not pickable.
+class ReplayVelocityScreenDrag
+{
+  public:
+    bool Begin( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, const Math::Vector::Vector3& pointer, float units ) noexcept
+    {
+        const float dx = end.x - start.x, dy = end.y - start.y;
+        const float length = std::sqrt( dx * dx + dy * dy );
+        if ( length < 4.0f )
+        {
+            return false;
+        }
+        m_start = pointer;
+        m_unitsPerPixel = { dx / length * units / (std::max)( length, 24.0f ), dy / length * units / (std::max)( length, 24.0f ), 0.0f };
+        return true;
+    }
+    float Delta( float x, float y ) const noexcept
+    {
+        return ( x - m_start.x ) * m_unitsPerPixel.x + ( y - m_start.y ) * m_unitsPerPixel.y;
+    }
+
+  private:
+    Math::Vector::Vector3 m_start = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 m_unitsPerPixel = Math::Vector::ZERO_VECTOR;
+};
 
 enum class ReplayToolGestureKind : uint8_t
 {
@@ -142,8 +183,7 @@ class ReplayInteractionRequest
     }
 
   private:
-    void BeginGesture( ReplayToolGestureKind kind, int startX, int startY, Physics::PhysicsBodyHandle body, int axis,
-                       bool angular )
+    void BeginGesture( ReplayToolGestureKind kind, int startX, int startY, Physics::PhysicsBodyHandle body, int axis, bool angular )
     {
         m_beginGesture = kind;
         m_gestureStartX = startX;
@@ -187,6 +227,8 @@ struct ReplayCauseTreeInputFrame
     bool filterEscapePressed = false;
     bool filterReturnPressed = false;
     bool rowsReady = false;
+    bool surfaceVisible = true;
+    bool docked = false;
     bool uiBlocksMouse = false;
     bool editorModeEnabled = false;
 };
@@ -201,6 +243,11 @@ struct ReplayCauseTreeInputResult
 
 struct ReplayVelocityInputFrame
 {
+    Math::Transformation::Matrix4 viewProjection;
+    int viewportX = 0;
+    int viewportY = 0;
+    int screenWidth = 0;
+    int screenHeight = 0;
     ReplayToolGestureView gesture;
     bool replayToolOwnsWorld = false;
     bool velocityEditOwnsWorld = false;
@@ -215,8 +262,13 @@ struct ReplayVelocityInputFrame
 struct ReplayVelocityInputResult
 {
     ReplayInteractionRequest interaction;
+    // App preserves the original prediction before applying this proposed edit.
+    Math::Vector::Vector3 linearVelocity;
+    Math::Vector::Vector3 angularVelocity;
+    bool velocityChanged = false;
     bool enterInteractive = false;
     bool pathPickRequested = false;
+    bool cancelExperiment = false;
     bool consumesMouse = false;
 };
 
@@ -310,6 +362,8 @@ struct RunReplayCauseTreeState
 
 struct RunReplayVelocityEditState
 {
+    ReplayVelocityScreenDrag screenDrag;
+    bool angular = false;
     bool enabled = false;
     bool keyboardAltWasDown = false;
     bool dragChanged = false;

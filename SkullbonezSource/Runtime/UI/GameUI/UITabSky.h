@@ -29,6 +29,7 @@ Related:
 #include "../../Interaction/OperatorUiCommands.h"
 #include "../../../UI/UIDraw.h"
 #include "../../../UI/UISlider.h"
+#include "../../../UI/UITooltip.h"
 
 namespace SkullbonezCore
 {
@@ -52,14 +53,22 @@ struct UISkyTabState
 };
 
 int ContentHeight();
-bool HandleContentClick( UISkyTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
-                         float contentX, float scrolledY, float contentW );
+UITooltipTarget TooltipAt( const UISkyTabState& state, int mouseX, int mouseY );
+bool HandleContentClick( UISkyTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY, float contentX, float scrolledY, float contentW );
 bool UpdateActiveSlider( UISkyTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 bool CommitActiveSlider( UISkyTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 
 void DrawHitboxes( const UISkyTabState& state, const UIDrawContext& draw, float contentR, float contentG, float contentB );
-void Draw( UISkyTabState& state, const UIDrawContext& draw, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-           float contentX, float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY );
+void Draw( UISkyTabState& state,
+           const UIDrawContext& draw,
+           const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+           float contentX,
+           float contentY,
+           float contentW,
+           float contentH,
+           float scrolledY,
+           int mouseX,
+           int mouseY );
 
 } // namespace SkyTab
 } // namespace UI

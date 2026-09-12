@@ -1,0 +1,6 @@
+Independent reviewer: fp8_fp9_final_review (Boole), 2026-09-10
+Verdict: no material blocker.
+Checked retained executable sizes/hashes and old/new golden hashes against manifest; dependency scans require no first-party DLLs.
+Checked full BODY/PRES prefix assertions, corrected model-row to stable-ID mapping, first speculative head contact, and changed catcher-wall endpoint.
+Confirmed old behavior matches while shader provenance is separately stale; same source-parent commits conform to the schema and require atomic landing with the source changes.
+Mapped replay validation, full-plan/performance validation and final disposition remain required.

@@ -204,8 +204,7 @@ struct Dx12TextureOwnerTestAccess
 
 struct Dx12GeometryOwnerTestAccess
 {
-    static uint32_t AddInstancedUploadProbe( Dx12GeometryOwner& owner, int staticVertexCount, int staticStride,
-                                             int instanceFloats )
+    static uint32_t AddInstancedUploadProbe( Dx12GeometryOwner& owner, int staticVertexCount, int staticStride, int instanceFloats )
     {
         InstancedMeshDX12 mesh = {};
         mesh.staticVB = reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 1u ) );
@@ -219,8 +218,7 @@ struct Dx12GeometryOwnerTestAccess
 
     static D3D12_GPU_VIRTUAL_ADDRESS InstanceDataAddress( const Dx12GeometryOwner& owner, uint32_t handle )
     {
-        return handle > 0 && handle <= owner.m_instancedMeshes.size() ? owner.m_instancedMeshes[handle - 1].instanceDataAddr
-                                                                      : 0;
+        return handle > 0 && handle <= owner.m_instancedMeshes.size() ? owner.m_instancedMeshes[handle - 1].instanceDataAddr : 0;
     }
 
     static void ClearInstancedUploadProbes( Dx12GeometryOwner& owner )
@@ -233,13 +231,16 @@ struct Dx12GeometryOwnerTestAccess
         owner.m_instancedMeshes.clear();
     }
 
-    static bool TryBuildInstancedAttributeLayout( std::span<const int> instanceAttributeSizes,
-                                                  std::span<const int> staticAttributeSizes, std::size_t& outInstanceCount,
-                                                  std::size_t& outStaticCount, std::size_t& outInputElementCount )
+    static bool TryBuildInstancedAttributeLayout(
+        std::span<const int> instanceAttributeSizes,
+        std::span<const int> staticAttributeSizes,
+        std::size_t& outInstanceCount,
+        std::size_t& outStaticCount,
+        std::size_t& outInputElementCount
+    )
     {
         Dx12GeometryOwner::InstancedAttributeLayout layout;
-        const bool accepted = Dx12GeometryOwner::TryBuildInstancedAttributeLayout( instanceAttributeSizes,
-                                                                                   staticAttributeSizes, layout );
+        const bool accepted = Dx12GeometryOwner::TryBuildInstancedAttributeLayout( instanceAttributeSizes, staticAttributeSizes, layout );
         outInstanceCount = layout.instanceCount;
         outStaticCount = layout.staticCount;
         outInputElementCount = layout.inputElementCount;
@@ -288,12 +289,11 @@ struct PrimitiveBatchRendererTestAccess
 
     static bool ResolveVisibleBatchReadiness( bool materialTableReady, bool& shaderPublicationCalled )
     {
-        return PrimitiveBatchRenderer::ResolveVisibleBatchReadiness( [materialTableReady]() { return materialTableReady; },
-                                                                     [&shaderPublicationCalled]()
-                                                                     {
-                                                                         shaderPublicationCalled = true;
-                                                                         return true;
-                                                                     } );
+        return PrimitiveBatchRenderer::ResolveVisibleBatchReadiness( [materialTableReady]() { return materialTableReady; }, [&shaderPublicationCalled]()
+            {
+                shaderPublicationCalled = true;
+                return true;
+            } );
     }
 };
 } // namespace SkullbonezCore::Rendering
@@ -317,12 +317,9 @@ struct InputWindowBridgeTestAccess
         }
     };
 
-    static SkullbonezCore::Core::SbResult RegisterRawMouse( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                            HWND window, bool callbackBridgeBound,
-                                                            RawMouseRegistrationProbe& probe )
+    static SkullbonezCore::Core::SbResult RegisterRawMouse( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, HWND window, bool callbackBridgeBound, RawMouseRegistrationProbe& probe )
     {
-        return Input::RegisterRawMouseInputWithOperation( diagnostics, window, callbackBridgeBound,
-                                                          RawMouseRegistrationProbe::Invoke, &probe );
+        return Input::RegisterRawMouseInputWithOperation( diagnostics, window, callbackBridgeBound, RawMouseRegistrationProbe::Invoke, &probe );
     }
 
     class Probe
@@ -355,6 +352,10 @@ namespace SkullbonezCore::Geometry
 {
 struct TerrainRenderLifecycleTestAccess
 {
+    static void InvalidateGridSpacing( Terrain& terrain )
+    {
+        terrain.m_gridSpacing = ( std::numeric_limits<float>::quiet_NaN )();
+    }
     static void RequireClipPlane( const float* clipPlane )
     {
         Terrain::RequireClipPlane( clipPlane );
@@ -366,12 +367,9 @@ struct TerrainRenderLifecycleTestAccess
         std::unique_ptr<Terrain> candidate = std::make_unique<Terrain>( 2.0f, 0.0f, 0.0f, config );
         Terrain* const existingIdentity = existing.get();
         Terrain* const candidateIdentity = candidate.get();
-        const Terrain::RequiredRenderResourceFailure failure = Terrain::TryPublishRenderReadyCandidate( existing, candidate,
-                                                                                                        meshReady,
-                                                                                                        shaderReady );
+        const Terrain::RequiredRenderResourceFailure failure = Terrain::TryPublishRenderReadyCandidate( existing, candidate, meshReady, shaderReady );
 
-        return failure != Terrain::RequiredRenderResourceFailure::None && existing.get() == existingIdentity &&
-               candidate.get() == candidateIdentity;
+        return failure != Terrain::RequiredRenderResourceFailure::None && existing.get() == existingIdentity && candidate.get() == candidateIdentity;
     }
     static bool PublicationMovesReadyCandidate()
     {
@@ -379,8 +377,7 @@ struct TerrainRenderLifecycleTestAccess
         std::unique_ptr<Terrain> existing = std::make_unique<Terrain>( 1.0f, 0.0f, 0.0f, config );
         std::unique_ptr<Terrain> candidate = std::make_unique<Terrain>( 2.0f, 0.0f, 0.0f, config );
         Terrain* const candidateIdentity = candidate.get();
-        const Terrain::RequiredRenderResourceFailure failure = Terrain::TryPublishRenderReadyCandidate( existing, candidate,
-                                                                                                        true, true );
+        const Terrain::RequiredRenderResourceFailure failure = Terrain::TryPublishRenderReadyCandidate( existing, candidate, true, true );
 
         return failure == Terrain::RequiredRenderResourceFailure::None && existing.get() == candidateIdentity && !candidate;
     }
@@ -388,8 +385,7 @@ struct TerrainRenderLifecycleTestAccess
 
 struct SkyBoxRenderLifecycleTestAccess
 {
-    static SkullbonezCore::Core::SbResult RequiredResourcesResult( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                                   const std::array<bool, 6>& meshesReady, bool shaderReady )
+    static SkullbonezCore::Core::SbResult RequiredResourcesResult( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const std::array<bool, 6>& meshesReady, bool shaderReady )
     {
         return SkyBox::RequiredRenderResourcesResult( diagnostics, meshesReady, shaderReady );
     }
@@ -451,36 +447,36 @@ struct TextureCollectionTestAccess
         bool retired = false;
 
         SkullbonezCore::Core::SbResult decodeFailure = TextureCollection::CreateOrReplaceTextureRecord(
-            textures, original.legacyHash,
+            textures,
+            original.legacyHash,
             [&]( TextureCollection::GpuTextureRecord& )
             {
                 eventOrder = 1;
                 return diagnostics.Failure( "TextureCollectionTest", "planted decode failure" );
             },
-            [&]( uint32_t ) { retired = true; } );
+            [&]( uint32_t ) { retired = true; }
+        );
 
-        if ( decodeFailure.Ok() || eventOrder != 1 || retired || destination.legacyHash != original.legacyHash ||
-             destination.backendHandle != original.backendHandle || destination.sourceId != original.sourceId ||
-             destination.width != original.width || destination.height != original.height ||
-             destination.channels != original.channels )
+        if ( decodeFailure.Ok() || eventOrder != 1 || retired || destination.legacyHash != original.legacyHash || destination.backendHandle != original.backendHandle ||
+             destination.sourceId != original.sourceId || destination.width != original.width || destination.height != original.height || destination.channels != original.channels )
         {
             return false;
         }
 
         eventOrder = 0;
         SkullbonezCore::Core::SbResult backendFailure = TextureCollection::CreateOrReplaceTextureRecord(
-            textures, original.legacyHash,
+            textures,
+            original.legacyHash,
             [&]( TextureCollection::GpuTextureRecord& )
             {
                 eventOrder = 2;
                 return diagnostics.Failure( "TextureCollectionTest", "planted backend failure" );
             },
-            [&]( uint32_t ) { retired = true; } );
+            [&]( uint32_t ) { retired = true; }
+        );
 
-        if ( backendFailure.Ok() || eventOrder != 2 || retired || destination.legacyHash != original.legacyHash ||
-             destination.backendHandle != original.backendHandle || destination.sourceId != original.sourceId ||
-             destination.width != original.width || destination.height != original.height ||
-             destination.channels != original.channels )
+        if ( backendFailure.Ok() || eventOrder != 2 || retired || destination.legacyHash != original.legacyHash || destination.backendHandle != original.backendHandle ||
+             destination.sourceId != original.sourceId || destination.width != original.width || destination.height != original.height || destination.channels != original.channels )
         {
             return false;
         }
@@ -496,7 +492,8 @@ struct TextureCollectionTestAccess
         uint32_t retiredHandle = 0;
 
         const SkullbonezCore::Core::SbResult success = TextureCollection::CreateOrReplaceTextureRecord(
-            textures, original.legacyHash,
+            textures,
+            original.legacyHash,
             [&]( TextureCollection::GpuTextureRecord& loadedCandidate )
             {
                 if ( destination.backendHandle != original.backendHandle )
@@ -516,12 +513,11 @@ struct TextureCollectionTestAccess
                 {
                     eventOrder = 4;
                 }
-            } );
+            }
+        );
 
-        return success.Ok() && eventOrder == 4 && retiredHandle == original.backendHandle &&
-               destination.legacyHash == candidate.legacyHash && destination.backendHandle == candidate.backendHandle &&
-               destination.sourceId == candidate.sourceId && destination.width == candidate.width &&
-               destination.height == candidate.height && destination.channels == candidate.channels;
+        return success.Ok() && eventOrder == 4 && retiredHandle == original.backendHandle && destination.legacyHash == candidate.legacyHash && destination.backendHandle == candidate.backendHandle &&
+               destination.sourceId == candidate.sourceId && destination.width == candidate.width && destination.height == candidate.height && destination.channels == candidate.channels;
     }
 };
 } // namespace SkullbonezCore::Textures
@@ -559,26 +555,22 @@ struct LockOrderValidatorTestAccess
 {
     static bool IsInvalidId( uint32_t lockId )
     {
-        return LockOrderValidator::ClassifyAcquisitionProbe( lockId, false, false ) ==
-               LockOrderValidator::AcquisitionProbeFinding::InvalidId;
+        return LockOrderValidator::ClassifyAcquisitionProbe( lockId, false, false ) == LockOrderValidator::AcquisitionProbeFinding::InvalidId;
     }
 
     static bool IsCycle()
     {
-        return LockOrderValidator::ClassifyAcquisitionProbe( 1u, true, false ) ==
-               LockOrderValidator::AcquisitionProbeFinding::Cycle;
+        return LockOrderValidator::ClassifyAcquisitionProbe( 1u, true, false ) == LockOrderValidator::AcquisitionProbeFinding::Cycle;
     }
 
     static bool IsHeldStackExhausted()
     {
-        return LockOrderValidator::ClassifyAcquisitionProbe( 1u, false, true ) ==
-               LockOrderValidator::AcquisitionProbeFinding::HeldStackExhausted;
+        return LockOrderValidator::ClassifyAcquisitionProbe( 1u, false, true ) == LockOrderValidator::AcquisitionProbeFinding::HeldStackExhausted;
     }
 
     static bool IsValid()
     {
-        return LockOrderValidator::ClassifyAcquisitionProbe( 1u, false, false ) ==
-               LockOrderValidator::AcquisitionProbeFinding::None;
+        return LockOrderValidator::ClassifyAcquisitionProbe( 1u, false, false ) == LockOrderValidator::AcquisitionProbeFinding::None;
     }
 };
 } // namespace SkullbonezCore::Threading
@@ -624,8 +616,7 @@ struct ConstraintSolveTransactionTestAccess
 
 struct ColliderStoreTestAccess
 {
-    static void RequireShapeStorage( ColliderShapeKind shapeKind, std::size_t index, std::size_t shapeCount,
-                                     std::size_t identityCount, const char* operation )
+    static void RequireShapeStorage( ColliderShapeKind shapeKind, std::size_t index, std::size_t shapeCount, std::size_t identityCount, const char* operation )
     {
         ColliderStore::RequireShapeStorage( shapeKind, index, shapeCount, identityCount, operation );
     }
@@ -671,9 +662,14 @@ struct PhysicsContactSolverStageTestAccess
         CHECK( stage.CanAppendObjectManifold( 3u ) );
     }
 
-    static void ReserveAndPrepare( PhysicsContactSolverStage& stage, std::size_t collisionVisualCapacity,
-                                   std::size_t fixedContactCapacity, std::size_t releaseWakeCapacity,
-                                   std::size_t fixedTreeCapacity, std::size_t pipelineCapacity )
+    static void ReserveAndPrepare(
+        PhysicsContactSolverStage& stage,
+        std::size_t collisionVisualCapacity,
+        std::size_t fixedContactCapacity,
+        std::size_t releaseWakeCapacity,
+        std::size_t fixedTreeCapacity,
+        std::size_t pipelineCapacity
+    )
     {
         {
             Core::Allocation::RuntimeAllocationScope sceneLoadScope( Core::Allocation::RuntimeAllocationPhase::SceneLoad );
@@ -826,13 +822,10 @@ TEST_CASE( "Runtime renderer world-to-overlay transaction rejects abandonment an
     static_assert( !std::is_copy_assignable_v<Transaction> );
     static_assert( !std::is_move_constructible_v<Transaction> );
     static_assert( !std::is_move_assignable_v<Transaction> );
-    static_assert(
-        std::is_same_v<decltype( &Transaction::SubmitOverlays ), bool ( Transaction::* )( const OverlaySubmission& )> );
+    static_assert( std::is_same_v<decltype( &Transaction::SubmitOverlays ), bool ( Transaction::* )( const OverlaySubmission& )> );
     CHECK( std::is_destructible_v<Transaction> );
-    ExpectRuntimeFatalCase( "renderer-frame-transaction-abandoned",
-                            { "FATAL[RunRender]", "ended before overlay submission" } );
-    ExpectRuntimeFatalCase( "renderer-frame-transaction-duplicate",
-                            { "FATAL[RunRender]", "received overlay submission twice" } );
+    ExpectRuntimeFatalCase( "renderer-frame-transaction-abandoned", { "FATAL[RunRender]", "ended before overlay submission" } );
+    ExpectRuntimeFatalCase( "renderer-frame-transaction-duplicate", { "FATAL[RunRender]", "received overlay submission twice" } );
 }
 
 
@@ -978,27 +971,21 @@ TEST_CASE( "Lock-order Debug probes classify invalid ids, cycles, and held-stack
 
 TEST_CASE( "TextureCollection fixed capacity admits its exact final slot" )
 {
-    CHECK( SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot(
-               SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT - 1u ) ==
-           SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT - 1 );
+    CHECK( SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot( SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT - 1u ) == SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT - 1 );
 }
 
 
 TEST_CASE( "TextureCollection publishes a valid replacement without erasing the resident failure fallback" )
 {
-    CHECK( SkullbonezCore::Textures::TextureCollectionTestAccess::
-               ReplacementTransactionPreservesFailuresAndRetiresAfterPublication() );
+    CHECK( SkullbonezCore::Textures::TextureCollectionTestAccess::ReplacementTransactionPreservesFailuresAndRetiresAfterPublication() );
 }
 
 
 TEST_CASE( "DX12 shader requests distinguish default-root names from resolved asset paths" )
 {
-    CHECK( SkullbonezCore::Rendering::Dx12ResourceBuilder::DefaultShaderHlslPath( "shaders/unit" ) ==
-           std::string( DATA_ROOT ) + "shaders/unit.hlsl" );
-    CHECK( SkullbonezCore::Rendering::Dx12ResourceBuilder::ResolvedShaderHlslPath( "AlternateData/shaders/unit" ) ==
-           "AlternateData/shaders/unit.hlsl" );
-    CHECK( SkullbonezCore::Rendering::Dx12ResourceBuilder::ResolvedShaderHlslPath( "C:/ShaderRoot/absolute" ) ==
-           "C:/ShaderRoot/absolute.hlsl" );
+    CHECK( SkullbonezCore::Rendering::Dx12ResourceBuilder::DefaultShaderHlslPath( "shaders/unit" ) == std::string( DATA_ROOT ) + "shaders/unit.hlsl" );
+    CHECK( SkullbonezCore::Rendering::Dx12ResourceBuilder::ResolvedShaderHlslPath( "AlternateData/shaders/unit" ) == "AlternateData/shaders/unit.hlsl" );
+    CHECK( SkullbonezCore::Rendering::Dx12ResourceBuilder::ResolvedShaderHlslPath( "C:/ShaderRoot/absolute" ) == "C:/ShaderRoot/absolute.hlsl" );
 }
 
 
@@ -1014,15 +1001,13 @@ TEST_CASE( "World resource readiness rejects incomplete terrain and sky creation
     SkullbonezCore::Core::SbDiagnosticStore resourceDiagnostics;
     std::array<bool, 6> skyMeshesReady = { true, true, true, true, true, true };
     CHECK( SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( resourceDiagnostics, skyMeshesReady, true ).Ok() );
-    CHECK_FALSE(
-        SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( resourceDiagnostics, skyMeshesReady, false ).Ok() );
+    CHECK_FALSE( SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( resourceDiagnostics, skyMeshesReady, false ).Ok() );
 
     for ( std::size_t failedFace = 0; failedFace < skyMeshesReady.size(); ++failedFace )
     {
         skyMeshesReady.fill( true );
         skyMeshesReady[failedFace] = false;
-        CHECK_FALSE(
-            SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( resourceDiagnostics, skyMeshesReady, true ).Ok() );
+        CHECK_FALSE( SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( resourceDiagnostics, skyMeshesReady, true ).Ok() );
     }
 }
 
@@ -1046,12 +1031,9 @@ TEST_CASE( "DX12 texture upload preserves direct channels and expands two and th
     std::array<uint8_t, 10> twoChannelDestination;
     twoChannelDestination.fill( destinationGuard );
     const std::array<uint8_t, 6> expectedTwoChannelSource = twoChannelSource;
-    const std::array<uint8_t, 10> expectedTwoChannelDestination = { destinationGuard, 10, 10, 10, 20, 30, 30, 30, 40,
-                                                                    destinationGuard };
+    const std::array<uint8_t, 10> expectedTwoChannelDestination = { destinationGuard, 10, 10, 10, 20, 30, 30, 30, 40, destinationGuard };
 
-    const bool
-        twoChannelExpanded = Dx12TextureOwnerTestAccess::ExpandToRgba( std::span( twoChannelSource ).subspan( 1, 4 ), 2,
-                                                                       std::span( twoChannelDestination ).subspan( 1, 8 ) );
+    const bool twoChannelExpanded = Dx12TextureOwnerTestAccess::ExpandToRgba( std::span( twoChannelSource ).subspan( 1, 4 ), 2, std::span( twoChannelDestination ).subspan( 1, 8 ) );
     const bool twoChannelResultMatches = twoChannelExpanded && twoChannelDestination == expectedTwoChannelDestination;
     CHECK( twoChannelResultMatches );
     CHECK( twoChannelSource == expectedTwoChannelSource );
@@ -1062,8 +1044,7 @@ TEST_CASE( "DX12 texture upload preserves direct channels and expands two and th
     const std::array<uint8_t, 5> expectedThreeChannelSource = threeChannelSource;
     const std::array<uint8_t, 6> expectedThreeChannelDestination = { destinationGuard, 50, 60, 70, 255, destinationGuard };
 
-    CHECK( Dx12TextureOwnerTestAccess::ExpandToRgba( std::span( threeChannelSource ).subspan( 1, 3 ), 3,
-                                                     std::span( threeChannelDestination ).subspan( 1, 4 ) ) );
+    CHECK( Dx12TextureOwnerTestAccess::ExpandToRgba( std::span( threeChannelSource ).subspan( 1, 3 ), 3, std::span( threeChannelDestination ).subspan( 1, 4 ) ) );
     CHECK( threeChannelDestination == expectedThreeChannelDestination );
     CHECK( threeChannelSource == expectedThreeChannelSource );
 }
@@ -1092,33 +1073,26 @@ TEST_CASE( "DX12 geometry admits exact attribute capacities and rejects oversize
     std::size_t instanceCount = 0;
     std::size_t staticCount = 0;
     std::size_t inputElementCount = 0;
-    CHECK( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout( exactInstance, exactStatic, instanceCount,
-                                                                          staticCount, inputElementCount ) );
+    CHECK( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout( exactInstance, exactStatic, instanceCount, staticCount, inputElementCount ) );
     CHECK( instanceCount == MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM );
     CHECK( staticCount == MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM );
     CHECK( inputElementCount == MAX_DX12_INPUT_ELEMENTS );
 
     const std::array<int, 0> legacyStatic = {};
-    CHECK( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout( exactInstance, legacyStatic, instanceCount,
-                                                                          staticCount, inputElementCount ) );
+    CHECK( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout( exactInstance, legacyStatic, instanceCount, staticCount, inputElementCount ) );
     CHECK( instanceCount == MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM );
     CHECK( staticCount == 0u );
     CHECK( inputElementCount == MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM + 1u );
 
     std::array<int, MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM + 1u> oversizedInstance;
     oversizedInstance.fill( 4 );
-    CHECK_FALSE( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout( oversizedInstance, exactStatic,
-                                                                                instanceCount, staticCount,
-                                                                                inputElementCount ) );
+    CHECK_FALSE( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout( oversizedInstance, exactStatic, instanceCount, staticCount, inputElementCount ) );
     CHECK( instanceCount == 0u );
     CHECK( staticCount == 0u );
     CHECK( inputElementCount == 0u );
-    CHECK_FALSE( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout( exactInstance, oversizedInstance,
-                                                                                instanceCount, staticCount,
-                                                                                inputElementCount ) );
+    CHECK_FALSE( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout( exactInstance, oversizedInstance, instanceCount, staticCount, inputElementCount ) );
     const std::array invalidInstance = { 3, 0 };
-    CHECK_FALSE( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout( invalidInstance, exactStatic, instanceCount,
-                                                                                staticCount, inputElementCount ) );
+    CHECK_FALSE( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout( invalidInstance, exactStatic, instanceCount, staticCount, inputElementCount ) );
 }
 
 TEST_CASE( "DX12 dynamic geometry reuses destroyed slots without reviving stale handles" )
@@ -1151,8 +1125,7 @@ TEST_CASE( "DX12 dynamic geometry reuses destroyed slots without reviving stale 
     }
 
     uint32_t nextGeneration = 1u;
-    CHECK( !Dx12DynamicGeometryHandleCodec::TryNextGeneration( Dx12DynamicGeometryHandleCodec::GENERATION_MAX,
-                                                               nextGeneration ) );
+    CHECK( !Dx12DynamicGeometryHandleCodec::TryNextGeneration( Dx12DynamicGeometryHandleCodec::GENERATION_MAX, nextGeneration ) );
     CHECK( nextGeneration == 0u );
 
     geometry.Shutdown();
@@ -1217,16 +1190,14 @@ TEST_CASE( "IH4 render lifecycle owners execute valid bind move and close transi
     CHECK_FALSE( textureEpoch.Active() );
 
     int rendererIdentity = 0;
-    SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle
-        visibleScope( &rendererIdentity, SkullbonezCore::Rendering::PrimitiveBatchKind::Sphere );
+    SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle visibleScope( &rendererIdentity, SkullbonezCore::Rendering::PrimitiveBatchKind::Sphere );
     visibleScope.RequireVisible();
     SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle movedScope( std::move( visibleScope ) );
     CHECK_FALSE( visibleScope.Active() );
     CHECK( movedScope.Active() );
     movedScope.RequireVisible();
 
-    SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle
-        shadowScope( &rendererIdentity, SkullbonezCore::Rendering::PrimitiveBatchKind::ShadowSphere );
+    SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle shadowScope( &rendererIdentity, SkullbonezCore::Rendering::PrimitiveBatchKind::ShadowSphere );
     shadowScope.RequireShadow();
 
     int resourcesIdentity = 0;
@@ -1340,13 +1311,11 @@ TEST_CASE( "IH5 runtime lifecycle owners preserve valid and unavailable policy" 
     SkullbonezCore::Core::MainMemoryStats sampledMemory;
     sampledMemory.sampleTimeSeconds = 3.0;
     sampledMemory.replay.totalBytes = 31u;
-    const SkullbonezCore::Core::MainMemoryStats
-        unavailableMemory = SkullbonezCore::Runtime::ProjectMemoryTabAvailability( false, sampledMemory );
+    const SkullbonezCore::Core::MainMemoryStats unavailableMemory = SkullbonezCore::Runtime::ProjectMemoryTabAvailability( false, sampledMemory );
     CHECK_FALSE( unavailableMemory.process.available );
     CHECK( unavailableMemory.replay.totalBytes == 0u );
 
-    const SkullbonezCore::Core::MainMemoryStats
-        availableMemory = SkullbonezCore::Runtime::ProjectMemoryTabAvailability( true, sampledMemory );
+    const SkullbonezCore::Core::MainMemoryStats availableMemory = SkullbonezCore::Runtime::ProjectMemoryTabAvailability( true, sampledMemory );
     CHECK( availableMemory.sampleTimeSeconds == doctest::Approx( 3.0 ) );
     CHECK( availableMemory.replay.totalBytes == 31u );
 
@@ -1358,10 +1327,8 @@ TEST_CASE( "IH5 runtime lifecycle owners preserve valid and unavailable policy" 
 
     SkullbonezCore::Core::CinematicRenderConfig cinematic;
     cinematic.skyAtmosphereEnabled = true;
-    CHECK(
-        SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic, SkullbonezCore::Runtime::SkyPassMode::CinematicIfEnabled ) );
-    CHECK_FALSE(
-        SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic, SkullbonezCore::Runtime::SkyPassMode::CubemapOnly ) );
+    CHECK( SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic, SkullbonezCore::Runtime::SkyPassMode::CinematicIfEnabled ) );
+    CHECK_FALSE( SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic, SkullbonezCore::Runtime::SkyPassMode::CubemapOnly ) );
 }
 
 
@@ -1370,9 +1337,13 @@ TEST_CASE( "IH7 frame resource schedule publishes ordinary sky without cinematic
     using SkullbonezCore::Runtime::RuntimeFrameResourcePass;
     using SkullbonezCore::Runtime::RuntimeFrameResourcePassRequired;
 
-    constexpr std::array passes { RuntimeFrameResourcePass::Sky, RuntimeFrameResourcePass::FullscreenQuad,
-                                  RuntimeFrameResourcePass::SceneTarget, RuntimeFrameResourcePass::Volumetric,
-                                  RuntimeFrameResourcePass::Tonemap };
+    constexpr std::array passes {
+        RuntimeFrameResourcePass::Sky,
+        RuntimeFrameResourcePass::FullscreenQuad,
+        RuntimeFrameResourcePass::SceneTarget,
+        RuntimeFrameResourcePass::Volumetric,
+        RuntimeFrameResourcePass::Tonemap
+    };
 
     int ordinaryRequired = 0;
     int ordinarySky = 0;
@@ -1481,8 +1452,7 @@ TEST_CASE( "Runtime debug visualizers bound staging and clear transient epochs" 
     using namespace SkullbonezCore;
 
     Runtime::BroadphaseVisualizer broadphase;
-    CHECK( broadphase.DiagnosticLineFloatCapacity() ==
-           Runtime::BroadphaseVisualizer::DiagnosticRequiredLineFloatCapacity() );
+    CHECK( broadphase.DiagnosticLineFloatCapacity() == Runtime::BroadphaseVisualizer::DiagnosticRequiredLineFloatCapacity() );
     broadphase.SetEnabled( true );
     const Physics::PhysicsBroadphaseActiveCell activeCell { 3, -2, 7, 1 };
     broadphase.Update( 0.0f, std::span<const Physics::PhysicsBroadphaseActiveCell>( &activeCell, 1 ), {} );
@@ -1498,22 +1468,15 @@ TEST_CASE( "Runtime debug visualizers bound staging and clear transient epochs" 
     Runtime::CollisionVisualizer collision;
     const uint8_t collisionContact = 1u;
     const uint8_t awake = 0u;
-    collision.Update( 0.0f, Runtime::CollisionVisualizerFrameView { colliders,
-                                                                    renderInstances,
-                                                                    std::span<const uint8_t>( &collisionContact, 1 ),
-                                                                    std::span<const uint8_t>( &awake, 1 ),
-                                                                    {},
-                                                                    1 } );
+    collision.Update( 0.0f, Runtime::CollisionVisualizerFrameView { colliders, renderInstances, std::span<const uint8_t>( &collisionContact, 1 ), std::span<const uint8_t>( &awake, 1 ), {}, 1 } );
     CHECK( collision.DiagnosticTrackedModelCount() == 1u );
     CHECK( collision.DiagnosticCollisionAmount( 0u ) == doctest::Approx( 1.0f ) );
 
     Runtime::PhysicsDebugVisualizer physicsDebug;
-    CHECK( physicsDebug.DiagnosticLineFloatCapacity() ==
-           Runtime::PhysicsDebugVisualizer::DiagnosticRequiredLineFloatCapacity() );
+    CHECK( physicsDebug.DiagnosticLineFloatCapacity() == Runtime::PhysicsDebugVisualizer::DiagnosticRequiredLineFloatCapacity() );
     physicsDebug.SetFlags( Physics::PHYSICS_DEBUG_CONTACTS );
     physicsDebug.SetContactLingerSeconds( 0.0f );
-    std::vector<Physics::PhysicsDebugContact> contacts( Runtime::PhysicsDebugVisualizer::DiagnosticTrackedContactCapacity() +
-                                                        1u );
+    std::vector<Physics::PhysicsDebugContact> contacts( Runtime::PhysicsDebugVisualizer::DiagnosticTrackedContactCapacity() + 1u );
 
     for ( std::size_t index = 0; index < contacts.size(); ++index )
     {
@@ -1521,40 +1484,28 @@ TEST_CASE( "Runtime debug visualizers bound staging and clear transient epochs" 
     }
 
     physicsDebug.Update( 0.0f, contacts );
-    CHECK( physicsDebug.DiagnosticTrackedContactCount() ==
-           Runtime::PhysicsDebugVisualizer::DiagnosticTrackedContactCapacity() );
+    CHECK( physicsDebug.DiagnosticTrackedContactCount() == Runtime::PhysicsDebugVisualizer::DiagnosticTrackedContactCapacity() );
     Runtime::RuntimeRenderer::ResetDebugVisualizerTransientState( collision, physicsDebug, broadphase );
     CHECK( broadphase.DiagnosticTrackedCellCount() == 0 );
     CHECK( collision.DiagnosticTrackedModelCount() == 0u );
     CHECK( physicsDebug.DiagnosticTrackedContactCount() == 0u );
 
     const uint8_t noCollisionContact = 0u;
-    collision.Update( 0.0f, Runtime::CollisionVisualizerFrameView { colliders,
-                                                                    renderInstances,
-                                                                    std::span<const uint8_t>( &noCollisionContact, 1 ),
-                                                                    std::span<const uint8_t>( &awake, 1 ),
-                                                                    {},
-                                                                    1 } );
+    collision.Update( 0.0f, Runtime::CollisionVisualizerFrameView { colliders, renderInstances, std::span<const uint8_t>( &noCollisionContact, 1 ), std::span<const uint8_t>( &awake, 1 ), {}, 1 } );
     CHECK( collision.DiagnosticCollisionAmount( 0u ) == doctest::Approx( 0.0f ) );
 
     bool resourcesReady = false;
     int resourcePreparations = 0;
-    CHECK( Runtime::PrepareCollisionVisualizerResourcePhase(
-        [&]()
-        {
-            ++resourcePreparations;
-            resourcesReady = true;
-        },
-        [&]() { return resourcesReady; } ) );
+    CHECK( Runtime::PrepareCollisionVisualizerResourcePhase( [&]()
+            {
+                ++resourcePreparations;
+                resourcesReady = true;
+            }, [&]() { return resourcesReady; } ) );
     CHECK( resourcePreparations == 1 );
-    CHECK( Runtime::PrepareCollisionVisualizerResourcePhase( [&]() { ++resourcePreparations; },
-                                                             [&]() { return resourcesReady; } ) );
+    CHECK( Runtime::PrepareCollisionVisualizerResourcePhase( [&]() { ++resourcePreparations; }, [&]() { return resourcesReady; } ) );
     CHECK( resourcePreparations == 1 );
-    CHECK( Runtime::ResolveCollisionVisualizerResourceAction( Runtime::CollisionVisualizerResourcePhase::Render,
-                                                              resourcesReady ) ==
-           Runtime::CollisionVisualizerResourceAction::Draw );
-    CHECK( Runtime::ResolveCollisionVisualizerResourceAction( Runtime::CollisionVisualizerResourcePhase::Render, false ) ==
-           Runtime::CollisionVisualizerResourceAction::Skip );
+    CHECK( Runtime::ResolveCollisionVisualizerResourceAction( Runtime::CollisionVisualizerResourcePhase::Render, resourcesReady ) == Runtime::CollisionVisualizerResourceAction::Draw );
+    CHECK( Runtime::ResolveCollisionVisualizerResourceAction( Runtime::CollisionVisualizerResourcePhase::Render, false ) == Runtime::CollisionVisualizerResourceAction::Skip );
 }
 
 
@@ -1606,43 +1557,27 @@ TEST_CASE( "Tornado visual rotation preserves ordinary bytes and long-time progr
     constexpr float kRotationSpeed = 1.25f;
     constexpr int kSourceIndex = 2;
     constexpr float kCompatibleTime = 12.5f;
-    const float
-        compatiblePhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase( static_cast<double>(
-                                                                                                    kCompatibleTime ),
-                                                                                                kRotationSpeed,
-                                                                                                kSourceIndex );
+    const float compatiblePhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase( static_cast<double>( kCompatibleTime ), kRotationSpeed, kSourceIndex );
     CHECK( compatiblePhase == kCompatibleTime * kRotationSpeed + static_cast<float>( kSourceIndex ) * 1.73f );
-    const float roundedCompatiblePhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::
-        RotationPhase( static_cast<double>( kCompatibleTime ) + 1.0e-9, kRotationSpeed, kSourceIndex );
+    const float roundedCompatiblePhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase( static_cast<double>( kCompatibleTime ) + 1.0e-9, kRotationSpeed, kSourceIndex );
     CHECK( roundedCompatiblePhase == compatiblePhase );
 
     constexpr double kFloatFixedStepBoundary = 262144.0;
     constexpr float kFixedStep = 1.0f / 120.0f;
     const double advancedTime = kFloatFixedStepBoundary + static_cast<double>( kFixedStep );
-    const float
-        boundaryPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase( kFloatFixedStepBoundary,
-                                                                                              kRotationSpeed, kSourceIndex );
-    const float advancedPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase( advancedTime,
-                                                                                                      kRotationSpeed,
-                                                                                                      kSourceIndex );
+    const float boundaryPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase( kFloatFixedStepBoundary, kRotationSpeed, kSourceIndex );
+    const float advancedPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase( advancedTime, kRotationSpeed, kSourceIndex );
     CHECK( advancedPhase != boundaryPhase );
 
     constexpr double kExactFloatRestoreTime = kFloatFixedStepBoundary * 2.0;
     const double exactFloatAdvancedTime = kExactFloatRestoreTime + static_cast<double>( kFixedStep );
     const double twiceAdvancedTime = exactFloatAdvancedTime + static_cast<double>( kFixedStep );
-    const float exactFloatRestorePhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::
-        RotationPhase( kExactFloatRestoreTime, kRotationSpeed, kSourceIndex );
+    const float exactFloatRestorePhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase( kExactFloatRestoreTime, kRotationSpeed, kSourceIndex );
     constexpr float kTwoPi = 6.28318530718f;
-    const float expectedExactFloatRestorePhase = static_cast<float>(
-        std::fmod( kExactFloatRestoreTime * static_cast<double>( kRotationSpeed ) +
-                       static_cast<double>( kSourceIndex ) * 1.73,
-                   static_cast<double>( kTwoPi ) ) );
+    const float expectedExactFloatRestorePhase = static_cast<float>( std::fmod( kExactFloatRestoreTime * static_cast<double>( kRotationSpeed ) + static_cast<double>( kSourceIndex ) * 1.73, static_cast<double>( kTwoPi ) ) );
     CHECK( exactFloatRestorePhase == expectedExactFloatRestorePhase );
-    const float exactFloatAdvancedPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::
-        RotationPhase( exactFloatAdvancedTime, kRotationSpeed, kSourceIndex );
-    const float twiceAdvancedPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase( twiceAdvancedTime,
-                                                                                                           kRotationSpeed,
-                                                                                                           kSourceIndex );
+    const float exactFloatAdvancedPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase( exactFloatAdvancedTime, kRotationSpeed, kSourceIndex );
+    const float twiceAdvancedPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase( twiceAdvancedTime, kRotationSpeed, kSourceIndex );
     CHECK( exactFloatAdvancedPhase != exactFloatRestorePhase );
     CHECK( twiceAdvancedPhase != exactFloatAdvancedPhase );
 }
@@ -1672,8 +1607,7 @@ std::string ReadHandleText( HANDLE file )
 
 std::string ReadSharedFileText( const char* path )
 {
-    HANDLE file = CreateFileA( path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-                               OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr );
+    HANDLE file = CreateFileA( path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr );
 
     if ( file == INVALID_HANDLE_VALUE )
     {
@@ -1754,16 +1688,13 @@ FatalChildResult RunFatalChild( const char* caseName )
     char temporaryDirectory[MAX_PATH] = {};
     char outputPath[MAX_PATH] = {};
 
-    if ( GetTempPathA( MAX_PATH, temporaryDirectory ) == 0 ||
-         GetTempFileNameA( temporaryDirectory, "sbf", 0, outputPath ) == 0 )
+    if ( GetTempPathA( MAX_PATH, temporaryDirectory ) == 0 || GetTempFileNameA( temporaryDirectory, "sbf", 0, outputPath ) == 0 )
     {
         return result;
     }
 
     SECURITY_ATTRIBUTES security = { sizeof( security ), nullptr, TRUE };
-    HANDLE output = CreateFileA( outputPath, GENERIC_READ | GENERIC_WRITE,
-                                 FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, &security, CREATE_ALWAYS,
-                                 FILE_ATTRIBUTE_TEMPORARY, nullptr );
+    HANDLE output = CreateFileA( outputPath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, &security, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, nullptr );
 
     if ( output == INVALID_HANDLE_VALUE )
     {
@@ -1780,8 +1711,7 @@ FatalChildResult RunFatalChild( const char* caseName )
     startup.hStdOutput = output;
     startup.hStdError = output;
     PROCESS_INFORMATION process = {};
-    result.launched = CreateProcessA( nullptr, commandLine, nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr,
-                                      &startup, &process ) != FALSE;
+    result.launched = CreateProcessA( nullptr, commandLine, nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process ) != FALSE;
 
     if ( result.launched )
     {
@@ -1829,12 +1759,7 @@ void ExpectFatalCase( const char* caseName, std::initializer_list<const char*> e
         CHECK( child.output.find( expected ) != std::string::npos );
     }
 
-    const bool checksStack = std::any_of( expectedDiagnostics.begin(), expectedDiagnostics.end(),
-                                          []( const char* expected )
-                                          {
-                                              return expected &&
-                                                     std::strcmp( expected, "FATAL[Tests/WorkerFatalProbe]" ) == 0;
-                                          } );
+    const bool checksStack = std::any_of( expectedDiagnostics.begin(), expectedDiagnostics.end(), []( const char* expected ) { return expected && std::strcmp( expected, "FATAL[Tests/WorkerFatalProbe]" ) == 0; } );
 
     if ( checksStack )
     {
@@ -1939,25 +1864,21 @@ bool RunRuntimeFatalStartupAndPrimitiveCase( const char* caseName )
     if ( std::strcmp( caseName, "replay-startup-illegal-transition" ) == 0 )
     {
         using Continuation = SkullbonezCore::Runtime::ReplayStartupProbeContinuation;
-        Continuation::RequireLegalTransitionOrFatal( Continuation::Phase::Idle, Continuation::Phase::Complete,
-                                                     "FatalContractProbe" );
+        Continuation::RequireLegalTransitionOrFatal( Continuation::Phase::Idle, Continuation::Phase::Complete, "FatalContractProbe" );
         return true;
     }
 
     if ( std::strcmp( caseName, "replay-startup-restore-action-without-transaction" ) == 0 )
     {
         using Continuation = SkullbonezCore::Runtime::ReplayStartupProbeContinuation;
-        Continuation::RequireApplicationStateOrFatal( Continuation::Phase::AwaitingApplication,
-                                                      Continuation::PendingAction::ApplyRestoredBranchTimeline, false,
-                                                      "FatalContractProbe" );
+        Continuation::RequireApplicationStateOrFatal( Continuation::Phase::AwaitingApplication, Continuation::PendingAction::ApplyRestoredBranchTimeline, false, "FatalContractProbe" );
         return true;
     }
 #endif
 
     if ( std::strcmp( caseName, "texture-slot-capacity" ) == 0 )
     {
-        SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot(
-            SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT );
+        SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot( SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT );
         return true;
     }
 
@@ -2087,9 +2008,8 @@ bool RunRuntimeFatalStartupAndPrimitiveCase( const char* caseName )
     if ( primitiveMoved || primitiveInactive || primitiveVisibleAsShadow || primitiveShadowAsVisible )
     {
         int rendererIdentity = 0;
-        const SkullbonezCore::Rendering::PrimitiveBatchKind
-            kind = primitiveShadowAsVisible ? SkullbonezCore::Rendering::PrimitiveBatchKind::ShadowSphere
-                                            : SkullbonezCore::Rendering::PrimitiveBatchKind::Sphere;
+        const SkullbonezCore::Rendering::PrimitiveBatchKind kind = primitiveShadowAsVisible ? SkullbonezCore::Rendering::PrimitiveBatchKind::ShadowSphere
+                                                                                            : SkullbonezCore::Rendering::PrimitiveBatchKind::Sphere;
         SkullbonezCore::Rendering::PrimitiveBatchScopeLifecycle scope( &rendererIdentity, kind );
 
         if ( primitiveMoved )
@@ -2232,22 +2152,19 @@ bool RunRuntimeFatalResourceAndPhysicsCase( const char* caseName )
 
     if ( std::strcmp( caseName, "collider-rebind-shape-index" ) == 0 )
     {
-        SkullbonezCore::Physics::ColliderStoreTestAccess::
-            RequireShapeStorage( SkullbonezCore::Physics::ColliderShapeKind::Sphere, 3u, 3u, 3u, "rebind" );
+        SkullbonezCore::Physics::ColliderStoreTestAccess::RequireShapeStorage( SkullbonezCore::Physics::ColliderShapeKind::Sphere, 3u, 3u, 3u, "rebind" );
         return true;
     }
 
     if ( std::strcmp( caseName, "collider-remove-shape-index" ) == 0 )
     {
-        SkullbonezCore::Physics::ColliderStoreTestAccess::
-            RequireShapeStorage( SkullbonezCore::Physics::ColliderShapeKind::Box, 1u, 1u, 1u, "remove" );
+        SkullbonezCore::Physics::ColliderStoreTestAccess::RequireShapeStorage( SkullbonezCore::Physics::ColliderShapeKind::Box, 1u, 1u, 1u, "remove" );
         return true;
     }
 
     if ( std::strcmp( caseName, "collider-hull-shape-parity" ) == 0 )
     {
-        SkullbonezCore::Physics::ColliderStoreTestAccess::
-            RequireShapeStorage( SkullbonezCore::Physics::ColliderShapeKind::ConvexHull, 0u, 1u, 0u, "remove" );
+        SkullbonezCore::Physics::ColliderStoreTestAccess::RequireShapeStorage( SkullbonezCore::Physics::ColliderShapeKind::ConvexHull, 0u, 1u, 0u, "remove" );
         return true;
     }
 
@@ -2291,12 +2208,14 @@ bool RunRuntimeFatalResourceAndPhysicsCase( const char* caseName )
     if ( collisionVisualShort || fixedContactShort || releaseWakeShort || fixedTreeShort || pipelineShort )
     {
         SkullbonezCore::Physics::PhysicsContactSolverStage stage;
-        SkullbonezCore::Physics::PhysicsContactSolverStageTestAccess::ReserveAndPrepare( stage,
-                                                                                         collisionVisualShort ? 3u : 4u,
-                                                                                         fixedContactShort ? 1u : 2u,
-                                                                                         releaseWakeShort ? 1u : 2u,
-                                                                                         fixedTreeShort ? 1u : 2u,
-                                                                                         pipelineShort ? 1u : 2u );
+        SkullbonezCore::Physics::PhysicsContactSolverStageTestAccess::ReserveAndPrepare(
+            stage,
+            collisionVisualShort ? 3u : 4u,
+            fixedContactShort ? 1u : 2u,
+            releaseWakeShort ? 1u : 2u,
+            fixedTreeShort ? 1u : 2u,
+            pipelineShort ? 1u : 2u
+        );
         return true;
     }
 
@@ -2315,9 +2234,7 @@ bool RunRuntimeFatalResourceAndPhysicsCase( const char* caseName )
             pass.ReleaseResources();
         }
 
-        SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RequirePrepared( pass, tornadoVisualReleased
-                                                                                          ? "ReleasedProbe"
-                                                                                          : "UnpreparedProbe" );
+        SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RequirePrepared( pass, tornadoVisualReleased ? "ReleasedProbe" : "UnpreparedProbe" );
         return true;
     }
 
@@ -2350,12 +2267,9 @@ bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
     if ( std::strcmp( caseName, "dx12-retirement-release-snapshot" ) == 0 )
     {
         SkullbonezCore::Rendering::Dx12RetirementDiagnosticState retirementDiagnostics;
-        retirementDiagnostics.ObservePendingCount(
-            SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS );
+        retirementDiagnostics.ObservePendingCount( SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS );
         retirementDiagnostics.ObserveRelease( 9u, 4u, true, 77u );
-        retirementDiagnostics
-            .FatalExhaustion( SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS,
-                              SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS );
+        retirementDiagnostics.FatalExhaustion( SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS, SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS );
     }
 
     const bool resetForDevice = std::strcmp( caseName, "dx12-retirement-reset-live-device" ) == 0;
@@ -2400,31 +2314,33 @@ bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
         using SkullbonezCore::Physics::ConstraintSolveTransaction;
         using SkullbonezCore::Physics::ConstraintSolveTransactionTestAccess;
         using Phase = ConstraintSolvePhaseCursor::Phase;
-        constexpr std::array phases { Phase::Idle,
-                                      Phase::EntryPolicySetup,
-                                      Phase::BodySetup,
-                                      Phase::BuildManifolds,
-                                      Phase::TerrainRows,
-                                      Phase::PrepareJoints,
-                                      Phase::Precompute,
-                                      Phase::WarmStartJoints,
-                                      Phase::SolveRows,
-                                      Phase::PointSupportInstability,
-                                      Phase::WriteBack,
-                                      Phase::DebugContacts,
-                                      Phase::PositionCorrection,
-                                      Phase::FixedContactRelease,
-                                      Phase::ReleasedBodySetup,
-                                      Phase::ReleasedManifolds,
-                                      Phase::ReleasedTerrainRows,
-                                      Phase::ReleasedJoints,
-                                      Phase::ReleasedPrecompute,
-                                      Phase::ReleasedSolveRows,
-                                      Phase::ReleasedWriteBack,
-                                      Phase::ReleasedDebugContacts,
-                                      Phase::CacheStore,
-                                      Phase::Complete,
-                                      Phase::Count };
+        constexpr std::array phases {
+            Phase::Idle,
+            Phase::EntryPolicySetup,
+            Phase::BodySetup,
+            Phase::BuildManifolds,
+            Phase::TerrainRows,
+            Phase::PrepareJoints,
+            Phase::Precompute,
+            Phase::WarmStartJoints,
+            Phase::SolveRows,
+            Phase::PointSupportInstability,
+            Phase::WriteBack,
+            Phase::DebugContacts,
+            Phase::PositionCorrection,
+            Phase::FixedContactRelease,
+            Phase::ReleasedBodySetup,
+            Phase::ReleasedManifolds,
+            Phase::ReleasedTerrainRows,
+            Phase::ReleasedJoints,
+            Phase::ReleasedPrecompute,
+            Phase::ReleasedSolveRows,
+            Phase::ReleasedWriteBack,
+            Phase::ReleasedDebugContacts,
+            Phase::CacheStore,
+            Phase::Complete,
+            Phase::Count
+        };
 
         if ( contactSolvePhaseFrom >= phases.size() - 1u || contactSolvePhaseTo >= phases.size() )
         {
@@ -2451,16 +2367,18 @@ bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
         using SkullbonezCore::Runtime::OperatorCommandTransaction;
         using SkullbonezCore::Runtime::OperatorCommandTransactionTestAccess;
         using Phase = OperatorCommandPhaseCursor::Phase;
-        constexpr std::array phases { Phase::Idle,
-                                      Phase::DeviceAndMode,
-                                      Phase::PhysicsControl,
-                                      Phase::RuntimePresentation,
-                                      Phase::SimulationPolicy,
-                                      Phase::PhysicsMaterial,
-                                      Phase::WorldPolicy,
-                                      Phase::CinematicPolicy,
-                                      Phase::Complete,
-                                      Phase::Count };
+        constexpr std::array phases {
+            Phase::Idle,
+            Phase::DeviceAndMode,
+            Phase::PhysicsControl,
+            Phase::RuntimePresentation,
+            Phase::SimulationPolicy,
+            Phase::PhysicsMaterial,
+            Phase::WorldPolicy,
+            Phase::CinematicPolicy,
+            Phase::Complete,
+            Phase::Count
+        };
 
         if ( operatorPhaseFrom >= phases.size() - 1u || operatorPhaseTo >= phases.size() )
         {
@@ -2509,9 +2427,7 @@ bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
 
     if ( std::strcmp( caseName, "physics-fixed-list-runtime-capacity" ) == 0 )
     {
-        SkullbonezCore::Physics::PhysicsFixedList<int, 4>
-            values( "fatal.physics-fixed-list.runtime",
-                    SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
+        SkullbonezCore::Physics::PhysicsFixedList<int, 4> values( "fatal.physics-fixed-list.runtime", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
 
         {
             RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
@@ -2526,14 +2442,16 @@ bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
     {
         using namespace SkullbonezCore::Core::Allocation;
         constexpr int wrongOwnerHardCapacity = 1024;
-        const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner(
-            { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, RuntimeReserveSubsystem::Replay,
-              RuntimeReservePhase::Replay, 0, wrongOwnerHardCapacity, RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, true,
+        const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
+              RuntimeReserveSubsystem::Replay,
+              RuntimeReservePhase::Replay,
+              0,
+              wrongOwnerHardCapacity,
+              RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED,
+              true,
               "Fatal probe for unrelated Replay growth authority" } );
 
-        RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::
-            RequestGrowth( owner, { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, "PhysicsEngine seed",
-                                    RuntimeReservePhase::Replay, 0, 0, wrongOwnerHardCapacity, 1 } );
+        RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::RequestGrowth( owner, { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, "PhysicsEngine seed", RuntimeReservePhase::Replay, 0, 0, wrongOwnerHardCapacity, 1 } );
 
         if ( !growth.granted )
         {
@@ -2586,14 +2504,12 @@ bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
         char temporaryDirectory[MAX_PATH] = {};
         char heightMapPath[MAX_PATH] = {};
 
-        if ( GetTempPathA( MAX_PATH, temporaryDirectory ) == 0 ||
-             GetTempFileNameA( temporaryDirectory, "sbt", 0, heightMapPath ) == 0 )
+        if ( GetTempPathA( MAX_PATH, temporaryDirectory ) == 0 || GetTempFileNameA( temporaryDirectory, "sbt", 0, heightMapPath ) == 0 )
         {
             return false;
         }
 
-        HANDLE heightMap = CreateFileA( heightMapPath, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY,
-                                        nullptr );
+        HANDLE heightMap = CreateFileA( heightMapPath, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, nullptr );
 
         if ( heightMap == INVALID_HANDLE_VALUE )
         {
@@ -2603,20 +2519,15 @@ bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
 
         constexpr std::array<unsigned char, 16> PIXELS = {};
         DWORD written = 0u;
-        const bool wroteHeightMap = WriteFile( heightMap, PIXELS.data(), static_cast<DWORD>( PIXELS.size() ), &written,
-                                               nullptr ) != FALSE &&
-                                    written == static_cast<DWORD>( PIXELS.size() );
+        const bool wroteHeightMap = WriteFile( heightMap, PIXELS.data(), static_cast<DWORD>( PIXELS.size() ), &written, nullptr ) != FALSE && written == static_cast<DWORD>( PIXELS.size() );
 
         CloseHandle( heightMap );
 
         SkullbonezCore::Core::EngineConfig config;
         config.terrainGeometry.scale = 1.0f;
         std::unique_ptr<SkullbonezCore::Geometry::Terrain> terrain;
-        const SbResult created = wroteHeightMap
-                                     ? SkullbonezCore::Geometry::Terrain::TryCreatePhysicsFromHeightMap( diagnostics,
-                                                                                                         heightMapPath, 4, 1,
-                                                                                                         1, config, terrain )
-                                     : diagnostics.Failure( "Tests/Terrain", "height-map write failed" );
+        const SbResult created = wroteHeightMap ? SkullbonezCore::Geometry::Terrain::TryCreatePhysicsFromHeightMap( diagnostics, heightMapPath, 4, 1, 1, config, terrain )
+                                                : diagnostics.Failure( "Tests/Terrain", "height-map write failed" );
 
         DeleteFileA( heightMapPath );
 
@@ -2627,16 +2538,14 @@ bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
 
         if ( terrainLocateInvalidScale )
         {
-            config.terrainGeometry.scale = ( std::numeric_limits<float>::quiet_NaN )();
+            SkullbonezCore::Geometry::TerrainRenderLifecycleTestAccess::InvalidateGridSpacing( *terrain );
         }
 
         // The exact upper X edge maps to cell 3 when only cells 0..2 exist.
-        // NaN and an invalid scale must terminate before floor-to-integer
+        // NaN and invalid retained spacing must terminate before floor-to-integer
         // conversion; a finite maximum float must terminate before the integer
         // cast. These probes exercise LocatePolygon's local query guards.
-        const float xPosition = terrainLocateNonFinite
-                                    ? ( std::numeric_limits<float>::quiet_NaN )()
-                                    : ( terrainLocateUnrepresentable ? ( std::numeric_limits<float>::max )() : 3.0f );
+        const float xPosition = terrainLocateNonFinite ? ( std::numeric_limits<float>::quiet_NaN )() : ( terrainLocateUnrepresentable ? ( std::numeric_limits<float>::max )() : 3.0f );
 
         (void)terrain->LocatePolygon( xPosition, 0.0f );
         return true;
@@ -2683,8 +2592,7 @@ bool RunRuntimeFatalAllocationAndGridCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-shaped-header" ) == 0 )
     {
-        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>(
-            std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
+        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>( std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
 
         if ( !candidate )
         {
@@ -2720,8 +2628,7 @@ bool RunRuntimeFatalAllocationAndGridCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-crt-release" ) == 0 )
     {
-        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
+        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode( SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
         SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
         void* foreignPointer = std::malloc( 64u );
 
@@ -2741,9 +2648,7 @@ bool RunRuntimeFatalAllocationAndGridCase( const char* caseName )
 
     if ( std::strcmp( caseName, "physics-fixed-list-compile-capacity" ) == 0 )
     {
-        SkullbonezCore::Physics::PhysicsFixedList<int, 2>
-            values( "fatal.physics-fixed-list.compile",
-                    SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
+        SkullbonezCore::Physics::PhysicsFixedList<int, 2> values( "fatal.physics-fixed-list.compile", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
 
         RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
         values.Reserve( 3u );
@@ -2752,8 +2657,7 @@ bool RunRuntimeFatalAllocationAndGridCase( const char* caseName )
 
     if ( std::strcmp( caseName, "physics-fixed-list-phase" ) == 0 )
     {
-        SkullbonezCore::Physics::PhysicsFixedList<int, 2>
-            values( "fatal.physics-fixed-list.phase", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
+        SkullbonezCore::Physics::PhysicsFixedList<int, 2> values( "fatal.physics-fixed-list.phase", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
         values.Reserve( 1u );
         return true;
     }
@@ -2857,20 +2761,16 @@ bool RunRuntimeFatalAllocationAndGridCase( const char* caseName )
         // remaining legal cells through the bounded swept-overlay path, then
         // request one genuinely new cell to exercise the fatal invariant table limit.
         const Vector3 sweepStart( static_cast<float>( persistentCells ) + 0.25f, 0.25f, 0.25f );
-        grid.InsertSwept( persistentCells, sweepStart, Vector3( static_cast<float>( persistentCells - 1 ), 0.0f, 0.0f ),
-                          0.0f );
+        grid.InsertSwept( persistentCells, sweepStart, Vector3( static_cast<float>( persistentCells - 1 ), 0.0f, 0.0f ), 0.0f );
 
-        grid.Insert( persistentCells + 1, Vector3( static_cast<float>( SpatialGrid::MAX_BUCKETS ) + 0.25f, 0.25f, 0.25f ),
-                     0.0f );
+        grid.Insert( persistentCells + 1, Vector3( static_cast<float>( SpatialGrid::MAX_BUCKETS ) + 0.25f, 0.25f, 0.25f ), 0.0f );
 
         return true;
     }
 
     if ( std::strcmp( caseName, "sleep-support-edge-reserved-capacity" ) == 0 )
     {
-        static SkullbonezCore::Physics::PhysicsCandidatePairList
-            edges { "TestRuntimeContracts.sleepSupportEdgesReserved",
-                    SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
+        static SkullbonezCore::Physics::PhysicsCandidatePairList edges { "TestRuntimeContracts.sleepSupportEdgesReserved", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
         {
             RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
             edges.Reserve( 2u );
@@ -2888,12 +2788,9 @@ bool RunRuntimeFatalAllocationAndGridCase( const char* caseName )
 
     if ( std::strcmp( caseName, "sleep-support-edge-capacity" ) == 0 )
     {
-        static SkullbonezCore::Physics::PhysicsCandidatePairList
-            edges { "TestRuntimeContracts.sleepSupportEdges",
-                    SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
+        static SkullbonezCore::Physics::PhysicsCandidatePairList edges { "TestRuntimeContracts.sleepSupportEdges", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
         {
-            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
             edges.Reserve( MAX_SLEEP_SUPPORT_EDGES );
         }
         edges.clear();
@@ -2919,16 +2816,15 @@ bool RunRuntimeFatalConcurrencyAndDiagnosticsCase( const char* caseName )
         std::atomic<bool> started { false };
         std::atomic<bool> release { false };
         {
-            AmortizedTask task( 1, 1,
-                                [&]( int, int )
-                                {
-                                    started.store( true, std::memory_order_release );
+            AmortizedTask task( 1, 1, [&]( int, int )
+                {
+                    started.store( true, std::memory_order_release );
 
-                                    while ( !release.load( std::memory_order_acquire ) )
-                                    {
-                                        std::this_thread::yield();
-                                    }
-                                } );
+                    while ( !release.load( std::memory_order_acquire ) )
+                    {
+                        std::this_thread::yield();
+                    }
+                } );
             task.SubmitTick( pool );
 
             while ( !started.load( std::memory_order_acquire ) )
@@ -2970,20 +2866,24 @@ bool RunRuntimeFatalConcurrencyAndDiagnosticsCase( const char* caseName )
             engine->ReserveAuthoredBodyCapacity( 2u, 2u, 0u, 0u, 12u );
             engine->ReserveAuthoredBodyCapacity( 2u, 2u, 0u, 0u, 8u );
 
-            const SkullbonezCore::Math::CollisionDetection::CollisionShape
-                shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
+            const SkullbonezCore::Math::CollisionDetection::CollisionShape shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
 
             for ( uint32_t bodyIndex = 0u; bodyIndex < 2u; ++bodyIndex )
             {
                 const SkullbonezCore::Physics::PhysicsSceneObjectId sceneObjectId { bodyIndex + 1u };
-                const auto bodyDesc = SkullbonezCore::Physics::
-                    MakePhysicsBodyCreateDesc( sceneObjectId, shape,
-                                               Vector3( static_cast<float>( bodyIndex ) * 3.0f, 0.0f, 0.0f ),
-                                               SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
-                                               Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
-                                               Vector3( 1.0f, 1.0f, 1.0f ), 1.0f, 0.0f,
-                                               SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic,
-                                               "fatal-point-joint-body" );
+                const auto bodyDesc = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc(
+                    sceneObjectId,
+                    shape,
+                    Vector3( static_cast<float>( bodyIndex ) * 3.0f, 0.0f, 0.0f ),
+                    SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                    Vector3( 0.0f, 0.0f, 0.0f ),
+                    Vector3( 0.0f, 0.0f, 0.0f ),
+                    Vector3( 1.0f, 1.0f, 1.0f ),
+                    1.0f,
+                    0.0f,
+                    SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic,
+                    "fatal-point-joint-body"
+                );
 
                 auto colliderDesc = SkullbonezCore::Physics::MakeColliderCreateDesc( shape, 0.0f, 0u, "fatal" );
                 colliderDesc.sceneObjectId = sceneObjectId;
@@ -3083,9 +2983,8 @@ bool RunRuntimeFatalConcurrencyAndDiagnosticsCase( const char* caseName )
 
 bool RunRuntimeFatalCase( const char* caseName )
 {
-    return RunRenderGraphFatalCase( caseName ) || RunRuntimeFatalStartupAndPrimitiveCase( caseName ) ||
-           RunRuntimeFatalResourceAndPhysicsCase( caseName ) || RunRuntimeFatalTransactionAndTerrainCase( caseName ) ||
-           RunRuntimeFatalAllocationAndGridCase( caseName ) || RunRuntimeFatalConcurrencyAndDiagnosticsCase( caseName );
+    return RunRenderGraphFatalCase( caseName ) || RunRuntimeFatalStartupAndPrimitiveCase( caseName ) || RunRuntimeFatalResourceAndPhysicsCase( caseName ) ||
+           RunRuntimeFatalTransactionAndTerrainCase( caseName ) || RunRuntimeFatalAllocationAndGridCase( caseName ) || RunRuntimeFatalConcurrencyAndDiagnosticsCase( caseName );
 }
 
 TEST_CASE( "Runtime diagnostics activates perf control only for an owned log artifact" )
@@ -3143,19 +3042,15 @@ TEST_CASE( "Runtime diagnostics fails required perf artifacts on write flush and
 
     SkullbonezCore::Core::SbDiagnosticStore resultDiagnostics;
     SkullbonezCore::Runtime::ApplicationExitState exitState( resultDiagnostics );
-    const SkullbonezCore::Core::SbResult failure = SkullbonezCore::Runtime::ApplyPerfLogArtifactStatus( resultDiagnostics,
-                                                                                                        exitState, false );
+    const SkullbonezCore::Core::SbResult failure = SkullbonezCore::Runtime::ApplyPerfLogArtifactStatus( resultDiagnostics, exitState, false );
     const SkullbonezCore::Core::SbResult resolved = exitState.Resolve( 0 );
     CHECK_FALSE( resolved.Ok() );
     CHECK( std::strcmp( resolved.ErrorOwner(), "Runtime/Diagnostics" ) == 0 );
     CHECK( std::strstr( resolved.ErrorMessage(), "written, flushed, and closed" ) != nullptr );
 
     SkullbonezCore::Runtime::ApplicationExitState combinedExitState( resultDiagnostics );
-    const SkullbonezCore::Core::SbResult sceneFailure = resultDiagnostics.Failure( "Runtime/Scene",
-                                                                                   "scene population failed" );
-    const SkullbonezCore::Core::SbResult
-        combinedResult = SkullbonezCore::Runtime::ApplySceneLoadDiagnosticsStatus( resultDiagnostics, combinedExitState,
-                                                                                   sceneFailure, false );
+    const SkullbonezCore::Core::SbResult sceneFailure = resultDiagnostics.Failure( "Runtime/Scene", "scene population failed" );
+    const SkullbonezCore::Core::SbResult combinedResult = SkullbonezCore::Runtime::ApplySceneLoadDiagnosticsStatus( resultDiagnostics, combinedExitState, sceneFailure, false );
     CHECK_FALSE( combinedResult.Ok() );
     CHECK( std::strcmp( combinedResult.ErrorOwner(), "Runtime/Scene" ) == 0 );
     const SkullbonezCore::Core::SbResult combinedExitResult = combinedExitState.Resolve( 0 );
@@ -3181,15 +3076,12 @@ TEST_CASE( "Scene memory diagnostics count complete Physics store capacity" )
     const uint64_t sceneStoreBytes = physics->CollectSceneSizedStoreMemoryBytes();
     REQUIRE( sceneStoreBytes >= colliderBytes );
 
-    const SkullbonezCore::Core::MainMemoryGameObjectStats stats = SkullbonezCore::Runtime::CollectSceneMemoryStats(
-        SkullbonezCore::Runtime::SceneMemoryDiagnosticsView { 0u, 0u, 0u, *physics, renderInstances } );
+    const SkullbonezCore::Core::MainMemoryGameObjectStats stats = SkullbonezCore::Runtime::CollectSceneMemoryStats( SkullbonezCore::Runtime::SceneMemoryDiagnosticsView { 0u, 0u, 0u, *physics, renderInstances } );
     CHECK( stats.colliderStoreBytes == colliderBytes );
     CHECK( stats.physicsStoreBytes == sceneStoreBytes - colliderBytes );
 
-    const uint64_t retiredRecordOnlyBytes = static_cast<uint64_t>( PhysicsEngine::ReadBodies( *physics ).RecordCapacity() ) *
-                                                sizeof( SkullbonezCore::Physics::PhysicsBodyRecord ) +
-                                            static_cast<uint64_t>( PhysicsEngine::ReadBuoyancyFactCapacity( *physics ) ) *
-                                                sizeof( SkullbonezCore::Physics::BuoyancyBodyFacts );
+    const uint64_t retiredRecordOnlyBytes = static_cast<uint64_t>( PhysicsEngine::ReadBodies( *physics ).RecordCapacity() ) * sizeof( SkullbonezCore::Physics::PhysicsBodyRecord ) +
+                                            static_cast<uint64_t>( PhysicsEngine::ReadBuoyancyFactCapacity( *physics ) ) * sizeof( SkullbonezCore::Physics::BuoyancyBodyFacts );
     CHECK( stats.physicsStoreBytes > retiredRecordOnlyBytes );
 }
 
@@ -3228,9 +3120,7 @@ TEST_CASE( "Main memory dump reports incomplete write flush and close operations
     const SkullbonezCore::Runtime::RuntimeSceneDiagnosticFacts scene( 0, 0, 0, 7, 10, 0 );
 
     for ( const SkullbonezCore::Runtime::MainMemoryDumpTestFailure failure :
-          { SkullbonezCore::Runtime::MainMemoryDumpTestFailure::Write,
-            SkullbonezCore::Runtime::MainMemoryDumpTestFailure::Flush,
-            SkullbonezCore::Runtime::MainMemoryDumpTestFailure::Close } )
+          { SkullbonezCore::Runtime::MainMemoryDumpTestFailure::Write, SkullbonezCore::Runtime::MainMemoryDumpTestFailure::Flush, SkullbonezCore::Runtime::MainMemoryDumpTestFailure::Close } )
     {
         SkullbonezCore::Runtime::SetMainMemoryDumpTestFailure( failure );
         CHECK_FALSE( runtime.WriteMainMemoryDump( replay, gameObjects, scene, "fault", 1.0 ) );
@@ -3273,9 +3163,17 @@ TEST_CASE( "Interaction automation rejects canonical output aliases before trunc
     char copiedScriptPath[MAX_PATH] = {};
     char copiedTracePath[MAX_PATH] = {};
     std::ofstream safeTrace;
-    CHECK( PrepareInteractionAutomationOutputPaths( scriptPath, safeReportPath, safeTracePath, copiedScriptPath,
-                                                    sizeof( copiedScriptPath ), copiedTracePath, sizeof( copiedTracePath ),
-                                                    safeTrace, distinctWriter ) == nullptr );
+    CHECK( PrepareInteractionAutomationOutputPaths(
+            scriptPath,
+            safeReportPath,
+            safeTracePath,
+            copiedScriptPath,
+            sizeof( copiedScriptPath ),
+            copiedTracePath,
+            sizeof( copiedTracePath ),
+            safeTrace,
+            distinctWriter
+        ) == nullptr );
     CHECK( distinctWriter.OutputEnabled() );
     CHECK( safeTrace.is_open() );
     safeTrace.close();
@@ -3285,10 +3183,17 @@ TEST_CASE( "Interaction automation rejects canonical output aliases before trunc
     char rejectedScriptPath[MAX_PATH] = {};
     char rejectedTracePath[MAX_PATH] = {};
     std::ofstream rejectedTrace;
-    const char* traceFailure = PrepareInteractionAutomationOutputPaths( scriptPath, safeReportPath, canonicalAlias.c_str(),
-                                                                        rejectedScriptPath, sizeof( rejectedScriptPath ),
-                                                                        rejectedTracePath, sizeof( rejectedTracePath ),
-                                                                        rejectedTrace, traceWriter );
+    const char* traceFailure = PrepareInteractionAutomationOutputPaths(
+        scriptPath,
+        safeReportPath,
+        canonicalAlias.c_str(),
+        rejectedScriptPath,
+        sizeof( rejectedScriptPath ),
+        rejectedTracePath,
+        sizeof( rejectedTracePath ),
+        rejectedTrace,
+        traceWriter
+    );
     REQUIRE( traceFailure != nullptr );
     CHECK( std::strcmp( traceFailure, "interaction trace path resolves to interaction script path" ) == 0 );
     CHECK( traceWriter.OutputEnabled() );
@@ -3301,12 +3206,17 @@ TEST_CASE( "Interaction automation rejects canonical output aliases before trunc
     char reportRejectedScriptPath[MAX_PATH] = {};
     char reportRejectedTracePath[MAX_PATH] = {};
     std::ofstream reportRejectedTrace;
-    const char* reportFailure = PrepareInteractionAutomationOutputPaths( scriptPath, canonicalAlias.c_str(), nullptr,
-                                                                         reportRejectedScriptPath,
-                                                                         sizeof( reportRejectedScriptPath ),
-                                                                         reportRejectedTracePath,
-                                                                         sizeof( reportRejectedTracePath ),
-                                                                         reportRejectedTrace, reportWriter );
+    const char* reportFailure = PrepareInteractionAutomationOutputPaths(
+        scriptPath,
+        canonicalAlias.c_str(),
+        nullptr,
+        reportRejectedScriptPath,
+        sizeof( reportRejectedScriptPath ),
+        reportRejectedTracePath,
+        sizeof( reportRejectedTracePath ),
+        reportRejectedTrace,
+        reportWriter
+    );
     REQUIRE( reportFailure != nullptr );
     CHECK( std::strcmp( reportFailure, "interaction report path resolves to interaction script path" ) == 0 );
     CHECK_FALSE( reportWriter.OutputEnabled() );
@@ -3362,15 +3272,12 @@ TEST_CASE( "Interaction automation recovers malformed JSON and preserves equal-f
     }
 
     std::vector<RunInteractionAutomationAction> retiredUnstableOrder = actions;
-    std::sort( retiredUnstableOrder.begin(), retiredUnstableOrder.end(),
-               []( const RunInteractionAutomationAction& lhs, const RunInteractionAutomationAction& rhs )
-               { return lhs.frame < rhs.frame; } );
+    std::sort( retiredUnstableOrder.begin(), retiredUnstableOrder.end(), []( const RunInteractionAutomationAction& lhs, const RunInteractionAutomationAction& rhs ) { return lhs.frame < rhs.frame; } );
     bool retiredPathDiffers = false;
 
     for ( std::size_t index = 0u; index < retiredUnstableOrder.size(); ++index )
     {
-        const int expectedAuthoredId = index < 32u ? static_cast<int>( index * 2u )
-                                                   : static_cast<int>( ( index - 32u ) * 2u + 1u );
+        const int expectedAuthoredId = index < 32u ? static_cast<int>( index * 2u ) : static_cast<int>( ( index - 32u ) * 2u + 1u );
         retiredPathDiffers = retiredPathDiffers || retiredUnstableOrder[index].integerValue != expectedAuthoredId;
     }
 
@@ -3381,8 +3288,7 @@ TEST_CASE( "Interaction automation recovers malformed JSON and preserves equal-f
 
     for ( std::size_t index = 0u; index < actions.size(); ++index )
     {
-        const int expectedAuthoredId = index < 32u ? static_cast<int>( index * 2u )
-                                                   : static_cast<int>( ( index - 32u ) * 2u + 1u );
+        const int expectedAuthoredId = index < 32u ? static_cast<int>( index * 2u ) : static_cast<int>( ( index - 32u ) * 2u + 1u );
         CHECK( actions[index].integerValue == expectedAuthoredId );
     }
 }
@@ -3391,8 +3297,7 @@ TEST_CASE( "Interaction report publication is atomic and replay artifact naming 
 {
     const std::string extensionless = "TestOutput/dotted.parent/interaction_report";
     const std::string replayNamed = "TestOutput/dotted.parent/interaction_report.skreplay";
-    CHECK( InteractionAutomationReportWriter::DeriveReplayArtifactPath( extensionless ) ==
-           extensionless + ".replay.skreplay" );
+    CHECK( InteractionAutomationReportWriter::DeriveReplayArtifactPath( extensionless ) == extensionless + ".replay.skreplay" );
     CHECK( InteractionAutomationReportWriter::DeriveReplayArtifactPath( replayNamed ) == replayNamed + ".replay.skreplay" );
     CHECK( InteractionAutomationReportWriter::DeriveReplayArtifactPath( replayNamed ) != replayNamed );
 
@@ -3450,16 +3355,17 @@ TEST_CASE( "Interaction startup failure publishes its report without replacing p
     controller.enabled = true;
 
     SkullbonezCore::Core::SbDiagnosticStore startupDiagnostics;
-    const SkullbonezCore::Core::SbResult
-        startupFailure = startupDiagnostics.Failure( "Runtime/Scene", "recorded scene failed semantic validation" );
+    const SkullbonezCore::Core::SbResult startupFailure = startupDiagnostics.Failure( "Runtime/Scene", "recorded scene failed semantic validation" );
     const SkullbonezCore::Core::SbResult resolved = ResolveInteractionAutomationReportForExit(
-        controller, startupFailure,
+        controller,
+        startupFailure,
         []( void* context, InteractionAutomationRunStatus& status ) -> SkullbonezCore::Core::SbResult
         {
             auto* writer = static_cast<InteractionAutomationReportWriter*>( context );
             return writer->PublishReportBytes( status, "{\"status\":\"failed\"}\n" );
         },
-        &controller.reportWriter );
+        &controller.reportWriter
+    );
 
     CHECK_FALSE( resolved.Ok() );
     CHECK( std::strcmp( resolved.ErrorOwner(), "Runtime/Scene" ) == 0 );
@@ -3487,8 +3393,7 @@ TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes sh
 
     for ( int threadIndex = 0; threadIndex < threadCount; ++threadIndex )
     {
-        threads.emplace_back(
-            [threadIndex, path, writesPerThread]()
+        threads.emplace_back( [threadIndex, path, writesPerThread]()
             {
                 for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
                 {
@@ -3496,8 +3401,7 @@ TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes sh
 
                     if ( writeIndex % 16 == 0 )
                     {
-                        SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d",
-                                                                            threadIndex, writeIndex );
+                        SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d", threadIndex, writeIndex );
                     }
                 }
             } );
@@ -3569,16 +3473,15 @@ TEST_CASE( "AmortizedTask: Reset reports idle success and in-flight refusal" )
     workerPool.Initialise( 1 );
     std::atomic<bool> started { false };
     std::atomic<bool> release { false };
-    AmortizedTask inFlightTask( 1, 1,
-                                [&]( int, int )
-                                {
-                                    started.store( true, std::memory_order_release );
+    AmortizedTask inFlightTask( 1, 1, [&]( int, int )
+        {
+            started.store( true, std::memory_order_release );
 
-                                    while ( !release.load( std::memory_order_acquire ) )
-                                    {
-                                        std::this_thread::yield();
-                                    }
-                                } );
+            while ( !release.load( std::memory_order_acquire ) )
+            {
+                std::this_thread::yield();
+            }
+        } );
     inFlightTask.SubmitTick( workerPool );
 
     while ( !started.load( std::memory_order_acquire ) )
@@ -3603,13 +3506,12 @@ TEST_CASE( "AmortizedTask: partial work resumes at the first unfinished item" )
     WorkerPool inlinePool( lockOrderValidator );
     std::array<int, 3> rangeBegins = {};
     int invocationCount = 0;
-    AmortizedTask task( 5, 5,
-                        [&]( int begin, int end ) -> int
-                        {
-                            rangeBegins[static_cast<std::size_t>( invocationCount )] = begin;
-                            ++invocationCount;
-                            return (std::min)( 2, end - begin );
-                        } );
+    AmortizedTask task( 5, 5, [&]( int begin, int end ) -> int
+        {
+            rangeBegins[static_cast<std::size_t>( invocationCount )] = begin;
+            ++invocationCount;
+            return (std::min)( 2, end - begin );
+        } );
 
     task.SubmitTick( inlinePool );
     CHECK( task.GetProgress() == doctest::Approx( 0.4f ) );
@@ -3715,8 +3617,7 @@ TEST_CASE( "DX12 retirement diagnostics retain real peaks and reset at device bo
     retirementDiagnostics.ObservePendingCount( 3u );
     retirementDiagnostics.ObservePendingCount( 2u );
     CHECK( retirementDiagnostics.PendingHighWater() == 3u );
-    CHECK( retirementDiagnostics.PendingHighWater() !=
-           SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS );
+    CHECK( retirementDiagnostics.PendingHighWater() != SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS );
 
     retirementDiagnostics.ObserveRelease( 9u, 4u, true, 77u );
     CHECK( retirementDiagnostics.LastReleaseInputCount() == 9u );
@@ -3747,31 +3648,20 @@ TEST_CASE( "DX12 retirement diagnostics retain real peaks and reset at device bo
 
 TEST_CASE( "IH4 rendering and world lifecycle misuse terminates before stale access" )
 {
-    ExpectFatalCase( "render-preview-capacity",
-                     { "FATAL[Runtime/Render/RenderTargetPreviewSnapshot]", "count=12 capacity=12" } );
+    ExpectFatalCase( "render-preview-capacity", { "FATAL[Runtime/Render/RenderTargetPreviewSnapshot]", "count=12 capacity=12" } );
     ExpectFatalCase( "dx12-geometry-before-init", { "FATAL[Dx12GeometryOwner]", "operation=BeforeInitProbe", "active=0" } );
-    ExpectFatalCase( "dx12-geometry-after-shutdown",
-                     { "FATAL[Dx12GeometryOwner]", "operation=AfterShutdownProbe", "active=0" } );
+    ExpectFatalCase( "dx12-geometry-after-shutdown", { "FATAL[Dx12GeometryOwner]", "operation=AfterShutdownProbe", "active=0" } );
     ExpectFatalCase( "dx12-texture-before-init", { "FATAL[Dx12TextureOwner]", "operation=BeforeInitProbe", "active=0" } );
-    ExpectFatalCase( "dx12-texture-after-shutdown",
-                     { "FATAL[Dx12TextureOwner]", "operation=AfterShutdownProbe", "active=0" } );
+    ExpectFatalCase( "dx12-texture-after-shutdown", { "FATAL[Dx12TextureOwner]", "operation=AfterShutdownProbe", "active=0" } );
     ExpectFatalCase( "primitive-scope-moved", { "FATAL[Rendering/PrimitiveBatchScope]", "active=0", "requested=visible" } );
-    ExpectFatalCase( "primitive-scope-inactive",
-                     { "FATAL[Rendering/PrimitiveBatchScope]", "active=0", "requested=visible" } );
-    ExpectFatalCase( "primitive-visible-as-shadow",
-                     { "FATAL[Rendering/PrimitiveBatchScope]", "kind=0", "requested=shadow" } );
-    ExpectFatalCase( "primitive-shadow-as-visible",
-                     { "FATAL[Rendering/PrimitiveBatchScope]", "kind=3", "requested=visible" } );
-    ExpectFatalCase( "primitive-resource-owner-mismatch",
-                     { "FATAL[Rendering/PrimitiveBatchRenderer]", "resources=1 textures=0 geometry=1" } );
-    ExpectFatalCase( "skybox-before-init",
-                     { "FATAL[World/SkyBox]", "operation=BeforeInitProbe", "textures=0", "resources=0" } );
-    ExpectFatalCase( "skybox-after-release",
-                     { "FATAL[World/SkyBox]", "operation=AfterReleaseProbe", "textures=0", "resources=0" } );
-    ExpectFatalCase( "world-water-before-init",
-                     { "FATAL[World/WorldEnvironment]", "operation=BeforeInitProbe", "assets=0 resources=0" } );
-    ExpectFatalCase( "terrain-render-resources-before-init",
-                     { "FATAL[World/Terrain]", "operation=BeforeInitProbe", "assets=0 resources=0" } );
+    ExpectFatalCase( "primitive-scope-inactive", { "FATAL[Rendering/PrimitiveBatchScope]", "active=0", "requested=visible" } );
+    ExpectFatalCase( "primitive-visible-as-shadow", { "FATAL[Rendering/PrimitiveBatchScope]", "kind=0", "requested=shadow" } );
+    ExpectFatalCase( "primitive-shadow-as-visible", { "FATAL[Rendering/PrimitiveBatchScope]", "kind=3", "requested=visible" } );
+    ExpectFatalCase( "primitive-resource-owner-mismatch", { "FATAL[Rendering/PrimitiveBatchRenderer]", "resources=1 textures=0 geometry=1" } );
+    ExpectFatalCase( "skybox-before-init", { "FATAL[World/SkyBox]", "operation=BeforeInitProbe", "textures=0", "resources=0" } );
+    ExpectFatalCase( "skybox-after-release", { "FATAL[World/SkyBox]", "operation=AfterReleaseProbe", "textures=0", "resources=0" } );
+    ExpectFatalCase( "world-water-before-init", { "FATAL[World/WorldEnvironment]", "operation=BeforeInitProbe", "assets=0 resources=0" } );
+    ExpectFatalCase( "terrain-render-resources-before-init", { "FATAL[World/Terrain]", "operation=BeforeInitProbe", "assets=0 resources=0" } );
     ExpectFatalCase( "terrain-missing-clip-plane", { "FATAL[World/Terrain]", "Terrain color pass requires a clip plane" } );
 }
 
@@ -3779,60 +3669,40 @@ TEST_CASE( "IH4 rendering and world lifecycle misuse terminates before stale acc
 #if !defined( _DEBUG )
 TEST_CASE( "IH2 and IH3 old assert-only implementations are proven non-Debug missed failures" )
 {
-    ExpectCleanControlCase( LEGACY_IH23_TORNADO_MISSED_FAILURE_CASE,
-                            { "IH2/IH3 legacy assert-only tornado lifecycle path returned in a non-Debug child" } );
-    ExpectCleanControlCase( LEGACY_IH23_COLLIDER_MISSED_FAILURE_CASE,
-                            { "IH2/IH3 legacy assert-only collider shape/index path returned in a non-Debug child" } );
-    ExpectCleanControlCase( LEGACY_IH23_DISJOINT_SET_MISSED_FAILURE_CASE,
-                            { "IH2/IH3 legacy assert-only disjoint-set scratch path returned in a non-Debug child" } );
-    ExpectCleanControlCase( LEGACY_IH23_PHYSICS_BODY_MISSED_FAILURE_CASE,
-                            { "IH2/IH3 legacy assert-only physics-body index/span path returned in a non-Debug child" } );
+    ExpectCleanControlCase( LEGACY_IH23_TORNADO_MISSED_FAILURE_CASE, { "IH2/IH3 legacy assert-only tornado lifecycle path returned in a non-Debug child" } );
+    ExpectCleanControlCase( LEGACY_IH23_COLLIDER_MISSED_FAILURE_CASE, { "IH2/IH3 legacy assert-only collider shape/index path returned in a non-Debug child" } );
+    ExpectCleanControlCase( LEGACY_IH23_DISJOINT_SET_MISSED_FAILURE_CASE, { "IH2/IH3 legacy assert-only disjoint-set scratch path returned in a non-Debug child" } );
+    ExpectCleanControlCase( LEGACY_IH23_PHYSICS_BODY_MISSED_FAILURE_CASE, { "IH2/IH3 legacy assert-only physics-body index/span path returned in a non-Debug child" } );
 }
 
 
 TEST_CASE( "IH4 old assert-only implementation is a proven non-Debug missed failure" )
 {
-    ExpectCleanControlCase( LEGACY_IH4_DX12_MISSED_FAILURE_CASE,
-                            { "IH4 legacy assert-only dx12 lifecycle path returned in a non-Debug child" } );
-    ExpectCleanControlCase( LEGACY_IH4_PRIMITIVE_MISSED_FAILURE_CASE,
-                            { "IH4 legacy assert-only primitive scope path returned in a non-Debug child" } );
-    ExpectCleanControlCase( LEGACY_IH4_WORLD_MISSED_FAILURE_CASE,
-                            { "IH4 legacy assert-only world rebuild path returned in a non-Debug child" } );
-    ExpectCleanControlCase( LEGACY_IH4_PREVIEW_MISSED_FAILURE_CASE,
-                            { "IH4 legacy assert-only preview capacity path returned in a non-Debug child" } );
+    ExpectCleanControlCase( LEGACY_IH4_DX12_MISSED_FAILURE_CASE, { "IH4 legacy assert-only dx12 lifecycle path returned in a non-Debug child" } );
+    ExpectCleanControlCase( LEGACY_IH4_PRIMITIVE_MISSED_FAILURE_CASE, { "IH4 legacy assert-only primitive scope path returned in a non-Debug child" } );
+    ExpectCleanControlCase( LEGACY_IH4_WORLD_MISSED_FAILURE_CASE, { "IH4 legacy assert-only world rebuild path returned in a non-Debug child" } );
+    ExpectCleanControlCase( LEGACY_IH4_PREVIEW_MISSED_FAILURE_CASE, { "IH4 legacy assert-only preview capacity path returned in a non-Debug child" } );
 }
 #endif
 
 
 TEST_CASE( "IH5 render-pass lifecycle misuse terminates before stale access" )
 {
-    ExpectFatalCase( "run-renderer-before-init", { "FATAL[Runtime/Run]", "BeforeInitProbe requires the live renderer owner",
-                                                   "renderer=0000000000000000" } );
-    ExpectFatalCase( "run-renderer-after-shutdown",
-                     { "FATAL[Runtime/Run]", "AfterShutdownProbe requires the live renderer owner",
-                       "renderer=0000000000000000" } );
-    ExpectFatalCase( "sky-pass-before-init",
-                     { "FATAL[Runtime/Render/SkyPass]", "BeforeInitProbe requires the live world-view sky owner" } );
-    ExpectFatalCase( "sky-pass-after-release",
-                     { "FATAL[Runtime/Render/SkyPass]", "AfterReleaseProbe requires the live world-view sky owner" } );
-    ExpectFatalCase( "ui-profiler-before-init",
-                     { "FATAL[Runtime/Render/UiTextPass]", "BeforeInitProbe requires an active startup-bound profiler",
-                       "active=0" } );
-    ExpectFatalCase( "ui-profiler-after-release",
-                     { "FATAL[Runtime/Render/UiTextPass]", "AfterReleaseProbe requires an active startup-bound profiler",
-                       "active=0" } );
+    ExpectFatalCase( "run-renderer-before-init", { "FATAL[Runtime/Run]", "BeforeInitProbe requires the live renderer owner", "renderer=0000000000000000" } );
+    ExpectFatalCase( "run-renderer-after-shutdown", { "FATAL[Runtime/Run]", "AfterShutdownProbe requires the live renderer owner", "renderer=0000000000000000" } );
+    ExpectFatalCase( "sky-pass-before-init", { "FATAL[Runtime/Render/SkyPass]", "BeforeInitProbe requires the live world-view sky owner" } );
+    ExpectFatalCase( "sky-pass-after-release", { "FATAL[Runtime/Render/SkyPass]", "AfterReleaseProbe requires the live world-view sky owner" } );
+    ExpectFatalCase( "ui-profiler-before-init", { "FATAL[Runtime/Render/UiTextPass]", "BeforeInitProbe requires an active startup-bound profiler", "active=0" } );
+    ExpectFatalCase( "ui-profiler-after-release", { "FATAL[Runtime/Render/UiTextPass]", "AfterReleaseProbe requires an active startup-bound profiler", "active=0" } );
 }
 
 
 #if !defined( _DEBUG )
 TEST_CASE( "IH5 old render-pass assert-only implementation is a proven non-Debug missed failure" )
 {
-    ExpectCleanControlCase( LEGACY_IH5_RUN_RENDERER_MISSED_FAILURE_CASE,
-                            { "IH5 legacy assert-only Run renderer path returned in a non-Debug child" } );
-    ExpectCleanControlCase( LEGACY_IH5_SKY_MISSED_FAILURE_CASE,
-                            { "IH5 legacy assert-only sky pass path returned in a non-Debug child" } );
-    ExpectCleanControlCase( LEGACY_IH5_UI_PROFILER_MISSED_FAILURE_CASE,
-                            { "IH5 legacy assert-only UI profiler path returned in a non-Debug child" } );
+    ExpectCleanControlCase( LEGACY_IH5_RUN_RENDERER_MISSED_FAILURE_CASE, { "IH5 legacy assert-only Run renderer path returned in a non-Debug child" } );
+    ExpectCleanControlCase( LEGACY_IH5_SKY_MISSED_FAILURE_CASE, { "IH5 legacy assert-only sky pass path returned in a non-Debug child" } );
+    ExpectCleanControlCase( LEGACY_IH5_UI_PROFILER_MISSED_FAILURE_CASE, { "IH5 legacy assert-only UI profiler path returned in a non-Debug child" } );
 }
 #endif
 
@@ -3840,187 +3710,142 @@ TEST_CASE( "IH5 old render-pass assert-only implementation is a proven non-Debug
 TEST_CASE( "DX12 retirement exhaustion reports truthful queue and fence diagnostics" )
 {
     ExpectFatalCase( "dx12-retirement-capacity",
-                     { "FATAL[Dx12DeferredReleaseOwner]", "phase=quarantine", "capacity=512 count=512 high_water=512",
-                       "last_release_input=0 last_released=0 last_survivors=0", "fence_ready=0 last_completed_fence=0" } );
+        { "FATAL[Dx12DeferredReleaseOwner]",
+          "phase=quarantine",
+          "capacity=512 count=512 high_water=512",
+          "last_release_input=0 last_released=0 last_survivors=0",
+          "fence_ready=0 last_completed_fence=0" } );
     ExpectFatalCase( "dx12-retirement-release-snapshot",
-                     { "FATAL[Dx12DeferredReleaseOwner]", "phase=quarantine", "capacity=512 count=512 high_water=512",
-                       "last_release_input=9 last_released=5 last_survivors=4", "fence_ready=1 last_completed_fence=77" } );
-    ExpectFatalCase( "dx12-retirement-reset-live-device",
-                     { "FATAL[Dx12DeferredReleaseOwner]", "phase=device_reset", "count=1" } );
-    ExpectFatalCase( "dx12-retirement-reset-live-shutdown",
-                     { "FATAL[Dx12DeferredReleaseOwner]", "phase=shutdown_reset", "count=1" } );
+        { "FATAL[Dx12DeferredReleaseOwner]",
+          "phase=quarantine",
+          "capacity=512 count=512 high_water=512",
+          "last_release_input=9 last_released=5 last_survivors=4",
+          "fence_ready=1 last_completed_fence=77" } );
+    ExpectFatalCase( "dx12-retirement-reset-live-device", { "FATAL[Dx12DeferredReleaseOwner]", "phase=device_reset", "count=1" } );
+    ExpectFatalCase( "dx12-retirement-reset-live-shutdown", { "FATAL[Dx12DeferredReleaseOwner]", "phase=shutdown_reset", "count=1" } );
 }
 
 
 TEST_CASE( "SbDiagnosticStore bound capacity and lease misuse terminate in child probes" )
 {
     ExpectFatalCase( "sb-diagnostic-capacity", { "FATAL[Core/SbDiagnosticStore]", "all 256 diagnostic slots are leased" } );
-    ExpectFatalCase( "sb-diagnostic-double-release",
-                     { "FATAL[Core/SbDiagnosticStore]", "release used a stale or already released diagnostic token" } );
+    ExpectFatalCase( "sb-diagnostic-double-release", { "FATAL[Core/SbDiagnosticStore]", "release used a stale or already released diagnostic token" } );
 
-    ExpectFatalCase( "sb-diagnostic-owner-overflow",
-                     { "FATAL[Core/SbDiagnosticStore]", "diagnostic owner exceeds 95-byte bound" } );
+    ExpectFatalCase( "sb-diagnostic-owner-overflow", { "FATAL[Core/SbDiagnosticStore]", "diagnostic owner exceeds 95-byte bound" } );
 
-    ExpectFatalCase( "sb-diagnostic-store-destroyed-with-active-lease",
-                     { "FATAL[Core/SbDiagnosticStore]", "diagnostic store destroyed with 1 active entries" } );
+    ExpectFatalCase( "sb-diagnostic-store-destroyed-with-active-lease", { "FATAL[Core/SbDiagnosticStore]", "diagnostic store destroyed with 1 active entries" } );
 
-    ExpectFatalCase( "sb-diagnostic-lease-overflow",
-                     { "FATAL[Core/SbDiagnosticStore]", "diagnostic lease count overflowed" } );
+    ExpectFatalCase( "sb-diagnostic-lease-overflow", { "FATAL[Core/SbDiagnosticStore]", "diagnostic lease count overflowed" } );
 
-    ExpectFatalCase( "sb-diagnostic-generation-overflow",
-                     { "FATAL[Core/SbDiagnosticStore]", "diagnostic generation exhausted for slot 0" } );
+    ExpectFatalCase( "sb-diagnostic-generation-overflow", { "FATAL[Core/SbDiagnosticStore]", "diagnostic generation exhausted for slot 0" } );
 
-    ExpectFatalCase( "sb-diagnostic-lock-reentry",
-                     { "FATAL[Core/SbDiagnosticStore]", "diagnostic store lock re-entered by its owning thread" } );
+    ExpectFatalCase( "sb-diagnostic-lock-reentry", { "FATAL[Core/SbDiagnosticStore]", "diagnostic store lock re-entered by its owning thread" } );
 }
 
 TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate in child probes" )
 {
-    ExpectFatalCase( "physics-pipeline-batch-full-mode",
-                     { "FATAL[Physics/PhysicsStepDiagnostics]",
-                       "Count-only pipeline event batches cannot be recorded while full payload retention is active" } );
+    ExpectFatalCase( "physics-pipeline-batch-full-mode", { "FATAL[Physics/PhysicsStepDiagnostics]", "Count-only pipeline event batches cannot be recorded while full payload retention is active" } );
 
-    ExpectFatalCase( "physics-fixed-list-runtime-capacity",
-                     { "FATAL: PhysicsFixedList capacity exceeded", "owner=fatal.physics-fixed-list.runtime", "requested=2",
-                       "runtime_capacity=1", "compile_capacity=4", "ceiling=runtime_reservation" } );
+    ExpectFatalCase( "physics-fixed-list-runtime-capacity", { "FATAL: PhysicsFixedList capacity exceeded", "owner=fatal.physics-fixed-list.runtime", "requested=2", "runtime_capacity=1", "compile_capacity=4", "ceiling=runtime_reservation" } );
 
-    ExpectFatalCase( "physics-fixed-list-compile-capacity",
-                     { "FATAL: PhysicsFixedList capacity exceeded", "owner=fatal.physics-fixed-list.compile", "requested=3",
-                       "runtime_capacity=0", "compile_capacity=2", "ceiling=compile_time_ceiling" } );
+    ExpectFatalCase( "physics-fixed-list-compile-capacity", { "FATAL: PhysicsFixedList capacity exceeded", "owner=fatal.physics-fixed-list.compile", "requested=3", "runtime_capacity=0", "compile_capacity=2", "ceiling=compile_time_ceiling" } );
 
-    ExpectFatalCase( "physics-fixed-list-phase",
-                     { "FATAL: PhysicsFixedList reserve denied", "owner=fatal.physics-fixed-list.phase", "requested=1",
-                       "runtime_capacity=0", "compile_capacity=2", "phase=startup" } );
+    ExpectFatalCase( "physics-fixed-list-phase", { "FATAL: PhysicsFixedList reserve denied", "owner=fatal.physics-fixed-list.phase", "requested=1", "runtime_capacity=0", "compile_capacity=2", "phase=startup" } );
 
-    ExpectFatalCase( "collider-rebind-shape-index",
-                     { "FATAL[Physics/ColliderStore]", "operation=rebind", "kind=0", "index=3", "shape_count=3" } );
-    ExpectFatalCase( "collider-remove-shape-index",
-                     { "FATAL[Physics/ColliderStore]", "operation=remove", "kind=1", "index=1", "shape_count=1" } );
-    ExpectFatalCase( "collider-hull-shape-parity",
-                     { "FATAL[Physics/ColliderStore]", "operation=remove", "kind=2", "shape_count=1", "identity_count=0" } );
-    ExpectFatalCase( "disjoint-set-scratch-capacity",
-                     { "FATAL[Physics/DisjointSet]", "count=2", "parent_rows=1", "rank_rows=1" } );
-    ExpectFatalCase( "physics-body-hot-index",
-                     { "FATAL[Physics/PhysicsBodyStore]", "operation=read-hot-state", "index=0", "count=0" } );
+    ExpectFatalCase( "collider-rebind-shape-index", { "FATAL[Physics/ColliderStore]", "operation=rebind", "kind=0", "index=3", "shape_count=3" } );
+    ExpectFatalCase( "collider-remove-shape-index", { "FATAL[Physics/ColliderStore]", "operation=remove", "kind=1", "index=1", "shape_count=1" } );
+    ExpectFatalCase( "collider-hull-shape-parity", { "FATAL[Physics/ColliderStore]", "operation=remove", "kind=2", "shape_count=1", "identity_count=0" } );
+    ExpectFatalCase( "disjoint-set-scratch-capacity", { "FATAL[Physics/DisjointSet]", "count=2", "parent_rows=1", "rank_rows=1" } );
+    ExpectFatalCase( "physics-body-hot-index", { "FATAL[Physics/PhysicsBodyStore]", "operation=read-hot-state", "index=0", "count=0" } );
     ExpectFatalCase( "physics-body-sleep-destination", { "FATAL[Physics/PhysicsBodyStore]", "provided=0", "required=1" } );
-    ExpectFatalCase( "contact-side-effect-collision-visual", { "FATAL[Physics/PhysicsContactSolverStage]",
-                                                               "lane=collisionVisualBodies", "required=4", "capacity=3" } );
-    ExpectFatalCase( "contact-side-effect-fixed-contact",
-                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=fixedContactBodies", "required=2", "capacity=1" } );
-    ExpectFatalCase( "contact-side-effect-release-wake",
-                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=releaseWakeBodies", "required=2", "capacity=1" } );
-    ExpectFatalCase( "contact-side-effect-fixed-tree",
-                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=fixedTreeReleases", "required=2", "capacity=1" } );
-    ExpectFatalCase( "contact-side-effect-pipeline",
-                     { "FATAL[Physics/PhysicsContactSolverStage]", "lane=pipelineRecords", "required=2", "capacity=1" } );
+    ExpectFatalCase( "contact-side-effect-collision-visual", { "FATAL[Physics/PhysicsContactSolverStage]", "lane=collisionVisualBodies", "required=4", "capacity=3" } );
+    ExpectFatalCase( "contact-side-effect-fixed-contact", { "FATAL[Physics/PhysicsContactSolverStage]", "lane=fixedContactBodies", "required=2", "capacity=1" } );
+    ExpectFatalCase( "contact-side-effect-release-wake", { "FATAL[Physics/PhysicsContactSolverStage]", "lane=releaseWakeBodies", "required=2", "capacity=1" } );
+    ExpectFatalCase( "contact-side-effect-fixed-tree", { "FATAL[Physics/PhysicsContactSolverStage]", "lane=fixedTreeReleases", "required=2", "capacity=1" } );
+    ExpectFatalCase( "contact-side-effect-pipeline", { "FATAL[Physics/PhysicsContactSolverStage]", "lane=pipelineRecords", "required=2", "capacity=1" } );
 
     ExpectFatalCase( "physics-prediction-seed-wrong-replay-owner",
-                     { "FATAL[Physics/ReplayPredictionClone]",
-                       "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
-                       "owner_name=replay_solver_snapshot", "required_owner=replay_prediction_working_set" } );
+        { "FATAL[Physics/ReplayPredictionClone]",
+          "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
+          "owner_name=replay_solver_snapshot",
+          "required_owner=replay_prediction_working_set" } );
 
     ExpectFatalCase( "physics-prediction-seed-missing-scope",
-                     { "FATAL[Physics/ReplayPredictionClone]",
-                       "PhysicsEngine seed requires the canonical ReplayPrediction owner scope", "phase=startup", "owner=0",
-                       "owner_name=<unregistered>", "required_owner=replay_prediction_working_set" } );
+        { "FATAL[Physics/ReplayPredictionClone]",
+          "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
+          "phase=startup",
+          "owner=0",
+          "owner_name=<unregistered>",
+          "required_owner=replay_prediction_working_set" } );
 
     ExpectFatalCase( "physics-prediction-seed-scene-load",
-                     { "FATAL[Physics/ReplayPredictionClone]",
-                       "PhysicsEngine seed requires the canonical ReplayPrediction owner scope", "phase=scene_load",
-                       "owner=0", "owner_name=<unregistered>", "required_owner=replay_prediction_working_set" } );
+        { "FATAL[Physics/ReplayPredictionClone]",
+          "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
+          "phase=scene_load",
+          "owner=0",
+          "owner_name=<unregistered>",
+          "required_owner=replay_prediction_working_set" } );
 
     ExpectFatalCase( "physics-prediction-seed-missing-owner",
-                     { "FATAL[Physics/ReplayPredictionClone]",
-                       "PhysicsEngine seed requires the canonical ReplayPrediction owner scope", "phase=replay", "owner=0",
-                       "owner_name=<unregistered>", "required_owner=replay_prediction_working_set" } );
+        { "FATAL[Physics/ReplayPredictionClone]",
+          "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
+          "phase=replay",
+          "owner=0",
+          "owner_name=<unregistered>",
+          "required_owner=replay_prediction_working_set" } );
 
-    ExpectFatalCase( "terrain-locate-cell-range",
-                     { "FATAL[Terrain]", "Terrain polygon cell out of range", "worldXCell=3", "quadsPerSide=3" } );
+    ExpectFatalCase( "terrain-locate-cell-range", { "FATAL[Terrain]", "Terrain polygon cell out of range", "worldXCell=3", "quadsPerSide=3" } );
 
     ExpectFatalCase( "terrain-locate-nonfinite", { "FATAL[Terrain]", "Terrain polygon query is not finite", "x=nan" } );
 
     ExpectFatalCase( "terrain-locate-unrepresentable", { "FATAL[Terrain]", "Terrain polygon cell is not representable" } );
 
-    ExpectFatalCase( "terrain-locate-invalid-scale",
-                     { "FATAL[Terrain]", "Terrain polygon query is not finite", "scaledStepSize=nan" } );
+    ExpectFatalCase( "terrain-locate-invalid-scale", { "FATAL[Terrain]", "Terrain polygon query is not finite", "scaledStepSize=nan" } );
 
-    ExpectFatalCase( "spatial-grid-nan",
-                     { "FATAL[Physics/SpatialGrid]", "body=7", "min=(nan,-1,-1)", "max_world_coordinate=100000" } );
+    ExpectFatalCase( "spatial-grid-nan", { "FATAL[Physics/SpatialGrid]", "body=7", "min=(nan,-1,-1)", "max_world_coordinate=100000" } );
 
-    ExpectFatalCase( "spatial-grid-extent",
-                     { "FATAL[Physics/SpatialGrid]", "body=11", "max=(100002,1,1)", "max_world_coordinate=100000" } );
+    ExpectFatalCase( "spatial-grid-extent", { "FATAL[Physics/SpatialGrid]", "body=11", "max=(100002,1,1)", "max_world_coordinate=100000" } );
 
-    ExpectFatalCase( "spatial-grid-zero-cell",
-                     { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=0", "minimum=0.5" } );
+    ExpectFatalCase( "spatial-grid-zero-cell", { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=0", "minimum=0.5" } );
 
-    ExpectFatalCase( "spatial-grid-nan-cell",
-                     { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=nan", "minimum=0.5" } );
+    ExpectFatalCase( "spatial-grid-nan-cell", { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=nan", "minimum=0.5" } );
 
-    ExpectFatalCase( "spatial-grid-tiny-cell",
-                     { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=0.25", "minimum=0.5" } );
+    ExpectFatalCase( "spatial-grid-tiny-cell", { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=0.25", "minimum=0.5" } );
 
-    ExpectFatalCase( "spatial-grid-reserve-phase",
-                     { "FATAL: PhysicsFixedList reserve denied", "owner=SpatialGrid.entries", "requested=1032",
-                       "runtime_capacity=0", "compile_capacity=131076", "phase=startup" } );
+    ExpectFatalCase( "spatial-grid-reserve-phase", { "FATAL: PhysicsFixedList reserve denied", "owner=SpatialGrid.entries", "requested=1032", "runtime_capacity=0", "compile_capacity=131076", "phase=startup" } );
 
-    ExpectFatalCase( "spatial-grid-entry-capacity",
-                     { "FATAL: PhysicsFixedList capacity exceeded", "owner=SpatialGrid.entries", "requested=1033",
-                       "runtime_capacity=1032", "compile_capacity=131076", "high_water=1032", "phase=physics" } );
+    ExpectFatalCase( "spatial-grid-entry-capacity", { "FATAL: PhysicsFixedList capacity exceeded", "owner=SpatialGrid.entries", "requested=1033", "runtime_capacity=1032", "compile_capacity=131076", "high_water=1032", "phase=physics" } );
 
     ExpectCleanControlCase( "spatial-grid-overlay-entry-capacity", { "spatial-grid-overlay-fallback-complete" } );
 
-    ExpectFatalCase( "spatial-grid-bucket-capacity", { "FATAL[Physics/SpatialGrid]", "bucket capacity exceeded",
-                                                       "capacity=8192", "active=8192", "phase=steady_gameplay" } );
+    ExpectFatalCase( "spatial-grid-bucket-capacity", { "FATAL[Physics/SpatialGrid]", "bucket capacity exceeded", "capacity=8192", "active=8192", "phase=steady_gameplay" } );
 
-    ExpectFatalCase( "sleep-support-edge-reserved-capacity",
-                     { "FATAL[Physics/SleepSupportEdges]", "Sleep support edge capacity exceeded", "requested=3",
-                       "capacity=32768", "reserved_capacity=2", "high_water=2", "phase=steady_gameplay" } );
+    ExpectFatalCase( "sleep-support-edge-reserved-capacity", { "FATAL[Physics/SleepSupportEdges]", "Sleep support edge capacity exceeded", "requested=3", "capacity=32768", "reserved_capacity=2", "high_water=2", "phase=steady_gameplay" } );
 
-    ExpectFatalCase( "sleep-support-edge-capacity",
-                     { "FATAL[Physics/SleepSupportEdges]", "Sleep support edge capacity exceeded", "requested=32769",
-                       "capacity=32768", "high_water=32768", "phase=steady_gameplay" } );
+    ExpectFatalCase( "sleep-support-edge-capacity", { "FATAL[Physics/SleepSupportEdges]", "Sleep support edge capacity exceeded", "requested=32769", "capacity=32768", "high_water=32768", "phase=steady_gameplay" } );
 
-    ExpectFatalCase( "amortized-task-in-flight-destroy",
-                     { "FATAL[Core/AmortizedTask]", "Destroying AmortizedTask while worker chunk is in flight" } );
+    ExpectFatalCase( "amortized-task-in-flight-destroy", { "FATAL[Core/AmortizedTask]", "Destroying AmortizedTask while worker chunk is in flight" } );
 
     ExpectFatalCase( "worker-fatal-log", { "FATAL[Tests/WorkerFatalProbe]", "worker-thread fatal logging probe" } );
-    ExpectFatalCase( "texture-slot-capacity",
-                     { "FATAL[TextureCollection]", "Texture slot capacity exhausted", "capacity=8" } );
-    ExpectFatalCase( "tornado-visual-unprepared-frame",
-                     { "FATAL[Gameplay/TornadoVisualPass]", "Tornado visual frame is not prepared",
-                       "operation=UnpreparedProbe", "field=0", "system=0" } );
-    ExpectFatalCase( "tornado-visual-released-frame",
-                     { "FATAL[Gameplay/TornadoVisualPass]", "Tornado visual frame is not prepared",
-                       "operation=ReleasedProbe", "field=0", "system=0" } );
-    ExpectFatalCase( "replay-restore-pending-timeline-complete",
-                     { "FATAL[Runtime/ReplayRestoreTransaction]",
-                       "Restore completion reached without satisfying branch timeline state", "required=1", "applied=0" } );
+    ExpectFatalCase( "texture-slot-capacity", { "FATAL[TextureCollection]", "Texture slot capacity exhausted", "capacity=8" } );
+    ExpectFatalCase( "tornado-visual-unprepared-frame", { "FATAL[Gameplay/TornadoVisualPass]", "Tornado visual frame is not prepared", "operation=UnpreparedProbe", "field=0", "system=0" } );
+    ExpectFatalCase( "tornado-visual-released-frame", { "FATAL[Gameplay/TornadoVisualPass]", "Tornado visual frame is not prepared", "operation=ReleasedProbe", "field=0", "system=0" } );
+    ExpectFatalCase( "replay-restore-pending-timeline-complete", { "FATAL[Runtime/ReplayRestoreTransaction]", "Restore completion reached without satisfying branch timeline state", "required=1", "applied=0" } );
 
-    ExpectFatalCase( "replay-restore-unproved-rollback", { "FATAL[Runtime/ReplayRestoreTransaction]",
-                                                           "Rollback completed without verified live-backup application",
-                                                           "mutated=1", "backup=1", "applied=0" } );
+    ExpectFatalCase( "replay-restore-unproved-rollback", { "FATAL[Runtime/ReplayRestoreTransaction]", "Rollback completed without verified live-backup application", "mutated=1", "backup=1", "applied=0" } );
 
-    ExpectFatalCase( "scene-capacity-hard-ceiling", { "FATAL[Physics/SceneCapacity]", "owner=Physics/PhysicsEngine",
-                                                      "requested_bodies=9000", "ceiling=8192" } );
+    ExpectFatalCase( "scene-capacity-hard-ceiling", { "FATAL[Physics/SceneCapacity]", "owner=Physics/PhysicsEngine", "requested_bodies=9000", "ceiling=8192" } );
 
-    ExpectFatalCase( "point-joint-scene-capacity", { "FATAL[Physics/PointJoint]", "owner=Physics/PhysicsWorld",
-                                                     "requested=9", "capacity=8", "retained_capacity=12" } );
+    ExpectFatalCase( "point-joint-scene-capacity", { "FATAL[Physics/PointJoint]", "owner=Physics/PhysicsWorld", "requested=9", "capacity=8", "retained_capacity=12" } );
 
 #if defined( _DEBUG ) || defined( SKULLBONEZ_PROFILE_ENABLED ) || defined( SKULLBONEZ_TEST_PROFILE_ALLOCATION_FATAL )
-    ExpectFatalCase( "allocation-foreign-page-boundary",
-                     { "FATAL[Runtime/Allocation]", "unprovable foreign pointer delete", "phase=diagnostics", "owner=0",
-                       "header=unreadable", "foreign_free_count=1" } );
+    ExpectFatalCase( "allocation-foreign-page-boundary", { "FATAL[Runtime/Allocation]", "unprovable foreign pointer delete", "phase=diagnostics", "owner=0", "header=unreadable", "foreign_free_count=1" } );
 
-    ExpectFatalCase( "allocation-foreign-shaped-header",
-                     { "FATAL[Runtime/Allocation]", "unprovable foreign pointer delete", "phase=diagnostics", "owner=0",
-                       "header=bad_provenance", "foreign_free_count=1" } );
+    ExpectFatalCase( "allocation-foreign-shaped-header", { "FATAL[Runtime/Allocation]", "unprovable foreign pointer delete", "phase=diagnostics", "owner=0", "header=bad_provenance", "foreign_free_count=1" } );
 #else
-    ExpectCleanChildCase( "allocation-foreign-crt-release",
-                          { "[allocation-guard] FOREIGN_FREE", "phase=diagnostics", "owner=0", "header=bad_magic",
-                            "foreign_free_count=1", "mode=measure", "foreign_frees=1", "VIOLATION:" } );
+    ExpectCleanChildCase( "allocation-foreign-crt-release", { "[allocation-guard] FOREIGN_FREE", "phase=diagnostics", "owner=0", "header=bad_magic", "foreign_free_count=1", "mode=measure", "foreign_frees=1", "VIOLATION:" } );
 #endif
-    ExpectFatalCase( "allocation-size-overflow", { "FATAL[Runtime/Allocation]", "global operator new failed",
-                                                   "reason=size_arithmetic_overflow", "size=18446744073709551615" } );
+    ExpectFatalCase( "allocation-size-overflow", { "FATAL[Runtime/Allocation]", "global operator new failed", "reason=size_arithmetic_overflow", "size=18446744073709551615" } );
 }
 
 
@@ -4078,31 +3903,33 @@ TEST_CASE( "Persistent contact solve transaction enforces every phase edge throu
     using SkullbonezCore::Physics::ConstraintSolveTransaction;
     using SkullbonezCore::Physics::ConstraintSolveTransactionTestAccess;
     using Phase = ConstraintSolvePhaseCursor::Phase;
-    constexpr std::array phases { Phase::Idle,
-                                  Phase::EntryPolicySetup,
-                                  Phase::BodySetup,
-                                  Phase::BuildManifolds,
-                                  Phase::TerrainRows,
-                                  Phase::PrepareJoints,
-                                  Phase::Precompute,
-                                  Phase::WarmStartJoints,
-                                  Phase::SolveRows,
-                                  Phase::PointSupportInstability,
-                                  Phase::WriteBack,
-                                  Phase::DebugContacts,
-                                  Phase::PositionCorrection,
-                                  Phase::FixedContactRelease,
-                                  Phase::ReleasedBodySetup,
-                                  Phase::ReleasedManifolds,
-                                  Phase::ReleasedTerrainRows,
-                                  Phase::ReleasedJoints,
-                                  Phase::ReleasedPrecompute,
-                                  Phase::ReleasedSolveRows,
-                                  Phase::ReleasedWriteBack,
-                                  Phase::ReleasedDebugContacts,
-                                  Phase::CacheStore,
-                                  Phase::Complete,
-                                  Phase::Count };
+    constexpr std::array phases {
+        Phase::Idle,
+        Phase::EntryPolicySetup,
+        Phase::BodySetup,
+        Phase::BuildManifolds,
+        Phase::TerrainRows,
+        Phase::PrepareJoints,
+        Phase::Precompute,
+        Phase::WarmStartJoints,
+        Phase::SolveRows,
+        Phase::PointSupportInstability,
+        Phase::WriteBack,
+        Phase::DebugContacts,
+        Phase::PositionCorrection,
+        Phase::FixedContactRelease,
+        Phase::ReleasedBodySetup,
+        Phase::ReleasedManifolds,
+        Phase::ReleasedTerrainRows,
+        Phase::ReleasedJoints,
+        Phase::ReleasedPrecompute,
+        Phase::ReleasedSolveRows,
+        Phase::ReleasedWriteBack,
+        Phase::ReleasedDebugContacts,
+        Phase::CacheStore,
+        Phase::Complete,
+        Phase::Count
+    };
     constexpr std::size_t entryIndex = 1u;
     constexpr std::size_t jointPreparationIndex = 5u;
     constexpr std::size_t completeIndex = phases.size() - 2u;
@@ -4114,8 +3941,7 @@ TEST_CASE( "Persistent contact solve transaction enforces every phase edge throu
             const bool adjacent = fromIndex < completeIndex && toIndex == fromIndex + 1u;
             const bool emptyInput = fromIndex == entryIndex && toIndex == completeIndex;
             const bool emptyRows = fromIndex == jointPreparationIndex && toIndex == completeIndex;
-            const bool normalCompletion = phases[fromIndex] == Phase::FixedContactRelease &&
-                                          phases[toIndex] == Phase::CacheStore;
+            const bool normalCompletion = phases[fromIndex] == Phase::FixedContactRelease && phases[toIndex] == Phase::CacheStore;
             const bool expected = adjacent || emptyInput || emptyRows || normalCompletion;
             CHECK( ConstraintSolvePhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
 
@@ -4127,8 +3953,7 @@ TEST_CASE( "Persistent contact solve transaction enforces every phase edge throu
 
             char caseName[96] = {};
             std::snprintf( caseName, sizeof( caseName ), "contact-solve-phase-%zu-%zu", fromIndex, toIndex );
-            ExpectFatalCase( caseName, { "FATAL[Physics/ConstraintSolveTransaction]", "Illegal phase transition",
-                                         "operation=ExhaustiveFatalProbe" } );
+            ExpectFatalCase( caseName, { "FATAL[Physics/ConstraintSolveTransaction]", "Illegal phase transition", "operation=ExhaustiveFatalProbe" } );
         }
     }
 
@@ -4248,19 +4073,15 @@ void CheckReplayStartupTransitionMatrix()
 {
     using Continuation = SkullbonezCore::Runtime::ReplayStartupProbeContinuation;
     using Phase = Continuation::Phase;
-    constexpr std::array phases { Phase::Idle,     Phase::Running, Phase::AwaitingApplication, Phase::ApplicationApplied,
-                                  Phase::Complete, Phase::Failed };
+    constexpr std::array phases { Phase::Idle, Phase::Running, Phase::AwaitingApplication, Phase::ApplicationApplied, Phase::Complete, Phase::Failed };
 
     for ( Phase from : phases )
     {
         for ( Phase to : phases )
         {
-            const bool expected = ( from == Phase::Idle && to == Phase::Running ) ||
-                                  ( from == Phase::Running && to == Phase::AwaitingApplication ) ||
-                                  ( from == Phase::AwaitingApplication && to == Phase::ApplicationApplied ) ||
-                                  ( from == Phase::AwaitingApplication && to == Phase::Failed ) ||
-                                  ( from == Phase::ApplicationApplied && to == Phase::Running ) ||
-                                  ( from == Phase::Running && ( to == Phase::Complete || to == Phase::Failed ) );
+            const bool expected = ( from == Phase::Idle && to == Phase::Running ) || ( from == Phase::Running && to == Phase::AwaitingApplication ) ||
+                                  ( from == Phase::AwaitingApplication && to == Phase::ApplicationApplied ) || ( from == Phase::AwaitingApplication && to == Phase::Failed ) ||
+                                  ( from == Phase::ApplicationApplied && to == Phase::Running ) || ( from == Phase::Running && ( to == Phase::Complete || to == Phase::Failed ) );
             CHECK( Continuation::IsLegalTransition( from, to ) == expected );
         }
     }
@@ -4271,10 +4092,8 @@ void CheckReplayStartupApplicationMatrix()
     using Continuation = SkullbonezCore::Runtime::ReplayStartupProbeContinuation;
     using PendingAction = Continuation::PendingAction;
     using Phase = Continuation::Phase;
-    constexpr std::array phases { Phase::Idle,     Phase::Running, Phase::AwaitingApplication, Phase::ApplicationApplied,
-                                  Phase::Complete, Phase::Failed };
-    constexpr std::array actions { PendingAction::None, PendingAction::ActivateLoadedPresentation,
-                                   PendingAction::ApplyRestoredBranchTimeline };
+    constexpr std::array phases { Phase::Idle, Phase::Running, Phase::AwaitingApplication, Phase::ApplicationApplied, Phase::Complete, Phase::Failed };
+    constexpr std::array actions { PendingAction::None, PendingAction::ActivateLoadedPresentation, PendingAction::ApplyRestoredBranchTimeline };
 
     constexpr std::size_t restoreStates = 2u;
     constexpr std::size_t caseCount = phases.size() * actions.size() * restoreStates;
@@ -4283,10 +4102,8 @@ void CheckReplayStartupApplicationMatrix()
         const Phase phase = phases[caseIndex / ( actions.size() * restoreStates )];
         const PendingAction action = actions[( caseIndex / restoreStates ) % actions.size()];
         const bool hasRestore = ( caseIndex % restoreStates ) != 0u;
-        const bool expected = phase == Phase::AwaitingApplication
-                                  ? action != PendingAction::None &&
-                                        ( action != PendingAction::ApplyRestoredBranchTimeline || hasRestore )
-                                  : action == PendingAction::None;
+        const bool expected = phase == Phase::AwaitingApplication ? action != PendingAction::None && ( action != PendingAction::ApplyRestoredBranchTimeline || hasRestore )
+                                                                  : action == PendingAction::None;
         CHECK( Continuation::IsApplicationStateCoherent( phase, action, hasRestore ) == expected );
     }
 }
@@ -4300,12 +4117,8 @@ TEST_CASE( "Replay startup probe continuation admits only serviced finite-state 
     CheckReplayStartupTransitionMatrix();
     CheckReplayStartupApplicationMatrix();
 
-    ExpectFatalCase( "replay-startup-illegal-transition",
-                     { "FATAL[Runtime/ReplayStartupProbeContinuation]", "Illegal startup-probe continuation transition",
-                       "operation=FatalContractProbe" } );
-    ExpectFatalCase( "replay-startup-restore-action-without-transaction",
-                     { "FATAL[Runtime/ReplayStartupProbeContinuation]", "application state is incoherent",
-                       "operation=FatalContractProbe", "restore=0" } );
+    ExpectFatalCase( "replay-startup-illegal-transition", { "FATAL[Runtime/ReplayStartupProbeContinuation]", "Illegal startup-probe continuation transition", "operation=FatalContractProbe" } );
+    ExpectFatalCase( "replay-startup-restore-action-without-transaction", { "FATAL[Runtime/ReplayStartupProbeContinuation]", "application state is incoherent", "operation=FatalContractProbe", "restore=0" } );
 
     Continuation rejectedActivation( 0.0 );
     ContinuationTestAccess::SeedPendingPresentationActivation( rejectedActivation );
@@ -4325,16 +4138,18 @@ TEST_CASE( "Operator command transaction enforces every phase edge through fatal
     using SkullbonezCore::Runtime::OperatorCommandTransaction;
     using SkullbonezCore::Runtime::OperatorCommandTransactionTestAccess;
     using Phase = OperatorCommandPhaseCursor::Phase;
-    constexpr std::array phases { Phase::Idle,
-                                  Phase::DeviceAndMode,
-                                  Phase::PhysicsControl,
-                                  Phase::RuntimePresentation,
-                                  Phase::SimulationPolicy,
-                                  Phase::PhysicsMaterial,
-                                  Phase::WorldPolicy,
-                                  Phase::CinematicPolicy,
-                                  Phase::Complete,
-                                  Phase::Count };
+    constexpr std::array phases {
+        Phase::Idle,
+        Phase::DeviceAndMode,
+        Phase::PhysicsControl,
+        Phase::RuntimePresentation,
+        Phase::SimulationPolicy,
+        Phase::PhysicsMaterial,
+        Phase::WorldPolicy,
+        Phase::CinematicPolicy,
+        Phase::Complete,
+        Phase::Count
+    };
 
     for ( std::size_t fromIndex = 0u; fromIndex < phases.size(); ++fromIndex )
     {
@@ -4351,8 +4166,7 @@ TEST_CASE( "Operator command transaction enforces every phase edge through fatal
 
             char caseName[96] = {};
             std::snprintf( caseName, sizeof( caseName ), "operator-command-phase-%zu-%zu", fromIndex, toIndex );
-            ExpectFatalCase( caseName, { "FATAL[Runtime/OperatorCommandTransaction]", "Illegal phase transition",
-                                         "operation=ExhaustiveFatalProbe" } );
+            ExpectFatalCase( caseName, { "FATAL[Runtime/OperatorCommandTransaction]", "Illegal phase transition", "operation=ExhaustiveFatalProbe" } );
         }
     }
 
@@ -4385,22 +4199,28 @@ TEST_CASE( "SceneWorld deletion preserves the moved tornado body timer history" 
     for ( std::size_t index = 0; index < bodyHandles.size(); ++index )
     {
         const SkullbonezCore::Physics::PhysicsSceneObjectId sceneObjectId { static_cast<uint32_t>( 4100u + index ) };
-        const SkullbonezCore::Math::CollisionDetection::CollisionShape
-            shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
+        const SkullbonezCore::Math::CollisionDetection::CollisionShape shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
         SkullbonezCore::Runtime::SceneEntityCreateDesc entity;
         entity.sceneObjectId = sceneObjectId;
         entity.SetName( "tornado-state-remap-body" );
 
-        auto bodyDesc = SkullbonezCore::Physics::
-            MakePhysicsBodyCreateDesc( sceneObjectId, shape, Vector3( static_cast<float>( index ), 5.0f, 0.0f ),
-                                       SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION, Vector3( 0.0f, 0.0f, 0.0f ),
-                                       Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.4f, 0.4f, 0.4f ), 1.0f, 0.0f,
-                                       SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic, "tornado-state-remap-body" );
+        auto bodyDesc = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc(
+            sceneObjectId,
+            shape,
+            Vector3( static_cast<float>( index ), 5.0f, 0.0f ),
+            SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+            Vector3( 0.0f, 0.0f, 0.0f ),
+            Vector3( 0.0f, 0.0f, 0.0f ),
+            Vector3( 0.4f, 0.4f, 0.4f ),
+            1.0f,
+            0.0f,
+            SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic,
+            "tornado-state-remap-body"
+        );
         auto colliderDesc = SkullbonezCore::Physics::MakeColliderCreateDesc( shape, 0.0f, 0u, "tornado-state-remap-body" );
         colliderDesc.sceneObjectId = sceneObjectId;
 
-        const SkullbonezCore::Runtime::SceneEntityCreateResult created = world.TryCreateSceneEntity( entity, bodyDesc,
-                                                                                                     colliderDesc );
+        const SkullbonezCore::Runtime::SceneEntityCreateResult created = world.TryCreateSceneEntity( entity, bodyDesc, colliderDesc );
         REQUIRE( created.status.Ok() );
         REQUIRE( created.body.IsValid() );
         bodyHandles[index] = created.body;
@@ -4472,10 +4292,7 @@ TEST_CASE( "Orderly exit returns the interaction recording save failure" )
 
     SkullbonezCore::Runtime::ApplicationExitState applicationExit( localDiagnostics );
     RuntimeAllocationScope shutdownScope( RuntimeAllocationPhase::Shutdown );
-    const SbResult result = SkullbonezCore::Runtime::ResolveRunExitAfterInteractionRecording( recorder, localDiagnostics,
-                                                                                              applicationExit, 0,
-                                                                                              captureArmedBoundary,
-                                                                                              &context );
+    const SbResult result = SkullbonezCore::Runtime::ResolveRunExitAfterInteractionRecording( recorder, localDiagnostics, applicationExit, 0, captureArmedBoundary, &context );
 
     CHECK( context.attempts == 1 );
     CHECK( context.boundaryResult.Ok() );
@@ -4488,10 +4305,7 @@ TEST_CASE( "Orderly exit returns the interaction recording save failure" )
     REQUIRE( result.ErrorMessage() );
     CHECK( std::strstr( result.ErrorMessage(), "failed to hash the recorded scene snapshot" ) != nullptr );
 
-    const SbResult repeated = SkullbonezCore::Runtime::ResolveRunExitAfterInteractionRecording( recorder, localDiagnostics,
-                                                                                                applicationExit, 0,
-                                                                                                captureArmedBoundary,
-                                                                                                &context );
+    const SbResult repeated = SkullbonezCore::Runtime::ResolveRunExitAfterInteractionRecording( recorder, localDiagnostics, applicationExit, 0, captureArmedBoundary, &context );
     CHECK( context.attempts == 1 );
     REQUIRE_FALSE( repeated.Ok() );
     CHECK( std::strcmp( repeated.ErrorOwner(), "InteractionRecorder" ) == 0 );
@@ -4505,8 +4319,7 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
     probe.error = ERROR_ACCESS_DENIED;
     const HWND window = reinterpret_cast<HWND>( static_cast<uintptr_t>( 1u ) );
 
-    const SbResult failure = SkullbonezCore::Hardware::InputWindowBridgeTestAccess::RegisterRawMouse( localDiagnostics,
-                                                                                                      window, true, probe );
+    const SbResult failure = SkullbonezCore::Hardware::InputWindowBridgeTestAccess::RegisterRawMouse( localDiagnostics, window, true, probe );
     REQUIRE_FALSE( failure.Ok() );
     CHECK( probe.called );
     CHECK( probe.observed.usUsagePage == 0x01u );
@@ -4552,7 +4365,8 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
             ++rendererStarts;
             startupSequence.push_back( 6 );
             return SbResult::Success();
-        } );
+        }
+    );
     REQUIRE_FALSE( startupFailure.Ok() );
     CHECK( std::strcmp( startupFailure.ErrorOwner(), "Runtime/Input" ) == 0 );
     CHECK( failureTitle == "SkullbonezCore Input Startup Failed" );
@@ -4564,8 +4378,7 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
     CHECK( startupSequence == std::vector<int> { 1, 2, 4, 5 } );
 
     probe = {};
-    const SbResult success = SkullbonezCore::Hardware::InputWindowBridgeTestAccess::RegisterRawMouse( localDiagnostics,
-                                                                                                      window, true, probe );
+    const SbResult success = SkullbonezCore::Hardware::InputWindowBridgeTestAccess::RegisterRawMouse( localDiagnostics, window, true, probe );
     CHECK( success.Ok() );
     CHECK( probe.called );
 
@@ -4597,7 +4410,8 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
             ++rendererStarts;
             startupSequence.push_back( 6 );
             return SbResult::Success();
-        } );
+        }
+    );
     CHECK( startupSuccess.Ok() );
     CHECK( reportedFailures == 1 );
     CHECK( workerShutdowns == 1 );
@@ -4615,8 +4429,7 @@ TEST_CASE( "DX12 mesh vertex data validates one complete packed layout" )
     using SkullbonezCore::Rendering::VertexFormat12;
 
     const float components[6] = {};
-    const std::optional<MeshVertexDataView> vertices = MeshVertexDataView::TryCreate( components, 2, 3,
-                                                                                      VertexFormat12::Pos3 );
+    const std::optional<MeshVertexDataView> vertices = MeshVertexDataView::TryCreate( components, 2, 3, VertexFormat12::Pos3 );
     REQUIRE( vertices );
     CHECK( vertices->Components().size() == 6u );
     CHECK( vertices->ByteCount() == sizeof( components ) );
@@ -4635,10 +4448,8 @@ TEST_CASE( "Render model selection encodes all marked and unmarked modes" )
 {
     const std::vector<uint8_t> mask { 0u, 1u };
     const SkullbonezCore::Rendering::RenderModelSelection all = SkullbonezCore::Rendering::RenderModelSelection::All();
-    const SkullbonezCore::Rendering::RenderModelSelection marked = SkullbonezCore::Rendering::RenderModelSelection::Marked(
-        mask );
-    const SkullbonezCore::Rendering::RenderModelSelection
-        unmarked = SkullbonezCore::Rendering::RenderModelSelection::Unmarked( mask );
+    const SkullbonezCore::Rendering::RenderModelSelection marked = SkullbonezCore::Rendering::RenderModelSelection::Marked( mask );
+    const SkullbonezCore::Rendering::RenderModelSelection unmarked = SkullbonezCore::Rendering::RenderModelSelection::Unmarked( mask );
 
     CHECK( all.Includes( 0 ) );
     CHECK( all.Includes( 2 ) );

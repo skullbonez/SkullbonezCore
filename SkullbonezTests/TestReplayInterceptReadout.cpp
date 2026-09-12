@@ -35,14 +35,11 @@ using SkullbonezCore::Runtime::RunReplayPredictionFrame;
 
 namespace
 {
-constexpr PhysicsSceneObjectId SHIP_ID{ 11u };
-constexpr PhysicsSceneObjectId TARGET_ID{ 22u };
+constexpr PhysicsSceneObjectId SHIP_ID { 11u };
+constexpr PhysicsSceneObjectId TARGET_ID { 22u };
 
-RunReplayPredictionFrame MakeFrame( uint32_t frameIndex,
-                                    const Vector3& shipPosition,
-                                    const Vector3& targetPosition,
-                                    const Vector3& shipVelocity = ZERO_VECTOR,
-                                    const Vector3& targetVelocity = ZERO_VECTOR )
+RunReplayPredictionFrame MakeFrame( uint32_t frameIndex, const Vector3& shipPosition, const Vector3& targetPosition,
+                                    const Vector3& shipVelocity = ZERO_VECTOR, const Vector3& targetVelocity = ZERO_VECTOR )
 {
     RunReplayPredictionFrame frame;
     frame.frameIndex = frameIndex;
@@ -78,10 +75,7 @@ TEST_CASE( "Replay intercept readout scans only prefix extensions and keeps the 
 {
     std::vector<RunReplayPredictionFrame> frames;
     frames.push_back( MakeFrame( 0u, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 5.0f, 0.0f, 0.0f ) ) );
-    frames.push_back( MakeFrame( 120u,
-                                 Vector3( 2.0f, 0.0f, 0.0f ),
-                                 Vector3( 5.0f, 0.0f, 0.0f ),
-                                 Vector3( 2.0f, 0.0f, 0.0f ),
+    frames.push_back( MakeFrame( 120u, Vector3( 2.0f, 0.0f, 0.0f ), Vector3( 5.0f, 0.0f, 0.0f ), Vector3( 2.0f, 0.0f, 0.0f ),
                                  Vector3( -1.0f, 0.0f, 0.0f ) ) );
 
     ReplayInterceptReadout readout;
@@ -141,4 +135,16 @@ TEST_CASE( "Replay intercept scan resets across generation topology and frame-ba
     input.frames = frames;
     readout.Update( input );
     CHECK( readout.View().missDistance == doctest::Approx( 4.0f ) );
+}
+
+TEST_CASE( "Replay intercept resets when a retained bank is replaced without a generation change" )
+{
+    const std::vector<RunReplayPredictionFrame> retained { MakeFrame( 0u, ZERO_VECTOR, Vector3( 2.0f, 0.0f, 0.0f ) ) };
+    const std::vector<RunReplayPredictionFrame> replacement { MakeFrame( 0u, ZERO_VECTOR, Vector3( 8.0f, 0.0f, 0.0f ) ) };
+    ReplayInterceptReadout readout;
+    readout.Update( MakeInput( retained ) );
+    CHECK( readout.View().intercept );
+    readout.Update( MakeInput( replacement ) );
+    CHECK( readout.View().missDistance == doctest::Approx( 8.0f ) );
+    CHECK_FALSE( readout.View().intercept );
 }

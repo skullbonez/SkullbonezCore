@@ -40,19 +40,18 @@ namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 namespace Rendering = SkullbonezCore::Rendering;
 
 RenderResourceLifecycle::RenderResourceLifecycle( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-                                                  Rendering::RenderBackendDX12& backend, Assets::AssetSystem& assets,
+                                                  Rendering::RenderBackendDX12& backend,
+                                                  Assets::AssetSystem& assets,
                                                   SkullbonezCore::Core::EngineConfig& config,
-                                                  SkullbonezCore::Core::Profiler* profiler, int sceneIndex,
+                                                  SkullbonezCore::Core::Profiler* profiler,
+                                                  int sceneIndex,
                                                   int sceneLoadCount )
-    : m_resultDiagnostics( resultDiagnostics ), m_renderDevice( backend.RenderDevice() ), m_renderFrame( backend.Frame() ),
-      m_renderGraph( backend.GraphTransients() ), m_renderResources( backend.ResourceBuilder() ),
-      m_renderTextures( backend.Textures() ), m_renderGeometry( backend.Geometry() ),
-      m_renderDiagnostics( backend.Diagnostics() ), m_raytracing( backend.Raytracing() ),
-      m_raytracingAvailable( backend.Diagnostics().GetCapabilities().supportsDxrReflection ),
-      m_lifecycleLog( &backend.RenderDevice(), sceneIndex, sceneLoadCount ), m_assets( assets ),
-      m_textures( resultDiagnostics ), m_config( config ),
-      m_primitiveBatches( std::in_place, &backend.ResourceBuilder(), &backend.Textures(), &backend.Geometry() ),
-      m_gpuTiming( profiler, &backend.Diagnostics() ), m_uiTextPass( resultDiagnostics, profiler, m_gpuTiming )
+    : m_resultDiagnostics( resultDiagnostics ), m_renderDevice( backend.RenderDevice() ), m_renderFrame( backend.Frame() ), m_renderGraph( backend.GraphTransients() ),
+      m_renderResources( backend.ResourceBuilder() ), m_renderTextures( backend.Textures() ), m_renderGeometry( backend.Geometry() ), m_renderDiagnostics( backend.Diagnostics() ),
+      m_raytracing( backend.Raytracing() ), m_raytracingAvailable( backend.Diagnostics().GetCapabilities().supportsDxrReflection ),
+      m_lifecycleLog( &backend.RenderDevice(), sceneIndex, sceneLoadCount ), m_assets( assets ), m_textures( resultDiagnostics ), m_config( config ),
+      m_primitiveBatches( std::in_place, &backend.ResourceBuilder(), &backend.Textures(), &backend.Geometry() ), m_gpuTiming( profiler, &backend.Diagnostics() ),
+      m_uiTextPass( resultDiagnostics, profiler, m_gpuTiming )
 {
 }
 
@@ -81,13 +80,11 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseProcessResourc
         const char* name;
         RebuildStep step;
     };
-    const RebuildPhase rebuildSteps[] = {
-        { "recreate_helper_owner", RebuildStep::RecreateHelperOwner },
-        { "register_builtin_source_records", RebuildStep::RegisterBuiltInSources },
-        { "prepare_initial_raster_shader_bytecode", RebuildStep::PrepareInitialRasterShaderBytecode },
-        { "prepare_initial_primitive_visible_shader", RebuildStep::PrepareInitialPrimitiveVisibleShader },
-        { "rebuild_textures_from_source_assets", RebuildStep::RebuildTextures },
-    };
+    const RebuildPhase rebuildSteps[] = { { "recreate_helper_owner", RebuildStep::RecreateHelperOwner },
+                                          { "register_builtin_source_records", RebuildStep::RegisterBuiltInSources },
+                                          { "prepare_initial_raster_shader_bytecode", RebuildStep::PrepareInitialRasterShaderBytecode },
+                                          { "prepare_initial_primitive_visible_shader", RebuildStep::PrepareInitialPrimitiveVisibleShader },
+                                          { "rebuild_textures_from_source_assets", RebuildStep::RebuildTextures }, };
 
     for ( const RebuildPhase& phase : rebuildSteps )
     {
@@ -150,15 +147,12 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::EnsureUiTextResources( i
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
     std::unique_ptr<Rendering::ShaderDX12> textShader = m_assets.CreateShader( m_renderResources, "shader.text" );
     std::unique_ptr<Rendering::ShaderDX12> solidShader = m_assets.CreateShader( m_renderResources, "shader.solid_color" );
-    std::unique_ptr<Rendering::ShaderDX12> solidBatchShader = m_assets.CreateShader( m_renderResources,
-                                                                                     "shader.solid_color_batch" );
-    return m_uiTextPass.EnsureGpuResources( m_renderTextures, m_renderGeometry, std::move( textShader ),
-                                            std::move( solidShader ), std::move( solidBatchShader ), screenW, screenH );
+    std::unique_ptr<Rendering::ShaderDX12> solidBatchShader = m_assets.CreateShader( m_renderResources, "shader.solid_color_batch" );
+    return m_uiTextPass.EnsureGpuResources( m_renderTextures, m_renderGeometry, std::move( textShader ), std::move( solidShader ), std::move( solidBatchShader ), screenW, screenH );
 }
 
 
-SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracing( Geometry::Terrain* terrain,
-                                                                                   int modelCapacity )
+SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracing( Geometry::Terrain* terrain, int modelCapacity )
 {
     if ( !m_raytracingAvailable )
     {
@@ -193,19 +187,18 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
 
     // Recoverable error: device resource creation and shader bytecode failures remain a
     // recoverable renderer result reported through the scene-load transaction.
-    const Rendering::RaytracingSetupDesc setup {
-        { terrainVBVA, terrainMesh->GetVertexCount(), terrainMesh->GetStride() },
-        { sphereVBVA, sphereGeometry.vertexCount, rayTracing.GetInstancedMeshStaticStride( sphereHandle ) },
-        modelCapacity,
-    };
+    const Rendering::RaytracingSetupDesc setup { { terrainVBVA, terrainMesh->GetVertexCount(), terrainMesh->GetStride() }, { sphereVBVA, sphereGeometry.vertexCount, rayTracing.GetInstancedMeshStaticStride( sphereHandle ) }, modelCapacity, };
 
     return rayTracing.InitDXR( setup );
 }
 
 
-RuntimeRenderTargetPreviewSnapshot
-RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot( bool shadowsAvailable, bool cinematicTargetsAvailable,
-                                                           bool volumetricAvailable ) const
+bool RenderResourceLifecycle::RefreshTerrainGeometry()
+{
+    return !m_raytracingAvailable || m_raytracing.RefreshTerrainGeometry();
+}
+
+RuntimeRenderTargetPreviewSnapshot RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot( bool shadowsAvailable, bool cinematicTargetsAvailable, bool volumetricAvailable ) const
 {
     RuntimeRenderTargetPreviewSnapshot snapshot;
     const auto append = [&]( const char* label, const Rendering::FramebufferDX12* target, bool depth, bool available )

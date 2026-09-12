@@ -30,6 +30,27 @@ namespace SkullbonezCore
 namespace UI
 {
 
+// Stable presentation groups let independent presenters share one transition clock.
+enum class UIPanel : uint8_t
+{
+    None,
+    Left,
+    Right,
+    Transport,
+    Drawer,
+    DiagnosticPrimary,
+    DiagnosticSecondary,
+    QuickTools,
+    AuxiliaryPrimary,
+    AuxiliarySecondary,
+    AuxiliaryGrid,
+    Header,
+    Popup,
+    LowerLeft,
+    AttachedRight,
+    Count
+};
+
 class UIDrawList
 {
   public:
@@ -40,11 +61,10 @@ class UIDrawList
     // push rectangles, triangles, and text in UI order; the final draw context
     // translates those records to the active render backend after hit testing
     // has already used the same layout numbers.
-    // Invariant: closure capture measured 289 commands and 1,369 text bytes
-    // across the heaviest editor/render/targets/memory/replay surfaces. These
-    // limits retain at least 7x command and 11x text headroom without making
-    // every retained scratch list carry the obsolete pre-stream 8K/64K budget.
-    static constexpr int MAX_COMMANDS = 2048;
+    // Why: a dense 64 by 48 value grid needs 3,072 rectangles before its
+    // labels, surrounding panels and transport. Storage remains fixed; stats
+    // report exhaustion so larger compositions cannot silently lose controls.
+    static constexpr int MAX_COMMANDS = 4096;
     static constexpr int MAX_TEXT_BYTES = 16384;
     static constexpr int MAX_CLIP_DEPTH = 32;
     static_assert( MAX_TEXT_BYTES > 0 );
@@ -63,7 +83,9 @@ class UIDrawList
         Text,
         PushClip,
         PopClip,
-        PreviewImage
+        PreviewImage,
+        LayerBreak,
+        VerticalText
     };
 
     struct Stats
@@ -98,6 +120,8 @@ class UIDrawList
         float a;
         int textOffset;
         PreviewTargetId preview;
+        bool foreground;
+        UIPanel panel;
     };
     static_assert( std::is_trivially_copyable_v<Command>, "UI draw commands must remain plain inspectable values." );
 
@@ -105,20 +129,30 @@ class UIDrawList
     void AddRect( const UIRect& bounds, const Style::UIColor& color );
     void AddRoundedRect( const UIRect& bounds, float radius, const Style::UIColor& color );
     void AddTriangle( const UITriangle& triangle, const Style::UIColor& color );
-    void AddText( UIPoint position, float pxSize, const Style::UIColor& color, const char* value );
+    void AddText( UIPoint position, float pxSize, const Style::UIColor& color, const char* value, bool vertical = false );
     void PushClip( const UIRect& bounds );
+    void BeginLayer();
+    // Foreground groups are independently clipped popup/tooltip drawing.
+    // App may extract them and submit them after other workspace presenters.
+    void BeginForeground();
+    void EndForeground();
+    void ExtractForeground( UIDrawList& destination );
     void PopClip();
 
     // Fallback fill and label are part of the recorded value so a missing
     // frame-local renderer target cannot silently produce a blank panel.
-    void AddPreviewImage( PreviewTargetId target, const UIRect& bounds, const Style::UIColor& fallbackColor,
-                          const char* fallbackLabel );
+    void AddPreviewImage( PreviewTargetId target, const UIRect& bounds, const Style::UIColor& fallbackColor, const char* fallbackLabel );
 
     // Appends another list in order and applies a screen-space translation to
     // its geometry. Text is copied into this list's bounded storage so neither
     // the source list nor its cache must outlive the composed frame.
     void Append( const UIDrawList& source, float offsetX = 0.0f, float offsetY = 0.0f );
 
+    // Panel metadata affects composition, not the settled visual fingerprint.
+    UIPanel SetPanel( UIPanel panel );
+    void CopyPanel( const UIDrawList& source, UIPanel panel );
+    void ApplyPresentation( UIPoint offset, float opacity );
+    bool HasPanel( UIPanel panel ) const;
     bool Empty() const;
     Stats GetStats() const;
     std::span<const Command> Commands() const;
@@ -142,6 +176,26 @@ class UIDrawList
     int m_clipDepth = 0;
     int m_suppressedClipDepth = 0;
     int m_maxClipDepth = 0;
+    int m_foregroundDepth = 0;
+    UIPanel m_panel = UIPanel::None;
+};
+
+class UIPanelScope
+{
+  public:
+    UIPanelScope( UIDrawList& draw, UIPanel panel ) : m_draw( draw ), m_previous( draw.SetPanel( panel ) )
+    {
+    }
+    ~UIPanelScope()
+    {
+        m_draw.SetPanel( m_previous );
+    }
+    UIPanelScope( const UIPanelScope& ) = delete;
+    UIPanelScope& operator=( const UIPanelScope& ) = delete;
+
+  private:
+    UIDrawList& m_draw;
+    UIPanel m_previous;
 };
 
 } // namespace UI

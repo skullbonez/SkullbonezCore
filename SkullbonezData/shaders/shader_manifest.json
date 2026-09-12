@@ -3078,10 +3078,10 @@
       "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/text.vs.dxil",
       "dependencies": [],
-      "source_sha256": "9292f8c0b86d5f236ff60637fb28a9f9f723a0c271d6601523cc118ca614f5e9",
-      "compile_inputs_sha256": "903737aa63a4743a9c0b32673da06c22229ecd20f5394acbfb29828e11be3853",
-      "bytecode_sha256": "5ffc71c4265e9527cffc94ee556cd11dcdbda2d80ee4a9cebb29e639ed7a3894",
-      "bytecode_size": 4408,
+      "source_sha256": "396abe2ba28374f4efb74cb74b0eb2bedf39c182cb9dcec03c488b58c785da3c",
+      "compile_inputs_sha256": "d9a80f43e526b9e1b98fe5bbae93fc2ccc896db7bacb7e23b36330771dc3e872",
+      "bytecode_sha256": "47cd1134b296df1b255183577f7e508350a0a4caa115150fadded797f8d2be27",
+      "bytecode_size": 4432,
       "dependencies_sha256": {},
       "reflection": {
         "cbuffers": [
@@ -3132,11 +3132,11 @@
           {
             "semantic": "TEXCOORD",
             "index": 1,
-            "mask": "xyz",
+            "mask": "xyzw",
             "register": 2,
             "system_value": "NONE",
             "format": "float",
-            "used": "xyz"
+            "used": "xyzw"
           }
         ]
       }
@@ -3148,10 +3148,10 @@
       "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/text.ps.dxil",
       "dependencies": [],
-      "source_sha256": "9292f8c0b86d5f236ff60637fb28a9f9f723a0c271d6601523cc118ca614f5e9",
-      "compile_inputs_sha256": "9da73b508d89aed2b3b8fac6b807d2a37b7099dc8a78a265d8c92cd9ed1eaa9d",
-      "bytecode_sha256": "5733a1c86c78ee4f8eb0717367d3dbd0fec5dc9f10e14057504ab2ed6048c7f4",
-      "bytecode_size": 4680,
+      "source_sha256": "396abe2ba28374f4efb74cb74b0eb2bedf39c182cb9dcec03c488b58c785da3c",
+      "compile_inputs_sha256": "61c98a062f2a33a834e95fef193d021733d080f0a4e65b19cefe2090a1eb1b84",
+      "bytecode_sha256": "57d810c0cc54464e8d243436b15b9072c7cccedae1f9b959d4ffb8ec25fd456d",
+      "bytecode_size": 4684,
       "dependencies_sha256": {},
       "reflection": {
         "cbuffers": [
@@ -3209,11 +3209,11 @@
           {
             "semantic": "TEXCOORD",
             "index": 1,
-            "mask": "xyz",
+            "mask": "xyzw",
             "register": 2,
             "system_value": "NONE",
             "format": "float",
-            "used": "xyz"
+            "used": "xyzw"
           }
         ]
       }
@@ -3558,8 +3558,8 @@
       "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/ui_render_target_preview.vs.dxil",
       "dependencies": [],
-      "source_sha256": "5f344200955a406f772a80e771cdc2893503006b314441b6537b849f58c85f41",
-      "compile_inputs_sha256": "e1e082acd038465cb2bae6dd135d492eba7e0371ebf493f2acbda1c278a9c99b",
+      "source_sha256": "bf57caf266795c056c29ce396f39ecf1cd355fa9878c64b1d468d4a89f52db56",
+      "compile_inputs_sha256": "202a96e81e1407425be130b9a0bcf522f94f23b7c894d0611b331c66e9390222",
       "bytecode_sha256": "549e20c87545f4628d706c8f4e39f8fb625b90a198a6d33e6bda1b67cd5029d3",
       "bytecode_size": 4120,
       "dependencies_sha256": {},
@@ -3625,10 +3625,10 @@
       "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/ui_render_target_preview.ps.dxil",
       "dependencies": [],
-      "source_sha256": "5f344200955a406f772a80e771cdc2893503006b314441b6537b849f58c85f41",
-      "compile_inputs_sha256": "487bccc4253dcf91405b17b47149109e2f34cc99b5dc01b9c4338f3c55399e51",
-      "bytecode_sha256": "0b1fade1ee4acf10a2c3ea9d8916d7a94220c900019615f9885d75c524676956",
-      "bytecode_size": 5428,
+      "source_sha256": "bf57caf266795c056c29ce396f39ecf1cd355fa9878c64b1d468d4a89f52db56",
+      "compile_inputs_sha256": "e764b96a8127d8a35ea98844350ea6b053e6a58098f61d0380999ddcccfe4f69",
+      "bytecode_sha256": "dbf2b5a735f7969f3910b66fdac0cf9d5be2066f65b4714dd2cf4919e58ec132",
+      "bytecode_size": 5440,
       "dependencies_sha256": {},
       "reflection": {
         "cbuffers": [

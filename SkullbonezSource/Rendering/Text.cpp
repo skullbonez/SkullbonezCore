@@ -50,7 +50,7 @@ static const int SDF_SCALE = 6;      // hi-res render factor: final × SDF_SCALE
 static const int SDF_SPREAD_HI = 36; // max encoded signed distance (hi-res px) = 6 final-atlas px
 
 // Text batch accumulation buffers:
-// Layout per vertex: [x, y, u, v, r, g, b] (7 floats)
+// Layout per vertex: [x, y, u, v, r, g, b, a] (7 floats)
 // Batching all Render2dText* calls into one UploadAndDrawDynamicVB per frame
 // eliminates ~20 individual draw calls, shader binds, and state save/restores.
 static constexpr int TEXT_BATCH_MAX_CHARS = TextBatch::TEXT_MAX_CHARS;
@@ -69,9 +69,7 @@ static constexpr int QUAD_BATCH_VERTS_PER_TRIANGLE = TextBatch::QUAD_VERTICES_PE
 
 namespace
 {
-constexpr PassRasterStateBucket TEXT_RASTER_STATE = MakePassRasterStateBucket( 0,
-                                                                               { false, false, true, BlendFactor::SrcAlpha,
-                                                                                 BlendFactor::OneMinusSrcAlpha } );
+constexpr PassRasterStateBucket TEXT_RASTER_STATE = MakePassRasterStateBucket( 0, { false, false, true, BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha } );
 
 using FileHandle = std::unique_ptr<FILE, decltype( &fclose )>;
 
@@ -143,15 +141,13 @@ static void ComputeEDT1D( float* f, int n, float* scratch_src, int* scratch_v, f
 
         // Intersection of parabola at q with the current topmost parabola at r:
         //   s = [(src[q] + q²) − (src[r] + r²)] / (2q − 2r)
-        float s = ( ( scratch_src[q] + static_cast<float>( q * q ) ) - ( scratch_src[r] + static_cast<float>( r * r ) ) ) /
-                  static_cast<float>( 2 * ( q - r ) );
+        float s = ( ( scratch_src[q] + static_cast<float>( q * q ) ) - ( scratch_src[r] + static_cast<float>( r * r ) ) ) / static_cast<float>( 2 * ( q - r ) );
 
         while ( k > 0 && s <= scratch_z[k] )
         {
             --k;
             r = scratch_v[k];
-            s = ( ( scratch_src[q] + static_cast<float>( q * q ) ) - ( scratch_src[r] + static_cast<float>( r * r ) ) ) /
-                static_cast<float>( 2 * ( q - r ) );
+            s = ( ( scratch_src[q] + static_cast<float>( q * q ) ) - ( scratch_src[r] + static_cast<float>( r * r ) ) ) / static_cast<float>( 2 * ( q - r ) );
         }
 
         ++k;
@@ -231,10 +227,8 @@ static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* 
     }
 
     // Reject stale or corrupt files before touching any engine state.
-    if ( memcmp( hdr.magic, "SBSDF001", 8 ) != 0 || hdr.version != 1u ||
-         hdr.atlasW != static_cast<uint32_t>( FONT_ATLAS_W ) || hdr.atlasH != static_cast<uint32_t>( FONT_ATLAS_H ) ||
-         hdr.fontSize != static_cast<uint32_t>( FONT_SIZE ) || hdr.cellW != static_cast<uint32_t>( FONT_CELL_W ) ||
-         hdr.cellH != static_cast<uint32_t>( FONT_CELL_H ) )
+    if ( memcmp( hdr.magic, "SBSDF001", 8 ) != 0 || hdr.version != 1u || hdr.atlasW != static_cast<uint32_t>( FONT_ATLAS_W ) || hdr.atlasH != static_cast<uint32_t>( FONT_ATLAS_H ) ||
+         hdr.fontSize != static_cast<uint32_t>( FONT_SIZE ) || hdr.cellW != static_cast<uint32_t>( FONT_CELL_W ) || hdr.cellH != static_cast<uint32_t>( FONT_CELL_H ) )
     {
         return false;
     }
@@ -254,9 +248,7 @@ static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* 
 
     // SDF rendering requires linear filtering; nearest-neighbour would staircase
     // the distance gradient and make glyph edges look aliased.
-    const uint32_t textureHandle = renderTextures.CreateTexture2D( pixels.get(), FONT_ATLAS_W, FONT_ATLAS_H, 1,
-                                                                   TextureMipPolicy::SingleLevel,
-                                                                   TextureFilterPolicy::Linear );
+    const uint32_t textureHandle = renderTextures.CreateTexture2D( pixels.get(), FONT_ATLAS_W, FONT_ATLAS_H, 1, TextureMipPolicy::SingleLevel, TextureFilterPolicy::Linear );
 
     if ( textureHandle == 0u )
     {
@@ -376,8 +368,7 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
     // OUT_TT_PRECIS requests a vector outline for clean scaling.
     // ANTIALIASED_QUALITY gives GDI sub-pixel blending for a smooth binary mask.
     // Ref: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createfonta
-    HFONT hFont = CreateFont( -FONT_SIZE_HI, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_TT_PRECIS,
-                              CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, FF_DONTCARE | DEFAULT_PITCH, fontName );
+    HFONT hFont = CreateFont( -FONT_SIZE_HI, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, FF_DONTCARE | DEFAULT_PITCH, fontName );
     gdiResults.fontCreated = hFont != nullptr;
 
     if ( !gdiResults.fontCreated )
@@ -433,8 +424,7 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
         ch[0] = static_cast<char>( i + 32 );
         const int col = i % FONT_COLS;
         const int row = i / FONT_COLS;
-        gdiResults.glyphsDrawn = TextOutA( memDC, col * FONT_CELL_W_HI, row * FONT_CELL_H_HI, ch, 1 ) != FALSE &&
-                                 gdiResults.glyphsDrawn;
+        gdiResults.glyphsDrawn = TextOutA( memDC, col * FONT_CELL_W_HI, row * FONT_CELL_H_HI, ch, 1 ) != FALSE && gdiResults.glyphsDrawn;
     }
 
     // Flush GDI drawing queue before reading pBits.
@@ -592,10 +582,14 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
 
 
 SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-                                                  TextBatch& batch, Dx12TextureOwner& renderTextures,
-                                                  Dx12GeometryOwner& renderGeometry, std::unique_ptr<ShaderDX12> textShader,
+                                                  TextBatch& batch,
+                                                  Dx12TextureOwner& renderTextures,
+                                                  Dx12GeometryOwner& renderGeometry,
+                                                  std::unique_ptr<ShaderDX12> textShader,
                                                   std::unique_ptr<ShaderDX12> solidShader,
-                                                  std::unique_ptr<ShaderDX12> solidBatchShader, int screenW, int screenH,
+                                                  std::unique_ptr<ShaderDX12> solidBatchShader,
+                                                  int screenW,
+                                                  int screenH,
                                                   const char* fontName )
 {
     // Load the pre-generated SDF atlas if available.  To regenerate, run:
@@ -615,18 +609,16 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagno
 
         if ( !LoadSdfAtlasFromFile( renderTextures, atlasPath.c_str() ) )
         {
-            return resultDiagnostics.Failure( "Rendering/Text", "SDF atlas load-after-generate failed: %s",
-                                              atlasPath.c_str() );
+            return resultDiagnostics.Failure( "Rendering/Text", "SDF atlas load-after-generate failed: %s", atlasPath.c_str() );
         }
 
         fprintf( stderr, "[Text2d] SDF atlas saved to %s\n", atlasPath.c_str() );
     }
 
-    // Create the text batch VB: [x, y, u, v, r, g, b] per vertex. Render2dText*
+    // Create the text batch VB: [x, y, u, v, r, g, b, a] per vertex. Render2dText*
     // calls accumulate until a capacity or submission boundary flushes one segment.
-    int batchAttribs[] = { 2, 2, 3 };
-    Text2d::textBatchVB = renderGeometry.CreateDynamicVB( batchAttribs, 3,
-                                                          TEXT_BATCH_MAX_CHARS * TEXT_BATCH_VERTS_PER_CHAR );
+    int batchAttribs[] = { 2, 2, 4 };
+    Text2d::textBatchVB = renderGeometry.CreateDynamicVB( batchAttribs, 3, TEXT_BATCH_MAX_CHARS * TEXT_BATCH_VERTS_PER_CHAR );
 
     // Create the solid-quad VB: [x, y, u, v] per vertex (Render2dQuad only; 6 verts max).
     int quadAttribs[] = { 2, 2 };
@@ -635,8 +627,7 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagno
     // Create the quad batch VB: [x, y, r, g, b, a] per vertex, sized for QUAD_BATCH_MAX_QUADS.
     // All BatchQuad() calls accumulate here; FlushQuads() does one upload+draw per flush.
     int quadBatchAttribs[] = { 2, 4 };
-    Text2d::quadBatchVB = renderGeometry.CreateDynamicVB( quadBatchAttribs, 2,
-                                                          QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD );
+    Text2d::quadBatchVB = renderGeometry.CreateDynamicVB( quadBatchAttribs, 2, QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD );
 
     // The AssetSystem-resolved shaders arrive as complete candidates so Text2d
     // cannot silently fall back to the compile-time data root.
@@ -649,18 +640,17 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagno
     // Recoverable error: text is required UI, not an optional effect. Returning success
     // with a missing shader makes every glyph draw quietly disappear while
     // panels still render, so startup must reject any incomplete resource set.
-    if ( !Text2d::fontTexture || !Text2d::textBatchVB || !Text2d::dynamicVB || !Text2d::quadBatchVB ||
-         !Text2d::pTextShader || !Text2d::pSolidShader || !Text2d::pSolidBatchShader )
+    if ( !Text2d::fontTexture || !Text2d::textBatchVB || !Text2d::dynamicVB || !Text2d::quadBatchVB || !Text2d::pTextShader || !Text2d::pSolidShader || !Text2d::pSolidBatchShader )
     {
-        const SkullbonezCore::Core::SbResult
-            failure = resultDiagnostics
-                          .Failure( "Rendering/Text",
-                                    "Required UI text resources failed to initialize "
-                                    "(font_texture=%u text_vb=%u quad_vb=%u quad_batch_vb=%u text_shader=%d solid_shader=%d "
-                                    "solid_batch_shader=%d).",
-                                    Text2d::fontTexture, Text2d::textBatchVB, Text2d::dynamicVB, Text2d::quadBatchVB,
-                                    Text2d::pTextShader ? 1 : 0, Text2d::pSolidShader ? 1 : 0,
-                                    Text2d::pSolidBatchShader ? 1 : 0 );
+        const SkullbonezCore::Core::SbResult failure = resultDiagnostics.Failure( "Rendering/Text",
+                                                                                  "Required UI text resources failed to initialize " "(font_texture=%u text_vb=%u quad_vb=%u quad_batch_vb=%u text_shader=%d solid_shader=%d " "solid_batch_shader=%d).",
+                                                                                  Text2d::fontTexture,
+                                                                                  Text2d::textBatchVB,
+                                                                                  Text2d::dynamicVB,
+                                                                                  Text2d::quadBatchVB,
+                                                                                  Text2d::pTextShader ? 1 : 0,
+                                                                                  Text2d::pSolidShader ? 1 : 0,
+                                                                                  Text2d::pSolidBatchShader ? 1 : 0 );
 
         Text2d::DeleteFont( batch, &renderTextures, &renderGeometry );
         return failure;
@@ -778,8 +768,7 @@ void Text2d::DeleteFont( TextBatch& batch, Dx12TextureOwner* renderTextures, Dx1
 }
 
 
-void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosition, float size, float colR, float colG,
-                                 float colB, const char* formatted )
+void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosition, float size, float colR, float colG, float colB, const char* formatted, float opacity )
 {
     const int len = static_cast<int>( strlen( formatted ) );
 
@@ -816,8 +805,7 @@ void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosit
 
         float u0 = static_cast<float>( col * FONT_CELL_W ) / static_cast<float>( FONT_ATLAS_W ) + halfU;
         float v0 = static_cast<float>( row * FONT_CELL_H ) / static_cast<float>( FONT_ATLAS_H ) + halfV;
-        float u1 = u0 + ( Text2d::charAdvance[idx] * static_cast<float>( FONT_SIZE ) ) / static_cast<float>( FONT_ATLAS_W ) -
-                   halfU;
+        float u1 = u0 + ( Text2d::charAdvance[idx] * static_cast<float>( FONT_SIZE ) ) / static_cast<float>( FONT_ATLAS_W ) - halfU;
 
         // Sample the full cell height so descenders (g, j, p, q, y) are not clipped.
         // Previously this was clamped to FONT_SIZE pixels, cutting off the bottom
@@ -835,54 +823,56 @@ void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosit
         float y0 = penY - descH; // below yPosition — descender region
         float y1 = penY + size;  // above yPosition — cap-height region
 
-        // 7 floats per vertex: [x, y, u, v, r, g, b]
-        float* v = &batch.m_textVertices[batch.m_textVertexCount * TEXT_BATCH_FLOATS_PER_VERT];
-
-        // Triangle 1
-        v[0] = x0;
-        v[1] = y0;
-        v[2] = u0;
-        v[3] = v1;
-        v[4] = colR;
-        v[5] = colG;
-        v[6] = colB;
-        v[7] = x1;
-        v[8] = y0;
-        v[9] = u1;
-        v[10] = v1;
-        v[11] = colR;
-        v[12] = colG;
-        v[13] = colB;
-        v[14] = x1;
-        v[15] = y1;
-        v[16] = u1;
-        v[17] = v0;
-        v[18] = colR;
-        v[19] = colG;
-        v[20] = colB;
-
-        // Triangle 2
-        v[21] = x0;
-        v[22] = y0;
-        v[23] = u0;
-        v[24] = v1;
-        v[25] = colR;
-        v[26] = colG;
-        v[27] = colB;
-        v[28] = x1;
-        v[29] = y1;
-        v[30] = u1;
-        v[31] = v0;
-        v[32] = colR;
-        v[33] = colG;
-        v[34] = colB;
-        v[35] = x0;
-        v[36] = y1;
-        v[37] = u0;
-        v[38] = v0;
-        v[39] = colR;
-        v[40] = colG;
-        v[41] = colB;
+        // Invariant: RGBA matches the text shader's float4 TEXCOORD1.
+        const float vertices[] = { x0,
+                                   y0,
+                                   u0,
+                                   v1,
+                                   colR,
+                                   colG,
+                                   colB,
+                                   opacity,
+                                   x1,
+                                   y0,
+                                   u1,
+                                   v1,
+                                   colR,
+                                   colG,
+                                   colB,
+                                   opacity,
+                                   x1,
+                                   y1,
+                                   u1,
+                                   v0,
+                                   colR,
+                                   colG,
+                                   colB,
+                                   opacity,
+                                   x0,
+                                   y0,
+                                   u0,
+                                   v1,
+                                   colR,
+                                   colG,
+                                   colB,
+                                   opacity,
+                                   x1,
+                                   y1,
+                                   u1,
+                                   v0,
+                                   colR,
+                                   colG,
+                                   colB,
+                                   opacity,
+                                   x0,
+                                   y1,
+                                   u0,
+                                   v0,
+                                   colR,
+                                   colG,
+                                   colB,
+                                   opacity, };
+        std::copy( std::begin( vertices ), std::end( vertices ), &batch.m_textVertices[batch.m_textVertexCount * TEXT_BATCH_FLOATS_PER_VERT] );
 
         batch.m_textVertexCount += TEXT_BATCH_VERTS_PER_CHAR;
         penX += charW;
@@ -905,15 +895,11 @@ void Text2d::FlushText( TextBatch& batch, Dx12TextureOwner& renderTextures, Dx12
     renderTextures.BindTexture( Text2d::fontTexture, 0 );
 
     // One GPU upload + one draw call covers this queued text segment.
-    renderCommands.UploadAndDrawDynamicVB( Text2d::textBatchVB,
-                                           std::span<const float>( batch.m_textVertices.data(),
-                                                                   vertexCount * TEXT_BATCH_FLOATS_PER_VERT ),
-                                           TEXT_RASTER_STATE );
+    renderCommands.UploadAndDrawDynamicVB( Text2d::textBatchVB, std::span<const float>( batch.m_textVertices.data(), vertexCount * TEXT_BATCH_FLOATS_PER_VERT ), TEXT_RASTER_STATE );
 }
 
 
-void Text2d::Render2dTextColor( TextBatch& batch, float xPosition, float yPosition, float size, float r, float g, float b,
-                                const char* format, ... )
+void Text2d::Render2dTextColor( TextBatch& batch, float xPosition, float yPosition, float size, float r, float g, float b, const char* format, ... )
 {
     if ( !format || !Text2d::pTextShader )
     {
@@ -930,8 +916,31 @@ void Text2d::Render2dTextColor( TextBatch& batch, float xPosition, float yPositi
 }
 
 
-void Text2d::Render2dQuad( TextBatch& batch, Dx12GeometryOwner& renderCommands, float x0, float y0, float x1, float y1,
-                           float r, float g, float b, float a )
+void Text2d::RenderTextColor( TextBatch& batch, float x, float y, float size, const std::array<float, 4>& color, const char* value )
+{
+    if ( value && Text2d::pTextShader )
+    {
+        RenderTextInternal( batch, x, y, size, color[0], color[1], color[2], value, std::clamp( color[3], 0.0f, 1.0f ) );
+    }
+}
+
+void Text2d::RenderVerticalText( TextBatch& batch, const char* value, const std::array<float, 3>& color, float x, float y, float size, float opacity )
+{
+    const int firstVertex = batch.m_textVertexCount;
+    RenderTextColor( batch, x, y - size, size, { color[0], color[1], color[2], opacity }, value );
+    // Rotate only this label's queued vertices. Frustum x/y share a physical
+    // scale, so the quarter-turn preserves glyph proportions at every aspect.
+    for ( int vertex = firstVertex; vertex < batch.m_textVertexCount; ++vertex )
+    {
+        float* point = &batch.m_textVertices[vertex * TEXT_BATCH_FLOATS_PER_VERT];
+        const float dx = point[0] - x;
+        const float dy = point[1] - y;
+        point[0] = x + dy;
+        point[1] = y - dx;
+    }
+}
+
+void Text2d::Render2dQuad( TextBatch& batch, Dx12GeometryOwner& renderCommands, float x0, float y0, float x1, float y1, float r, float g, float b, float a )
 {
     if ( !Text2d::pSolidShader || !Text2d::dynamicVB )
     {
@@ -940,8 +949,7 @@ void Text2d::Render2dQuad( TextBatch& batch, Dx12GeometryOwner& renderCommands, 
 
     // Reuse the text VAO/VBO. Layout is (vec2 pos, vec2 uv); the solid shader only reads
     // location 0, so the uv slots are dummy zeros.
-    float quadVertices[6 * 4] = { x0, y0, 0.0f, 0.0f, x1, y0, 0.0f, 0.0f, x1, y1, 0.0f, 0.0f,
-                                  x0, y0, 0.0f, 0.0f, x1, y1, 0.0f, 0.0f, x0, y1, 0.0f, 0.0f };
+    float quadVertices[6 * 4] = { x0, y0, 0.0f, 0.0f, x1, y0, 0.0f, 0.0f, x1, y1, 0.0f, 0.0f, x0, y0, 0.0f, 0.0f, x1, y1, 0.0f, 0.0f, x0, y1, 0.0f, 0.0f };
 
     Text2d::pSolidShader->Use();
     Text2d::pSolidShader->SetMat4( "uProjection", batch.m_projection );
@@ -951,8 +959,7 @@ void Text2d::Render2dQuad( TextBatch& batch, Dx12GeometryOwner& renderCommands, 
 }
 
 
-void Text2d::BatchQuad( TextBatch& batch, Dx12GeometryOwner& renderCommands, float x0, float y0, float x1, float y1, float r,
-                        float g, float b, float a )
+void Text2d::BatchQuad( TextBatch& batch, Dx12GeometryOwner& renderCommands, float x0, float y0, float x1, float y1, float r, float g, float b, float a )
 {
     // Accumulate one quad (two triangles, 6 vertices) into the owner batch.
     // Vertex layout: [x, y, r, g, b, a] — 6 floats per vertex.
@@ -1009,8 +1016,7 @@ void Text2d::BatchQuad( TextBatch& batch, Dx12GeometryOwner& renderCommands, flo
 }
 
 
-void Text2d::BatchTriangle( TextBatch& batch, Dx12GeometryOwner& renderCommands, std::span<const float, 6> positions,
-                            float r, float g, float b, float a )
+void Text2d::BatchTriangle( TextBatch& batch, Dx12GeometryOwner& renderCommands, std::span<const float, 6> positions, float r, float g, float b, float a )
 {
     if ( batch.m_quadVertexCount + QUAD_BATCH_VERTS_PER_TRIANGLE > QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD )
     {
@@ -1059,8 +1065,5 @@ void Text2d::FlushQuads( TextBatch& batch, Dx12GeometryOwner& renderCommands )
     Text2d::pSolidBatchShader->SetMat4( "uProjection", batch.m_projection );
 
     // One GPU upload + one draw call covers this queued quad segment.
-    renderCommands.UploadAndDrawDynamicVB( Text2d::quadBatchVB,
-                                           std::span<const float>( batch.m_quadVertices.data(),
-                                                                   vertexCount * QUAD_BATCH_FLOATS_PER_VERT ),
-                                           TEXT_RASTER_STATE );
+    renderCommands.UploadAndDrawDynamicVB( Text2d::quadBatchVB, std::span<const float>( batch.m_quadVertices.data(), vertexCount * QUAD_BATCH_FLOATS_PER_VERT ), TEXT_RASTER_STATE );
 }

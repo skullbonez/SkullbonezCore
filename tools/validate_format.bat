@@ -4,7 +4,7 @@
 @rem   Documents and runs the validate_format.bat developer/validation helper script.
 @rem
 @rem Summary:
-@rem   Runs the pinned clang-format binary directly over changed first-party C++ source.
+@rem   Checks clang-format and argument-count wrapping over changed first-party C++ source.
 @rem   Repository prose links remain useful review aids but do not determine
 @rem   whether mechanical source layout passes.
 @rem
@@ -13,7 +13,7 @@
 @rem   commit or PR.
 @rem
 @rem Invariants:
-@rem   - clang-format is the sole mechanical layout authority.
+@rem   - format_cpp.py owns the shared formatting pipeline.
 @rem   - Every changed C++, header, and inline file under SkullbonezSource is checked.
 @rem   - Untouched legacy layout does not force a repository-wide source rewrite.
 @rem
@@ -32,7 +32,10 @@ set "REPO=%~dp0.."
 call "%~dp0find_clang_format.bat"
 if errorlevel 1 exit /b 99
 
-echo Checking changed C++ source with clang-format...
+python "%~dp0test_format_cpp.py"
+if errorlevel 1 exit /b 1
+
+echo Checking changed C++ source with repository wrapping rules...
 
 set "FORMAT_FAILED=0"
 set "SOURCE_COUNT=0"
@@ -44,12 +47,12 @@ if defined FORMAT_BASE call :check_range "%FORMAT_BASE%...HEAD"
 call :check_range "HEAD"
 
 if "!FORMAT_FAILED!"=="1" (
-    echo FAIL: clang-format reported source layout differences.
+    echo FAIL: repository formatter reported source layout differences.
     echo       Run: tools\format_fix.bat
     exit /b 1
 )
 
-echo PASS: clang-format accepted !SOURCE_COUNT! source files.
+echo PASS: repository formatter accepted !SOURCE_COUNT! source files.
 exit /b 0
 
 :check_range
@@ -59,7 +62,7 @@ exit /b 0
 :check_file
 if /I not "%~x1"==".cpp" if /I not "%~x1"==".h" if /I not "%~x1"==".hpp" if /I not "%~x1"==".inl" exit /b 0
 if not exist "%REPO%\%~1" exit /b 0
-"%CLANG_FMT%" --dry-run --Werror "%REPO%\%~1"
+python "%~dp0format_cpp.py" --check --clang-format "%CLANG_FMT%" "%REPO%\%~1"
 if errorlevel 1 set "FORMAT_FAILED=1"
 set /a SOURCE_COUNT+=1
 exit /b 0

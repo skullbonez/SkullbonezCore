@@ -23,6 +23,7 @@ Related:
 #include "../Planning/ReplayPlanningRuntime.h"
 #include "../Prediction/ReplayPrediction.h"
 #include "../Replay/ReplayCoordination.h"
+#include <string_view>
 
 namespace SkullbonezCore::Runtime
 {
@@ -56,6 +57,20 @@ struct ReplayAutomationView
     ReplayInputView input;
     float solverTrackPosition = 0.0f;
     float solverPresentTrackPosition = 0.0f;
+    std::string_view loadedPresentationPath;
+    uint64_t loadedPresentationSamples = 0;
+    uint64_t loadedPresentationFirstFrame = 0;
+    uint64_t loadedPresentationLastFrame = 0;
+    float planningSurfaceScroll = 0.0f;
+    int overlayCommands = 0;
+    bool overlayOverflow = false;
+    uint64_t divergenceAllocatedBytes = 0;
+    bool divergencePlaying = false;
+    bool divergenceActive = false;
+    bool divergenceRedReady = false;
+    uint64_t divergenceBlueSourceHash = 0;
+    std::span<const RunReplayPredictionFrame> divergenceBlueFrames;
+    std::span<const ReplayPredictionGhostDrawRequest> divergenceGhosts;
 };
 #endif
 

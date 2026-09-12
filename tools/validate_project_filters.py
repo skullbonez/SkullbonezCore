@@ -154,6 +154,9 @@ PHYSICS_COLLISION_PREFIXES = (
     "CollisionShape",
     "ConvexHullShape",
     "ObjectContactManifold",
+    "ConvexDistance",
+    "ConvexMotionBounds",
+    "SpeculativeContacts",
     "PhysicsSpatialCellKey",
     "PhysicsTerrainView",
     "SpatialGrid",
@@ -293,6 +296,7 @@ SCENE_PREFIXES = (
 )
 
 WORLD_PREFIXES = (
+    "TerrainEditing",
     "FluidSurfaceAdjustment",
     "SkyBox",
     "Terrain",
@@ -464,6 +468,7 @@ RUNTIME_PLANNING_PREFIXES = (
 )
 
 RUNTIME_APP_PREFIXES = (
+    "TerrainEditor",
     "RunComparison",
     "CameraFrameApplication",
     "InteractionAutomationApplication",
@@ -480,6 +485,7 @@ RUNTIME_APP_PREFIXES = (
     "ReplayRuntime",
     "ReplayScrubberTools",
     "ReplayValidation",
+    "ReplayVelocityDivergence",
     "StartupInputApplication",
 )
 
@@ -574,7 +580,9 @@ RUNTIME_UI_PREFIXES = (
     "UIEditorMiniPalette",
     "UIEditorMiniPaletteDraw",
     "UIFrameComposition",
+    "UIPresentationPreferences",
     "UIRenderDiagnostics",
+    "UIRenderTooltipText",
     "UITabCinematic",
     "UITabControls",
     "UITabEditor",
@@ -585,6 +593,7 @@ RUNTIME_UI_PREFIXES = (
     "UITabProfilerHistogram",
     "UITabScene",
     "UITabSky",
+    "UIToolsTooltips",
     "UIWindowInteractionOwner",
     "UITab",
     "OperatorUiPhase",
@@ -939,6 +948,9 @@ def expected_filter_for(item: ProjectItem, project_flat_area: str | None = None)
     include = normalize_path(item.include)
     lower = include.lower()
     suffix = PureWindowsPath(include).suffix.lower()
+
+    if item.item_type == "ResourceCompile" and suffix == ".rc":
+        return RESOURCE_FILTER
 
     if item.item_type == "ClCompile":
         area = source_area(include)

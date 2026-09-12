@@ -23,6 +23,7 @@ Related:
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.h"
+#include "../SkullbonezSource/Runtime/Prediction/TrajectoryStore.h"
 
 #include <array>
 #include <atomic>
@@ -74,8 +75,7 @@ TEST_CASE( "Prediction evidence store: sealed prefix and ranges survive concurre
     const uint64_t epoch = banks.BeginBuild( 7u, ReplayPredictionDetailMode::High );
     const std::array contacts = { ContactRow( 11u ), ContactRow( 12u ) };
     const std::array pipeline = { PipelineRow( 21u ), PipelineRow( 22u ) };
-    REQUIRE( banks.AppendBuildFrameResult( 40u, 3u, 100u, contacts, pipeline, 40 ) ==
-             ReplayPredictionEvidenceAppendResult::Appended );
+    REQUIRE( banks.AppendBuildFrameResult( 40u, 3u, 100u, contacts, pipeline, 40 ) == ReplayPredictionEvidenceAppendResult::Appended );
 
     const ReplayPredictionSolverEvidenceFrame* first = banks.Build().PublishedFrame( 0u );
     REQUIRE( first != nullptr );
@@ -89,22 +89,21 @@ TEST_CASE( "Prediction evidence store: sealed prefix and ranges survive concurre
     std::atomic<bool> writerDone { false };
     std::atomic<bool> writerSucceeded { true };
     std::thread writer( [&]
-                        {
-                            for ( uint32_t index = 0u; index < 300u; ++index )
-                            {
-                                const std::array nextContact = { ContactRow( 1000u + index ) };
-                                const std::array nextPipeline = { PipelineRow( 2000u + index ) };
+        {
+            for ( uint32_t index = 0u; index < 300u; ++index )
+            {
+                const std::array nextContact = { ContactRow( 1000u + index ) };
+                const std::array nextPipeline = { PipelineRow( 2000u + index ) };
 
-                                if ( !banks.AppendBuildFrame( 41u + index, 3u, 101u + index, nextContact, nextPipeline,
-                                                              static_cast<int>( 41u + index ) ) )
-                                {
-                                    writerSucceeded.store( false, std::memory_order_release );
-                                    break;
-                                }
-                            }
+                if ( !banks.AppendBuildFrame( 41u + index, 3u, 101u + index, nextContact, nextPipeline, static_cast<int>( 41u + index ) ) )
+                {
+                    writerSucceeded.store( false, std::memory_order_release );
+                    break;
+                }
+            }
 
-                            writerDone.store( true, std::memory_order_release );
-                        } );
+            writerDone.store( true, std::memory_order_release );
+        } );
 
     while ( !writerDone.load( std::memory_order_acquire ) )
     {
@@ -229,6 +228,37 @@ TEST_CASE( "Prediction evidence store: promotion cancellation and release preser
     CHECK( banks.CollectMemoryStats().releaseCheckpointCount == 2u );
 }
 
+TEST_CASE( "Prediction evidence store: reclaiming spare capacity preserves committed identity and rows" )
+{
+    ReplayPredictionSolverEvidenceBanks banks;
+    const std::array contacts = { ContactRow( 7u ) };
+    const std::array pipeline = { PipelineRow( 8u ) };
+    banks.BeginBuild( 1u, ReplayPredictionDetailMode::High );
+    REQUIRE( banks.AppendBuildFrame( 4u, 2u, 10u, contacts, pipeline, 4 ) );
+    REQUIRE( banks.PromoteBuild() );
+    banks.BeginBuild( 2u, ReplayPredictionDetailMode::High );
+    REQUIRE( banks.AppendBuildFrame( 5u, 3u, 11u, contacts, pipeline, 5 ) );
+    REQUIRE( banks.PromoteBuild() );
+    const auto* committed = banks.Committed().PublishedFrame( 0u );
+    REQUIRE( committed );
+    const auto identity = committed->identity;
+    const auto before = banks.CollectMemoryStats();
+    REQUIRE( before.build.currentCapacityBytes > 0u );
+    banks.ReleaseBuildCapacity();
+    const auto after = banks.CollectMemoryStats();
+    CHECK( after.build.currentCapacityBytes == 0u );
+    CHECK( after.currentCapacityBytes == before.committed.currentCapacityBytes );
+    CHECK( after.lifetimePeakCapacityBytes == before.lifetimePeakCapacityBytes );
+    CHECK( after.releaseCheckpointCount == 1u );
+    REQUIRE( banks.Committed().FindPublishedFrame( identity ) == committed );
+    CHECK( banks.Committed().Contact( committed->contacts, 0u )->featureId == 7u );
+    CHECK( banks.Committed().Pipeline( committed->pipeline, 0u )->featureId == 8u );
+    banks.BeginBuild( 3u, ReplayPredictionDetailMode::High );
+    REQUIRE( banks.AppendBuildFrame( 6u, 4u, 12u, contacts, pipeline, 6 ) );
+    REQUIRE( banks.PromoteBuild() );
+    CHECK( banks.Committed().Generation() == 3u );
+}
+
 TEST_CASE( "Prediction evidence store: overflow and hard-cap requests fail without publication" )
 {
     ReplayPredictionSolverEvidenceBanks banks;
@@ -238,14 +268,12 @@ TEST_CASE( "Prediction evidence store: overflow and hard-cap requests fail witho
     CHECK( banks.Build().PublishedFrameCount() == 0u );
     CHECK( banks.CollectMemoryStats().currentCapacityBytes == 0u );
 
-    const std::size_t overBankCapPipelineRows = static_cast<std::size_t>( REPLAY_PREDICTION_EVIDENCE_BANK_HARD_BYTES /
-                                                                          sizeof( Physics::PhysicsPipelineRecord ) ) +
+    const std::size_t overBankCapPipelineRows = static_cast<std::size_t>( REPLAY_PREDICTION_EVIDENCE_BANK_HARD_BYTES / sizeof( Physics::PhysicsPipelineRecord ) ) +
                                                 REPLAY_PREDICTION_EVIDENCE_PIPELINE_SEGMENT_CAPACITY;
     CHECK_FALSE( banks.ReserveBuild( 1u, 0u, overBankCapPipelineRows, 9 ) );
     CHECK( banks.CollectMemoryStats().currentCapacityBytes == 0u );
 
-    REQUIRE( banks.ReserveBuild( 1u, REPLAY_PREDICTION_EVIDENCE_CONTACT_SEGMENT_CAPACITY + 1u,
-                                 REPLAY_PREDICTION_EVIDENCE_PIPELINE_SEGMENT_CAPACITY + 1u, 9 ) );
+    REQUIRE( banks.ReserveBuild( 1u, REPLAY_PREDICTION_EVIDENCE_CONTACT_SEGMENT_CAPACITY + 1u, REPLAY_PREDICTION_EVIDENCE_PIPELINE_SEGMENT_CAPACITY + 1u, 9 ) );
     const ReplayPredictionSolverEvidenceBanksMemoryStats reserved = banks.CollectMemoryStats();
     CHECK( reserved.currentContactCapacityBytes > 0u );
     CHECK( reserved.currentPipelineCapacityBytes > 0u );
@@ -271,4 +299,37 @@ TEST_CASE( "Prediction evidence store: an explicit empty generation retires olde
     CHECK( banks.Committed().Generation() == 2u );
     CHECK( banks.Committed().PublishedFrameCount() == 0u );
     CHECK_FALSE( banks.PromoteEmptyBuild() );
+}
+
+TEST_CASE( "Prediction path reserves: dormant points do not alter the visible publication" )
+{
+    ReplayTrajectoryStore store;
+    REQUIRE( store.ReservePointCapacity( 1u, 2u ) );
+    ReplayTrajectoryRecordKey key;
+    key.bodyId.value = 7u;
+    key.lane = ReplayTrajectoryLane::FutureRoot;
+    auto* record = store.BeginReplaceRecord( key, 0u, {}, 0, 0u, false, 2u );
+    REQUIRE( record );
+    REQUIRE( store.TryAppendPoint( *record, { 0u, { 1.0f, 2.0f, 3.0f } } ) );
+    store.PublishPrefix( *record, 1u );
+    const auto publicationVersion = store.publicationVersion;
+    REQUIRE( store.ReservePointCapacity( 5u, 12u ) );
+    CHECK( store.RecordCount() == 1u );
+    CHECK( store.publicationVersion == publicationVersion );
+    record = store.FindRecord( key );
+    REQUIRE( record );
+    CHECK( record->publishedPointCount == 1u );
+    CHECK( record->points.front().position.x == 1.0f );
+    const auto reservedBytes = store.CapacityBytes();
+    for ( uint32_t body = 8u; body < 12u; ++body )
+    {
+        key.bodyId.value = body;
+        record = store.BeginReplaceRecord( key, 0u, {}, 0, 0u, false, 12u );
+        REQUIRE( record );
+        for ( uint32_t frame = 0u; frame < 12u; ++frame )
+        {
+            REQUIRE( store.TryAppendPoint( *record, { frame, {} } ) );
+        }
+    }
+    CHECK( store.CapacityBytes() == reservedBytes );
 }

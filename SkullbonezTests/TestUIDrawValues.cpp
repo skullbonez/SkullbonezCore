@@ -34,6 +34,8 @@ Related:
 #include "../SkullbonezSource/UI/UIFontMetrics.h"
 #include "../SkullbonezSource/UI/UICache.h"
 #include "../SkullbonezSource/UI/UILayout.h"
+
+
 #include "../SkullbonezSource/UI/UIWindowChrome.h"
 #include "../SkullbonezSource/Runtime/Render/UIProfilerOverlayPresenter.h"
 #include "../SkullbonezSource/UI/UIStyle.h"
@@ -46,6 +48,7 @@ Related:
 #include "../SkullbonezSource/UI/UIDrawWidgets.h"
 
 #include <array>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -61,6 +64,20 @@ namespace SkullbonezCore::UI
 {
 struct UIWindowInteractionOwnerTestAccess
 {
+    static void SeedTooltipBounds( UIWindowInteractionOwner& owner )
+    {
+        owner.m_physicsTab.contactLingerSlider.SetBounds( 40, 140, 200, 34 );
+        owner.m_optionsTab.timeScaleSlider.SetBounds( 40, 140, 200, 34 );
+        owner.m_memoryOverlay.replayBudgetSlider.SetBounds( 40, 140, 200, 34 );
+    }
+
+    static UITooltipTarget ToolsTooltip( UIWindowInteractionOwner& owner, const UIRect& clip )
+    {
+        owner.m_mouseX = 80;
+        owner.m_mouseY = 150;
+        return owner.FindToolsTooltip( clip );
+    }
+
     static void ArmMemoryPreview( UIWindowInteractionOwner& owner )
     {
         owner.m_activeSlider = 901;
@@ -70,8 +87,7 @@ struct UIWindowInteractionOwnerTestAccess
 
     static bool MemoryPreviewDiscarded( const UIWindowInteractionOwner& owner )
     {
-        return owner.m_activeSlider == 0 && owner.m_memoryOverlay.previewRetentionSeconds == -1 &&
-               owner.m_memoryOverlay.previewBudgetMiB == -1;
+        return owner.m_activeSlider == 0 && owner.m_memoryOverlay.previewRetentionSeconds == -1 && owner.m_memoryOverlay.previewBudgetMiB == -1;
     }
 
     static double ScrollbarVisibleUntil( const UIWindowInteractionOwner& owner )
@@ -135,8 +151,7 @@ int FindDrawTextIndex( const UIDrawList& list, const char* expected )
 
     for ( int index = 0; index < static_cast<int>( commands.size() ); ++index )
     {
-        if ( commands[static_cast<std::size_t>( index )].type == UIDrawList::CommandType::Text &&
-             std::strcmp( list.TextAt( commands[static_cast<std::size_t>( index )].textOffset ), expected ) == 0 )
+        if ( commands[static_cast<std::size_t>( index )].type == UIDrawList::CommandType::Text && std::strcmp( list.TextAt( commands[static_cast<std::size_t>( index )].textOffset ), expected ) == 0 )
         {
             return index;
         }
@@ -146,12 +161,31 @@ int FindDrawTextIndex( const UIDrawList& list, const char* expected )
 }
 } // namespace
 
+TEST_CASE( "Floating windows stay inside the available scene area as chrome changes" )
+{
+    using namespace SkullbonezCore::UI;
+    UIRect bounds { 10, 10, 340, 166 };
+    for ( const UIRect viewport : { UIRect { 260, 42, 900, 600 }, UIRect { 320, 42, 420, 180 }, UIRect { 128, 42, 64, 36 } } )
+    {
+        bounds = Layout::ClampFloatingRect( bounds, viewport, 260, 132 );
+        CHECK( bounds.x >= viewport.x );
+        CHECK( bounds.y >= viewport.y );
+        CHECK( bounds.x + bounds.w <= viewport.x + viewport.w );
+        CHECK( bounds.y + bounds.h <= viewport.y + viewport.h );
+    }
+    const UIRect edge = Layout::ClampFloatingRect( { 1000, 900, 300, 140 }, { 260, 42, 500, 400 }, 260, 132 );
+    CHECK( edge.x == 460 );
+    CHECK( edge.y == 302 );
+}
 TEST_CASE( "UI window close hides the panel instead of minimizing it" )
 {
     using SkullbonezCore::UI::UIWindowInteractionOwner;
     using SkullbonezCore::UI::InputControl::UIInputSnapshot;
 
-    UIWindowInteractionOwner owner;
+    // Lifetime: mirror the application's cold-owned UI storage; its fixed draw
+    // buffers exceed the test thread's stack allowance.
+    auto storage = std::make_unique<UIWindowInteractionOwner>();
+    auto& owner = *storage;
     owner.SetVisible( true, 0.0 );
     owner.SetWindowBounds( 100, 120, 760, 520 );
 
@@ -166,8 +200,7 @@ TEST_CASE( "UI window close hides the panel instead of minimizing it" )
     const bool placementModeEnabled = false;
     const bool placeStaticObject = false;
     const bool autoTerrainAlign = false;
-    owner.UpdateInput( input, sceneNavigation, 1920, 1080, 1.0, editorModeEnabled, placementModeEnabled,
-                       placeStaticObject, autoTerrainAlign, 0xffffffffu );
+    owner.UpdateInput( input, sceneNavigation, 1920, 1080, 1.0, editorModeEnabled, placementModeEnabled, placeStaticObject, autoTerrainAlign, 0xffffffffu );
 
     CHECK_FALSE( owner.IsVisible() );
     CHECK( owner.IsMinimized() );
@@ -175,7 +208,8 @@ TEST_CASE( "UI window close hides the panel instead of minimizing it" )
 
 TEST_CASE( "UI interaction anchors preserve a window-local point across layout sizes" )
 {
-    SkullbonezCore::UI::UIWindowInteractionOwner owner;
+    auto storage = std::make_unique<SkullbonezCore::UI::UIWindowInteractionOwner>();
+    auto& owner = *storage;
     owner.SetWindowBounds( 100, 120, 760, 520 );
 
     char anchor[64] = {};
@@ -194,18 +228,13 @@ TEST_CASE( "UI capture cancellation discards deferred replay memory previews" )
     using SkullbonezCore::UI::InGameUITab;
     using SkullbonezCore::UI::UIWindowInteractionOwner;
 
-    UIWindowInteractionOwner owner;
+    auto storage = std::make_unique<UIWindowInteractionOwner>();
+    auto& owner = *storage;
     owner.SetVisible( true, 0.0 );
     owner.SetActiveTab( InGameUITab::Memory );
 
-    const auto armPreview = [&owner]()
-    {
-        UIWindowInteractionOwnerTestAccess::ArmMemoryPreview( owner );
-    };
-    const auto checkDiscarded = [&owner]()
-    {
-        CHECK( UIWindowInteractionOwnerTestAccess::MemoryPreviewDiscarded( owner ) );
-    };
+    const auto armPreview = [&owner]() { UIWindowInteractionOwnerTestAccess::ArmMemoryPreview( owner ); };
+    const auto checkDiscarded = [&owner]() { CHECK( UIWindowInteractionOwnerTestAccess::MemoryPreviewDiscarded( owner ) ); };
 
     armPreview();
     owner.CancelInputCapture();
@@ -228,7 +257,8 @@ TEST_CASE( "UI capture cancellation discards deferred replay memory previews" )
 
 TEST_CASE( "UI programmatic scroll reveal starts at the next visible draw" )
 {
-    SkullbonezCore::UI::UIWindowInteractionOwner owner;
+    auto storage = std::make_unique<SkullbonezCore::UI::UIWindowInteractionOwner>();
+    auto& owner = *storage;
 
     owner.SetScrollY( 120.0f );
     owner.PrepareForDraw( 50.0 );
@@ -266,7 +296,8 @@ TEST_CASE( "UI narrow clients replace ordinary window minima with reachable boun
     CHECK( window.x + window.width <= 310 );
     CHECK( window.y + window.height <= 170 );
 
-    SkullbonezCore::UI::UIWindowInteractionOwner owner;
+    auto storage = std::make_unique<SkullbonezCore::UI::UIWindowInteractionOwner>();
+    auto& owner = *storage;
     owner.SetVisible( true, 0.0 );
     owner.SetWindowBounds( 10, 10, 300, 160 );
     UIWindowInteractionOwnerTestAccess::BeginResize( owner );
@@ -279,8 +310,7 @@ TEST_CASE( "UI narrow clients replace ordinary window minima with reachable boun
     const bool placementModeEnabled = false;
     const bool placeStaticObject = false;
     const bool autoTerrainAlign = false;
-    owner.UpdateInput( resizeInput, sceneNavigation, 320, 180, 1.0, editorModeEnabled, placementModeEnabled,
-                       placeStaticObject, autoTerrainAlign, 0xffffffffu );
+    owner.UpdateInput( resizeInput, sceneNavigation, 320, 180, 1.0, editorModeEnabled, placementModeEnabled, placeStaticObject, autoTerrainAlign, 0xffffffffu );
     CHECK( UIWindowInteractionOwnerTestAccess::WindowWidth( owner ) <= 300 );
     CHECK( UIWindowInteractionOwnerTestAccess::WindowHeight( owner ) <= 160 );
 
@@ -376,6 +406,558 @@ TEST_CASE( "UI position cache hashes pointer interaction in window-local coordin
     CHECK( cache.ReplayOffsetY( secondMovedKey ) == doctest::Approx( 80.0f ) );
 }
 
+TEST_CASE( "Unified tooltips delay hover, follow keyboard focus and dismiss during gestures" )
+{
+    using namespace SkullbonezCore::UI;
+    UITooltip tooltip;
+    UITooltipTarget target { 1, { 790, 590, 80, 24 }, { "Reset scene", "seconds", "F1", "No scene loaded" }, true };
+    tooltip.Update( target, 10.0, false );
+    CHECK_FALSE( tooltip.Visible( 10.4 ) );
+    CHECK( tooltip.Visible( 10.5 ) );
+    const auto bounds = tooltip.Bounds( { 0, 0, 800, 600 } );
+    CHECK( bounds.x >= 0 );
+    CHECK( bounds.y >= 0 );
+    CHECK( bounds.x + bounds.w <= 800 );
+    CHECK( bounds.y + bounds.h <= 600 );
+    target.id = 2;
+    tooltip.Update( target, 11.0, false );
+    CHECK_FALSE( tooltip.Visible( 11.1 ) );
+    target.hovered = false;
+    target.focused = true;
+    tooltip.Update( target, 11.1, false );
+    CHECK( tooltip.Visible( 11.1 ) );
+    tooltip.Update( target, 11.2, true );
+    CHECK_FALSE( tooltip.Visible( 12.0 ) );
+    tooltip.Update( target, 12.0, false );
+    tooltip.Dismiss();
+    CHECK_FALSE( tooltip.Visible( 13.0 ) );
+}
+
+TEST_CASE( "Unified tooltip shows the unavailable reason through a bounded draw stream" )
+{
+    using namespace SkullbonezCore::UI;
+    UITooltip tooltip;
+    UITooltipTarget target { 1, { 100, 100, 80, 24 }, { "Load scene", "", "", "No scene loaded" }, true, false, false };
+    tooltip.Update( target, 0.0, false );
+    auto list = std::make_unique<UIDrawList>();
+    UIDrawContext draw( 800, 600, *list );
+    tooltip.Draw( draw, { 0, 0, 800, 600 }, 1.0 );
+    bool foundReason = false;
+    for ( const auto& command : list->Commands() )
+    {
+        if ( command.type == UIDrawList::CommandType::Text && std::strcmp( list->TextAt( command.textOffset ), "No scene loaded" ) == 0 )
+        {
+            foundReason = true;
+        }
+    }
+    CHECK( foundReason );
+    REQUIRE_FALSE( list->Commands().empty() );
+    CHECK( list->Commands().front().type == UIDrawList::CommandType::LayerBreak );
+    auto composed = std::make_unique<UIDrawList>();
+    composed->Append( *list );
+    REQUIRE_FALSE( composed->Commands().empty() );
+    CHECK( composed->Commands().front().type == UIDrawList::CommandType::LayerBreak );
+    CHECK_FALSE( list->GetStats().commandOverflow );
+    CHECK_FALSE( list->GetStats().textOverflow );
+    CHECK_FALSE( list->GetStats().clipOverflow );
+}
+
+TEST_CASE( "Unified presentation keeps docks and drawer outside the Editor viewport" )
+{
+    using namespace SkullbonezCore::UI::GameLayout;
+    PresentationState state;
+    state.preferences.layout = LayoutMode::Editor;
+    state.toolsOpen = true;
+    const auto layout = ComputePresentationRects( state, 1600, 900 );
+    CHECK( layout.viewport.x == layout.left.w );
+    CHECK( layout.viewport.x + layout.viewport.w == layout.right.x );
+    CHECK( layout.viewport.y + layout.viewport.h == layout.transport.y );
+    CHECK( layout.transport.y + layout.transport.h == layout.drawer.y );
+    CHECK( layout.drawer.y + layout.drawer.h == 900.0f );
+    CHECK( layout.markerHistory.h == 0.0f );
+    CHECK( layout.memoryWaterline.h == 0.0f );
+
+    state.toolsOpen = false;
+    const auto closed = ComputePresentationRects( state, 1600, 900 );
+    CHECK( closed.drawer.w == 0.0f );
+    CHECK( closed.drawerResize.h == 0.0f );
+    CHECK( closed.viewport.h == layout.viewport.h + layout.drawer.h );
+    CHECK( closed.markerHistory.y == layout.markerHistory.y );
+}
+
+TEST_CASE( "Unified Canvas transport overlays the viewport and closed details have no hit area" )
+{
+    using namespace SkullbonezCore::UI::GameLayout;
+    PresentationState state;
+    const auto layout = ComputePresentationRects( state, 1280, 720 );
+    CHECK( layout.viewport.w == 1280.0f );
+    CHECK( layout.viewport.h == 720.0f );
+    CHECK( layout.right.w == 0.0f );
+    CHECK_FALSE( layout.right.Contains( 0, 0 ) );
+    CHECK_FALSE( layout.drawer.Contains( 0, 0 ) );
+    CHECK( layout.left.w == 0.0f );
+    CHECK( layout.markerHistory.h == 0.0f );
+    CHECK( layout.transport.h <= 28.0f );
+    CHECK( layout.statusContent.y == layout.header.h );
+    CHECK( layout.statusContent.y + layout.statusContent.h == layout.transport.y );
+    state.detailsOpen = true;
+    const auto details = ComputePresentationRects( state, 1280, 720 );
+    CHECK( details.statusContent.x + details.statusContent.w == details.right.x );
+    CHECK( details.viewport.w == layout.viewport.w );
+
+    state.workspace = Workspace::SolverLab;
+    const auto lab = ComputePresentationRects( state, 1280, 720 );
+    CHECK( lab.viewport.w == layout.viewport.w );
+    CHECK( lab.viewport.y == lab.header.h );
+    CHECK( lab.viewport.h + lab.header.h == layout.viewport.h );
+    CHECK( state.preferences.layout == LayoutMode::Canvas );
+}
+
+TEST_CASE( "Unified presentation clamps extreme preferences without changing the selected layout" )
+{
+    using namespace SkullbonezCore::UI::GameLayout;
+    PresentationState state;
+    state.preferences.layout = LayoutMode::Editor;
+    state.preferences.leftWidth = 100000.0f;
+    state.preferences.rightWidth = -1000.0f;
+    state.preferences.drawerHeight = 100000.0f;
+    state.preferences.diagnosticsHeight = 100000.0f;
+    state.toolsOpen = true;
+    for ( const int dimension : { 1, 32, 240, 640, 3840 } )
+    {
+        const auto layout = ComputePresentationRects( state, dimension, dimension );
+        for ( const auto& rect : { layout.header, layout.viewport, layout.left, layout.right, layout.transport, layout.drawer, layout.markerHistory, layout.memoryWaterline, layout.statusContent } )
+        {
+            CHECK( rect.x >= 0.0f );
+            CHECK( rect.y >= 0.0f );
+            CHECK( rect.w >= 0.0f );
+            CHECK( rect.h >= 0.0f );
+            CHECK( rect.x + rect.w <= doctest::Approx( static_cast<float>( dimension ) ) );
+            CHECK( rect.y + rect.h <= doctest::Approx( static_cast<float>( dimension ) ) );
+        }
+        CHECK( layout.viewport.w > 0.0f );
+        CHECK( layout.viewport.h > 0.0f );
+    }
+    CHECK( state.preferences.layout == LayoutMode::Editor );
+}
+
+TEST_CASE( "Header title brands the scene basename and truncates after twenty characters" )
+{
+    using SkullbonezCore::UI::GameLayout::HeaderTitle;
+    CHECK( std::string( HeaderTitle( nullptr ).data() ) == "Skullbonez Core - Generated demo" );
+    CHECK( std::string( HeaderTitle( "scenes/Wall.scene.json" ).data() ) == "Skullbonez Core - Wall" );
+    CHECK( std::string( HeaderTitle( "12345678901234567890" ).data() ) == "Skullbonez Core - 12345678901234567890" );
+    CHECK( std::string( HeaderTitle( "123456789012345678901" ).data() ) == "Skullbonez Core - 12345678901234567890..." );
+}
+
+TEST_CASE( "Unified header switches layout once without issuing runtime commands" )
+{
+    using namespace SkullbonezCore::UI;
+    using namespace SkullbonezCore::UI::GameLayout;
+    auto ui = std::make_unique<InGameUI>();
+    InputControl::UIInputSnapshot input;
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    ui->SetVisible( false );
+    CHECK( ui->NeedsUiTextPass() );
+    const auto header = ComputeHeaderRects( ui->PresentationBounds().header );
+    input.mouseX = static_cast<int>( header.layout.x + 8 );
+    input.mouseY = 20;
+    input.leftDown = true;
+    input.leftPressed = true;
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK( ui->PresentationLayout() == LayoutMode::Editor );
+    const auto result = ui->UpdateInput( input, 1600, 900, 0.0, false, false, true, false, 0x7f );
+    CHECK_FALSE( result.commands.ui.userInteracted );
+    CHECK_FALSE( result.commands.editor.toggleEditorMode );
+    CHECK_FALSE( result.commands.scene.resetScene );
+    CHECK( ui->BlocksCameraMouse() );
+    CHECK( ui->PresentationBounds().viewport.x > 0.0f );
+    input.leftPressed = false;
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK( ui->PresentationLayout() == LayoutMode::Editor );
+    input.leftPressed = true;
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK( ui->PresentationLayout() == LayoutMode::Canvas );
+    CHECK( ui->PresentationBounds().viewport.w == 1600.0f );
+
+    ui->SetActiveTab( InGameUITab::Physics );
+    input.mouseX = static_cast<int>( header.scene.x + 8 );
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK( ui->GetActiveTab() == InGameUITab::Scene );
+    CHECK_FALSE( ui->IsMinimized() );
+}
+
+TEST_CASE( "Unified foreground extraction keeps popups above other presenters with independent clips and owned text" )
+{
+    using namespace SkullbonezCore::UI;
+    auto source = std::make_unique<UIDrawList>();
+    auto composed = std::make_unique<UIDrawList>();
+    auto foreground = std::make_unique<UIDrawList>();
+    source->PushClip( { 0, 400, 800, 200 } );
+    source->AddText( { 10, 410 }, 12, { 1, 1, 1, 1 }, "drawer" );
+    source->BeginForeground();
+    source->PushClip( { 20, 200, 240, 300 } );
+    source->AddText( { 30, 210 }, 12, { 1, 1, 1, 1 }, "scene option" );
+    source->PopClip();
+    source->EndForeground();
+    source->PopClip();
+    composed->Append( *source, 4, 6 );
+    source->Clear();
+    composed->ExtractForeground( *foreground );
+    REQUIRE_FALSE( foreground->Empty() );
+    int contentClips = 0;
+    int foregroundClips = 0;
+    bool foundOption = false;
+    for ( const auto& command : composed->Commands() )
+    {
+        CHECK_FALSE( command.foreground );
+        contentClips += command.type == UIDrawList::CommandType::PushClip ? 1 : 0;
+        contentClips -= command.type == UIDrawList::CommandType::PopClip ? 1 : 0;
+        if ( command.type == UIDrawList::CommandType::Text )
+        {
+            CHECK( std::strcmp( composed->TextAt( command.textOffset ), "drawer" ) == 0 );
+        }
+    }
+    composed->Clear();
+    for ( const auto& command : foreground->Commands() )
+    {
+        foregroundClips += command.type == UIDrawList::CommandType::PushClip ? 1 : 0;
+        foregroundClips -= command.type == UIDrawList::CommandType::PopClip ? 1 : 0;
+        if ( command.type == UIDrawList::CommandType::Text )
+        {
+            CHECK( command.x0 == 34.0f );
+            CHECK( command.y0 == 216.0f );
+            CHECK( std::strcmp( foreground->TextAt( command.textOffset ), "scene option" ) == 0 );
+            foundOption = true;
+        }
+    }
+    CHECK( foundOption );
+    CHECK( contentClips == 0 );
+    CHECK( foregroundClips == 0 );
+    CHECK_FALSE( foreground->GetStats().commandOverflow );
+}
+
+TEST_CASE( "Vertical text retains orientation and owned bytes through foreground composition" )
+{
+    auto source = std::make_unique<UIDrawList>();
+    auto composed = std::make_unique<UIDrawList>();
+    auto foreground = std::make_unique<UIDrawList>();
+    source->AddText( { 10, 20 }, 13, { 1, 1, 1, 1 }, "CONTROLS" );
+    const auto horizontal = source->Fingerprint();
+    source->Clear();
+    source->AddText( { 10, 20 }, 13, { 1, 1, 1, 1 }, "CONTROLS", true );
+    CHECK( source->Fingerprint() != horizontal );
+    source->Clear();
+    source->BeginForeground();
+    source->AddText( { 10, 20 }, 13, { 1, 1, 1, 1 }, "CONTROLS", true );
+    source->EndForeground();
+    composed->Append( *source, 4, 6 );
+    source->Clear();
+    composed->ExtractForeground( *foreground );
+    composed->Clear();
+    bool found = false;
+    for ( const auto& command : foreground->Commands() )
+    {
+        if ( command.type == UIDrawList::CommandType::VerticalText )
+        {
+            CHECK( command.x0 == 14.0f );
+            CHECK( command.y0 == 26.0f );
+            CHECK( std::strcmp( foreground->TextAt( command.textOffset ), "CONTROLS" ) == 0 );
+            found = true;
+        }
+    }
+    CHECK( found );
+}
+
+TEST_CASE( "Unified scrollable popup keeps every catalog identity reachable inside the window" )
+{
+    using namespace SkullbonezCore::UI;
+    UIComboBox combo;
+    combo.SetBounds( 10.0f, 210.0f, 250.0f, 24.0f );
+    combo.SetPopupViewport( { 0.0f, 42.0f, 800.0f, 500.0f } );
+    combo.SetScrollable( true );
+    combo.SetOpen( true );
+    const auto popup = combo.DropdownBounds( 37 );
+    CHECK( popup.y >= 42.0f );
+    CHECK( popup.y + popup.h <= 542.0f );
+    REQUIRE( combo.VisibleOptionCount( 37 ) > 0 );
+    REQUIRE( combo.VisibleOptionCount( 37 ) < 37 );
+    combo.ScrollOptions( 37, 37 );
+    CHECK( combo.FirstVisibleOption( 37 ) + combo.VisibleOptionCount( 37 ) == 37 );
+    CHECK( combo.HitOption( static_cast<int>( popup.x + 10.0f ), static_cast<int>( popup.y + popup.h - 5.0f ), 37 ) == 36 );
+    CHECK( combo.HitOption( static_cast<int>( popup.x + 10.0f ), 541, 37 ) == -1 );
+    combo.ScrollOptions( -37, 37 );
+    CHECK( combo.FirstVisibleOption( 37 ) == 0 );
+    CHECK( combo.HitOption( static_cast<int>( popup.x + 10.0f ), static_cast<int>( popup.y + 5.0f ), 37 ) == 0 );
+}
+
+TEST_CASE( "Unified Editor pane reuses editor commands and begins with functional editing disabled" )
+{
+    using namespace SkullbonezCore::UI;
+    using namespace SkullbonezCore::UI::GameLayout;
+    auto ui = std::make_unique<InGameUI>();
+    ui->SetVisible( false );
+    InputControl::UIInputSnapshot input;
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    const auto header = ComputeHeaderRects( ui->PresentationBounds().header );
+    input.mouseX = static_cast<int>( header.layout.x + 10.0f );
+    input.mouseY = 20;
+    input.leftPressed = true;
+    input.leftDown = true;
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    auto result = ui->UpdateInput( input, 1600, 900, 0.1, false, false, false, false, 0x7f );
+    CHECK_FALSE( result.commands.editor.toggleEditorMode );
+    const auto editorTab = ui->PresentationBounds().editorTab;
+    input.mouseX = static_cast<int>( editorTab.x + 8.0f );
+    input.mouseY = static_cast<int>( editorTab.y + 8.0f );
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    const auto bounds = ui->PresentationBounds().editorControls;
+    REQUIRE( bounds.w > 0.0f );
+    CHECK( ui->PresentationBounds().replayControls.w == 0.0f );
+    input.mouseX = static_cast<int>( bounds.x + 15.0f );
+    input.mouseY = static_cast<int>( bounds.y + 54.0f );
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    result = ui->UpdateInput( input, 1600, 900, 0.2, false, false, false, false, 0x7f );
+    CHECK( result.commands.editor.toggleEditorMode );
+    CHECK( ui->BlocksCameraMouse() );
+    input.leftPressed = false;
+    result = ui->UpdateInput( input, 1600, 900, 0.3, true, false, false, false, 0x7f );
+    CHECK_FALSE( result.commands.editor.toggleEditorMode );
+    input.leftPressed = true;
+    const auto replay = ui->PresentationBounds().editorReplayTab;
+    input.mouseX = static_cast<int>( replay.x + 10.0f );
+    input.mouseY = static_cast<int>( replay.y + 10.0f );
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK( ui->PresentationBounds().editorControls.w > 0.0f );
+    CHECK( ui->PresentationBounds().replayControls.w > 0.0f );
+    CHECK( ui->PresentationBounds().replayControls.y > ui->PresentationBounds().editorControls.y );
+}
+
+TEST_CASE( "Revealing Replay opens its dock and reserves input without blocking its actions" )
+{
+    using namespace SkullbonezCore::UI;
+    auto ui = std::make_unique<InGameUI>();
+    ui->SetVisible( false );
+    InputControl::UIInputSnapshot input;
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    ui->RevealReplayControls( 1600, 900 );
+    const auto layout = ui->PresentationBounds();
+    REQUIRE( layout.replayControls.w > 0.0f );
+    CHECK( ui->PresentationLayout() == GameLayout::LayoutMode::Editor );
+    CHECK( layout.viewport.w < 1600.0f );
+    input.leftPressed = false;
+    input.leftDown = false;
+    input.mouseX = static_cast<int>( layout.replayControls.x + 20.0f );
+    input.mouseY = static_cast<int>( layout.replayControls.y + 20.0f );
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    auto result = ui->UpdateInput( input, 1600, 900, 0.1, false, false, true, false, 0x7f );
+    CHECK( ui->BlocksCameraMouse() );
+    CHECK_FALSE( ui->BlocksReplayMouse() );
+    CHECK_FALSE( result.commands.ui.userInteracted );
+    input.wheelDelta = -120;
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK( ui->PresentationBounds().replayScroll > 0.0f );
+    result = ui->UpdateInput( input, 1600, 900, 0.2, false, false, true, false, 0x7f );
+    CHECK( result.unhandledWheelDelta == 0 );
+}
+
+TEST_CASE( "Bottom Tools tab drags upward with captured input and retains its size and selected tool" )
+{
+    using namespace SkullbonezCore::UI;
+    auto ui = std::make_unique<InGameUI>();
+    InputControl::UIInputSnapshot input;
+    const auto frame = [&]()
+    {
+        ui->UpdatePresentationInput( input, 1600, 900, true );
+        return ui->UpdateInput( input, 1600, 900, 0.0, false, false, true, false, 0x7f );
+    };
+    frame();
+    ui->SetActiveTab( InGameUITab::Memory );
+    const auto tab = ui->PresentationBounds().replayDetails;
+    input.mouseX = static_cast<int>( tab.x + tab.w * 0.5f );
+    input.mouseY = static_cast<int>( tab.y + tab.h * 0.5f );
+    input.leftDown = true;
+    input.leftPressed = true;
+    const auto pressed = frame();
+    CHECK( pressed.nativeMouseCapture == InGameUIInputResult::NativeMouseCaptureRequest::Acquire );
+    CHECK_FALSE( pressed.commands.ui.userInteracted );
+    CHECK( ui->PresentationBounds().drawer.h == 0.0f );
+    input.leftPressed = false;
+    input.mouseY -= 300;
+    frame();
+    CHECK( ui->PresentationBounds().drawer.h == 300.0f );
+    CHECK( ui->PresentationLayout() == GameLayout::LayoutMode::Editor );
+    CHECK( ui->PresentationBounds().viewport.h == 530.0f );
+    input.leftDown = false;
+    input.leftReleased = true;
+    CHECK( frame().nativeMouseCapture == InGameUIInputResult::NativeMouseCaptureRequest::Release );
+    input.leftReleased = false;
+    input.leftPressed = true;
+    input.leftDown = true;
+    input.mouseX = 800;
+    input.mouseY = 602;
+    CHECK( frame().nativeMouseCapture == InGameUIInputResult::NativeMouseCaptureRequest::Acquire );
+    input.leftPressed = false;
+    input.mouseY = 10;
+    frame();
+    CHECK( ui->PresentationBounds().drawer.h == 720.0f );
+    CHECK( ui->PresentationBounds().viewport.h == 110.0f );
+    input.leftDown = false;
+    input.leftReleased = true;
+    CHECK( frame().nativeMouseCapture == InGameUIInputResult::NativeMouseCaptureRequest::Release );
+    for ( const bool open : { false, true } )
+    {
+        const auto currentTab = ui->PresentationBounds().replayDetails;
+        input.mouseX = static_cast<int>( currentTab.x + currentTab.w * 0.5f );
+        input.mouseY = static_cast<int>( currentTab.y + currentTab.h * 0.5f );
+        input.leftReleased = false;
+        input.leftDown = true;
+        input.leftPressed = true;
+        frame();
+        input.leftPressed = false;
+        input.leftDown = false;
+        input.leftReleased = true;
+        frame();
+        CHECK( ui->PresentationBounds().drawer.h == ( open ? 720.0f : 0.0f ) );
+        CHECK( ui->GetActiveTab() == InGameUITab::Memory );
+    }
+}
+
+TEST_CASE( "Opening and minimizing Tools preserves independent floating diagnostics" )
+{
+    using namespace SkullbonezCore::UI;
+    using namespace SkullbonezCore::UI::GameLayout;
+    auto ui = std::make_unique<InGameUI>();
+    InputControl::UIInputSnapshot input;
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    const auto header = ComputeHeaderRects( ui->PresentationBounds().header );
+    input.mouseX = static_cast<int>( header.layout.x + 8.0f );
+    input.mouseY = 20;
+    input.leftPressed = true;
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    input.leftPressed = false;
+    const float sceneHeight = ui->PresentationBounds().viewport.h;
+    ui->SetVisible( true );
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK_FALSE( ui->DiagnosticPresentation().markerHistoryVisible );
+    CHECK_FALSE( ui->DiagnosticPresentation().memoryWaterlineVisible );
+    CHECK( ui->PresentationBounds().drawer.y + ui->PresentationBounds().drawer.h == 900.0f );
+    CHECK( ui->PresentationBounds().viewport.h == sceneHeight - 360.0f );
+    const float toolsHeight = ui->PresentationBounds().drawer.h;
+    ui->TogglePerformanceHistogramEnabled();
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK( ui->DiagnosticPresentation().focusedPanel == 0 );
+    CHECK( ui->DiagnosticPresentation().markerHistoryVisible );
+    CHECK_FALSE( ui->DiagnosticPresentation().memoryWaterlineVisible );
+    CHECK( ui->PresentationBounds().markerHistory.w == 0.0f );
+    CHECK( ui->PresentationBounds().drawer.h == toolsHeight );
+    ui->ToggleMemoryOverlayEnabled();
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK( ui->DiagnosticPresentation().focusedPanel == 0 );
+    CHECK( ui->DiagnosticPresentation().memoryWaterlineVisible );
+    CHECK( ui->PresentationBounds().markerHistory.w == 0.0f );
+    CHECK( ui->PresentationBounds().memoryWaterline.w == 0.0f );
+    ui->SetMinimized( true );
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    ui->SetMinimized( false );
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK( ui->DiagnosticPresentation().markerHistoryVisible );
+    CHECK( ui->DiagnosticPresentation().memoryWaterlineVisible );
+    ui->SetVisible( true );
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK( ui->DiagnosticPresentation().markerHistoryVisible );
+    CHECK( ui->DiagnosticPresentation().memoryWaterlineVisible );
+    CHECK( ui->HasDockedSurface() );
+    ui->ReturnToGame();
+    CHECK_FALSE( ui->HasDockedSurface() );
+    CHECK( ui->PresentationBounds().viewport.w == 1600.0f );
+    CHECK( ui->PresentationBounds().viewport.h == 900.0f );
+    CHECK( ui->DiagnosticPresentation().markerHistoryVisible );
+    CHECK( ui->DiagnosticPresentation().memoryWaterlineVisible );
+}
+
+TEST_CASE( "UI marker history draws live samples and moves between peak bucket boundaries" )
+{
+    using namespace SkullbonezCore::UI;
+    auto state = std::make_unique<ProfilerTab::UIProfilerTabState>();
+    state->histogramDockedBounds = { 0, 0, 800, 140 };
+    UIProfilerMarkerOption marker;
+    marker.name = marker.leafName = "Main";
+    marker.isFrameTotal = marker.sampleValid = true;
+    marker.cpuMs = 2.0f;
+    UIProfilerTabFrameView data;
+    data.markerOptions = &marker;
+    data.markerOptionCount = 1;
+    data.screenW = 800;
+    data.screenH = 600;
+    auto commands = std::make_unique<UIDrawList>();
+    const UIDrawContext draw( 800, 600, *commands );
+    ProfilerTab::PushPerformanceHistogramSample( *state, data );
+    ProfilerTab::DrawPerformanceHistogram( *state, draw, data );
+    CHECK( FindDrawTextIndex( *commands, "Waiting for samples" ) == -1 );
+    uint64_t previous = commands->Fingerprint();
+    for ( int frame = 1; frame < 6; ++frame )
+    {
+        data.now = frame / 240.0;
+        ProfilerTab::PushPerformanceHistogramSample( *state, data );
+        commands->Clear();
+        ProfilerTab::DrawPerformanceHistogram( *state, draw, data );
+        CHECK( state->histogramCount == 0 );
+        CHECK( commands->Fingerprint() != previous );
+        previous = commands->Fingerprint();
+    }
+    marker.cpuMs = 20.0f;
+    ProfilerTab::PushPerformanceHistogramSample( *state, data );
+    commands->Clear();
+    ProfilerTab::DrawPerformanceHistogram( *state, draw, data );
+    CHECK( commands->Fingerprint() != previous );
+    data.now = 0.051;
+    marker.cpuMs = 1.0f;
+    ProfilerTab::PushPerformanceHistogramSample( *state, data );
+    CHECK( state->histogramCount == 1 );
+    CHECK( state->histogramSamples[0].markerMs[0] == 20.0f );
+}
+
+TEST_CASE( "Unified bottom drawer popup uses the same visible rows for drawing and picking" )
+{
+    using namespace SkullbonezCore::UI;
+    UIComboBox combo;
+    combo.SetBounds( 20, 650, 220, 24 );
+    combo.SetOpen( true );
+    combo.SetPopupViewport( { 0, 42, 1280, 678 } );
+    const UIRect popup = combo.DropdownBounds( 12 );
+    CHECK( popup.y >= 42.0f );
+    CHECK( popup.y + popup.h <= 650.0f );
+    CHECK( combo.HitOption( static_cast<int>( popup.x + 10 ), static_cast<int>( popup.y + 10 ), 12 ) == 0 );
+    CHECK( combo.HitOption( 40, 800, 12 ) == -1 );
+    combo.Close();
+    CHECK( combo.HitOption( static_cast<int>( popup.x + 10 ), static_cast<int>( popup.y + 10 ), 12 ) == -1 );
+}
+
+TEST_CASE( "Unified Scene browser displays an activated external scene instead of Demo" )
+{
+    using namespace SkullbonezCore::UI;
+    auto list = std::make_unique<UIDrawList>();
+    UIDrawContext draw( 1280, 900, *list );
+    SceneTab::UISceneTabState state;
+    UISceneTabFrameView view;
+    view.authoredSceneActive = true;
+    view.activatedSceneName = "C:\\external\\confirmed.scene.json";
+    SceneTab::Draw( state, draw, view, 18, 100, 760, 550, 100, 0, 0 );
+    bool confirmedName = false;
+    bool demoName = false;
+    for ( const auto& command : list->Commands() )
+    {
+        if ( command.type == UIDrawList::CommandType::Text )
+        {
+            confirmedName |= std::strcmp( list->TextAt( command.textOffset ), "confirmed.scene.json" ) == 0;
+            demoName |= std::strcmp( list->TextAt( command.textOffset ), "Demo Scene" ) == 0;
+        }
+    }
+    CHECK( confirmedName );
+    CHECK_FALSE( demoName );
+}
+
 TEST_CASE( "Scene header keeps save defaults reachable at the minimum ordinary window width" )
 {
     using SkullbonezCore::UI::InGameUIInputResult;
@@ -446,9 +1028,8 @@ TEST_CASE( "UI rolling prediction checkbox publishes forecast toggle intent" )
     const bool placementModeEnabled = false;
     const bool placeStaticObject = true;
     const bool autoTerrainAlign = false;
-    const InGameUIInputResult result =
-        ui->UpdateInput( input, data->surface.screenW, data->surface.screenH, 1.0, editorModeEnabled,
-                         placementModeEnabled, placeStaticObject, autoTerrainAlign, 0xffffffffu );
+    const InGameUIInputResult
+        result = ui->UpdateInput( input, data->surface.screenW, data->surface.screenH, 1.0, editorModeEnabled, placementModeEnabled, placeStaticObject, autoTerrainAlign, 0xffffffffu );
 
     CHECK( result.commands.forecast.type == UIForecastCommandType::ToggleContinuous );
     CHECK( result.commands.ui.userInteracted );
@@ -470,9 +1051,7 @@ TEST_CASE( "Scene recording combo publishes the newest-first catalog index" )
 
     const SkullbonezCore::UI::UIRect dropdown = state.recordingCombo.DropdownBounds( 3 );
     InGameUIInputResult result;
-    REQUIRE( HandleOpenRecordingComboClick( state, result, 3, static_cast<int>( dropdown.x + 5.0f ),
-                                            static_cast<int>( dropdown.y + dropdown.h - 5.0f ), contentX, rowBase,
-                                            contentW ) );
+    REQUIRE( HandleOpenRecordingComboClick( state, result, 3, static_cast<int>( dropdown.x + 5.0f ), static_cast<int>( dropdown.y + dropdown.h - 5.0f ), contentX, rowBase, contentW ) );
     CHECK( result.commands.scene.requestedInteractionRecordingIndex == 2 );
     CHECK( result.commands.ui.userInteracted );
     CHECK_FALSE( state.recordingCombo.IsOpen() );
@@ -648,27 +1227,33 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
     data->renderTargets.previews[0] = { "Scene HDR", 1920, 1080, false, false, true };
 
     constexpr InGameUITab tabs[] = {
-        InGameUITab::Profiler, InGameUITab::Scene,     InGameUITab::Editor,  InGameUITab::Physics,
-        InGameUITab::Options,  InGameUITab::Render,    InGameUITab::Targets, InGameUITab::Keys,
-        InGameUITab::Sky,      InGameUITab::Cinematic, InGameUITab::Memory,
+        InGameUITab::Profiler,
+        InGameUITab::Scene,
+        InGameUITab::Editor,
+        InGameUITab::Physics,
+        InGameUITab::Options,
+        InGameUITab::Render,
+        InGameUITab::Targets,
+        InGameUITab::Keys,
+        InGameUITab::Sky,
+        InGameUITab::Cinematic,
+        InGameUITab::Memory,
     };
+    // Blue-gray mockup palette with selected-value clips that reserve combo arrows.
+    // Options adds themes; Profiler/Memory share table roles.
+    // Editor adds sculpt controls; native evidence: terrain-validation-06/editor-controls-view.png.
     constexpr uint64_t expected[] = {
-
-        // Invariant: every build presents the same native profiler controls;
-        // removing the remote-profiler badge leaves the portable stream unchanged.
-        17282268762934632125ull,
-        // Scene includes the Solver Lab selector; forecast controls remain
-        // reachable below it through the scrolling/input test above.
-        15360790563338956579ull,
-        643319089294822447ull,
-        9774020997193876338ull,
-        16562541090565446015ull, // Options: the same request is labelled Capture lockstep.
-        13838569643518502325ull,
-        1186693958027131891ull,
-        5057719176066529734ull,
-        3243788985155815295ull,
-        15645422141942934428ull,
-        14809053394253860312ull, // Memory: prediction evidence bank current/peak rows added.
+        2132093253974716310ull,
+        8999909969555097215ull,
+        15598442833394761550ull,
+        5029844691847507383ull,
+        10394370338941968616ull,
+        5478074610712965329ull,
+        6412084034923494129ull,
+        16903291462328685303ull,
+        17139239282114657199ull,
+        17717404666730030321ull,
+        2685391709597859732ull,
     };
     static_assert( std::size( tabs ) == std::size( expected ) );
 
@@ -693,6 +1278,11 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
             // scrolling, as the physical-input test above verifies.
             CHECK( forecastButtonIndex == -1 );
             REQUIRE( FindDrawTextIndex( frame, "Solver Lab" ) >= 0 );
+        }
+
+        if ( tabs[surface] == InGameUITab::Editor )
+        {
+            REQUIRE( FindDrawTextIndex( frame, "Terrain brush" ) >= 0 );
         }
 
         if ( tabs[surface] == InGameUITab::Options )
@@ -763,14 +1353,12 @@ TEST_CASE( "GameUI gravity slider endpoints emit signed world acceleration from 
     const SkullbonezCore::UI::UIRect track = Widgets::SliderTrackBounds( state.worldGravitySlider.Bounds() );
 
     SkullbonezCore::UI::InGameUIInputResult minimumResult;
-    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY, static_cast<int>( track.x ),
-                                             minimumResult ) );
+    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY, static_cast<int>( track.x ), minimumResult ) );
     CHECK( minimumResult.commands.water.requestWorldGravity );
     CHECK( minimumResult.commands.water.requestedWorldGravity == doctest::Approx( -Policy::UI_WORLD_GRAVITY_MIN ) );
 
     SkullbonezCore::UI::InGameUIInputResult maximumResult;
-    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY, static_cast<int>( track.x + track.w ),
-                                             maximumResult ) );
+    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY, static_cast<int>( track.x + track.w ), maximumResult ) );
     CHECK( maximumResult.commands.water.requestWorldGravity );
     CHECK( maximumResult.commands.water.requestedWorldGravity == doctest::Approx( -Policy::UI_WORLD_GRAVITY_MAX ) );
 }
@@ -811,17 +1399,13 @@ TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes wi
     UIDrawContext measuredDraw( 1920, 1080, measuredList );
     UIMemoryOverlayState measuredState;
     SkullbonezCore::Core::Allocation::ResetRuntimeAllocationCounters();
-    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Gameplay );
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode( SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Gameplay );
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope renderScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Render );
-        SkullbonezCore::UI::MemoryTab::Draw( measuredDraw, measuredState, memoryFrame, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f,
-                                             0, 0, 0 );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope renderScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Render );
+        SkullbonezCore::UI::MemoryTab::Draw( measuredDraw, measuredState, memoryFrame, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f, 0, 0, 0 );
     }
     const uint64_t memoryDrawAllocationViolations = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
-    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off );
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode( SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off );
 
     CHECK( memoryDrawAllocationViolations == 0u );
     const int colliderRow = FindDrawTextIndex( measuredList, "ColliderStore.colliders" );
@@ -920,4 +1504,386 @@ TEST_CASE( "UI font metrics are immutable and preserve legacy operation order" )
 
     advances[0] += 1.0f;
     CHECK_FALSE( UIFontMetrics::Install( advances.data(), static_cast<int>( advances.size() ) ) );
+}
+
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+TEST_CASE( "Tools tooltip targets follow the visible tab and content clip" )
+{
+    using namespace SkullbonezCore::UI;
+    auto owner = std::make_unique<UIWindowInteractionOwner>();
+    owner->SetVisible( true, 0.0 );
+    owner->SetMinimized( false, 0.0 );
+    UIWindowInteractionOwnerTestAccess::SeedTooltipBounds( *owner );
+    const UIRect content { 20, 100, 300, 200 };
+    owner->SetActiveTab( InGameUITab::Physics );
+    const auto physics = UIWindowInteractionOwnerTestAccess::ToolsTooltip( *owner, content );
+    CHECK( physics.id == 2016 );
+    CHECK( std::string( physics.text.units ) == "Seconds" );
+    owner->SetActiveTab( InGameUITab::Options );
+    CHECK( UIWindowInteractionOwnerTestAccess::ToolsTooltip( *owner, content ).id == 2106 );
+    owner->SetActiveTab( InGameUITab::Memory );
+    CHECK( UIWindowInteractionOwnerTestAccess::ToolsTooltip( *owner, content ).id == 2204 );
+    CHECK( UIWindowInteractionOwnerTestAccess::ToolsTooltip( *owner, { 20, 200, 300, 100 } ).id == 0 );
+    owner->SetActiveTab( InGameUITab::Scene );
+    CHECK( UIWindowInteractionOwnerTestAccess::ToolsTooltip( *owner, content ).id == 0 );
+    owner->SetActiveTab( InGameUITab::Physics );
+    owner->SetRendererComboOpen( true );
+    CHECK( UIWindowInteractionOwnerTestAccess::ToolsTooltip( *owner, content ).id == 0 );
+    owner->SetRendererComboOpen( false );
+    owner->SetMinimized( true, 1.0 );
+    CHECK( UIWindowInteractionOwnerTestAccess::ToolsTooltip( *owner, content ).id == 0 );
+}
+#endif
+
+TEST_CASE( "Compact Tools reserves distinct title tabs content and footer across small windows" )
+{
+    using namespace SkullbonezCore::UI;
+    using namespace GameLayout;
+    for ( const auto size : std::array { std::pair { 320, 240 }, std::pair { 480, 360 }, std::pair { 640, 480 } } )
+    {
+        for ( const auto layout : { LayoutMode::Canvas, LayoutMode::Editor } )
+        {
+            PresentationState state;
+            state.toolsOpen = true;
+            state.preferences.layout = layout;
+            const auto shell = ComputePresentationRects( state, size.first, size.second );
+            const auto chrome = ComputeToolsChromeRects( shell.drawer, true );
+            CHECK( chrome.compact );
+            CHECK( chrome.content.h > 0 );
+            CHECK( chrome.title.y + chrome.title.h <= chrome.tabs.y );
+            CHECK( chrome.tabs.y + chrome.tabs.h <= chrome.content.y );
+            CHECK( chrome.content.y + chrome.content.h <= chrome.footer.y );
+            CHECK( chrome.footer.y + chrome.footer.h <= shell.drawer.y + shell.drawer.h );
+            CHECK( chrome.close.y + chrome.close.h <= chrome.title.y + chrome.title.h );
+        }
+    }
+    const auto wide = ComputeToolsChromeRects( { 0, 42, 1784, 360 }, true );
+    CHECK_FALSE( wide.compact );
+    CHECK( wide.content.y == 142 );
+    CHECK( wide.footer.h == 78 );
+}
+
+TEST_CASE( "Scene pause and single-step controls emit owner commands only when available" )
+{
+    using namespace SkullbonezCore::UI;
+    using namespace GameLayout;
+    auto ui = std::make_unique<InGameUI>();
+    auto data = std::make_unique<InGameUIFrameData>();
+    data->surface.screenW = 1600;
+    data->surface.screenH = 900;
+    InputControl::UIInputSnapshot input;
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    const auto header = ComputeHeaderRects( ui->PresentationBounds().header );
+    input.mouseX = static_cast<int>( header.scenes.x + 10 );
+    input.mouseY = 20;
+    input.leftPressed = true;
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    const auto chrome = ComputeToolsChromeRects( ui->PresentationBounds().drawer, true );
+    const float scroll = static_cast<float>( SceneTab::ContentHeight() ) - chrome.content.h;
+    ui->SetScrollY( scroll );
+    ui->Draw( *data );
+    input.mouseY = static_cast<int>( chrome.content.y + 516.0f - scroll + 12.0f );
+    input.mouseX = static_cast<int>( chrome.content.x + chrome.content.w * 0.75f );
+    input.leftDown = true;
+    auto result = ui->UpdateInput( input, 1600, 900, 1.0, false, false, false, false, 0x7f );
+    CHECK_FALSE( result.commands.scene.requestSingleStep );
+    data->operatorEditor.tools.crossScenePauseLocked = true;
+    ui->Draw( *data );
+    result = ui->UpdateInput( input, 1600, 900, 1.1, false, false, false, false, 0x7f );
+    CHECK( result.commands.scene.requestSingleStep );
+    input.leftPressed = false;
+    result = ui->UpdateInput( input, 1600, 900, 1.2, false, false, false, false, 0x7f );
+    CHECK_FALSE( result.commands.scene.requestSingleStep );
+    input.leftPressed = true;
+    input.mouseX = static_cast<int>( chrome.content.x + 40 );
+    result = ui->UpdateInput( input, 1600, 900, 1.3, false, false, false, false, 0x7f );
+    CHECK( result.commands.scene.toggleCrossScenePause );
+}
+
+
+namespace
+{
+float ThemeLuminance( const SkullbonezCore::UI::Style::UIColor& color )
+{
+    const auto linear = []( float channel ) { return channel <= .04045f ? channel / 12.92f : std::pow( ( channel + .055f ) / 1.055f, 2.4f ); };
+    return .2126f * linear( color.r ) + .7152f * linear( color.g ) + .0722f * linear( color.b );
+}
+float ThemeContrast( const SkullbonezCore::UI::Style::UIColor& foreground, const SkullbonezCore::UI::Style::UIColor& background )
+{
+    const float a = ThemeLuminance( foreground ), b = ThemeLuminance( background );
+    return ( (std::max)( a, b ) + .05f ) / ( (std::min)( a, b ) + .05f );
+}
+} // namespace
+
+TEST_CASE( "UI themes preserve role references and readable primary and secondary text" )
+{
+    using namespace SkullbonezCore::UI::Style;
+    const Theme original = CurrentTheme();
+    const auto& retained = Palette().textPrimary;
+    for ( int index = 0; index < static_cast<int>( Theme::Count ); ++index )
+    {
+        const auto theme = static_cast<Theme>( index );
+        SelectTheme( theme );
+        CHECK( CurrentTheme() == theme );
+        CHECK( retained.r == Palette( theme ).textPrimary.r );
+        CHECK( FooterToggle().label.r == Palette().textSecondary.r );
+        const auto& palette = Palette();
+        for ( const auto& background : { palette.window, palette.windowSubtle, palette.control, palette.selection } )
+        {
+            CHECK( ThemeContrast( palette.textPrimary, background ) >= 4.5f );
+            CHECK( ThemeContrast( palette.textSecondary, background ) >= 4.5f );
+        }
+    }
+    SelectTheme( static_cast<Theme>( 255 ) );
+    CHECK( CurrentTheme() == Theme::Blue );
+    SelectTheme( original );
+}
+
+TEST_CASE( "UI theme selection changes a cached Tools frame without changing content" )
+{
+    using namespace SkullbonezCore::UI;
+    const auto original = Style::CurrentTheme();
+    auto ui = std::make_unique<InGameUI>();
+    auto data = std::make_unique<InGameUIFrameData>();
+    data->surface.screenW = 1280;
+    data->surface.screenH = 900;
+    ui->SetVisible( true );
+    ui->SetWindowBounds( 50, 70, 760, 600 );
+    ui->SetActiveTab( InGameUITab::Options );
+    ui->SetMouseOverride( true, 12, 12 );
+    Style::SelectTheme( Style::Theme::Blue );
+    const auto blue = ui->Draw( *data ).Fingerprint();
+    Style::SelectTheme( Style::Theme::Light );
+    CHECK( ui->Draw( *data ).Fingerprint() != blue );
+    Style::SelectTheme( Style::Theme::Blue );
+    CHECK( ui->Draw( *data ).Fingerprint() == blue );
+    Style::SelectTheme( original );
+}
+
+TEST_CASE( "UI panel motion eases in and out in 160 milliseconds and reverses continuously" )
+{
+    using namespace SkullbonezCore::UI;
+    UIPanelMotion motion;
+    CHECK( motion.Update( true, 10.0 ) == 0.0f );
+    CHECK( motion.Update( true, 10.08 ) == doctest::Approx( 0.875f ) );
+    CHECK( motion.Update( true, 10.16 ) == doctest::Approx( 1.0f ) );
+    CHECK( motion.Update( false, 11.0 ) == 1.0f );
+    CHECK( motion.Update( false, 11.08 ) == doctest::Approx( 0.875f ) );
+    CHECK( motion.Update( true, 11.08 ) == doctest::Approx( 0.875f ) );
+    CHECK( motion.Update( true, 11.10 ) == doctest::Approx( 1.0f ) );
+    CHECK( motion.Update( false, 12.0 ) == 1.0f );
+    CHECK( motion.Update( false, 12.2 ) == 0.0f );
+    CHECK_FALSE( motion.Active() );
+}
+
+TEST_CASE( "UI panel exits retain clipped labels and fade their alpha without darkening ink" )
+{
+    using namespace SkullbonezCore::UI;
+    auto transitions = std::make_unique<UIPanelTransitions>();
+    auto source = std::make_unique<UIDrawList>();
+    source->PushClip( { 0, 0, 500, 500 } );
+    source->SetPanel( UIPanel::Left );
+    source->AddRect( { 0, 20, 200, 200 }, { 0.8f, 0.8f, 0.8f, 1 } );
+    source->AddText( { 10, 30 }, 12, { 0.1f, 0.2f, 0.3f, 0.5f }, "retained label" );
+    source->PopClip();
+    transitions->BeginFrame();
+    transitions->Append( *source );
+    transitions->Compose( 0 );
+    transitions->Compose( 1 );
+    transitions->BeginFrame();
+    transitions->Compose( 2 );
+    const auto& draw = transitions->Compose( 2.08 );
+    CHECK_FALSE( draw.GetStats().clipOverflow );
+    int labels = 0;
+    for ( const auto& command : draw.Commands() )
+    {
+        if ( command.type != UIDrawList::CommandType::Text )
+        {
+            continue;
+        }
+        ++labels;
+        CHECK( std::string( draw.TextAt( command.textOffset ) ) == "retained label" );
+        CHECK( command.x0 == doctest::Approx( 10.0f ) );
+        CHECK( command.y0 == doctest::Approx( 5.0f ) );
+        CHECK( command.a == doctest::Approx( 0.4375f ) );
+        CHECK( command.r == doctest::Approx( 0.1f ) );
+    }
+    CHECK( labels == 1 );
+    CHECK( transitions->Compose( 2.2 ).Empty() );
+    CHECK_FALSE( transitions->Active() );
+}
+
+TEST_CASE( "UI panel metadata survives cached foreground extraction and clock pinning" )
+{
+    using namespace SkullbonezCore::UI;
+    auto transitions = std::make_unique<UIPanelTransitions>();
+    auto source = std::make_unique<UIDrawList>();
+    auto foreground = std::make_unique<UIDrawList>();
+    source->SetPanel( UIPanel::Header );
+    source->BeginForeground();
+    source->PushClip( { 0, 0, 500, 500 } );
+    source->AddText( { 10, 20 }, 12, { 1, 1, 1, 1 }, "popup" );
+    source->PopClip();
+    source->EndForeground();
+    source->ExtractForeground( *foreground );
+    CHECK( foreground->HasPanel( UIPanel::Popup ) );
+    transitions->SetClockOverride( 0, true );
+    transitions->BeginFrame();
+    transitions->Append( *foreground );
+    transitions->Compose( 100 );
+    transitions->SetClockOverride( .08, true );
+    transitions->Compose( 101 );
+    CHECK( transitions->Visibility( UIPanel::Popup ) == doctest::Approx( .875f ) );
+    transitions->Compose( 102 );
+    CHECK( transitions->Visibility( UIPanel::Popup ) == doctest::Approx( .875f ) );
+    transitions->SetClockOverride( 0, false );
+    transitions->Compose( 200 );
+    CHECK( transitions->Visibility( UIPanel::Popup ) == doctest::Approx( .875f ) );
+    transitions->Compose( 201 );
+    CHECK( transitions->Visibility( UIPanel::Popup ) == 1.0f );
+}
+
+TEST_CASE( "UI moving panels shield content and direct resizing finishes their motion" )
+{
+    using namespace SkullbonezCore::UI;
+    auto transitions = std::make_unique<UIPanelTransitions>();
+    auto draw = std::make_unique<UIDrawList>();
+    draw->SetPanel( UIPanel::Drawer );
+    draw->AddRect( { 0, 400, 1000, 200 }, { 0, 0, 0, 1 } );
+    transitions->BeginFrame();
+    transitions->Append( *draw );
+    transitions->Compose( 0 );
+    CHECK( transitions->BlocksPointer( { 200, 500 } ) );
+    CHECK( transitions->BlocksPointer( { 200, 610 } ) );
+    CHECK_FALSE( transitions->BlocksPointer( { 200, 200 } ) );
+    transitions->Finish( UIPanel::Drawer, true );
+    transitions->Compose( .02 );
+    CHECK( transitions->Visibility( UIPanel::Drawer ) == 1 );
+    CHECK_FALSE( transitions->BlocksPointer( { 200, 500 } ) );
+    transitions->BeginFrame();
+    transitions->Compose( 1 );
+    CHECK( transitions->BlocksPointer( { 200, 500 } ) );
+    transitions->Compose( 1.2 );
+    CHECK_FALSE( transitions->BlocksPointer( { 200, 500 } ) );
+}
+
+TEST_CASE( "Editor and Replay sections fold independently and expose separate resize edges" )
+{
+    using namespace SkullbonezCore::UI;
+    using namespace SkullbonezCore::UI::GameLayout;
+    auto ui = std::make_unique<InGameUI>();
+    ui->SetVisible( false );
+    InputControl::UIInputSnapshot input;
+    const auto click = [&]( const UIRect& bounds )
+    {
+        input.mouseX = static_cast<int>( bounds.x + bounds.w * 0.5f );
+        input.mouseY = static_cast<int>( bounds.y + bounds.h * 0.5f );
+        input.leftPressed = input.leftDown = true;
+        ui->UpdatePresentationInput( input, 1600, 900, true );
+        const auto opened = ui->UpdateInput( input, 1600, 900, 0, false, false, false, false, 0x7f );
+        CHECK_FALSE( opened.commands.editor.toggleEditorMode );
+        input.leftPressed = input.leftDown = false;
+        input.leftReleased = true;
+        ui->UpdateInput( input, 1600, 900, 0, false, false, false, false, 0x7f );
+        input.leftReleased = false;
+    };
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    click( ComputeHeaderRects( ui->PresentationBounds().header ).layout );
+    click( ui->PresentationBounds().editorTab );
+    const auto editor = ui->PresentationBounds().editorControls;
+    click( ui->PresentationBounds().editorReplayTab );
+    auto both = ui->PresentationBounds();
+    CHECK( both.editorControls.y == editor.y );
+    CHECK( both.editorControls.h < editor.h );
+    CHECK( both.editorPane.h > both.replayPane.h );
+    CHECK( both.replayPane.y == both.editorPane.y + both.editorPane.h );
+    CHECK( both.leftResize.w >= 10 );
+    CHECK( both.replayResize.w >= 10 );
+    click( both.leftFold );
+    CHECK( ui->PresentationBounds().editorControls.w == 0 );
+    CHECK( ui->PresentationBounds().replayControls.w > 0 );
+    click( ui->PresentationBounds().replayFold );
+    CHECK( ui->PresentationBounds().replayControls.w == 0 );
+    CHECK( ui->PresentationBounds().left.w == 24 );
+    CHECK( ui->PresentationBounds().replayPane.y == ui->PresentationBounds().editorPane.y + 108 );
+    click( ui->PresentationBounds().editorReplayTab );
+    const auto grip = ui->PresentationBounds().replayResize;
+    input.mouseX = static_cast<int>( grip.x + 5 );
+    input.mouseY = static_cast<int>( grip.y + 50 );
+    input.leftPressed = input.leftDown = true;
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    auto result = ui->UpdateInput( input, 1600, 900, 0, false, false, false, false, 0x7f );
+    CHECK( result.nativeMouseCapture == InGameUIInputResult::NativeMouseCaptureRequest::Acquire );
+    input.leftPressed = false;
+    input.mouseX += 180;
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK( ui->PresentationBounds().replayControls.w == 460 );
+    CHECK( ui->BlocksCauseMouse() );
+    input.leftDown = false;
+    input.leftReleased = true;
+    result = ui->UpdateInput( input, 1600, 900, 0, false, false, false, false, 0x7f );
+    CHECK( result.nativeMouseCapture == InGameUIInputResult::NativeMouseCaptureRequest::Release );
+    ui->SetVisible( true );
+    ui->SetActiveTab( InGameUITab::Editor );
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    auto data = std::make_unique<InGameUIFrameData>();
+    data->surface.screenW = 1600;
+    data->surface.screenH = 900;
+    const auto& draw = ui->Draw( *data );
+    CHECK_FALSE( draw.HasPanel( UIPanel::Left ) );
+    CHECK( draw.HasPanel( UIPanel::LowerLeft ) );
+}
+
+TEST_CASE( "Floating diagnostics reserve no dock space in either Tools state" )
+{
+    using namespace SkullbonezCore::UI::GameLayout;
+    PresentationState state;
+    state.preferences.layout = LayoutMode::Editor;
+    state.preferences.leftFolded = state.preferences.rightFolded = false;
+    state.markerHistoryOpen = state.memoryWaterlineOpen = true;
+    for ( int sample = 0; sample < 6; ++sample )
+    {
+        state.toolsOpen = sample >= 3;
+        const int widths[] = { 320, 900, 1784 };
+        const auto layout = ComputePresentationRects( state, widths[sample % 3], 961 );
+        for ( const auto& diagnostic : { layout.markerHistory, layout.memoryWaterline } )
+        {
+            CHECK( diagnostic.w == 0 );
+            CHECK( diagnostic.h == 0 );
+        }
+    }
+}
+
+TEST_CASE( "Editor palette follows terrain controls and its final row remains scrollable" )
+{
+    using namespace SkullbonezCore::UI::GameLayout;
+    CHECK( EDITOR_PALETTE_TOP > EDITOR_CONTROLS_HEIGHT );
+    for ( float width : { 60.0f, 320.0f, 1200.0f } )
+    {
+        const float columns = (std::max)( 1.0f, std::floor( ( width + 4.0f ) / 36.0f ) );
+        const float lastRowBottom = EDITOR_PALETTE_TOP + std::ceil( 24.0f / columns ) * 36.0f;
+        CHECK( EditorContentHeight( width ) >= lastRowBottom );
+    }
+    PresentationState state;
+    state.preferences.layout = LayoutMode::Editor;
+    state.preferences.leftFolded = false;
+    state.editorScroll = 10000.0f;
+    const auto layout = ComputePresentationRects( state, 320, 240 );
+    CHECK( layout.editorScroll + layout.editorControls.h == doctest::Approx( EditorContentHeight( layout.editorControls.w ) ) );
+}
+
+TEST_CASE( "UI transport reveal cannot block its own hover while shielding the world" )
+{
+    using namespace SkullbonezCore::UI;
+    auto transitions = std::make_unique<UIPanelTransitions>();
+    auto draw = std::make_unique<UIDrawList>();
+    draw->SetPanel( UIPanel::Transport );
+    draw->AddRect( { 0, 900, 1000, 28 }, { 0, 0, 0, 1 } );
+    transitions->BeginFrame();
+    transitions->Append( *draw );
+    transitions->Compose( 0 );
+    CHECK( transitions->BlocksPointer( { 200, 915 } ) );
+    CHECK_FALSE( transitions->BlocksPointer( { 200, 915 }, UIPanel::Transport ) );
+    transitions->Compose( .08 );
+    CHECK_FALSE( transitions->BlocksPointer( { 200, 915 }, UIPanel::Transport ) );
 }

@@ -347,6 +347,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPalette.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPaletteDraw.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\GameUILayout.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIPresentationPreferences.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIToolsTooltips.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIFrameComposition.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabCinematic.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabControls.cpp" />
@@ -392,6 +394,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\StandaloneStyleWriter.cpp" />
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp" />
+    <ClCompile Include="SkullbonezSource\World\TerrainEditing.cpp" />
     <ClCompile Include="SkullbonezSource\World\WorldEnvironment.cpp" />
   </ItemGroup>
   <ItemGroup>

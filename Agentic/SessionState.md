@@ -1,8 +1,1288 @@
 # Session State
 
-Date: 2026-09-07
-Branch: `codex/solver-lab` (root checkout, from merged main)
-Status: Solver Lab library and loading optimization in final validation.
+Date: 2026-09-12
+Branch: `codex/unified-ui`
+Status: PHYSICS_SCALE complete at 7/7; live portfolio 138/144; PHYSICS_AB queued at 0/6. Measured performance improves with byte-identical tested Physics output and no baseline changes.
+
+## Physics Scale Optimization — 2026-09-12
+
+PHYSICS_SCALE is complete at 7/7 on `codex/unified-ui`, from starting revision
+`16d472bb47bdf27a224327419783639d67ccf325`. Sweep geometry caching, bounded
+pair membership, conservative target queries, current joint keys and bounded
+parallel gravity preserve exact admission and force-reduction order. The normal
+performance gate checks ten identified workloads and rejects incomplete,
+malformed or regressing evidence. No body-record field or Replay growth
+privilege was added; gameplay allocation guards report zero violations.
+
+Thirty final runs pass the new performance checks. Median Physics CPU time
+improves 51.3% at 2,000 bodies (2.8480 to 1.3858 ms), 92.4% for sleepy 5,000
+(12.4594 to 0.9420 ms), 16.2% for gravity 1,024 (3.9263 to 3.2905 ms), and
+40.2% for joints 320 (2.1987 to 1.3158 ms). All ten measured workloads improve;
+these are Physics timings, not guaranteed whole-game FPS gains.
+
+All 1,047 active Profile tests pass, with 3,735,830 assertions and one existing
+skip. Debug coverage passes all ten floors. Original-algorithm references,
+0/1/4-worker state checks and 1,025-body prediction seeding/reseeding pass.
+The four core Debug worker outputs match the unchanged 44,401-line baseline
+byte-for-byte. All 136 tracked baseline/golden hashes remain unchanged.
+DX12, all 15 native prediction transitions, remaining state/query/render/
+playback/shortcut constituents and source/dependency/allocation checks pass.
+Independent review findings were repaired and rechecked.
+
+Hosted Linux run 34690813794 passes GCC and Clang warning-clean builds, ASan,
+UBSan and TSan. Portable repairs restore six existing CMake sources and retain
+equivalent integer sorting/conversions. The final Windows Profile .text section
+is byte-identical to the measured producer (3,749,376 bytes).
+
+The terminal umbrella ran exactly once and failed on old scratch-memory test
+expectations. Those were repaired and full tests plus unreached constituents
+were run separately; the umbrella remains recorded as failed. Deep/query
+golden mismatches, contact-energy payload/schema rejection, canonical replay
+topology mismatch, Automation velocity-comparison command coverage and sixteen
+legacy relative perf failures remain failures. Preserved pre-change producers,
+reports or unchanged source establish their inherited status. No thresholds
+or baselines were loosened. The optional informational frame-spike diagnostic
+was not reached by the umbrella and was not run separately.
+
+Detailed timings, p99/max, counters, scratch bytes, exact producer comparisons,
+commands and logs are in `TestOutput/physics-scale-optimization/handoff.md`.
+Implementation checkpoints: b801544ec, f9aa698fd, 2689bbcde, 7be64f85c,
+b3b85701f. The completed TODO plan is deleted; its history and MASTER-PLAN
+retain closure evidence. Live portfolio returns to 138/144; PHYSICS_AB remains
+queued at 0/6, with AB1 next. No AB implementation was requested in this run.
+The unrelated untracked `SkullbonezData/scenes/asdasd.scene.json` is untouched.
+
+The historical work ledger contains another session's unfinished GOV1 task and
+rejected this run's bootstrap. That record remains untouched; no token/cost
+accounting or derived completion-ledger artifacts were fabricated.
+
+## Original and Modified reveal - 2026-09-12
+
+The comparison-only half-budget uniform sampler has been removed. App lazily
+captures the exact displayed Original compact geometry on the first changed
+vector, recolours/fades it once, and retains it unchanged through repeated edits.
+Modified uses the ordinary adaptive retained drawing and wall-clock reveal path.
+Every changed-vector release discards its previous publication so same-target
+refresh cannot preserve an already-complete reveal cursor. No extra GPU buffer
+is allocated: frozen per-lane records and active range records use independent
+existing renderer regions. CPU snapshot growth shares the registered 960 MiB cap.
+
+The dense native regression proves 15,916 Original records remain exact while
+15,250 Modified records reveal progressively, including a second edit. Allocation
+guard and DX12 checks pass. Final closure evidence is recorded in
+`Agentic/Reports/2026-09-12-velocity-reveal.md`.
+
+## PR 169 adversarial review - 2026-09-12
+
+The review reproduced Modified path loss with 3,000 moving bodies: Original
+covered 3,000 but Modified only 1,096 because per-body ranges exhausted 4,096
+renderer slots. Sharing one range per branch fixes coverage without changing
+the 24,000-record budget. Skarness now exposes retained compact records/ranges
+for an all-body, target-identity and ghost-coverage regression in the UI gate.
+
+Native regression repairs account for frame-zero entry cancelling a replay
+experiment, the editor palette's new rows, and camera return tweens. The pointer
+test now projects with the rendered camera rather than its destination. A
+recorded active tween demonstrates successful re-entry and handle editing.
+
+Fast validation passes all 1,044 tests with one existing skip. Native terrain,
+sleeping ragdoll placement/reload/wake, dense 200-box comparisons, renderer and
+one-minute stress checks pass. Final gate results and review evidence are in
+`Agentic/Reports/2026-09-12-pr169-adversarial.md` and `TestOutput/pr169-*.log`.
+
+The unchanged 200-box replay oracle differs due to the earlier authored-sleep
+fix. Reverting only queued construction-wake retirement in an isolated build
+reproduces the entire old oracle and its negative controls. Correct sleep keeps
+all 200 boxes participating and all 2,401 frames complete, but changes collision
+order and settles 198 boxes rather than 200. Reviewed candidate baselines and
+hashes are in `TestOutput/pr169-baseline-review/`; explicit owner approval is
+pending and canonical baselines remain unchanged. The unrelated untracked
+`SkullbonezData/scenes/asdasd.scene.json` remains untouched.
+
+## Editor initial velocity and frame zero - 2026-09-12
+
+The Editor tab now has Modify velocity and Angular velocity checkboxes. Dynamic
+bodies use the existing white vector and world-aligned XYZ handles; fixed bodies
+reject velocity edits. Each released drag records one velocity history entry,
+including initial sleep state, and updates authored values for save/reload.
+
+Entering Edit restores retained authored body descriptors and frame zero while
+preserving body/joint identities, unsaved placements and terrain. Physics clears
+transient contacts and warm impulses. Simulation, frame stepping and replay
+scrubbing cannot advance the scene while editing. Entering from an active
+Original/Modified experiment discards its futures and associated Solver Lab.
+Input routing also preserves a newly captured editor drag instead of cancelling
+it through a redundant interaction-owner transition.
+
+Validation: validate_fast passes all 1,044 tests (one existing skip; 3,484,483
+assertions), including authored restart with stable body and joint handles.
+Compiler source design, dependency graph/proof, formatting, plain language and
+allocation checks pass. The final staged physics gate passes the unchanged
+golden with fingerprint `19b3f541c3ba`. Automation builds pass; native Skarness
+tests exercise all six velocity axes, identity, undo/redo, static rejection,
+unsaved placement, frame stepping, scrub rejection, save/reload and replay
+experiment cancellation on Edit. Allocation guard passes and DX12 has zero
+errors. Screenshots were inspected. Existing replay velocity pointer and
+sleeping-ragdoll placement/wake suites pass. All 15 prediction scene-transition
+cases pass, including the 200-box wall before and after transitions.
+
+Evidence: `TestOutput/skarness/editor-velocity-commit/`,
+`TestOutput/skarness/editor-velocity-replay-regression/`,
+`TestOutput/skarness/editor-velocity-ragdoll-regression/`,
+`TestOutput/skarness/editor-velocity-prediction-matrix/`, and
+`TestOutput/editor-velocity-*.log`. The unrelated untracked `asdasd.scene.json`
+remains untouched. Isolated staged-tree validation uses separate Git metadata;
+no baseline, allocation cap, growth privilege or physics-body field was added.
+Review findings and fixes are recorded in `TestOutput/editor-velocity-review.md`.
+
+Closure: Debug, Profile and Automation builds are ready. The immutable 200-box
+visual oracle reports `causal.topology[0].id: expected=91 actual=70`. A separate
+run from pre-change HEAD `f328382e6` reports the same failure; both comparable
+visual and causal projections are identical before and after this editor work.
+All 2,401 frames are complete and the durable artifact round-trip passes.
+This existing golden mismatch remains unresolved; no baseline was refreshed.
+Evidence: `TestOutput/editor-velocity-visual-current/`,
+`TestOutput/editor-velocity-visual-before/`, and
+`TestOutput/editor-velocity-oracle-comparison.json`.
+
+## Sleeping ragdoll editor poses - 2026-09-12
+
+The existing standing sleep entry is now labelled explicitly. Two appended
+catalog entries add one arm up and both arms up, with matching preview geometry,
+joint anchors and quick-menu icons. Existing object ids remain stable. All three
+are dynamic sleepers and save as ordinary body states plus their nine joints.
+
+Native testing exposed two ordering faults: a joint-construction wake could
+override the final sleep seed, and snapshot loading created joints after reading
+sleeping body states. Explicit sleep now retires earlier queued wakes for the
+same body; scene loading reapplies saved sleep after its joint creation. Later
+topology changes and impacts still wake affected bodies. Placement diagnostics
+now use fixed stack scratch instead of allocating a name vector for every part.
+
+Validation: all 1,043 unit tests pass (one existing skip; 3,483,933 assertions).
+Automation and Profile builds pass. Native Skarness placement keeps 30 bodies
+asleep and motionless through 240 ticks, saves/reloads all 27 joints, and verifies
+that an impact wakes the ten connected bodies while the other twenty stay asleep.
+The gameplay allocation guard passes and DX12 reports zero errors. Final native
+menu coverage passes all 39 catalog entries and 13 hold variants in both layouts.
+Screenshots were inspected. Artifacts are under
+`TestOutput/skarness/ragdoll-poses-refactor/` and
+`TestOutput/skarness/ragdoll-poses-editor-closure/`.
+
+The broad fast preflight found three oversized/deep placement functions. A
+synchronous placement owner replaces captured local spawn closures; two bounds
+calculations now enumerate the same eight corners without nested loops. Focused
+compiler checks close all nine configuration findings. Final formatting,
+dependency graph/proof, plain-language and allocation policy checks pass.
+Forty-two allocation-checker references were refreshed for existing formatting;
+owners, phases, limits, operations and registration counts are unchanged.
+The final staged physics gate passes against the unchanged golden, fingerprint
+`811532f8102b`. Review details are in `TestOutput/ragdoll-poses-review.md`.
+The unrelated user-created `asdasd.scene.json` remains excluded from the isolated
+staged-tree validation and commit. No physics-body field or growth privilege was
+added. Native sessions were stopped through Skarness.
+
+## Terrain brush after new-level creation - 2026-09-11
+
+Reproduced the reported crash with native Scene-menu creation after default RAW
+terrain, followed by a brush stroke. The debugger stack reaches
+`VerifyGPUVirtualAddress`, triangle-descriptor validation and `BLAS::Rebuild`
+with exception `0x87a`. The previous equal-sized flat fixture missed the stale
+GPU address. DXR now drains the previous scene, rebuilds terrain/sphere BLAS
+recipes from the new mesh addresses and sizes, and refreshes TLAS/SBT storage.
+Pipeline and reflection texture identity survive the transition; terrain strokes
+continue to reuse their bounded workspace.
+
+The terrain gate now raises and lowers both newly created flat and imported
+levels after RAW terrain, binds assertions to scene generation 2, and preserves
+each session's zero-error DX12 report. Save/reload, unchanged-map reuse, UI
+exclusion and maximum-size imports also passed. Screenshots were inspected.
+Artifacts: `TestOutput/skarness/terrain-crash-fixed-final/`, failing reproduction
+under `TestOutput/skarness/terrain-raw-create-before/`, and debugger stack at
+`TestOutput/terrain-crash-before-stacks.log`. Renderer screenshots match the
+unchanged references and InfoQueue reports zero errors. A competing Debug build
+interrupted the renderer gate's final ready-build step; rerunning that step
+serially passed, leaving Debug and Profile ready. Compiler source design,
+dependency graph/proof, plain language and the mandatory staged physics gate
+passed (fingerprint `f9767ef9f4bf`, unchanged golden). Local review is recorded
+in `TestOutput/terrain-crash-review.md`. No allocation cap, growth privilege,
+physics-body field or dependency rule changed. The user-owned untracked
+`asdasd.scene.json` remains excluded from the isolated staged-tree validation.
+All 1,041 unit tests passed (one existing skip; 3,485,053 assertions).
+All 15 persistent Skarness scene-transition cases passed, including the generated
+demo and the second 200-body wall load, in
+`TestOutput/skarness/terrain-crash-matrix/`.
+The standard one-minute graphics stress gate passed (wrapper exit 0; samples
+through 60.175 seconds, then PID timeout cleanup after graceful-close timeout).
+Its log and memory samples are retained under `TestOutput/terrain-crash-stress*`.
+
+## Idle velocity widget - 2026-09-11
+
+Opening Modify Velocity no longer refreshes prediction, swaps prediction owners,
+changes camera/transport, or clears causal inspection. The second owner is
+allocated only after a changed vector requests comparison. App receives native
+mouse proposals before writing Physics, preserving the stock seed first; release
+starts the modified generation. Planning retains a pending vector and its release
+if an original must be built first, with target checks and cancellation/reset.
+Stationary initial clicks retain the original owner and generation. Screen
+handles do not require a replay world ray; the first drag retires camera-look
+capture and completes before entering inspection. Its physical release remains
+authoritative if preparing the original changes replay ownership. The angular
+mode switch remains available while only the widget is armed; comparison choices
+and Solver Lab appear after editing. Scene clicks cancel armed or active editing.
+
+Validation: 1,041 unit tests passed; Automation and Profile builds passed; source
+design, dependency graph/proof and plain-language checks passed. Skarness native
+pointer coverage (including quick release before an original exists) is under
+`TestOutput/skarness/velocity-widget-pointer-final-native/`; 200-box widget-only causal
+pixel comparison and full Modified/Solver Lab/accept flow are under
+`TestOutput/skarness/velocity-widget-dense-closure/`; both choices and ghosts are
+under `TestOutput/skarness/velocity-widget-choices/`. The unchanged full visual-fidelity gate passed, including causal reveal,
+durable replay artifact and all negative controls. The staged physics gate passed for the final native first-click fix with
+fingerprint `2de0a09a14d5`, using the isolated copy and unchanged golden. All 15 persistent scene-transition cases passed, including the generated
+demo and a second 200-box wall prediction. No baseline or allocation
+cap/registration changed. The user-created untracked `asdasd.scene.json` is not
+part of this change; commit validation uses an isolated staged-tree copy.
+
+## Dense velocity prediction completion - 2026-09-11
+
+The 200-box `prediction_ragdoll_wall_200.scene.json` reproduced a completed
+2,401-frame modified simulation whose final path allocation was denied under
+the shared 960 MiB prediction budget. Its publication remained pending; the
+operator saw 99% or Modified not ready. Repeated edits could also exhaust the
+next frame bank while retaining superseded diagnostics.
+
+Creating the additional Prediction owner now releases only the original's
+unused evidence bank. The additional owner discards its superseded diagnostic
+banks after joining the worker at generation start and reserves dormant point
+storage for both trajectory banks before optional evidence capture. Original
+committed evidence and blue paths remain intact. Registration, hard cap,
+Replay-only growth and lazy second-owner allocation are unchanged.
+
+A stationary gizmo click no longer cancels a completed result. An interrupted
+worker resumes after a stationary release; initial unedited entry still starts
+no prediction. Planning retains that release decision; InputRouter remains the
+only input/capture owner.
+
+The focused acceptance session is `TestOutput/skarness/velocity-dense-final2/`:
+three 20-second edits, complete cause hierarchy, synchronized 212-object
+Original/Modified poses, stationary click, native Open in Solver Lab, tick-1200
+differences and native Accept Modified all pass. `tools/validate_velocity_dense_scene.py`
+reproduces this flow. `velocity-pointer-readiness-final/` passes native linear
+and angular XYZ drags, re-grab cancellation, one generation per changed release,
+stationary readiness, paired Solver Lab and scene cancellation. Before-fix
+artifacts are `velocity-ready-before/` and `velocity-ready-diagnostic2/`.
+Closure: Automation and the physics gate's Debug build passed. All 1,040 unit
+cases passed (3,484,301 assertions; one existing skip). The unchanged 200-box
+visual/causal/durable-artifact oracle and its negative controls passed. The staged
+physics worker matrix passed against the unchanged golden (fingerprint
+`f3aaf294b129`). The extended pointer session `velocity-pointer-stationary-final/`
+also proves stationary release resumes an interrupted worker with unchanged
+velocity. Compiler, dependency, proof and plain-language checks pass. Allocation
+self-tests pass; the optional full audit retains 80 pre-existing issues after
+six context refreshes and one capacity-checked path-reserve entry.
+
+Profile C++ compilation succeeded, but link could not replace the user-owned
+running `Profile/SKULLBONEZ_CORE.exe` (PID 29180). Permission to close it remains
+pending; it was not terminated. Automation and Debug contain the fix. Local
+review notes: `TestOutput/velocity-ready-review.md`; all closure logs use
+`TestOutput/velocity-ready-*`. No golden, scene fixture, or allocation cap changed.
+
+## Velocity XYZ editing and Solver Lab - 2026-09-11
+
+Velocity editing now shows a white vector with world-aligned XYZ handles for
+linear or angular components. Picking and drag deltas use the rendered camera's
+screen projection into Window's presentation rectangle, fixed at press; nearly end-on axes are excluded and short
+projections have bounded sensitivity. Inspection activates before capture so
+the first press works. A hidden recording bar no longer cancels velocity capture.
+Re-grabbing cancels an unfinished prediction, holds generation during editing,
+and an edited release starts one replacement. A scene click outside the handles
+restores the original seed, discards the experiment and returns to Scene mode.
+
+The choices are named Original and Modified, retaining blue and red colours.
+Open in Solver Lab copies the two completed futures into its existing capped
+comparison owner and aligns elapsed time, preserving identity, poses, linear
+velocity and sleep. Its paired views retain both colours and permit normal
+playback, scrubbing and difference inspection. Detailed solver/contact evidence
+is unavailable because prediction motion samples do not contain it. The import
+is session-only; accepting/cancelling discards the imported experiment too.
+
+Native evidence: TestOutput/skarness/velocity-viewport-acceptance3 and
+TestOutput/velocity-viewport-native3.log. The harness selects path_striker_02 in
+interaction_replay_prediction_harness.scene.json and tests the first linear
+grab, all angular axes, a rotated camera, stationary clicks, held edits,
+identity-matched futures, Solver Lab seeking/playback, cancellation, RAW scene
+replacement and interrupting/restarting a real 120-second prediction build.
+The final check opens Replay and Causes before the angular drags. The second
+prediction owner is allocated only after Modify Velocity is enabled; owned
+sessions stop with zero gameplay/policy allocation violations.
+
+Five cold Solver Lab import growth sites are recorded in the allocation ledger.
+The EditorTracer constructor entry was refreshed for its unchanged reserve's
+formatted context. The remaining 80 static allocation findings match HEAD
+5e9975e27 exactly; no new finding remains. Evidence:
+TestOutput/velocity-xyz-allocation-baseline.json. No golden or shader asset is changed here.
+
+Actual PC mouse testing reproduced the displaced hit area with Replay expanded.
+The corrected build changed ID 7's linear X velocity from 95 to 117.4638 via the
+visible arrow. Angular clicks captured the matching axis. The PC helper's short
+drag sometimes moved to its endpoint before the sampled press, yielding a
+stationary click; preserved sampled pointer/gesture evidence distinguishes that
+from a picking failure. Held angular movement is verified by the native regression.
+Evidence: TestOutput/skarness/velocity-pc-desktop-before,
+velocity-pc-desktop-after and velocity-pc-pointer-diagnostics, plus
+TestOutput/velocity-pc-angular-samples.json. All owned PC sessions were stopped.
+
+Saved panel bounds are now published before renderer/scene startup. A clean boot
+with expanded panels uses [264,42,1070,891] in the 1784x961 client; folded panels
+also pass the first-frame viewport/projection assertion. Screenshots and native
+states: TestOutput/skarness/viewport-startup-final. The current Automation build
+already used the correct rectangle at its first recorded input/render frame;
+the added initialization also covers the earlier startup interval.
+
+Final build/unit evidence: TestOutput/velocity-viewport-build-all.log (Automation,
+Debug and Profile, zero warnings/errors), velocity-viewport-tests.log (1,038
+tests, 3,485,948 assertions, one existing skip), velocity-viewport-physics-final.log
+(unchanged golden), velocity-viewport-divergence.log (both acceptance choices).
+The persistent matrix initially passed 14/15 scenes; its demo camera check passes
+on rerun after restricting the unavailable-bar change to velocity editing
+(velocity-viewport-demo.log). Compiler source checks pass for the repaired and
+newly touched translation units; dependency and plain-language gates pass.
+The immutable 200-body, 2,401-tick replay visual oracle and all negative controls
+pass: TestOutput/velocity-viewport-replay-final.log.
+The DX12 screenshot gate also passes unchanged references with zero InfoQueue
+errors: TestOutput/velocity-viewport-dx12-final.log. Local critique resolved the
+identified capture, viewport, elapsed-time and cancellation findings; no blocking
+implementation finding remains (TestOutput/velocity-xyz-review.md).
+
+## Modify Velocity mouse release fix - 2026-09-11
+
+The reported failure reproduced: merely enabling Modify Velocity completed a
+same-value red generation and the comparison draw path omitted velocity handles.
+App now renders those handles for both ordinary and comparison paths. The second
+owner remains allocated only on Modify Velocity, with generation forbidden until
+an edited release. Held linear/angular changes update the vector without starting
+prediction; a stationary press/release does nothing. Scene replacement restores
+the original generation policy even when an edit has never been released.
+
+The new native regression uses actual linear and angular handles, verifies held
+body velocities and unchanged generation, checks the highlighted arrow's pixels,
+and requires exactly one generation on release plus identity-matched divergent
+futures. Skarness now supports a bounded holdAfterMoveMilliseconds value so this
+state can be observed before the release frame. Both this regression and the
+existing complete divergence check run in validate_ui. The latter also verifies
+prediction resumes after replacing an unresolved, unedited comparison.
+
+PR #169's existing hosted Physics failure was a source-hash mismatch during UI
+shader initialization. text.hlsl and ui_render_target_preview.hlsl had been baked
+from local CRLF bytes, while Git stores/checks out LF. Rebaking from Git-equivalent
+LF changes only source/input hashes in the manifest; DXIL bytes and reflection
+are unchanged. All shader source/dependency hashes now match Git's exact bytes.
+No behavioral baseline value or Physics setting is changed; the approved provenance reconciliation is recorded below.
+
+The persistent scene matrix also exposed a terrain-load lifetime defect: RAW
+construction records an upload, then PrepareEditing replaces that vertex buffer
+before its command list is closed. UseDefaultTerrain now drains the initial
+upload before preparing editing. The native pointer regression also switches
+from flat terrain to at_rest and proves prediction resumes after that load.
+The original failed matrix process was stopped after a non-invasive stack and
+DX12 message capture identified OBJECT_DELETED_WHILE_STILL_IN_USE; the full
+matrix is rerun on the repaired build.
+
+Local evidence: TestOutput/velocity-pointer-final.log and its Skarness session,
+velocity-divergence-release.log, velocity-causal-release.log,
+velocity-scene-matrix.log, velocity-mouse-fast.log and velocity-shader-bake-final.log.
+Both the complete branch fast gate (184 sources / 1,589 contexts) and the final
+follow-up fast gate pass, with 1,036 unit tests. All 15 scene-matrix cases, native
+velocity/causal checks, the complete UI gate, the staged Physics matrix, DX12
+renderer and timed graphics stress pass. The owner explicitly approved the two
+provenance hashes after the shader manifest fix. Only shadersSha256 and its
+derived causal visualBaselineSha256 binding changed; all 2,401 ticks, causal
+data, artifact bytes and Physics golden values remain unchanged. The comparator
+and all ten offline controls pass against the reconciled files using the same
+authoritative capture, preserving the one-process, one-generation rule. Evidence:
+TestOutput/velocity-replay-approved.log and
+TestOutput/velocity-provenance-candidate/changes.json. The commit body records
+the exact old/new hashes and their byte-for-byte derivation.
+Terminal results are in TestOutput/velocity-release-validation.json.
+
+## Branch adversarial review - 2026-09-11
+
+Reviewed all 17 commits after merge-base c88106035 against origin/main in separate
+source, lifetime/allocation, input/UI and Physics passes in the same session.
+No independent reviewer or agent review is claimed. Coverage includes the UI
+migration and animation, native event queue, speculative angular contacts,
+floating diagnostics, causal playback, velocity divergence and terrain editor.
+
+Fixed oversized height-map imports exceeding the 32 MiB GPU frame arena:
+saved maps now accept at most 257 posts per side, reject degenerate spacing and
+bound the header token. Legacy RAW extensions are case-insensitive. During an
+unresolved velocity comparison, editor mutations, world settings, saving and
+forced live stepping can no longer invalidate the retained Blue seed. Camera,
+comparison playback and explicit scene replacement remain available.
+
+Moved the quick-object palette below the terrain controls and made its scroll
+extent follow the number of rows. The transport bar now receives its own hover
+during animation, preventing a reveal/hide feedback loop while preserving world
+input blocking. Renderer validation uses isolated layout preferences; all three
+captures match the committed baselines (maximum differences 0, 1 and 0; no
+pixels differ by more than 10). The old claim below that these baselines predated
+the layout was incorrect. No visual or Physics baseline was refreshed.
+
+Updated the UI validation entry point and native assertions to exercise the
+current dock, Tools drawer and live layout bounds instead of retired floating
+Tools rectangles. All native cases pass individually, including all 37 object
+catalog entries, 24 quick buttons, 11 hold variants, small-window containment,
+causal scrubbing, autohide, diagnostics, options and Physics controls. Terrain
+tests include sculpting the largest accepted import; divergence tests prove
+both choices, identity-bound ghosts, lazy allocation/release, and rejection of
+Delete, Space and launcher mutation. Allocation diagnostics report no violations.
+
+Final Profile tests: 1,036 passed, 3,483,509 assertions, one skipped. Whole-branch
+compiler design checks cover 184 sources and 1,589 contexts with zero findings;
+focused checks cover the final fixes. Dependency, allocation and plain-language
+checks pass. Automation, Profile and Debug builds pass. DX12 capture, InfoQueue,
+baseline comparison and ready-build phases pass. The full fast/UI wrappers remain
+limited by the user's concurrent formatter changes; shader freshness likewise
+reports generated whitespace drift under that style. Those user-owned files were
+left untouched, and unrelated branch sources were not reformatted.
+
+Evidence: TestOutput/branch-review-summary.json and the branch-review logs/native
+sessions it references. The final commit hook supplies exact staged Physics
+validation evidence. No push is requested or performed.
+
+## Terrain editor - 2026-09-11
+
+Tools > Editor now has a terrain brush: wheel changes radius, left hold raises,
+right hold lowers, and UI input cannot sculpt. New levels remain flat by default;
+the Scene dropdown can create a level from an existing .heightmap or legacy RAW.
+Saving writes a full-precision signed map beside the level only after sculpting.
+Unchanged saved/imported maps are reused. World owns the grid and persistence;
+App orders prediction cancellation, Physics rebinding/wake and fixed DX12 uploads.
+Scene loading reserves brush storage and DXR rebuild workspace.
+
+Validation: 1,032 active unit tests / 3,483,551 assertions pass; new terrain
+malformed-file and reuse tests pass. Compiler design checks pass across the
+changed sources, including both new translation units. Native brush, wheel,
+UI exclusion, save/reload, flat creation, import and cancel all pass, with zero
+allocation violations. Command catalog/shared routes pass after waiting for
+Modify Velocity's asynchronous stock/branch readiness. Physics matches the
+44,401-line golden exactly for workers 0, repeated 0, 1 and 4. One-minute graphics
+stress passes. Three consecutive DX12 runs report zero validation errors.
+
+Renderer gate limitations are established as pre-existing: reflection metadata
+matches byte-for-byte with the committed formatter style (the user's in-progress
+style changes produce only generated whitespace drift). All three render captures
+match the saved pre-change executable 2386e9e3 pixel-for-pixel in isolated layouts;
+the branch review also confirms matching committed visual baselines once the
+renderer gate isolates layout preferences. No image or Physics baseline
+was refreshed. The Editor draw-command fingerprint was deliberately updated for
+the visible brush controls, with a corresponding label assertion.
+
+Evidence: `TestOutput/terrain-validation.json`, native session
+`TestOutput/skarness/terrain-validation-06`, and `docs/terrain-editor.md`.
+
+## Four UI fixes - 2026-09-11
+
+Implemented viewport-constrained, independent F5/F6 windows that remain visible
+when Tools opens; causal timeline click/drag updates presentation while retaining
+the selected event, evidence and inspection camera; held causal arrows run at
+0.3x instead of 0.1x while taps remain one tick; sleeping bodies show only purple
+sleep markers rather than also displaying green support rings.
+
+Validation: 1,029 tests / 3,484,356 assertions pass; 15-source / 114-context
+compiler checks have zero findings; fast preflight passes; full 2,401-tick replay
+fidelity and negative controls pass. Native floating-window, causal click/drag,
+Tools, independent side-panel and animation checks pass. The sleep-only capture
+binds all 20 ragdoll bodies asleep at tick 720; the body-region screenshot has
+5,244 purple pixels and zero green pixels. The fixed floor retains its separate
+support ring. This changes indicators, not Physics sleeping behavior.
+
+The UI suite reaches its screenshot checker but fails two existing legacy
+window guards (controls_bottom and min_size). Both failures reproduce using the
+saved pre-change Profile executable 2386e9e3 in isolated output directories.
+No visual or Physics baseline was changed. Full results, native sessions,
+producer hashes and prior-build comparison are in
+`TestOutput/ui-four-fixes/validation.json`.
+
+The four fixes are committed in `f8b3ef948`. This task has not pushed. Do not
+stage concurrent user-owned formatter changes (.clang-format, formatting
+scripts/hooks, style guide and tools README).
+
+## Modify Velocity divergence - 2026-09-11
+
+App retains the original complete Prediction owner as immutable blue when
+Modify Velocity begins. Only that action allocates a second owner through the
+existing Replay-phase prediction registration. Red builds from the edited seed;
+scrubbing and playback show all original objects as blue ghosts beside the real
+objects at the same red frame. Accept Blue restores the original bodies and
+solver snapshot; Accept Red keeps the edited seed. Either choice destroys the
+discarded owner and restores normal prediction colors. Scene replacement also
+releases comparison storage. Planning owns the choice/playback state and panels;
+App coordinates Prediction, Physics and rendering. The 960 MiB cap is shared,
+with no new growth registration or privilege.
+
+The user explicitly approved the lazy second allocation. Exact policy contexts
+were updated for the required formatting changes; new contexts identify startup
+primary-owner construction, approved lazy second-owner construction, and
+Diagnostics-only JSON observations. Strict native validation has zero gameplay
+or reserve-policy violations. Scene-browser normalization/queue append now
+enters the existing SceneLoad phase before the lifecycle load transaction; this
+fix was required by the strict scene-reset check.
+
+Native evidence: `TestOutput/skarness/divergence-validation-final-04` verifies
+seven bodies over 361 frames, both choices through real pointer clicks, repeated
+edits, synchronized playback, blocked premature save/branch/horizon changes,
+zero comparison-owner bytes before use, and release after both choices and
+scene replacement. Screenshots were inspected. The final fast gate passes, including Profile build, 1,029 tests / 3,483,261
+assertions, dependency and allocation-policy checks. Compiler design checks
+pass, including a separate check of the new App source. Causal playback,
+held arrows, camera interaction and retained futures also pass. Replay
+visual fidelity passes its complete 2,401-tick 200-box oracle, durable artifact
+and all negative controls. One-minute graphics stress passes: 72.38 seconds
+including timed cleanup, 131 descriptor turnovers, baseline restored. The staged
+physics gate matches all 44,401 baseline lines across workers 0/repeat/1/4
+(digest 50bca7c0f2c4), with fresh stamp 570636aee07b. Full results are recorded in
+`TestOutput/divergence-validation.json`. The feature commit is prepared; no push
+was performed. No baseline was refreshed.
+
+
+## Ragdoll sleep investigation — 2026-09-11
+
+Requested FP8/FP9 work is committed in `69e5a6092` and `02a7396dc`. Automatic
+approval review rejected `git push origin codex/unified-ui` because it requires
+explicit approval to send the changes to github.com/skullbonez/SkullbonezCore.
+An asynchronous approval question is pending. Do not retry or bypass that
+rejection without new authorization. The worktree was clean before this
+investigation handoff update.
+
+The requested investigation has produced 14 completed isolated 60-second runs
+plus the original 60-second baseline, all through Skarness at 120 Hz/four workers.
+All completed native captures exit 0; failed setup/floor attempts are retained.
+No shipping settings, source, scenes or baselines changed. Original engine.cfg
+and the isolated runtime config are byte-exactly restored. All owned native
+sessions stopped; there is no live experiment to resume.
+
+Main findings:
+- Original playground: neither ragdoll sleeps during 60 seconds. Removing the
+  ball yields identical sampled ragdoll states and the same result.
+- 48 solver iterations: both ragdolls sleep by 41.642 s and stay asleep.
+- Combined 24 iterations, object/terrain slop 0.02 m and bias 0.1: both sleep
+  by 30.350 s and stay asleep. Repeated sampled body states are exact.
+- A bounded fixed-box floor with original solver settings sleeps both by
+  4.758 s. This points to terrain-contact response/support for further work.
+- Mixed pile: defaults, combined tuning and 48 iterations all end with 0/46
+  dynamic bodies asleep. Ragdoll-part wake transitions after the first tick
+  are 6290 / 2690 / 5040. Combined tuning increases residual motion; do not
+  apply it globally. Further pile work should identify wake sources rather
+  than only raise sleep thresholds.
+
+Detailed report, exact configuration snapshots, new test scenes, commands,
+summary JSON, trace sizes and query accounting:
+`TestOutput/skarness/ragdoll-sleep-experiments-01/README.md`.
+Formal SkullScope queries read 7088 output bytes, none truncated; the original
+baseline trace is 430517825 bytes and SQLite cache is 279650304 bytes.
+The large box-floor failed SpatialGrid.entries reservation (1201/1200); its
+smaller 70-by-60-metre replacement passed. The failed broad floor is not a sleep
+measurement. External wake recovery, gameplay-wide acceptance and isolated
+performance of the candidate settings remain unmeasured; no global fix is claimed.
+
+The user-requested investigation is ready to hand off. Only the blocked normal
+push remains in the plan workflow; approval is pending. Do not start PHYSICS_AB
+or parked plans under this goal. MASTER and this file remain at 138/144.
+
+## Ragdoll FP8/FP9 complete - 2026-09-11
+
+### Latest verification status
+
+Final required validation passes on 2026-09-11. Full05 exits 0 in 1317.204 s:
+unchanged Physics CSV, 134-source / 1188-context source design, all six CPU
+lanes, 1,027 Profile tests / 3,483,587 assertions, Automation in 438.419 s,
+and DX12 in 13.667 s against the accepted screenshots. Exclusive perf07 exits
+0 in 102.502 s on rebuilt Profile 2386e9e3, including relative and absolute
+budgets, native allocation checks and structural checks. Mapped replay passes
+in 370.488 s on Automation 6dbb35b9. The final 4ec3be56 relink changes only COFF
+and debug timestamps plus CodeView PDB age; every other executable byte matches.
+automation-relink-equivalence.json records that proof. terminal-validation.json
+binds the final logs, producers and performance artifacts.
+
+The optional frame-spike diagnostic exits 1 because its recorded
+predictionFullHorizonComplete assertion is false. The full script explicitly
+classifies this diagnostic as informational; it produced no usable spike
+measurement. This failure is retained and is not reported as a diagnostic pass.
+
+FP8 is committed in 69e5a609288af9a039084920a0a98a1c47b9863b, including the
+implementation, tests, exact governed baseline bundles and approved screenshots.
+FP9 closes the plan at 10/10 and removes it from the live inventory, leaving
+138/144. Push both commits, then begin the user-requested playground sleep
+experiments with Skarness. The FP8 commit hook passed its fresh-process
+0/repeat/1/4-worker Physics matrix against the unchanged 44,401-line golden.
+The 100-second prior pile observation ends at 10/46 asleep in both modes and
+is not evidence that reliable pile sleep is solved.
+
+The owner accepted the three screenshots and the disclosed missing-original-
+producer exception; do not ask again. Independent implementation and transition
+reviews are complete. The foreign live work ledger remains untouched;
+unsupported model/pricing telemetry prevents honest completion-ledger artifacts.
+
+Earlier detailed checkpoints follow; terminal-validation.json under FP9 is the
+current validation record. Native source has not changed after full05/perf07.
+
+Causal-playback attempt 12 passed all prior assertions in 17.266 s. The new
+position-gate observation copies the exact values passed to drawing, including
+object ID, frame and projected center. App consumes and clears the fixed array
+after rendering, preventing stale observations when the overlay is skipped.
+The native assertion binds the primary selected ID and presented frame before
+checking cyan pixels around that center. Attempt 12 proves ID 1, frame 100 and
+88 cyan pixels. A prediction-off clearing assertion was added afterward and
+passes in run 13. The eight Runtime files pass formatting and dependency
+checks. Three changed CPPs passed source design initially; extracting a helper
+from RunFrame resolves its function-size finding, with all three contexts clean.
+Old executables and source are in `fp9-before-position-gate-observation`.
+
+Exclusive performance attempt 02 remains a failed full gate (exit 9, 37.469 s).
+Its dense causal fixture selected a cause without opening the current Evidence
+surface. The repository-owned recording now pins window size, opens Editor,
+Causes, Evidence and Raw, then scrolls within Evidence. Existing contact,
+pipeline, frame, allocation and timing requirements are preserved. Focused run
+`TestOutput/fp9-causal-perf-route-05` passes: maximum phase 0.0384 ms,
+panel/overlay ratio 0.819, fixed storage 231552 bytes and zero steady allocations.
+The old recording and failed raw output remain under
+`TestOutput/fp9-causal-perf-failure-02/`. No complete performance verdict exists;
+the full gate must run exclusively after native/build work stops.
+Its prior fixed-path
+artifacts are preserved under `TestOutput/fp9-before-terminal-perf-01/`.
+Keep future performance runs exclusive of native captures, builds and CPU-heavy
+checks. Attempt 02 used the supported Visual Studio clang-format override and an isolated
+default UI preferences path; both overrides are recorded with its result.
+Attempt 01 exited 9 before timing after 27.079 s: the sleepy-scene generator
+still emitted version 3 while FP6 had already migrated its fixture to version 5.
+Every other generated value matched. The generator now emits version 5;
+`--check` passes without changing the scene or any baseline.
+
+Full attempt 03 is terminal: exit 1 after 919.531 s. All preflight lanes pass
+(682.943 s), as do all six CPU lanes (146.660 s), including Debug coverage and
+the Profile suite's 1,026 cases / 3,484,266 assertions. Runtime failures remain:
+
+- Shader freshness initially selected an inaccessible Python-package
+  clang-format. The supported `SKULLBONEZ_CLANG_FORMAT` override resolves it;
+  all 48 stages now pass freshness with Visual Studio LLVM 22.1.3.
+- Profile initially could not save personal UI preferences. The existing
+  `SKULLBONEZ_UI_LAYOUT_FILE` override isolates writable test preferences.
+  Copying personal Editor preferences explains a large screenshot mismatch;
+  fresh defaults reduce it to UI chrome. Run `20260910T124849Z` has zero DX12
+  errors but all three screenshot comparisons fail. Outside the exact UI
+  regions named by baseline commit e9f02a925, Water and Three Body match exactly;
+  Solver has seven differing pixels with maximum channel difference one.
+  `fp9-dx12-ui-only-difference.json` records this analysis. No DX12 golden changed.
+- The Skarness command catalog now expects `physics.speculative_validation`
+  and the already committed `ui.animation_clock`. Its native route check passes
+  inside `fp9-terminal-automation-07.log`. Cleanup now stops its owned session
+  even on an assertion failure. The failed earlier host 10184 was stopped
+  through its exact Skarness session, not process-name termination.
+- Causal playback still used the retired Details/Causes tab route. It now opens
+  the Editor rail and settles its animation through the existing clock command.
+  The old full-window-center assertion is now replaced by the identity-bound
+  draw observation described above. Complete Automation validation remains due.
+
+Attempt 01 failed from an overlapping native DLL lock. Attempt 02 failed only
+mixed line endings; the line-ending repair preserved all C++ text. Attempt 03
+confirms formatting passes 139 files. The position-gate diagnostic observation
+was added afterward and requires current terminal validation.
+
+`FP9/performance-disposition.md` records the provisional engineering decision:
+retain predictive contacts for the demonstrated fast-impact benefit, subject
+to both remaining gates. The measured added average is 0.0487 to 0.3280 ms/tick;
+the decision explicitly does not claim reliable pile sleep. This is a reversible
+decision under the orchestrator's autonomy rule, not a request to pause for an
+unspecified owner decision. Final acceptance and the detailed gate results must
+still be recorded before closing FP9.
+
+**Mapped Physics and replay:** `fp9-terminal-physics.log` passes all four
+0/repeat/1/4 worker variants against the unchanged 44,401-line accepted SHA
+`50bca7c0f2c420832c4fd99b1812f4db48d88cfadb4d475622a3d3bd3465a1c1`.
+The post-update replay gate passes in 384.578 s, including one native generation,
+18 packet tests / 82 assertions, exact visual/causal comparison, durable-artifact
+checks and all negative controls. Its final screenshot was inspected. Raw
+verified evidence is under `TestOutput/fp9-replay-visual-approved-01/`; the gate
+log is `TestOutput/fp9-terminal-replay-visual-approved-01.log`.
+
+**Replay transition:**
+`FP8/golden-transitions/predictive-contacts-2ac5f033/` under this plan's artifacts
+retains both first-party producers (5820 old, 2ac5 new), exact old/new goldens,
+dependency scans, guarded writer logs, a first-divergence proof and mapped gate
+results. The old 5820 run reproduces every approved visual tick, final value and
+causal node. Its separate shader-provenance failure comes from previously
+committed UI text/preview opacity changes; FP8 edits no shaders.
+
+The new wall cascade is explained by speculative contact with the ragdoll head.
+Two short Skarness captures start at source frame 61; each complete 62-frame
+BODY/PRES prefix is byte-identical to its corresponding full reveal recording.
+Striker poses/velocities match through prediction frame 13. Current first
+contact at frame 14 has stable IDs 1/204, a 0.596154 m gap, positive normal impulse,
+zero tangent impulses and no warm start. Old first contact at frame 15 has
+0.816796 m penetration. All 200 wall bricks remain affected; toppled changes
+185 to 192 and settled 194 to 200. The omitted causal node is fixed catcher wall
+202 at old frame 1857, not a ragdoll part. Both diagnostic sessions exit 0.
+Independent transition review found no material blocker. Solver contact fields
+use model rows: the early row-1 diagnostic summaries were corrected to row 0
+for the striker and explicitly preserved as superseded evidence.
+
+**Allocation and source review:** Static policy and self-tests pass: 681 source
+files, 63 direct heap sites, 157 dynamic members and 924 growth sites, with zero
+policy errors. All new allowances name exact startup, bounded prediction,
+diagnostic or cold-file owners; no replay byte cap or registered owner was added.
+Gameplay command application remains outside Diagnostics scopes. The recorder's
+64-ray/32-shot nested rings use its existing capped owner; the focused test proves
+fresh nested payloads inside a primed outer window, not arbitrary outer growth.
+All implementation and final allocation reviews are clean, including the five
+C++ ownership questions. The bounded independent follow-up found that screenshot restart could bypass
+publication. App now clears the observation at its unconditional frame boundary;
+review of this repair is clean. The new focused lifecycle regression passes with
+the existing gate tests (4 cases / 45 assertions). Profile build 05 and source
+design 03 pass; final Automation producer validation remains required.
+`FP9/position-gate-review.md` records the finding, repair and evidence.
+
+The archived 0350 producer fails the identity-bound object response/screenshot
+probe with 100 gameplay allocation violations and exit 9; 2ac5 passes with zero
+violations and exit 0 (`FP9/response-allocations-{old,current}.json`). The FP9
+capture driver now rejects bad allocation summaries or abnormal exits even when
+replay bytes match; focused negative controls pass.
+
+**Determinism and measured cost:** The archived b9df producer passes 360-tick
+0/repeat/1/4 native BODY/PRES/HASH/SCHK comparisons with zero gameplay violations
+and all exits 0 (`fp9-native-oracle-final-05`). Actual prediction cancellation,
+retargeting and reselection repeat all 28,630,460 published body/solver bytes at
+one paused source; selected/published/rendered identity agrees and the screenshot
+was inspected (`fp9-generations-final-02`). The unpaused selector is rejected
+without changing Physics; paused selection applies (`fp9-selector-phase-01`).
+
+Same-executable A/B/A/B runs (four workers, 1200 ticks, 240 warmup) are isolated,
+exact on A/A and B/B, and allocation-clean. Instrumented speculative Physics
+cost is +28.69% sleep island, +35.41% pile and +13.73% floating ragdolls. These
+measurements remain bound to b9df, whose Physics source matches the later 2ac5
+producer; they are not shipping Release measurements. Short land runs have more
+residual motion with prediction enabled; none sleeps by ten seconds. The first
+water capture overlapped a parser and remains excluded in favor of final-02.
+
+The 2ac5 100-second pile test ends with 10/46 bodies asleep in both modes, all
+46 supported, peaks 32 off / 43 on, and 1707 / 1670 sleeping-count decrease ticks.
+Neither ever sleeps the whole pile. Final-second linear RMS is 0.040508 / 0.038485
+m/s; angular RMS 0.068236 / 0.052858 rad/s. Both allocation guards and normal
+shutdown pass; screenshots were inspected. No timing claim applies to this
+long-rest pair because source checks ran concurrently. Detailed evidence remains
+in `Agentic/Plans/Artifacts/ragdoll-physics-unification/FP9/README.md`.
+
+Earlier terminal repairs include the Automation/Profile ABI build-isolation
+fix, UI boundary expectation migration and DX12 fatal-child test repair. Their
+old executables are preserved. The clean full Profile suite passed 1026 cases /
+3,483,256 assertions; subsequent Automation compilation leaves that Profile test
+executable byte-identical. The current full gate still must pass its complete
+CPU/coverage and runtime lanes.
+
+### Earlier implementation evidence
+
+The owner requested FP8 and FP9 on this branch, preserving old executables
+before approving changed Physics baselines. The initial checkout was clean.
+Old Debug/Profile/Automation executables and first-party DLLs, hashes and source
+commit are preserved under `TestOutput/fp8-prechange/`; no golden has changed.
+
+FP8 currently derives transient articulation membership from point joints,
+extends broadphase motion bounds, replaces limb TOI advancement with uniform
+step contact rows, and applies cold frictionless/restitution-free gap braking.
+Actual contact retains the existing manifold. Terrain carries signed gaps on
+the articulated path. Convex distance uses bounded stack storage and paired
+support witnesses. Profile and Automation build without warnings; focused
+geometry/solver/engine tests pass, including the two linked fast limbs fixture.
+
+Native four-ragdoll pile tests exposed numerical GJK cycling before the first
+tick. The failing traces are retained under `TestOutput/skarness/fp8-pile-02`
+through `fp8-pile-04`. Translated coordinates and double projection products
+fix the distant wall case; retaining discarded support identities addresses
+edge-face cycling. The next native run is `fp8-pile-05`. These changes remain
+unaccepted until the native run and expanded behavioral coverage pass. FP8 is
+still 8/10 overall; final acceptance, baseline review, terminal validation and
+independent review are still due.
+
+The GJK repair now passes 1,962 geometry assertions, including 720 rotated
+near-touching limb pairs. An angular regression exposed the insufficiency of
+one closest-point row; separated angular contacts now retain a small clipped
+patch with uninflated witness checks and per-point closing admission. Centered
+sphere spin does not widen its geometric sweep. Source-design checks pass
+ConvexDistance, SpeculativeContacts and ObjectContactManifold (3 sources / 9
+contexts). Project filters and dependency direction pass. Focused contact,
+friction, restitution, membership and engine fixtures pass. The full-engine
+rotational negative control also caught the default 5 rad/s configuration
+clamp: the corrected 1000-limit fixture proves speculative-off crosses the thin
+fixed/dynamic walls and on does not, with full-tick translation for each limb
+(`fp9-angular-control-final-test.log`, 2 cases / 68 assertions).
+
+Native `fp8-pile-06` completes 12,000 ticks and was stopped normally. Its final
+40 limbs remain supported and awake. Final-second linear/angular speed RMS is
+0.060889 m/s / 0.106402 rad/s, versus preserved old build `fp8-pile-old-03` at
+0.061252 / 0.110667. This does not demonstrate reliable pile sleeping. The
+earlier single-point run's larger apparent improvement is superseded by the
+angular-patch result. Screenshots were inspected. All owned processes have
+been stopped; failed archived-exe launches were stopped after exact PID/path
+verification. The old executable was staged without changing bytes as
+`Automation/SKULLBONEZ_CORE-FP8-old.exe` because Skarness resolves the repository
+working directory from the executable's parent.
+
+FP9 implementation has started with a validation-only PhysicsEngine selector,
+a transient disabled bit excluded from replay hysteresis, and Skarness
+`physics.speculative_validation` (paused sessions only). Off keeps articulated
+uniform stepping while omitting predictive broadphase expansion and gap rows.
+SkullScope emits `speculative_summary` counts and eligibility timing. This
+native command is not yet built/validated in Automation. Repeated 0/1/4-worker
+oracles, snapshot/topology/prediction tests, and same-executable alternating A/B
+capture/report tooling are the immediate next work. No baseline changes,
+commits, pushes or review have occurred yet.
+
+The new 512-body/128-joint worker fixture passes 734,526 assertions across
+0/1/4 workers, a saved-state rewind and continuation, joint removal and
+recreation, and the production Replay hash. It first exposed uninitialized
+`PhysicsSleepPoseAnchor.position` in invalid anchors; initializing that existing
+field to ZERO_VECTOR fixes the real snapshot mismatch. The diagnostic quiet-NaN
+sentinel comparison now checks float bits. Temporary mismatch instrumentation
+in TestReplaySolverHashWitness.cpp was removed after diagnosis. Passing log:
+`TestOutput/fp9-sleep-anchor-test.log`; failed logs remain for provenance.
+This initializer may intentionally change replay baseline bytes and still
+requires a governed exact producer-bound transition if the final gates differ.
+`tools/skarness.py launch --workers` was just added to pass the existing native
+worker override; native selector/counter validation and A/B tooling remain next.
+
+FP9 native evidence now exists. `fp9-native-oracle-02` records 360 ticks in
+separate 0/repeat/1/4-worker processes; BODY, PRES, HASH and SCHK chunks are
+byte-identical. The first attempt correctly rejected a truncated recording:
+enabling a perf CSV also activates the legacy two-second scene pass when the
+scene frame limit is unlimited. The capture now supplies a frame limit beyond
+the requested interval, and checks every recorded tick and diagnostic row.
+
+Same-executable A/B/A/B captures at 1200 ticks (240 warmup / 960 measured) pass
+exact repeat checks for sleep-island, dropped box-pile and water workloads.
+Physics time excluding the separately measured diagnostic dump averages
+0.9121/1.1827 ms, 0.9578/1.2640 ms and 0.3949/0.4388 ms off/on respectively.
+Predictive cost is 29.67%, 31.96% and 11.11%. The land scenes have higher
+final-second residual speeds with prediction on; no pile-sleep improvement is
+claimed. All 12 native runs report no Physics allocation row after explicit
+file serialization was attributed to Diagnostics. Global harness/render
+allocation failures remain visible; these captures do not pass that gate.
+Raw reports: `TestOutput/skarness/fp9-{sleep,pile,water}-ab-01/report.json`.
+The measured Automation producer is preserved at
+`TestOutput/fp9-measured-producer/SKULLBONEZ_CORE.exe`, SHA-256 d5f932bf...fc87.
+
+`fp9-generations-01` proves actual in-flight cancellation, retargeting, and
+reselection at one paused live source. Published body frames and solver
+evidence are exact across generations 1, 4 and 6 for target 6 (30,389,782 bytes;
+SHA-256 20025c6e...cf7a); target 16 publishes as generation 5. Selected,
+published and rendered identities agree. The final screenshot was inspected.
+All these owned native sessions stopped normally. The new capture helper now
+retains a Windows query handle so subsequent captures also record process exit
+codes, and logs command names/arguments with their responses; this last helper
+change still needs its native check.
+
+Terminal closure has started. Build-configuration consistency passes. Changed
+C++ files were formatted; compiler-backed source-design and
+`validate_full.bat --plan-completion` are running in logs
+`TestOutput/fp9-source-design.log` and `TestOutput/fp9-full.log`. No golden has
+changed, no independent review has run, and FP8/FP9 remain incomplete. The
+Codex config already contains enabled multi-agent V2 with 17 session slots.
+
+Work-ledger accounting could not start: a historical goal is unfinished and
+the active model has no verified pricing configured. No pricing or telemetry
+was invented. The earlier UI shader-provenance and containment gate failures
+remain recorded below and do not authorize unrelated baseline replacement.
+
+## Floating diagnostics and inspector refinements - 2026-09-10
+
+Following `c75916ce2`, Editor and Replay now stack from the top, with independent
+fold headers and downward eased entry. Editor receives the larger share; Replay
+has another 40 pixels when both are open. P preserves Tools and reopened F5/F6.
+The compact header toggle reads Options / Exit.
+
+F5/F6 return to their historical top-left 340 by 166 floating layout. Both can
+move and resize independently through native pointer capture, including dragging
+F5 across F6 without transferring the gesture. Their panels use the active theme,
+matching headers and resize grips. They reserve no dock space and draw above the
+shell. Opening Tools still hides them once; either shortcut restores its window.
+
+The attached solver inspector reaches the workspace top. Summary sections fold
+independently and start collapsed; version 5 preferences migrate older defaults
+and preserve current choices. Raw rows are 30 pixels with centered values and
+compact label/unit blocks. Iteration rows are 48 pixels; impulses use J with
+lowered indices and a drawn delta symbol without changing the font atlas.
+
+Validation: `floating-fast.log` passes 1,002 cases / 2,746,048 assertions plus
+the separate 213-assertion case. Profile and Automation builds are warning-free.
+`floating-design-final.log` passes 3 files / 13 compiler contexts. Native Blue,
+Dark and Light sessions, Tools diagnostics, and version 1/4 preference migration
+and current choice persistence pass under `TestOutput/skarness/floating-*`.
+Final diagnostic, raw-record, summary, animation and Solver Lab captures were
+inspected. `floating-ui.log` reports zero DX12 validation errors, with the same
+two legacy containment and three intermittent profiler timeline failures seen
+in `panels-ui-gate-final.log`. No golden baseline was changed.
+
+`floating-replay-fidelity.log` completes its engine run and passes 18 negative
+controls / 82 assertions, but fails the existing shader provenance comparison
+(`f0ce4056...` expected, `589a9291...` actual) after the earlier animation shader
+change. It is not a green fidelity result. `floating-ready.log` builds Debug
+with zero warnings/errors. All owned native sessions were stopped.
+
+## Shared panel transitions - 2026-09-10
+
+Theme work is committed as `eca29e3`. Panel presentation now uses
+`UI/UIPanelTransitions`: one 160 ms cubic ease-out entry / ease-in exit policy,
+short edge-directed travel, and a bounded cache for outgoing draw commands.
+Scene, Solver Lab, Tools, F5/F6, header, transport, quick objects, planning panels
+and foreground popups share the same compositor. Reversals preserve position;
+direct drawer resizing finishes the transition and follows the pointer.
+Animating content blocks pointer actions and exiting panels block world picks.
+
+UIDrawList carries non-visual panel identities; settled fingerprints do not hash
+that metadata. App composes all presenters once, preserving clips and foreground
+ordering. Text vertices now carry RGBA through the canonical text shader;
+render-target previews enable alpha blending and share their panel opacity.
+The shader manifest/reflection and shipping binaries were regenerated normally.
+Opening Tools closes both diagnostics once; F5/F6 can reopen them while Tools
+stays open. The previous diagnostic-survival unit assertion was updated to the
+user's requested behavior and still checks shortcut reopening and Escape.
+
+Skarness `ui.animation_clock {seconds, enabled}` pins only presentation time.
+`ui.presentation` publishes panel visibility, activity and draw overflow. The
+native `tools/validate_ui_panel_transitions.py` drives actual pointer/key routes
+and checks easing samples, reversal, outgoing content, diagnostic replacement,
+preview fades and Solver Lab. It is included in `validate_ui.bat`.
+
+Validation: `SKORE_SIZE_DIFF_BASE=eca29e3 tools/validate_fast.bat` passes, including
+1,000 unit cases / 2,745,699 assertions plus the separate 213-assertion case.
+The earlier whole-branch source/retained-policy scan also passed; the first full
+unit run found the text signature's RGB CPU table, which was corrected to RGBA
+before the passing rerun. The focused UI/shader run passes 63 cases / 1,068
+assertions. Profile and Automation compile without warnings.
+
+Native evidence is under `TestOutput/skarness/panel-transitions-blue-final`,
+`panel-transitions-dark-final`, `panel-transitions-light-final` and
+`panel-themes-final`. All pass; Scene, Solver Lab, menu and preview screenshots
+were inspected. `animation-design-final.log` and the final fast log cover the
+last source edits. The one-minute graphics stress run remained alive through
+60.16 seconds with stable memory; its timeout wrapper closed/stopped the owned
+PID after 70.33 seconds and returned 0 (`animation-stress.log`).
+
+`animation-ui-gate.log` reports zero DX12 errors and only the two previously
+recorded floating-window containment assumptions. Its profiler overlap checks
+pass in this run. `animation-renderer-gate.log` also reports zero DX12 errors;
+all three screenshot comparisons differ from the older header/layout baselines.
+The comparison montage was inspected. No physics or renderer golden was changed,
+and settled production UI draw fingerprints remain unchanged.
+
+## Blue, Dark and Light themes - 2026-09-10
+
+Tools > Options > Appearance / Theme now selects Blue (default), neutral Dark,
+or Light immediately. `UI/UIStyle.cpp` owns the immutable named palette table;
+widgets consume colour roles and the UI-thread selection preserves borrowed
+role references. The Tools cache key includes the selection. No theme-specific
+widget trees, runtime allocations, scene changes or renderer contracts were added.
+
+The version 2 layout preferences append a theme ID. Version 1 files preserve
+all layout values and migrate to Blue; unknown theme IDs fall back to Blue.
+Skarness publishes the selected ID in `ui.presentation.theme`. The native
+`tools/validate_ui_themes.py` check covers physical selection, screenshot colours,
+all eleven Light Tools tabs, F5/F6, Solver Lab, restart persistence and migration.
+It is included in the UI validation entry point.
+
+Evidence: `TestOutput/skarness/ui-themes-verified` (screenshots inspected),
+`TestOutput/theme-unit-final.log` (39 UI cases / 839 assertions),
+`TestOutput/theme-source-design-final.log` plus the earlier full changed-file
+source-design run (all findings repaired), and `theme-dependencies-final.log` /
+`theme-language-final.log` (pass). Profile and Automation compile warning-free.
+The UI gate generated all 21 scenes with clean DX12 validation, but its screenshot
+checker failed the two existing floating-window containment assumptions and
+three profiler timeline overlap checks in this run (`theme-ui-gate.log`).
+No renderer/physics golden was refreshed. Only the intended Options, Profiler
+and Memory draw-stream hashes changed, reflecting the selector and shared table
+colours; all other production UI fingerprints remain unchanged.
+
+## Vertical dock navigation and title - 2026-09-10
+
+The shared header now offers the camera selector, Solver Lab and a Full Screen /
+Docked Interface switch. Its title is `Skullbonez Core - <scene basename>`;
+names longer than 20 characters gain `...`. Collapsed Scene rails show rotated
+EDITOR, REPLAY and CAUSES labels. Solver Lab uses the same treatment for
+CONTROLS and DIFFERENCES. Tabs open independently, and panel choices survive
+switching to the full-screen game and back. Solver Lab retains its pinned
+header and top-right exit.
+
+The bottom-right Tools tab replaces Details. Dragging upward opens the drawer
+from zero height; its top edge supports further resizing. Clicking toggles the
+remembered size and selected tool. Native capture prevents the drag from
+becoming world input. Drawer geometry leaves positive scene space at tiny
+client sizes. Rotated labels use baked font advances and bounded draw storage.
+
+Validation: `validate_fast` passed for this task's diff from d659cdc96, including
+994 unit cases / 2,745,756 assertions and compiler-backed source checks. The
+earlier full-branch source scan also passed; its filter finding for the icon
+resource was repaired. Profile and Automation build cleanly. Native navigation,
+header, diagnostics and scrubber checks pass in `TestOutput/skarness/docked-title-final`,
+`docked-header-complete`, `docked-diagnostics-complete` and `docked-scrubber-complete`.
+Screenshots confirm full and compact Scene/Lab labels and the branded title.
+
+The isolated renderer gate reports zero DX12 validation errors, but its three
+committed references still show the old always-visible header and Details tab.
+Inspection and pixel comparison found no scene differences above 1/255 outside
+the top 100 and bottom 28 pixel UI bands. The isolated UI gate reaches the same
+two old floating-window containment failures documented below; all other image
+and timeline checks pass. No golden baselines were replaced. Evidence:
+`TestOutput/docked-final-gates.log`, `docked-renderer-region-review.log`,
+`docked-final-renderer-isolated.log` and `docked-final-ui-isolated.log`.
+
+## Persistent Solver Lab header and exit - 2026-09-10
+
+Solver Lab now keeps its header visible in both Canvas and Editor, during
+loading and playback. A top-right cross exits to the full-screen Scene using
+the same return operation as Escape. The comparison viewport starts below the
+header so A/B badges remain visible. Compact labels and title clipping keep
+the exit usable at 320x240. Leaving during loading cancels the job; completing
+that cancellation no longer leaves a stale error that blocks the next visit.
+
+The revised native header assertion failed against the old executable and
+passes in `TestOutput/skarness/lab-header-complete`, including loading exit,
+re-entry, playback, both layouts and compact mouse exit. Screenshots were
+inspected. The broader Lab regression passes in `lab-header-lab-final`.
+Profile and Automation builds pass warning-clean; the focused UI/comparison
+units pass 49 cases / 875 assertions. Compiler-backed checks for all touched
+sources, dependency checks and formatting pass. No golden baseline changed.
+The full UI gate again reaches clean builds and DX12 diagnostics but stops at
+the same two old floating-menu containment assertions documented below; see
+`TestOutput/lab-header-ui-gate.log`.
+
+## Executable skull icon - 2026-09-10
+
+The executable resource and native window class now use the same skull shape
+and colours as the shared UI header. `tools/generate_app_icon.py` reproduces
+that 24-unit artwork as a transparent ICO with nine sizes from 16 to 256 pixels.
+The project embeds `SkullbonezData/branding/Skullbonez.ico` in all configurations.
+Profile and Automation builds pass warning-clean. Resource inspection confirms
+all nine embedded images exactly match the ICO in both executables; a native
+Skarness launch confirms the window class loads the icon and stops normally.
+The preview was inspected. Evidence: `TestOutput/skull-icon-verification-final.log`
+and `TestOutput/skullbonez-icon-preview.png`. The focused Window.cpp compiler
+check and dependency gate pass. No gameplay behavior or baseline changed.
+
+## Escape, floating diagnostics and Solver Lab follow-up - 2026-09-10
+
+This follow-up supersedes the diagnostic docking behavior described below.
+One Escape press closes docked Editor, Tools and Details surfaces and returns
+Solver Lab to the full-screen Scene. The input edge is consumed before popup
+and quit routing. F5/F6 stay floating in Canvas and Editor, including when
+Tools opens, and no longer reserve dock or viewport space. Floating F5 input
+takes priority over controls underneath it.
+
+Entering an empty Solver Lab automatically loads the first library comparison,
+Ragdoll Wall. Its Controls pane can replace it from the comparison picker and
+offers Exit Solver Lab; loading also has an Exit Lab button. Exit retains a
+loaded comparison for re-entry. The Lab header draws above the loading view.
+Profiler worker controls now follow the core chart in the scrollable content,
+leaving the marker table at the top.
+
+Profile and Automation builds pass with zero warnings. The complete unit gate
+passes 992 cases and 2,748,002 assertions. Compiler-backed checks pass for the
+12 touched translation units and the final two-file header adjustment;
+dependency, formatting and plain-language checks pass. The Profiler draw-stream
+fingerprint changed intentionally after screenshot inspection; physics and
+replay golden data did not change.
+
+Native acceptance passes in `TestOutput/skarness/escape-float-acceptance`,
+covering one-press Escape (including popup priority), first comparison identity
+and coverage, replacement, mouse exit, retained re-entry, floating diagnostics,
+menu/viewport stability, dragging and the worker controls. Header checks pass
+in `escape-float-header-final`; shell, compact-window, Solver Lab and scrubber
+regressions pass in `escape-float-shell-2`, `escape-float-compact`,
+`escape-float-lab` and `escape-float-scrubber`. Screenshots were inspected.
+
+The full UI gate builds both configurations and reports clean DX12 diagnostics,
+then fails the same two legacy screenshot containment checks documented below:
+`check_ui_blur.py` still assumes a floating menu at `(64,70,520,...)`, while
+the current shell uses the shared bottom drawer and a reduced scene viewport.
+See `TestOutput/escape-float-ui-gate-3.log`. The gate used the existing
+`SKULLBONEZ_UI_LAYOUT_FILE` override pointing into TestOutput to isolate test
+preferences. The native acceptance and header checks were run separately after
+that gate stopped. Owned Skarness sessions were stopped normally.
+
+## Tools space and F5 refresh follow-up - 2026-09-09
+
+Opening Tools now dismisses both diagnostic panels once. Their space extends
+the Tools drawer; F5 and F6 independently toggle them back while Tools remains
+open. A single restored panel spans the bottom row, and both share it when
+visible. Closing Tools leaves the chosen diagnostic visibility intact; reopening
+Tools dismisses both again. Compact tab controls remain available after the
+drawer gains height, and popup bounds respect either restored diagnostic.
+
+F5 used to draw completed 50 ms peak buckets, giving its graph visibly stepped
+updates. It now draws the live bucket and interpolates horizontal scrolling on
+every presentation frame. The existing bounded ring and peak capture remain.
+The focused test checks the first live sample, successive 240 Hz presentation
+times within one bucket, an immediate new spike, and retention of that peak.
+
+Automation and Profile builds succeed. UI units pass 40 cases / 836 assertions,
+and six-source compiler checks plus dependency and plain-language gates pass.
+The native Tools assertion fails against the old executable and passes after
+the fix; screenshots and state are in `TestOutput/skarness/tools-diagnostics-after`.
+The shared shell, compact-window and Solver Lab regressions also pass, under
+`tools-diagnostics-shell-final`, `tools-diagnostics-compact` and `tools-diagnostics-lab`.
+No golden baseline changed in this follow-up. The old Profile app is now closed,
+and the normal Profile executable has been rebuilt with all current UI fixes.
+The full UI gate now gets through both builds and clean DX12 diagnostics. Its
+legacy screenshot checker fails two containment comparisons because it still
+expects a floating window at `(64,70,520,...)`; inspected captures show the
+shared bottom drawer and its reduced scene viewport. That checker was left
+unchanged. See `TestOutput/tools-diagnostics-ui-isolated.log`. The run used
+`SKULLBONEZ_UI_LAYOUT_FILE=TestOutput/tools-diagnostics-ui.preferences` to keep
+test preferences writable and separate from the user's AppData preferences.
+The independent legacy causal probe also reports missing counterpart-body rows
+(`TestOutput/tools-diagnostics-cause-check.log`); its checker self-test passes.
+The current native unified Causes regression passes, as do the header and
+scrubber regressions. These legacy failures prevent claiming the complete UI
+suite as passing; no cause-production code or legacy assertion was changed.
+
+## Visual polish follow-up - 2026-09-09
+
+Reviewed fresh native Scene, Canvas and Solver Lab captures against the approved
+mockups from the unified UI design task. Header and dock labels are clearer,
+selected dock tabs have cyan underlines, and diagnostic Details buttons use the
+shared palette. Both transports have round handles. Lab controls have centered
+labels, consistent padding and hover feedback; split/stacked views identify A/B.
+Plot curves and tick cursors now stay below their titles. Narrow dropdown values
+are clipped before the arrow instead of bleeding across it or beyond the field.
+
+Native shell, Causes, Lab and scrubber gates pass. Inspected artifacts are under
+`TestOutput/skarness/visual-polish-shell-final`, `visual-polish-causes-after`,
+`visual-polish-lab-final` and `visual-polish-scrubber-final`. The eleven Tools
+surfaces also have a contact sheet at `TestOutput/visual-polish-tools-contact.png`.
+UI draw-stream fingerprints were intentionally updated for the new combo text
+clips after inspecting those surfaces. The UI unit selection passes 39 cases /
+813 assertions. Six-source compiler checks and dependency checks pass.
+Compact Tools and header gates pass down to 320x240, including popup clipping.
+The complete replay visual-fidelity gate and all negative controls pass
+(`TestOutput/visual-polish-replay-fidelity.log`), including 18 cases / 82 assertions.
+Formatting and the plain-language gate also pass.
+
+The complete UI gate passes formatting but again stops at the Profile link:
+the user's preserved process 29508 still holds `Profile/SKULLBONEZ_CORE.exe`.
+Automation builds and native validation use the new code. See
+`TestOutput/visual-polish-ui-gate.log`; the open Profile app still uses the old
+build. Physics and replay goldens have not been changed.
+
+## Scrubber handle motion correction - 2026-09-09
+
+Ordinary pointer rewind selected presentation history, while the drawing code
+always selected the solver track unless a recording was loaded. The handle
+therefore stayed at the end even though the replay cursor changed. Drawing now
+uses the same surface track choice as input, and the time label receives the
+selected and latest presentation samples for ordinary history too.
+
+The native scrubber gate now checks the actual white handle pixels at the
+dragged position and repeats left/right drags in Canvas and Editor. It fails
+against the previous build (`scrubber-motion-before`) and passes after the fix
+(`TestOutput/skarness/scrubber-motion-final-2`). Inspected images show the handle,
+time label and historical object poses changing together. Automation builds,
+two-source compiler checks, formatting and dependency checks pass. The running
+Profile app still holds its old executable open; it is preserved.
+The complete replay visual-fidelity gate and negative controls also pass,
+including 18 unit cases / 82 assertions; see
+`TestOutput/scrubber-motion-replay-fidelity.log`. No baseline changed.
+
+## Bottom scrubber auto-hide follow-up - 2026-09-09
+
+Full UI correction (2026-09-09): Editor layout now keeps the top header and
+bottom transport strip visible away from the pointer. Canvas retains edge
+reveal. Native header and scrubber checks cover layout transitions, Scene/Lab
+headers, camera popup lifetime, paused replay and captured scrubbing. The new
+Editor header assertion fails against the previous Automation build and passes
+after the fix. Inspected screenshots and owner state are under
+`TestOutput/skarness/full-ui-header-after/` and `full-ui-transport-after/`.
+Automation builds warning-clean; the five-source compiler check and dependency
+gate pass. Replay visual fidelity and its negative controls pass, including
+18 focused unit cases / 82 assertions (`TestOutput/full-ui-replay-fidelity.log`).
+`validate_ui` passes formatting but stops at Profile linking because
+the user's running Profile executable remains locked; that app is preserved.
+The following earlier note describes the superseded Editor auto-hide policy.
+
+The shared Scene scrubber now fades in at the bottom transport edge and fades
+out when the pointer leaves, including while replay is paused. Existing router
+capture holds it visible during a scrub outside the strip. The full edge can
+reveal it, but clicking outside its controls does not start a scrub. The Details
+button shares the fade; an already-open Details pane remains drawn and usable.
+Canvas and Editor use this policy without changing their scene viewport geometry.
+
+`tools/validate_scrubber_autohide.py` is included in `validate_ui.bat`. Its native
+checks pass for both layouts, paused hide/reveal, cursor movement during capture,
+edge clicks, strip pixel changes and unchanged Details pixels. Screenshots and
+recorded owner state are under `TestOutput/skarness/scrubber-verified/`; inspected
+earlier matching captures are in `scrubber-after-2/`, with the original always-on
+state in `scrubber-before/`. The existing unified-shell regression passes.
+Automation builds warning-clean. Units pass 991 cases / 2,747,493 assertions;
+the required Physics commit gate passes. No golden baseline changed.
+
+All fast-preflight lanes pass, including 99 sources / 860 compiler contexts with
+zero findings. Both `validate_fast` and `validate_ui` stop at Profile linking
+because the user's paused Profile app still locks the executable (LNK1104).
+Neither complete invocation is claimed as passing. The unit gate, new native
+check and existing shell check were run independently; the paused user process
+remains preserved.
+
+## Window move/resize crash follow-up - 2026-09-09
+
+The native window callback queue now keeps only the final client resize while
+Windows runs its title-bar move/resize loop. Mouse motion and wheel input owned
+by that loop never accumulate for a later gameplay frame. Ordinary events keep
+their bounded FIFO behavior, and cached client dimensions still update immediately.
+
+A native callback probe against the previous source reproduces the exact
+`Native event queue exhausted capacity=256` fatal (exit 91). The fixed source
+handles 10,000 nested resize/raw-message pairs, publishes one final resize, and
+accepts the next ordinary resize (exit 0). This exercises real WndProc callbacks;
+it is not a manual title-bar drag. Regression units separately cover copied raw
+input, wheel input, repeated move-only loops, reset and FIFO wrap.
+Evidence: `TestOutput/window-move-native/comparison.json` and
+`TestOutput/window-move-*.log`. No golden baseline changed.
+
+The fast gate's complete preflight passes, including 845 compiler contexts with
+zero findings. The separate unit gate passes 991 cases / 2,746,638 assertions.
+Automation builds warning-clean. The complete Automation/Skarness gate and the
+required Physics commit gate pass, including the clean-process worker matrix.
+Profile linking is currently blocked by the
+user's paused Profile process holding its executable open (LNK1104); the process
+is preserved while its release is requested. The original `validate_fast` run
+therefore remains failed at its build step; its preflight and the separate unit
+gate results above are the completed checks.
+
+## Unified UI current handoff - 2026-09-09
+
+UNIFIED_UI is complete at 8/8. MASTER and this handoff both report 146/154 after
+removing the completed plan and checklist from the live inventory. The approved
+contract and full control inventory remain in Git history at `7d0b347fe`.
+Canvas/Editor and Scene/Solver Lab now share the shell and authoritative viewport.
+All Tools, editor, replay/evidence, planning and comparison controls have native
+coverage, including short panes, dialogs, persistence and retained Lab lifetime.
+
+Independent implementation review and separately reviewed UI references are
+clean. All mapped terminal checks pass after repairing the initial preflight
+format/filter failures and completing the remaining gates individually. The
+original failed `agent_validate --plan-completion` log remains preserved; this
+handoff does not claim that invocation passed. Final units: 988 cases and
+2,731,966 assertions. Skarness: all fifteen prediction scenes pass. Physics,
+Replay visual fidelity, DX12, coverage, UI/runtime/scene/architecture suites,
+source design and bounded graphics stress pass. See MASTER's Unified UI Closure
+and `TestOutput/unified-terminal-*` for exact evidence. Only approved UI regions
+and fingerprints changed; all world-reference, Physics, Replay and evidence
+pixels/data are preserved. The non-blocking frame-spike diagnostic missed its
+fixed-frame completion assertions; tracing proves the click starts prediction
+and work continues at frame 900. No frame-time conclusion is claimed.
+
+The live ledger cannot start with unconfigured verified model pricing. Its
+unrelated active task remains untouched; token splits, costs and completion-ledger
+HTML/PNG are unavailable. Logs and native streams preserve available evidence.
+Earlier dated checkpoints below are historical and do not supersede this handoff.
 
 ## Final causal layout and commit-all closure (2026-09-08)
 
@@ -328,20 +1608,12 @@ passed on FP5. Fresh runs will be dispatched after the FP6 push.
 
 ## Current State
 
-Current objective: complete `TODO/ragdoll-physics-unification.md` FP5-FP9.
-Plan progress: 7/10; portfolio progress: 145/148. Next binding task: FP7,
-shared contact/joint iteration. The cleanup CI jobs
-34042905345, 34042907156 and 34042908720 were dispatched on `88d09e78f`.
-They have completed: Linux diagnostics passed; mandatory CPU preflight failed
-changed-source formatting; native Windows diagnostics failed because its
-formatter rejects the existing `BinPackLongBracedList` configuration key.
-The cleanup's trailing blank line in `UIInputCaptureIntent.h` is repaired on
-this child branch, and all 59 cleanup/FP5 source files pass local formatting.
-The hosted formatter-version mismatch remains unresolved.
-The pre-existing live ledger belongs to an unfinished GOV1 task; this run
-preserves it. A separate ledger initialization also fails because the helper
-lacks verified `gpt-6-astra` pricing. No usage counters or costs are fabricated;
-implementation continues with timestamped command evidence.
+Current objective: FP8/FP9 are committed and the requested sleep investigation
+is complete; normal push awaits explicit remote approval.
+Plan progress: RAGDOLL_PHYSICS 10/10 closed; UNIFIED_UI 8/8 closed; portfolio 138/144.
+Next binding task: resolve the pending push approval and hand off the sleep
+results. PHYSICS_AB AB1-AB6 remains queued at 0/6 outside this goal.
+The live ledger limitation and final evidence are recorded at the top of this file.
 
 The owner activated `SKARNESS` SK0-SK6 and directed the Night Runner to finish
 the plan without stopping. The bootstrap checkpoint repairs prediction
@@ -2127,3 +3399,228 @@ and checks that late worker output cannot restore cleared overlays. Screenshots
 and trace are under TestOutput/skarness/p-shortcut-ready. Preflight, the affected
 source-design checks and all 960 unit tests passed (2,731,442 assertions).
 The prior full UI and complete Skarness suites passed for the combined layout.
+
+Unified UI checkpoint: Causes is now docked and folded within the shared shell.
+Native evidence: TestOutput/skarness/unified-causes-details; source design:
+TestOutput/unified-ui-causes-design.log. InputRouter shell-click regression
+fixed and verified; native P behaviour also passes. Editor pane, camera/header,
+Solver Lab, preference persistence and complete mapped acceptance remain work
+in progress. Branch remains codex/unified-ui; plan remains 0/8 complete.
+
+Unified UI checkpoint: Editor and camera controls now use the shared shell.
+Native evidence: TestOutput/skarness/unified-editor-grid (37 catalog entries,
+24 quick buttons, 11 held variants, dock resizing/folding) and
+TestOutput/skarness/unified-camera-header (all seven modes in both layouts).
+Screenshots inspected; old floating palette overlap removed. Focused build,
+eight-file source design and 19 tests pass. Solver Lab integration is next;
+preferences and complete mapped acceptance remain outstanding. Plan 0/8,
+active branch codex/unified-ui; no commit/push performed.
+
+
+Unified UI continuation: Solver Lab is integrated into the shared shell and
+retains an independently owned comparison across background Scene loads. Native
+`unified-lab-controls` and `unified-lab-input-fix` pass the implemented control
+routes and retained camera/tick checks. Library replacement remains release-first;
+generic file/finding replacement remains transactional, as existing integrity
+checks require. The first archived-bundle integrity invocation failed a fixture
+sidecar expectation and remains recorded; do not count it as a gate pass.
+Per-user layout persistence is implemented; `unified-preferences-1` passes
+cross-launch layout/dock/fold/drawer/tab retention and invalid-file fallback.
+Tools always starts closed. All progress remains on `codex/unified-ui`, 0/8
+accepted groups; complete inventory, remaining native checks, terminal gates,
+independent review and commits are still required.
+
+Latest Unified UI checkpoint: `unified-lab-narrow-3` passes paired picking,
+F5/F6, popup/focus priority, 900x640 resizing and local scrolling, exact retained
+camera/tick restoration and actual Scene advancement with background Lab.
+`unified-lab-integrity-raw` passes the unchanged comparison integrity gate.
+`unified-scenes-native-routes` passes native creation, filtering, Demo, distinct
+reset operations and save in both layouts. Popup typing over header/diagnostics
+was repaired; temporary tracing is removed. No test-created authored scenes
+remain. Remaining work includes complete control/tooltips catalog and checks,
+detailed profiler/memory operations, more small-window/capture/error checks,
+remaining Replay/Causes/planning routes and terminal closure. Still 0/8 accepted.
+
+Unified UI Tools checkpoint: shared delayed help now covers Physics, Options,
+Memory, Profiler workers, all footer controls, Render parameters, Sky and
+Cinematic parameters/features, Targets and Keys. Static render help follows
+existing command enums; Sky reuses cinematic parameter descriptions. Native
+`TestOutput/skarness/unified-tools-clipped` passes worker toggle/restore,
+Profiler root folding and timeline retention across drawer/layout changes,
+Memory presets and budget adjustment against the replay owner, plus visible
+help in each Tools tab. A screenshot exposed Memory content painting into the
+footer; the shared Tools content clip fixes it while foreground popups remain
+independent. `unified-tools-clip-shell` passes all tabs and Scene popup routing.
+Focused checks: 23 tests / 487 assertions, three-file and five-file source-design
+checks pass. Logs: `unified-ui-tools-focused-tests.log`,
+`unified-ui-tools-tooltip-design.log`, `unified-ui-tools-observations-design.log`.
+No commit/push or baseline refresh. Complete mapped control acceptance, narrow
+windows, remaining replay/planning routes and terminal closure remain pending.
+
+Latest checkpoint: `unified-tools-profiler-help` passes native hierarchy/value
+hover targets along with the Tools operations above. The corresponding build
+and two-file source-design check pass. Status badges now use the computed
+`statusContent` rectangle below the header and clear of perimeter/Details panes;
+`unified-tools-status-bounds`, three-file source design and 20 focused tests /
+499 assertions pass. The initial status build had two non-constant local
+expressions declared constexpr; corrected to const, rebuilt successfully.
+
+Small-window baseline captured under `TestOutput/skarness/unified-small-before`
+at 640x480, 480x360 and 320x240. This is evidence of remaining defects, not a
+pass: the existing fixed 44/44/78-pixel Tools title/tab/footer geometry overlaps
+at 320x240 and leaves almost no Scene control area at 640x480. No minimum-window
+restriction was introduced and no compact layout fix has been applied yet.
+The next implementation should use one shared compact Tools geometry for input,
+drawing and tooltip clipping, retaining all tabs/footer actions through bounded
+menus or scrolling. Avoid changing layout/workspace automatically. The full
+control inventory and terminal gates remain outstanding; plan still 0/8.
+
+
+Compact Tools checkpoint (2026-09-09): title, tabs, content, footer and close
+bounds now come from `ComputeToolsChromeRects` for drawing, input and help.
+Small drawers replace the eleven-column tab strip with a scrollable selector
+and expose all footer actions through Display settings; wide and compact
+controls share `ApplyFooterAction`. Local scrolling uses twelve-pixel steps in
+compact content. Popup state participates in keyboard/world blocking and is
+cleared on focus loss or hiding the drawer. Reflection choices honor the
+existing disabled mask.
+
+Pinned F5/F6 retain their original data and charts with compact labels and
+bounded plot areas. The F5 marker popup can use adjacent dock width; its row
+count, scroll range and picking agree with available height. A native test
+exposed the observation hash treating Main (hash zero) like no selection; the
+observation now includes the existing frame-total identity. No runtime marker
+identity or sampling baseline changed.
+
+Evidence: `TestOutput/skarness/unified-compact-tools-final` passes native access
+to all eleven tabs at 640x480, 480x360 and 320x240 in Canvas and Editor, footer
+timeline/reflection routes, popup scrolling, focus loss and F5 selections
+without activating underlying Tools. Screenshots were inspected. Wide Tools
+worker/Profiler/Memory/help routes pass in `unified-wide-tools-after-compact`;
+Replay transport, identity, controls, layout/drawer retention and folding pass
+in `unified-replay-after-compact`. Automation builds and focused source-design
+checks pass; `unified-compact-final-tests.log` records 19 tests / 528 assertions.
+No baseline refresh, commit or push. Full mapped parity and terminal closure
+remain outstanding; this is progress within UU4/UU6, not plan acceptance.
+
+
+Scene timing checkpoint (2026-09-09): the existing Scene owner already accepted
+`toggleCrossScenePause` and `requestSingleStep`, but the Scene presenter emitted
+neither. The agreed Pause lock and Single step controls now use those commands,
+with disabled-state help and the owner-projected pause value. They occupy a
+locally scrollable final Scene row without moving the existing forecast/reveal
+controls. InputRouter still owns capture and one-turn stepping.
+
+`TestOutput/skarness/unified-scene-time-2` passes native pause/one-shot stepping
+(including a held click), reveal rate minimum/interior/maximum without advancing
+the paused scene, and private forecast start/progress/reset/stop in both layouts.
+The first run incorrectly kept Skarness' independent pause active while testing
+a Scene step; the corrected test releases the harness pause for that click.
+Screenshots were inspected. Automation build and eight-source design checks
+pass; `unified-scene-time-tests.log` records 21 tests / 539 assertions.
+
+`unified-scenes-saved-values-3` strengthens Save defaults by changing fluid
+height through Keys and verifying the saved authored value (200 in Canvas,
+-100 in Editor). Earlier checks clicked outside the window after Reset defaults
+closed Tools and only checked an existing file; that was insufficient evidence.
+The corrected test reopens Scenes and validates the existing version-5 writer
+format, active scene path and changed value. The writer intentionally does not
+retain the starter-only root name property. Creation, filtering, Demo, Reset and
+Reset defaults also pass. Only test-owned scene files were created and removed.
+`unified-preferences-after-compact` passes native restart and invalid-file checks.
+
+No baseline refresh, commit or push. Complete catalog/control parity, remaining
+planning and comparison routes, preference section folds and the terminal gates
+remain open. Plan acceptance remains 0/8.
+
+
+Filter and catalog checkpoint (2026-09-09): native cause text focus now blocks
+pre-UI world shortcuts while leaving device keys available to the native filter.
+Focused keyboard editing no longer depends on a pointer sample, and local Escape
+does not also open Tools. `unified-causes-typing-5` passes typed PFJI, Backspace,
+Escape/Return, selection/camera/prediction identity, evidence tabs and folding.
+Earlier failing runs exposed key stripping, a pointer-only early return and an
+unconsumed after-UI Escape; these are repaired, not accepted failures.
+
+Summary accordion preferences now use the existing versioned folded-section
+field. Selection/reset retain the presentation choice without retaining evidence.
+`unified-preferences-evidence-2` passes native section expansion, shutdown/restart,
+layout/dock/drawer/tab retention and invalid-file fallback. Four focused cause
+tests / 48 assertions pass. Filter automation anchors now reveal Causes and use
+the current shared bounds; the corrected Automation build passes.
+
+Read-only Skarness observations reuse the existing rendering parameter projection
+and sample Physics values from their actual owners. `unified-render-catalog-2`
+passes all 38 Render sliders in both layouts. `unified-cinematic-catalog-3` passes
+all 26 Sky and 64 Cinematic sliders plus all four/eight feature toggles in both
+layouts. Total: 768 endpoint/interior slider checks and 24 held-toggle checks,
+plus hidden-control isolation. The first midpoint test hit float rounding at an
+exact half step; interior checks now use a non-tie position. Feature rows are
+scrolled into view before clicking. No parameter range or runtime action changed.
+
+`unified-physics-ui-3` passes 13 toggles and 13 sliders in both layouts plus
+pipeline next/previous (106 recorded checks). The test preserves the existing
+tornado auto-visual coupling: disabling the field can disable its shell. This
+was an incorrect independent-toggle assumption in the first test, not a product
+regression. Native Editor Physics/Render screenshots were inspected and show
+bounded content above the retained F5/F6 docks.
+
+Automation builds and focused compiler-backed source design pass; latest checks
+are `unified-filter-summary-design.log`, `unified-catalog-anchor-design.log` and
+`unified-physics-design.log`. `unified-filter-catalog-tests.log` records 24 tests /
+584 assertions. The control inventory now includes explicit 128 render-parameter
+rows. A failed text-encoding write temporarily truncated that task-owned document;
+it was reconstructed from the inspected control sources and inventory, then
+written with explicit UTF-8. No source, user scene, baseline, commit or push was
+lost or changed by that documentation failure.
+
+The full plan remains incomplete. Remaining work includes Options/Keys and
+per-entry Editor routes, recording and Save/dialog/error outcomes, planning
+overlay placement and controls, comparison findings/persistence, final visual
+coverage and all terminal gates/review. No aggregate phase is accepted yet.
+
+
+File and catalog acceptance reconciliation (2026-09-09): the preceding session
+left passing native logs newer than its prose handoff. Inspected logs confirm
+`unified-options-keys-2` (54 checks), `unified-editor-both-catalog-1` (37 catalog
+choices, 24 quick buttons and 11 hold variants in each layout), `unified-files-2`
+(Open/Save finding/Load finding, picker cancellation, missing/invalid file errors
+and restored identity/settings), `unified-replay-files-3` (Save/Load recording,
+cancellation, missing file and recovery), and `unified-config-files-1` (Save CFG,
+Save Paths and Save Sky against isolated config copies, preserving comments and
+checking changed owner values). Original authored config hashes are preserved.
+The corresponding Automation builds and five-source `unified-files-design-2.log`
+passed. These are concrete route checks, not acceptance of untested controls.
+
+Planning placement is being completed against the shared scene viewport. The
+new layout orders intercept/trip/transfer panels in one bounded, locally
+scrollable column, wraps trip actions at narrow widths and shares the same
+geometry between input, drawing and delayed help. Focused initial build and
+13 tests / 434 assertions passed; eight-source design checks passed. Native
+planning acceptance and the terminal gates remain pending. The first native
+probe requested Plan before Prediction completed its required baseline; its
+abort is preserved in `unified-planning-1`. The probe now waits for completion
+and the UI is being updated to expose that precondition as disabled help.
+
+
+UI goal continuation, 2026-09-09: Planning now uses bounded scrollable shell
+content with explicit paused-versus-advancing semantics. Native planning and
+near-target Commit routes pass in both layouts; the ordinary solar fixture
+reports no solution, so its pre-existing convergence probe remains a terminal
+check. Fixed UI capacity now fits the complete 3,072-cell grid; native maximum
+3,177 commands, no overflow. Short Causes panes scroll their whole content.
+Focused tests: 14 / 425 pass; Automation build 10 passes. Targets entries pass;
+recording-catalog playback is being rerun after correcting its read-only popup
+row count. Details/evidence are in unified-ui.md. UNIFIED_UI remains 0/8 pending
+full diagnostics/visual coverage, final gates and independent closure review.
+
+### UI integrated-review checkpoint  -  2026-09-09
+
+UNIFIED_UI remains 0/8; MASTER remains 146/162. Target/recording native catalog
+checks and full Profiler/Memory controls now pass in both layouts. Retention UI
+matches Replay's 20-600 seconds; existing policy limits are unchanged. Whole-diff
+source design passed 91 sources / 783 contexts / zero findings. Final review is
+active. Remaining work includes the unchanged solar trip regression, narrow Lab
+event scroll and seek geometry findings, final visual inspection and mapped gates.
+See the owning plan's integrated-review checkpoint for exact artifacts and the
+unchanged live-ledger limitation. No UI completion commit or push exists yet.

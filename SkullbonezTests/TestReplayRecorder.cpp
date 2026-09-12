@@ -27,6 +27,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
@@ -193,6 +194,40 @@ TEST_CASE( "ReplayRecorder: Configure does not pre-reserve future sample payload
     CHECK( solver.CollectMemoryBytes() < maxConfiguredBytes );
 }
 
+
+TEST_CASE( "ReplaySolverRecorder: reconfiguration grants fresh fixed launcher payloads" )
+{
+    using namespace SkullbonezCore::Core::Allocation;
+    ReplayRecorderConfig config = SmallRecorderConfig();
+    config.retentionSeconds = 2;
+    ReplaySolverRecorder recorder;
+    REQUIRE( recorder.Configure( config ) );
+
+    // The outer recorder working set is prepared at startup. Shrinking,
+    // disabling and expanding within that window still construct fresh nested
+    // launcher payloads, which must consume the registered Replay grant.
+    const int retention[] = { 1, 1, 1, 2 };
+    const bool enabled[] = { true, false, true, true };
+
+    for ( std::size_t index = 0; index < std::size( retention ); ++index )
+    {
+        config.retentionSeconds = retention[index];
+        config.enabled = enabled[index];
+        const uint64_t before = RuntimeAllocationGuardViolationCount();
+        bool configured = false;
+        SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Gameplay );
+        {
+            RuntimeAllocationScope gameplay( RuntimeAllocationPhase::SteadyGameplay );
+            configured = recorder.Configure( config );
+        }
+        SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+        CAPTURE( index );
+        CHECK( configured );
+        CHECK( RuntimeAllocationGuardViolationCount() == before );
+        CHECK( recorder.GetStats().sampleCount == 0u );
+        CHECK( recorder.IsEnabled() == enabled[index] );
+    }
+}
 
 TEST_CASE( "Replay prediction world reset preserves reserved Gameplay snapshot storage" )
 {

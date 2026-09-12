@@ -55,8 +55,7 @@ template <typename T> bool CapacityBytesForCount( std::size_t capacity, uint64_t
 
 bool ByteCountFitsReserveRequest( uint64_t bytes ) noexcept
 {
-    return bytes <= static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) &&
-           bytes <= static_cast<uint64_t>( ( std::numeric_limits<int>::max )() );
+    return bytes <= static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) && bytes <= static_cast<uint64_t>( ( std::numeric_limits<int>::max )() );
 }
 } // namespace
 
@@ -113,18 +112,19 @@ const ReplayTrajectoryRecord* ReplayTrajectoryStore::FindRecord( const ReplayTra
     return nullptr;
 }
 
-ReplayTrajectoryRecord* ReplayTrajectoryStore::BeginReplaceRecord( const ReplayTrajectoryRecordKey& key, uint16_t styleId,
-                                                                   Physics::PhysicsSceneObjectId parentId, int depth,
-                                                                   ReplayFrameIndex firstFrame, bool contactDerived,
+ReplayTrajectoryRecord* ReplayTrajectoryStore::BeginReplaceRecord( const ReplayTrajectoryRecordKey& key,
+                                                                   uint16_t styleId,
+                                                                   Physics::PhysicsSceneObjectId parentId,
+                                                                   int depth,
+                                                                   ReplayFrameIndex firstFrame,
+                                                                   bool contactDerived,
                                                                    std::size_t requiredPointCapacity )
 {
     ReplayTrajectoryRecord* record = FindRecord( key );
 
     if ( !record )
     {
-        const std::size_t dormantIndex = ReplayTrajectoryStoreOperations::SelectDormantRecordIndex( records,
-                                                                                                    activeRecordCount, key,
-                                                                                                    requiredPointCapacity );
+        const std::size_t dormantIndex = ReplayTrajectoryStoreOperations::SelectDormantRecordIndex( records, activeRecordCount, key, requiredPointCapacity );
 
         if ( dormantIndex < records.size() )
         {
@@ -132,8 +132,7 @@ ReplayTrajectoryRecord* ReplayTrajectoryStore::BeginReplaceRecord( const ReplayT
             // already large enough, then the largest remaining slot. This
             // keeps replay reserve accounting flat without making record order
             // depend on the dormant bank's previous generation.
-            std::iter_swap( records.begin() + static_cast<std::ptrdiff_t>( activeRecordCount ),
-                            records.begin() + static_cast<std::ptrdiff_t>( dormantIndex ) );
+            std::iter_swap( records.begin() + static_cast<std::ptrdiff_t>( activeRecordCount ), records.begin() + static_cast<std::ptrdiff_t>( dormantIndex ) );
             record = &records[activeRecordCount];
             ++activeRecordCount;
         }
@@ -186,9 +185,7 @@ void ReplayTrajectoryStore::PublishPrefix( ReplayTrajectoryRecord& record, std::
     }
 }
 
-std::size_t ReplayTrajectoryStore::RetirePredictionBankRecords( ReplayPredictionTrajectoryBank bank,
-                                                                uint16_t futureRootBuildBranch,
-                                                                uint16_t firstChildBuildBranch ) noexcept
+std::size_t ReplayTrajectoryStore::RetirePredictionBankRecords( ReplayPredictionTrajectoryBank bank, uint16_t futureRootBuildBranch, uint16_t firstChildBuildBranch ) noexcept
 {
     const auto recordUsesBank = [bank, futureRootBuildBranch, firstChildBuildBranch]( const ReplayTrajectoryRecord& record )
     {
@@ -199,8 +196,7 @@ std::size_t ReplayTrajectoryStore::RetirePredictionBankRecords( ReplayPrediction
             return bank == ReplayPredictionTrajectoryBank::Build ? usesBuildBranch : usesCommittedBranch;
         }
 
-        if ( record.key.lane != ReplayTrajectoryLane::FutureChildIncoming &&
-             record.key.lane != ReplayTrajectoryLane::FutureChildOutgoing )
+        if ( record.key.lane != ReplayTrajectoryLane::FutureChildIncoming && record.key.lane != ReplayTrajectoryLane::FutureChildOutgoing )
         {
             return false;
         }
@@ -224,8 +220,7 @@ std::size_t ReplayTrajectoryStore::RetirePredictionBankRecords( ReplayPrediction
 
         if ( retainedCount != readIndex )
         {
-            std::iter_swap( records.begin() + static_cast<std::ptrdiff_t>( retainedCount ),
-                            records.begin() + static_cast<std::ptrdiff_t>( readIndex ) );
+            std::iter_swap( records.begin() + static_cast<std::ptrdiff_t>( retainedCount ), records.begin() + static_cast<std::ptrdiff_t>( readIndex ) );
         }
 
         ++retainedCount;
@@ -235,8 +230,7 @@ std::size_t ReplayTrajectoryStore::RetirePredictionBankRecords( ReplayPrediction
     return previousActiveCount - retainedCount;
 }
 
-std::size_t ReplayTrajectoryStore::RetirePredictionBank( ReplayPredictionTrajectoryBank bank, uint16_t futureRootBuildBranch,
-                                                         uint16_t firstChildBuildBranch ) noexcept
+std::size_t ReplayTrajectoryStore::RetirePredictionBank( ReplayPredictionTrajectoryBank bank, uint16_t futureRootBuildBranch, uint16_t firstChildBuildBranch ) noexcept
 {
     const std::size_t retiredCount = RetirePredictionBankRecords( bank, futureRootBuildBranch, firstChildBuildBranch );
 
@@ -248,15 +242,10 @@ std::size_t ReplayTrajectoryStore::RetirePredictionBank( ReplayPredictionTraject
     return retiredCount;
 }
 
-std::size_t ReplayTrajectoryStore::CommitPredictionReplacementBank( ReplayPredictionTrajectoryBank replacementBank,
-                                                                    uint16_t futureRootBuildBranch,
-                                                                    uint16_t firstChildBuildBranch ) noexcept
+std::size_t ReplayTrajectoryStore::CommitPredictionReplacementBank( ReplayPredictionTrajectoryBank replacementBank, uint16_t futureRootBuildBranch, uint16_t firstChildBuildBranch ) noexcept
 {
-    const ReplayPredictionTrajectoryBank visibleBank = replacementBank == ReplayPredictionTrajectoryBank::Build
-                                                           ? ReplayPredictionTrajectoryBank::Committed
-                                                           : ReplayPredictionTrajectoryBank::Build;
-    const std::size_t retiredCount = RetirePredictionBankRecords( visibleBank, futureRootBuildBranch,
-                                                                  firstChildBuildBranch );
+    const ReplayPredictionTrajectoryBank visibleBank = replacementBank == ReplayPredictionTrajectoryBank::Build ? ReplayPredictionTrajectoryBank::Committed : ReplayPredictionTrajectoryBank::Build;
+    const std::size_t retiredCount = RetirePredictionBankRecords( visibleBank, futureRootBuildBranch, firstChildBuildBranch );
     std::size_t normalizedCount = 0u;
 
     if ( replacementBank == ReplayPredictionTrajectoryBank::Build )
@@ -268,8 +257,7 @@ std::size_t ReplayTrajectoryStore::CommitPredictionReplacementBank( ReplayPredic
                 record.key.branchOrdinal = 0u;
                 ++normalizedCount;
             }
-            else if ( ( record.key.lane == ReplayTrajectoryLane::FutureChildIncoming ||
-                        record.key.lane == ReplayTrajectoryLane::FutureChildOutgoing ) &&
+            else if ( ( record.key.lane == ReplayTrajectoryLane::FutureChildIncoming || record.key.lane == ReplayTrajectoryLane::FutureChildOutgoing ) &&
                       record.key.branchOrdinal >= firstChildBuildBranch )
             {
                 record.key.branchOrdinal = static_cast<uint16_t>( record.key.branchOrdinal - firstChildBuildBranch );
@@ -288,14 +276,14 @@ std::size_t ReplayTrajectoryStore::CommitPredictionReplacementBank( ReplayPredic
     return retiredCount + normalizedCount;
 }
 
-std::size_t ReplayTrajectoryStore::TrimPublishedPointsBeforeFrame( ReplayTrajectoryRecord& record,
-                                                                   ReplayFrameIndex firstRetainedFrame ) noexcept
+std::size_t ReplayTrajectoryStore::TrimPublishedPointsBeforeFrame( ReplayTrajectoryRecord& record, ReplayFrameIndex firstRetainedFrame ) noexcept
 {
     const std::size_t publishedCount = (std::min)( record.publishedPointCount, record.points.size() );
     const auto publishedEnd = record.points.begin() + static_cast<std::ptrdiff_t>( publishedCount );
-    const auto firstKept = std::lower_bound( record.points.begin(), publishedEnd, firstRetainedFrame,
-                                             []( const ReplayTrajectoryPoint& point, ReplayFrameIndex frame )
-                                             { return point.frameIndex < frame; } );
+    const auto firstKept = std::lower_bound( record.points.begin(),
+                                             publishedEnd,
+                                             firstRetainedFrame,
+                                             []( const ReplayTrajectoryPoint& point, ReplayFrameIndex frame ) { return point.frameIndex < frame; } );
 
     const std::size_t removedCount = static_cast<std::size_t>( firstKept - record.points.begin() );
 
@@ -333,23 +321,20 @@ bool ReplayTrajectoryStore::ReserveRecords( std::size_t requestedCapacity, int f
     uint64_t oldRecordBytes = 0;
     uint64_t requestedRecordBytes = 0;
 
-    if ( !CapacityBytesForCount<ReplayTrajectoryRecord>( records.capacity(), oldRecordBytes ) ||
-         !CapacityBytesForCount<ReplayTrajectoryRecord>( requestedCapacity, requestedRecordBytes ) )
+    if ( !CapacityBytesForCount<ReplayTrajectoryRecord>( records.capacity(), oldRecordBytes ) || !CapacityBytesForCount<ReplayTrajectoryRecord>( requestedCapacity, requestedRecordBytes ) )
     {
         return false;
     }
 
     const uint64_t oldStoreBytes = CapacityBytes();
 
-    if ( oldStoreBytes < oldRecordBytes ||
-         requestedRecordBytes > ( std::numeric_limits<uint64_t>::max )() - ( oldStoreBytes - oldRecordBytes ) )
+    if ( oldStoreBytes < oldRecordBytes || requestedRecordBytes > ( std::numeric_limits<uint64_t>::max )() - ( oldStoreBytes - oldRecordBytes ) )
     {
         return false;
     }
 
     const uint64_t requestedStoreBytes = oldStoreBytes - oldRecordBytes + requestedRecordBytes;
-    const uint64_t allocationBytes = SkullbonezCore::Core::Allocation::RuntimeReserveDefaultVectorAllocationUpperBound(
-        requestedRecordBytes );
+    const uint64_t allocationBytes = SkullbonezCore::Core::Allocation::RuntimeReserveDefaultVectorAllocationUpperBound( requestedRecordBytes );
     const uint64_t reservationBytes = (std::max)( requestedStoreBytes, allocationBytes );
 
     if ( !ByteCountFitsReserveRequest( reservationBytes ) )
@@ -359,23 +344,19 @@ bool ReplayTrajectoryStore::ReserveRecords( std::size_t requestedCapacity, int f
 
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
 
-    if ( !RequestReplayPredictionReserveGrowth( "ReplayTrajectoryStore::records", frameNumber,
-                                                static_cast<int>( oldStoreBytes ), static_cast<int>( reservationBytes ), 1,
-                                                result, allocationBytes ) )
+    if ( !RequestReplayPredictionReserveGrowth( "ReplayTrajectoryStore::records", frameNumber, static_cast<int>( oldStoreBytes ), static_cast<int>( reservationBytes ), 1, result, allocationBytes ) )
     {
         return false;
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope
-        allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
+    SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
 
     records.reserve( requestedCapacity );
     return requestedCapacity <= records.capacity();
 }
 
-bool ReplayTrajectoryStore::ReserveRecordPoints( ReplayTrajectoryRecord& record, std::size_t requestedCapacity,
-                                                 int frameNumber )
+bool ReplayTrajectoryStore::ReserveRecordPoints( ReplayTrajectoryRecord& record, std::size_t requestedCapacity, int frameNumber )
 {
     if ( requestedCapacity <= record.points.capacity() )
     {
@@ -385,23 +366,20 @@ bool ReplayTrajectoryStore::ReserveRecordPoints( ReplayTrajectoryRecord& record,
     uint64_t oldPointBytes = 0;
     uint64_t requestedPointBytes = 0;
 
-    if ( !CapacityBytesForCount<ReplayTrajectoryPoint>( record.points.capacity(), oldPointBytes ) ||
-         !CapacityBytesForCount<ReplayTrajectoryPoint>( requestedCapacity, requestedPointBytes ) )
+    if ( !CapacityBytesForCount<ReplayTrajectoryPoint>( record.points.capacity(), oldPointBytes ) || !CapacityBytesForCount<ReplayTrajectoryPoint>( requestedCapacity, requestedPointBytes ) )
     {
         return false;
     }
 
     const uint64_t oldStoreBytes = CapacityBytes();
 
-    if ( oldStoreBytes < oldPointBytes ||
-         requestedPointBytes > ( std::numeric_limits<uint64_t>::max )() - ( oldStoreBytes - oldPointBytes ) )
+    if ( oldStoreBytes < oldPointBytes || requestedPointBytes > ( std::numeric_limits<uint64_t>::max )() - ( oldStoreBytes - oldPointBytes ) )
     {
         return false;
     }
 
     const uint64_t requestedStoreBytes = oldStoreBytes - oldPointBytes + requestedPointBytes;
-    const uint64_t allocationBytes = SkullbonezCore::Core::Allocation::RuntimeReserveDefaultVectorAllocationUpperBound(
-        requestedPointBytes );
+    const uint64_t allocationBytes = SkullbonezCore::Core::Allocation::RuntimeReserveDefaultVectorAllocationUpperBound( requestedPointBytes );
     const uint64_t reservationBytes = (std::max)( requestedStoreBytes, allocationBytes );
 
     if ( !ByteCountFitsReserveRequest( reservationBytes ) )
@@ -411,16 +389,13 @@ bool ReplayTrajectoryStore::ReserveRecordPoints( ReplayTrajectoryRecord& record,
 
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
 
-    if ( !RequestReplayPredictionReserveGrowth( "ReplayTrajectoryRecord::points", frameNumber,
-                                                static_cast<int>( oldStoreBytes ), static_cast<int>( reservationBytes ), 1,
-                                                result, allocationBytes ) )
+    if ( !RequestReplayPredictionReserveGrowth( "ReplayTrajectoryRecord::points", frameNumber, static_cast<int>( oldStoreBytes ), static_cast<int>( reservationBytes ), 1, result, allocationBytes ) )
     {
         return false;
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope
-        allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
+    SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
 
     record.points.reserve( requestedCapacity );
     return requestedCapacity <= record.points.capacity();
@@ -430,6 +405,27 @@ std::size_t ReplayTrajectoryStore::RecordCount() const noexcept
 {
     return activeRecordCount;
 }
+
+bool ReplayTrajectoryStore::ReservePointCapacity( std::size_t recordCount, std::size_t pointCount )
+{
+    recordCount = (std::max)( recordCount, records.size() );
+    if ( !ReserveRecords( recordCount, 0 ) )
+    {
+        return false;
+    }
+    // These slots remain dormant. Reserving nested storage changes neither
+    // visible keys nor published prefixes, even during a replacement build.
+    records.resize( recordCount );
+    for ( ReplayTrajectoryRecord& record : records )
+    {
+        if ( !ReserveRecordPoints( record, pointCount, 0 ) )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 
 std::size_t ReplayTrajectoryStore::PointCount() const noexcept
 {
@@ -458,8 +454,7 @@ uint64_t ReplayTrajectoryStore::CapacityBytes() const noexcept
     {
         uint64_t pointBytes = 0;
 
-        if ( !CapacityBytesForCount<ReplayTrajectoryPoint>( record.points.capacity(), pointBytes ) ||
-             total > ( std::numeric_limits<uint64_t>::max )() - pointBytes )
+        if ( !CapacityBytesForCount<ReplayTrajectoryPoint>( record.points.capacity(), pointBytes ) || total > ( std::numeric_limits<uint64_t>::max )() - pointBytes )
         {
             return 0;
         }

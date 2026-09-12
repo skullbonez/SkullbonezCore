@@ -47,9 +47,8 @@ namespace ReplayTrajectoryStoreOperations
 // largest remaining slot. Best-fit preserves larger dormant capacities for
 // later records instead of ratcheting total retained bytes after key churn.
 // Returning records.size() means no dormant slot exists.
-inline std::size_t SelectDormantRecordIndex( std::span<const ReplayTrajectoryRecord> records, std::size_t activeRecordCount,
-                                             const ReplayTrajectoryRecordKey& key,
-                                             std::size_t requiredPointCapacity ) noexcept
+inline std::size_t
+SelectDormantRecordIndex( std::span<const ReplayTrajectoryRecord> records, std::size_t activeRecordCount, const ReplayTrajectoryRecordKey& key, std::size_t requiredPointCapacity ) noexcept
 {
     if ( activeRecordCount >= records.size() )
     {
@@ -62,16 +61,14 @@ inline std::size_t SelectDormantRecordIndex( std::span<const ReplayTrajectoryRec
     for ( std::size_t index = activeRecordCount; index < records.size(); ++index )
     {
         const ReplayTrajectoryRecord& candidate = records[index];
-        const bool keyMatches = candidate.key.bodyId.value == key.bodyId.value && candidate.key.lane == key.lane &&
-                                candidate.key.branchOrdinal == key.branchOrdinal;
+        const bool keyMatches = candidate.key.bodyId.value == key.bodyId.value && candidate.key.lane == key.lane && candidate.key.branchOrdinal == key.branchOrdinal;
 
         if ( keyMatches && candidate.points.capacity() >= requiredPointCapacity )
         {
             return index;
         }
 
-        if ( candidate.points.capacity() >= requiredPointCapacity &&
-             ( bestFitIndex == records.size() || candidate.points.capacity() < records[bestFitIndex].points.capacity() ) )
+        if ( candidate.points.capacity() >= requiredPointCapacity && ( bestFitIndex == records.size() || candidate.points.capacity() < records[bestFitIndex].points.capacity() ) )
         {
             bestFitIndex = index;
         }
@@ -105,29 +102,30 @@ struct ReplayTrajectoryStore
     }
     ReplayTrajectoryRecord* FindRecord( const ReplayTrajectoryRecordKey& key ) noexcept;
     const ReplayTrajectoryRecord* FindRecord( const ReplayTrajectoryRecordKey& key ) const noexcept;
-    ReplayTrajectoryRecord* BeginReplaceRecord( const ReplayTrajectoryRecordKey& key, uint16_t styleId,
-                                                Physics::PhysicsSceneObjectId parentId, int depth,
-                                                ReplayFrameIndex firstFrame, bool contactDerived,
+    ReplayTrajectoryRecord* BeginReplaceRecord( const ReplayTrajectoryRecordKey& key,
+                                                uint16_t styleId,
+                                                Physics::PhysicsSceneObjectId parentId,
+                                                int depth,
+                                                ReplayFrameIndex firstFrame,
+                                                bool contactDerived,
                                                 std::size_t requiredPointCapacity );
     bool TryAppendPoint( ReplayTrajectoryRecord& record, const ReplayTrajectoryPoint& point );
     void PublishPrefix( ReplayTrajectoryRecord& record, std::size_t pointCount ) noexcept;
 
     // Retires one hidden prediction bank before replacement starts. Kept
     // records preserve relative order; retired records remain dormant capacity.
-    std::size_t RetirePredictionBank( ReplayPredictionTrajectoryBank bank, uint16_t futureRootBuildBranch,
-                                      uint16_t firstChildBuildBranch ) noexcept;
+    std::size_t RetirePredictionBank( ReplayPredictionTrajectoryBank bank, uint16_t futureRootBuildBranch, uint16_t firstChildBuildBranch ) noexcept;
 
     // Atomically removes the old visible bank and normalizes a build-bank
     // replacement to committed keys. Non-prediction lanes remain untouched.
-    std::size_t CommitPredictionReplacementBank( ReplayPredictionTrajectoryBank replacementBank,
-                                                 uint16_t futureRootBuildBranch, uint16_t firstChildBuildBranch ) noexcept;
+    std::size_t CommitPredictionReplacementBank( ReplayPredictionTrajectoryBank replacementBank, uint16_t futureRootBuildBranch, uint16_t firstChildBuildBranch ) noexcept;
 
     // Removes expired published points without replacing the record/version, so
     // the renderer always sees one continuous retained-path publication.
-    std::size_t TrimPublishedPointsBeforeFrame( ReplayTrajectoryRecord& record,
-                                                ReplayFrameIndex firstRetainedFrame ) noexcept;
+    std::size_t TrimPublishedPointsBeforeFrame( ReplayTrajectoryRecord& record, ReplayFrameIndex firstRetainedFrame ) noexcept;
     bool ReserveRecords( std::size_t requestedCapacity, int frameNumber );
     bool ReserveRecordPoints( ReplayTrajectoryRecord& record, std::size_t requestedCapacity, int frameNumber );
+    bool ReservePointCapacity( std::size_t recordCount, std::size_t pointCount );
     std::size_t RecordCount() const noexcept;
     std::size_t PointCount() const noexcept;
     uint64_t CapacityBytes() const noexcept;
@@ -136,15 +134,13 @@ struct ReplayTrajectoryStore
     void ReplaceRecordsFromArchive( std::vector<ReplayTrajectoryRecord>&& loadedRecords ) noexcept;
 
   private:
-
     // Invariant: readers see only this prefix. Clear retires its keys without
     // destroying nested point vectors; BeginReplaceRecord first reactivates a
     // dormant slot with the same key so each trajectory keeps its warmed cap.
     std::vector<ReplayTrajectoryRecord> records;
     std::size_t activeRecordCount = 0;
 
-    std::size_t RetirePredictionBankRecords( ReplayPredictionTrajectoryBank bank, uint16_t futureRootBuildBranch,
-                                             uint16_t firstChildBuildBranch ) noexcept;
+    std::size_t RetirePredictionBankRecords( ReplayPredictionTrajectoryBank bank, uint16_t futureRootBuildBranch, uint16_t firstChildBuildBranch ) noexcept;
     uint32_t AllocateVersion() noexcept;
 };
 } // namespace SkullbonezCore::Runtime

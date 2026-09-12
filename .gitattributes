@@ -36,6 +36,9 @@ ThirdPtySource/**  -text
 
 # Capture identities hash the original bytes, including archived JSON inputs.
 SkullbonezData/solver-lab/** -text whitespace=cr-at-eol
+# Golden transition manifests bind original bytes from native capture tools.
+TestOutput/baselines/*_perf.json -text whitespace=cr-at-eol
+Agentic/Plans/Artifacts/**/golden-transitions/** -text whitespace=cr-at-eol
 *.skreplay binary
 *.skdiag binary
 *.skobs binary

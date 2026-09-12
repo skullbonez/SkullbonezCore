@@ -56,17 +56,10 @@ using namespace SkullbonezCore::Runtime;
 namespace
 {
 constexpr int PIPELINE_STAGE_COUNT = static_cast<int>( PhysicsPipelineStage::Count );
-constexpr std::size_t CONTACT_MANIFOLD_MAX_LINE_COUNT = 2u * 3u * 3u + 1u +
-                                                        CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY * 8u;
+constexpr std::size_t CONTACT_MANIFOLD_MAX_LINE_COUNT = 2u * 3u * 3u + 1u + CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY * 8u;
 constexpr std::size_t CONTACT_MANIFOLD_LINE_FLOAT_CAPACITY = CONTACT_MANIFOLD_MAX_LINE_COUNT * 12u;
-constexpr PassRasterStateBucket PHYSICS_DEBUG_LINE_RASTER = MakePassRasterStateBucket( 0, { false, false, true,
-                                                                                            BlendFactor::SrcAlpha,
-                                                                                            BlendFactor::OneMinusSrcAlpha,
-                                                                                            CullMode::None } );
-constexpr PassRasterStateBucket CONTACT_STROKE_RASTER = MakePassRasterStateBucket( 0, { false, false, true,
-                                                                                        BlendFactor::SrcAlpha,
-                                                                                        BlendFactor::OneMinusSrcAlpha,
-                                                                                        CullMode::None } );
+constexpr PassRasterStateBucket PHYSICS_DEBUG_LINE_RASTER = MakePassRasterStateBucket( 0, { false, false, true, BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha, CullMode::None } );
+constexpr PassRasterStateBucket CONTACT_STROKE_RASTER = MakePassRasterStateBucket( 0, { false, false, true, BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha, CullMode::None } );
 
 std::span<const float> BuildContactStrokeVertices( std::span<const float> lines, std::span<float> output )
 {
@@ -255,8 +248,7 @@ PhysicsDebugVisualizer::TrackedContact* PhysicsDebugVisualizer::FindTrackedConta
 {
     for ( TrackedContact& tracked : m_trackedContacts )
     {
-        if ( tracked.contact.bodyA == contact.bodyA && tracked.contact.bodyB == contact.bodyB &&
-             tracked.contact.featureId == contact.featureId )
+        if ( tracked.contact.bodyA == contact.bodyA && tracked.contact.bodyB == contact.bodyB && tracked.contact.featureId == contact.featureId )
         {
             return &tracked;
         }
@@ -320,8 +312,7 @@ void PhysicsDebugVisualizer::EmitArrow( const Vector3& a, const Vector3& b, floa
 
     dir /= len;
 
-    Vector3 side = fabsf( dir.y ) < 0.8f ? CrossProduct( dir, Vector3( 0.0f, 1.0f, 0.0f ) )
-                                         : CrossProduct( dir, Vector3( 1.0f, 0.0f, 0.0f ) );
+    Vector3 side = fabsf( dir.y ) < 0.8f ? CrossProduct( dir, Vector3( 0.0f, 1.0f, 0.0f ) ) : CrossProduct( dir, Vector3( 1.0f, 0.0f, 0.0f ) );
 
     float sideLen = VectorMag( side );
 
@@ -338,23 +329,18 @@ void PhysicsDebugVisualizer::EmitArrow( const Vector3& a, const Vector3& b, floa
     EmitLine( b, base - side * ( head * 0.45f ), r, g, bl );
 }
 
-void PhysicsDebugVisualizer::EmitContactGlyph( const ContactPointPresentation& point, float normalImpulse, float fade,
-                                               bool inspectionStyle )
+void PhysicsDebugVisualizer::EmitContactGlyph( const ContactPointPresentation& point, float normalImpulse, float fade, bool inspectionStyle )
 {
     const float size = 0.35f + (std::min)( point.penetration, 2.0f ) * 0.25f;
     const float normalLen = 2.5f + (std::min)( point.penetration, 4.0f ) * 0.8f + (std::min)( normalImpulse, 8.0f ) * 0.08f;
-    const Vector3 pointColor = inspectionStyle ? Vector3( 1.0f, point.exactSourcePoint ? 0.82f : 0.65f, 0.43f )
-                                               : Vector3( 1.0f, point.exactSourcePoint ? 0.95f : 0.62f, 0.15f );
+    const Vector3 pointColor = inspectionStyle ? Vector3( 1.0f, point.exactSourcePoint ? 0.82f : 0.65f, 0.43f ) : Vector3( 1.0f, point.exactSourcePoint ? 0.95f : 0.62f, 0.15f );
     const Vector3 normalColor = inspectionStyle ? Vector3( 0.32f, 0.88f, 0.98f ) : Vector3( 0.0f, 0.9f, 1.0f );
     const Vector3 tangentColor = inspectionStyle ? Vector3( 0.94f, 0.69f, 0.38f ) : Vector3( 1.0f, 0.45f, 0.05f );
 
     EmitCross( point.point, size, pointColor.x * fade, pointColor.y * fade, pointColor.z * fade );
-    EmitArrow( point.point, point.point + point.normal * normalLen, normalColor.x * fade, normalColor.y * fade,
-               normalColor.z * fade );
-    EmitLine( point.point, point.point + point.tangent1 * 1.25f, tangentColor.x * fade, tangentColor.y * fade,
-              tangentColor.z * fade );
-    EmitLine( point.point, point.point + point.tangent2 * 1.25f, tangentColor.x * fade, tangentColor.y * fade,
-              tangentColor.z * fade );
+    EmitArrow( point.point, point.point + point.normal * normalLen, normalColor.x * fade, normalColor.y * fade, normalColor.z * fade );
+    EmitLine( point.point, point.point + point.tangent1 * 1.25f, tangentColor.x * fade, tangentColor.y * fade, tangentColor.z * fade );
+    EmitLine( point.point, point.point + point.tangent2 * 1.25f, tangentColor.x * fade, tangentColor.y * fade, tangentColor.z * fade );
 }
 
 void PhysicsDebugVisualizer::EmitRingXZ( const Vector3& center, float radius, float yOffset, float r, float g, float bl )
@@ -377,8 +363,7 @@ void PhysicsDebugVisualizer::EmitObjectAxes( const PhysicsDebugBodyView& view )
     const auto& bodies = view.bodies.Records();
     const auto hotFields = view.bodies.HotFields();
     const auto& colliders = view.colliders.Records();
-    const int count = (std::min)( view.modelCount,
-                                  (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
+    const int count = (std::min)( view.modelCount, (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
 
     for ( int i = 0; i < count; ++i )
     {
@@ -387,11 +372,7 @@ void PhysicsDebugVisualizer::EmitObjectAxes( const PhysicsDebugBodyView& view )
         Vector3 center = PhysicsBodyPosition( hotFields, bodyIndex );
         Quaternion orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
         RotationMatrix rot = orientation.GetOrientationMatrix();
-        Vector3 axes[3] = {
-            rot * Vector3( 1.0f, 0.0f, 0.0f ),
-            rot * Vector3( 0.0f, 1.0f, 0.0f ),
-            rot * Vector3( 0.0f, 0.0f, 1.0f ),
-        };
+        Vector3 axes[3] = { rot * Vector3( 1.0f, 0.0f, 0.0f ), rot * Vector3( 0.0f, 1.0f, 0.0f ), rot * Vector3( 0.0f, 0.0f, 1.0f ), };
 
         EmitArrow( center, center + axes[0] * ShapeAxisLength( collider, 0 ), 1.0f, 0.05f, 0.04f );
         EmitArrow( center, center + axes[1] * ShapeAxisLength( collider, 1 ), 0.05f, 0.9f, 0.12f );
@@ -404,8 +385,7 @@ void PhysicsDebugVisualizer::EmitConvexHullWireframes( const PhysicsDebugBodyVie
     const auto& bodies = view.bodies.Records();
     const auto hotFields = view.bodies.HotFields();
     const auto& colliders = view.colliders.Records();
-    const int count = (std::min)( view.modelCount,
-                                  (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
+    const int count = (std::min)( view.modelCount, (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
 
     for ( int i = 0; i < count; ++i )
     {
@@ -452,8 +432,7 @@ void PhysicsDebugVisualizer::EmitContacts( const PhysicsDebugContactView& view )
         const auto& bodies = view.bodies.Records();
         const auto hotFields = view.bodies.HotFields();
 
-        if ( contact.bodyA >= 0 && contact.bodyB >= 0 && contact.bodyA < static_cast<int>( bodies.size() ) &&
-             contact.bodyB < static_cast<int>( bodies.size() ) )
+        if ( contact.bodyA >= 0 && contact.bodyB >= 0 && contact.bodyA < static_cast<int>( bodies.size() ) && contact.bodyB < static_cast<int>( bodies.size() ) )
         {
             Vector3 a = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( contact.bodyA ) );
             Vector3 b = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( contact.bodyB ) );
@@ -473,8 +452,7 @@ void PhysicsDebugVisualizer::EmitSleepState( const PhysicsDebugSleepView& view )
     const auto& bodies = view.bodies.bodies.Records();
     const auto hotFields = view.bodies.bodies.HotFields();
     const auto& colliders = view.bodies.colliders.Records();
-    const int count = (std::min)( view.bodies.modelCount,
-                                  (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
+    const int count = (std::min)( view.bodies.modelCount, (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
 
     for ( int i = 0; i < count; ++i )
     {
@@ -489,6 +467,9 @@ void PhysicsDebugVisualizer::EmitSleepState( const PhysicsDebugSleepView& view )
         {
             EmitRingXZ( center, radius, 0.15f, 0.45f, 0.25f, 1.0f );
             EmitCross( center, radius * 0.18f, 0.45f, 0.25f, 1.0f );
+            // Support and inhibition explain awake eligibility; sleeping bodies
+            // need only the purple marker, even when support remains recorded.
+            continue;
         }
 
         if ( supported )
@@ -499,8 +480,7 @@ void PhysicsDebugVisualizer::EmitSleepState( const PhysicsDebugSleepView& view )
         if ( inhibited )
         {
             EmitRingXZ( center, radius * 0.62f, radius * 0.9f, 1.0f, 0.25f, 0.05f );
-            EmitLine( center + Vector3( 0.0f, radius * 0.5f, 0.0f ), center + Vector3( 0.0f, radius * 1.35f, 0.0f ), 1.0f,
-                      0.25f, 0.05f );
+            EmitLine( center + Vector3( 0.0f, radius * 0.5f, 0.0f ), center + Vector3( 0.0f, radius * 1.35f, 0.0f ), 1.0f, 0.25f, 0.05f );
         }
     }
 }
@@ -583,8 +563,7 @@ void PhysicsDebugVisualizer::EmitTerrainContactProbe( const PhysicsDebugBodyView
     const auto& bodies = view.bodies.Records();
     const auto hotFields = view.bodies.HotFields();
     const auto& colliders = view.colliders.Records();
-    const int count = (std::min)( view.modelCount,
-                                  (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
+    const int count = (std::min)( view.modelCount, (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
 
     for ( int i = 0; i < count; ++i )
     {
@@ -678,10 +657,7 @@ void PhysicsDebugVisualizer::Update( float dt, std::span<const PhysicsDebugConta
         tracked.remainingSeconds -= (std::max)( 0.0f, dt );
     }
 
-    m_trackedContacts.erase( std::remove_if( m_trackedContacts.begin(), m_trackedContacts.end(),
-                                             []( const TrackedContact& tracked )
-                                             { return tracked.remainingSeconds <= 0.0f; } ),
-                             m_trackedContacts.end() );
+    m_trackedContacts.erase( std::remove_if( m_trackedContacts.begin(), m_trackedContacts.end(), []( const TrackedContact& tracked ) { return tracked.remainingSeconds <= 0.0f; } ), m_trackedContacts.end() );
 
     for ( const PhysicsDebugContact& contact : contacts )
     {
@@ -706,8 +682,7 @@ void PhysicsDebugVisualizer::Update( float dt, std::span<const PhysicsDebugConta
     }
 }
 
-void PhysicsDebugVisualizer::Render( const PhysicsDebugFrameView& view, const Matrix4& viewProj,
-                                     Dx12GeometryOwner& renderCommands, bool supportsDebugLines, Geometry::Terrain* terrain )
+void PhysicsDebugVisualizer::Render( const PhysicsDebugFrameView& view, const Matrix4& viewProj, Dx12GeometryOwner& renderCommands, bool supportsDebugLines, Geometry::Terrain* terrain )
 {
     if ( m_flags == PHYSICS_DEBUG_NONE || view.bodies.modelCount <= 0 || !supportsDebugLines )
     {
@@ -782,8 +757,7 @@ std::span<const float> PhysicsDebugVisualizer::BuildContactManifoldStrokes( cons
         EmitLine( presentation.bodies[0].position, presentation.bodies[1].position, 0.35f, 0.43f, 0.50f );
     }
 
-    for ( uint8_t pointIndex = 0;
-          pointIndex < presentation.pointCount && pointIndex < CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY; ++pointIndex )
+    for ( uint8_t pointIndex = 0; pointIndex < presentation.pointCount && pointIndex < CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY; ++pointIndex )
     {
         // Scale the detached drawing value; the recorded unit normal stays intact.
         auto point = presentation.points[pointIndex];
@@ -794,8 +768,7 @@ std::span<const float> PhysicsDebugVisualizer::BuildContactManifoldStrokes( cons
     return BuildContactStrokeVertices( m_lineData, m_contactStrokeVertices );
 }
 
-void PhysicsDebugVisualizer::RenderContactManifold( const ContactManifoldPresentation& presentation, const Matrix4& viewProj,
-                                                    Dx12GeometryOwner& renderCommands, bool supportsDebugLines )
+void PhysicsDebugVisualizer::RenderContactManifold( const ContactManifoldPresentation& presentation, const Matrix4& viewProj, Dx12GeometryOwner& renderCommands, bool supportsDebugLines )
 {
     if ( !supportsDebugLines )
     {
@@ -803,6 +776,5 @@ void PhysicsDebugVisualizer::RenderContactManifold( const ContactManifoldPresent
     }
 
     const std::span<const float> strokes = BuildContactManifoldStrokes( presentation );
-    renderCommands.DrawTransientColoredTriangles( strokes, viewProj, TransientTriangleStyle::InstancedRibbon,
-                                                  CONTACT_STROKE_RASTER );
+    renderCommands.DrawTransientColoredTriangles( strokes, viewProj, TransientTriangleStyle::InstancedRibbon, CONTACT_STROKE_RASTER );
 }

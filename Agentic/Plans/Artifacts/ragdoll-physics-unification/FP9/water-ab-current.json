@@ -1,0 +1,1175 @@
+{
+  "status": "captured",
+  "inputs": {
+    "source": "C:\\SkullbonezCore\\SkullbonezData\\scenes\\ragdoll_water_float.scene.json",
+    "sourceSha256": "5f53dafa75202b774b1991babb94f178d802100096af676380e8fe955e41679a",
+    "sceneSha256": "86a38cd4e733321e10383f1c3053ac13386f46e4aa2ea438cfdca99dbed6c7f4",
+    "ticks": 1200,
+    "warmup": 240,
+    "fixedDt": "1/120",
+    "mode": "ab",
+    "executableSha256": "b9df9507c6fb1c80a7a84af5d07320f1ec1242ab5e8bc861a81a968b7721cae9",
+    "sharedFiles": {
+      "SkullbonezData/engine.cfg": "86d53f142edce01bae4f425b4d828856a5f438df2d73fe6e0e9a01a68adbc33f",
+      "SkullbonezData/assets/buildings.assets.json": "3a255d06bfbbba354110a36a381fd89b9f1d9dcc7c31d8e025adb5c0a1af4d3e",
+      "SkullbonezData/assets/low_poly_nature.assets.json": "96758610c290b58c9a6aa95cd871e16ee48f027e400275f136140d098af3d1d7",
+      "SkullbonezData/assets/physics_props.assets.json": "b8d4399f830f43adfde253e884aa72cf75e483f2d855550056fafbbcde6b1590",
+      "SkullbonezData/hulls/brick_wall_unit.hull": "5e5155bb12ac591d82868fcbd0cd9b5bedf9ffb64d988ddcd2397d99983f84a0",
+      "SkullbonezData/hulls/building_apartment_slab.hull": "86352d7922f71e1feb857d2c1e8744978d2b90f8cfe68a34c6dfc3a788a339f3",
+      "SkullbonezData/hulls/building_brick_unit.hull": "a1d20e47950339bc52fd93b738056fd1e56e3c36697211809bbf9d378a5ef3e9",
+      "SkullbonezData/hulls/building_chimney.hull": "e86523cc74d8efe810e8e110404630b9fb558c301312ae91e819d71d3f73bc80",
+      "SkullbonezData/hulls/building_door_panel.hull": "55e9e8099dc6f55d58dc864ad26e584d56dc679f00c077df1bd1fb6ed8205470",
+      "SkullbonezData/hulls/building_house_slab.hull": "a69302489bb9e5a6981ccd72d5f4ce2d2e5d320451dc2b3348baddff5f4460df",
+      "SkullbonezData/hulls/building_roof_plate.hull": "0275cd4c5263833257e78308065f4f28cda86df00a1cd817a9f77d1a067b27ce",
+      "SkullbonezData/hulls/building_side_panel.hull": "a25bfd813c2d2bee7fc75121e8771555182f4f1f011ef5d6586603940dc5f778",
+      "SkullbonezData/hulls/building_tri_roof.hull": "c948cf28e150e9326b6a7f18f8358e0d2a2f65e5c4512106bcaae0fd1b0ea891",
+      "SkullbonezData/hulls/building_wall_panel.hull": "482eb915e443eba0728929161ba3ef08e177fbdb18fdfd4e9630f9fb98d28ce5",
+      "SkullbonezData/hulls/building_window_panel.hull": "d696ff877e90c0040246ce381563bfaaef6d81e472776012c3153702588914a0",
+      "SkullbonezData/hulls/cedar_tier_low.hull": "24960cf3f1fc51b6afb4dbff6b9fb30a871aeddbb03cb8d6c036955ed70c8719",
+      "SkullbonezData/hulls/cedar_tier_mid.hull": "9879a0c67d60830be959a0d9ec0a3d0fa201bb1edce42f17749ed573711f323c",
+      "SkullbonezData/hulls/cedar_tier_tall_low.hull": "c0790b66028325e23cab666127325d416757c17816a1d84d6d82c92e711ca5de",
+      "SkullbonezData/hulls/cedar_tier_tall_mid.hull": "755d62d6be910cfcdfdd16d1f6d4afcb7f420d8b2ba1e247f702b8a7a6e1fa43",
+      "SkullbonezData/hulls/cedar_tier_top.hull": "53d7cfadd774f5c6620d86070bf8789e9e0c0db4ff3d436d5a9153a522f974d4",
+      "SkullbonezData/hulls/diamond.hull": "d64de131a7ba7de8c0855001519afd64a38ebf9eb247d7e3074e21eb65d9b263",
+      "SkullbonezData/hulls/disc_16.hull": "f5a0bedf2571dd2c342cc142aa37c55b5973e8ac52ba9d5118067f4a3410cda5",
+      "SkullbonezData/hulls/hex_prism.hull": "ea410ddddf6f0e96d173a66db7b59d8d707b56ce5a465d69cf36e75d63d439e1",
+      "SkullbonezData/hulls/pine_needle_cluster.hull": "9c67e5d5df58ea9448cd509410dbfe333ad8a15ab85e8edb92aa08c0fe811b2f",
+      "SkullbonezData/hulls/pine_tier_large.hull": "b54ab7e12c064aef51656edf856242363a33f4115f9c91958ad52d325cca4c6e",
+      "SkullbonezData/hulls/pine_tier_mid.hull": "0730bb74c982da424de8f92cd0d26346fcf0bf754e8c5550e464e0931fbea4a8",
+      "SkullbonezData/hulls/pine_tier_top.hull": "6bb9272402f667731c6c958b37a929e77dd7ec9307f64a0060b9c4fd568f3731",
+      "SkullbonezData/hulls/pyramid.hull": "369a3ed5ed1d2fe443c85943ee257a5683eef4f206f27f7195c616339abbcda2",
+      "SkullbonezData/hulls/rock_chipped_block.hull": "cf6c0dda86b6a3cac3d7948d33bdbc68cf4605917edadd10ce67377964ee3079",
+      "SkullbonezData/hulls/rock_lump_large.hull": "22024bb2e89231d13540ec3811d17152e23759fa7f41668e10fbda1043da3fef",
+      "SkullbonezData/hulls/rock_shard_tall.hull": "5e0fe2303488c7e669496deaa57890be7d6cdb450df37114c601d90c39838b7b",
+      "SkullbonezData/hulls/rock_slab_flat.hull": "43ad61d42321ac3b398bd361d8ef48ced2afd3a541521ad3b037f8c230fa546c",
+      "SkullbonezData/hulls/tapered_block.hull": "b2c1c4617e22d8d98ccf28bcf31a05b96754b7eddaf11fa209c329e43b0dc1ee",
+      "SkullbonezData/hulls/test_motion_tetrahedron.hull": "584ed4a306eb2fdd27151171427ce82c262b0207438b66c6acad99687354b822",
+      "SkullbonezData/hulls/test_scaled_normals_box.hull": "e018b3c041366e86623aab0e8393652bbc20a093a2c146b9895d8d55d6066da6",
+      "SkullbonezData/hulls/tree_root_large.hull": "2f1a868fbc05e14c5e168b5703711cf941c36326b04d0f6e4c885c6c02c3fde2",
+      "SkullbonezData/hulls/tree_root_small.hull": "2d65037cfe13a784e9b1e6e3d262e2f684dbb3bbf079aad0cf6460956e6f31ed",
+      "SkullbonezData/hulls/tree_trunk_faceted.hull": "a4801b1782f0d75d82f47031085f65a48e55c50b169f60e305c15f430aa38ae8",
+      "SkullbonezData/hulls/tree_trunk_small_faceted.hull": "8ab368af3eaf72dc75fe6a508f931884a5a7f815b84bd2bfb668e696afe0a959",
+      "SkullbonezData/hulls/tri_prism.hull": "9d3b73dc2fdc25e4bfe07607a76c3a601cbdeec9d2c708fd6a6969ffe6240c34",
+      "SkullbonezData/hulls/wedge.hull": "ea3bacef07666d4ccf75d1fd1bba8cc697076a20f4b6afaaaf7186d749bb215d",
+      "SkullbonezData/styles/abstract_render_showcase.style.json": "efc57cc4aa85374e62bc8d8b72df8cc2c0c89de213c017c9d9a8b0b6c2fef95d",
+      "SkullbonezData/styles/alien_planet.style.json": "af9bf08fcdf539e90af7d0e778b7d942a97aceb2c8a1ee1660799b4f21c01753",
+      "SkullbonezData/styles/atmospheric_fog_world.style.json": "eb055dd7092e40dbdf78a14f8356052caedd87a6e8c54ed6c5749bb73de7221e",
+      "SkullbonezData/styles/brutal_industrial.style.json": "5e800b7a9b34d9b4ee1350a5069eb72218d05b1ad8e6106c5edc25fea7422b5a",
+      "SkullbonezData/styles/consequence.style.json": "3ce1c557c1810fdfdb69ee93125ba9c6a407943cda481e94de3d9f66dfca03ab",
+      "SkullbonezData/styles/desert_storm.style.json": "89d95b2365d626d9e8123638acd46e0e88ea1788a58e9a498a028087c23a32c8",
+      "SkullbonezData/styles/dreamscape.style.json": "03d8835ee23b77f39a8854c2e09cc12c4ea7ecaf8169b42600a7e6e863f5a845",
+      "SkullbonezData/styles/golden_hour_realism.style.json": "06340ab1d1f0edb8453ac3cb17f795b4542ec955d541976b0f88522c2f9eece6",
+      "SkullbonezData/styles/low_poly_art_style.style.json": "f9a41ef7febaf3075732d55ffcdebbdc18cb094816f342d58bce275e615ef4a0",
+      "SkullbonezData/styles/massive_scale.style.json": "571a3142a67cec55452f925ea5f2ec3c54119d7cfa3a925eda78220b228dc5df",
+      "SkullbonezData/styles/material_authoring_contract.style.json": "040f9b51917959678c83d66587448002fee97320aee166e090bcfee041b66f32",
+      "SkullbonezData/styles/neon_cyberpunk.style.json": "3316a715fc428e79176afbb9127d3ab49ee7c433756e5ae95158ceb5a1dfd425",
+      "SkullbonezData/styles/nordic_winter.style.json": "69ba90aef5ddb080effdaf657f452bae29c9b71aa75074c61e6475b5c3b72bcf",
+      "SkullbonezData/styles/ocean_world.style.json": "cb9cd1bd1b19178d7f475b7fac5b253571767163ed0a16d0602fd23b59860f77",
+      "SkullbonezData/styles/painterly.style.json": "3fda22676a02b60d8cf355733f23249167525d5805c74a733fb1f6cd3a82021b",
+      "SkullbonezData/styles/photogrammetry_ground.style.json": "c545d88f19938e0675a5b256478ab2ea46f9ae3ab61612aec599668b9e4793c3",
+      "SkullbonezData/styles/pixar_inspired.style.json": "ac9337bc2e7ace0e634d452ef0c5dd180e6dafcfce210ec6f9f386be4795b5ba",
+      "SkullbonezData/styles/retro_future_2005.style.json": "bb59880201abffdd8577d5dbd29e321c4e03b88a5dee2419f1326dce287b9140",
+      "SkullbonezData/styles/scifi_test_chamber.style.json": "bc39db059c0bdf5186613c7fd49d5bb6872fe637657983c3b99a0bb35955a9e8",
+      "SkullbonezData/styles/storm_front.style.json": "5b04cdd8f3186b8763a7ff700b6e7e4be7997245c251b54c2a5811b9acf419a9",
+      "SkullbonezData/styles/studio_lighting_showcase.style.json": "77395fcefe9d0260664a875860827145d06542c84d624cea0b6d68696318b9eb",
+      "SkullbonezData/styles/tron_grid.style.json": "aa8fb5d4830a51589af6edd3632d0ad3281f60b12bef050a0da246c15cb103d4",
+      "SkullbonezData/styles/_concept_base.style.json": "3f736d8751b39bd867cc4514e846882ba059a57150040156c30948773d777546"
+    }
+  },
+  "runs": [
+    {
+      "name": "A1",
+      "enabled": false,
+      "workers": 4,
+      "elapsedSeconds": 8.296999999991385,
+      "executableSha256": "b9df9507c6fb1c80a7a84af5d07320f1ec1242ab5e8bc861a81a968b7721cae9",
+      "recording": {
+        "path": "result.skreplay",
+        "sha256": "948c2c0343b465d3442aaa784f90a1571f96720a12b89b3fe9144be36b0a587d",
+        "bytes": 2949524,
+        "expandedEstimateBytes": 7219200,
+        "ticks": 1200,
+        "bodyCount": 30,
+        "version": 5,
+        "firstPhysicsTick": 1,
+        "sceneFrameToPhysicsTick": 1,
+        "initialState": "not recorded",
+        "diagnosticFrames": [
+          1081,
+          1141
+        ]
+      },
+      "replay": {
+        "chunks": {
+          "BODY": {
+            "sha256": "7f296eff0e5264e7efb584ffc1f6565bbbc2d439583bcd3c03c0928861ff1d03",
+            "bytes": 2404
+          },
+          "PRES": {
+            "sha256": "07cadb42e6c3313e50013d530951bec3fe322966067e463324e33c2ecb3703ec",
+            "bytes": 2846404
+          },
+          "HASH": {
+            "sha256": "e0a667214fea5dcf0c09342b36e684aa25e507697e9f20434190cdd667eb5ab4",
+            "bytes": 5764
+          },
+          "SCHK": {
+            "sha256": "33d9e2cb4757aff6d8416ef0159a090b6751500521a07861bb1dfa97a34316b6",
+            "bytes": 64194
+          }
+        },
+        "finalStateHash": "0x5680771B5AF772F5",
+        "solverHashCount": 120,
+        "checkpointCount": 2,
+        "dynamicBodies": 30,
+        "sleepingBodies": 0,
+        "supportedBodies": 0,
+        "lastSecondLinearSpeedRms": 0.3813391791973012,
+        "lastSecondAngularSpeedRms": 0.10522267691019735
+      },
+      "performance": {
+        "units": "milliseconds",
+        "markers": {
+          "Frame/Physics": {
+            "samples": 960,
+            "average": 1.0501979166666666,
+            "p95": 1.1421,
+            "p99": 1.3001,
+            "max": 1.4045
+          },
+          "Frame/Physics/MotionEligibility": {
+            "samples": 960,
+            "average": 0.002344479166666667,
+            "p95": 0.0033,
+            "p99": 0.0036,
+            "max": 0.0049
+          },
+          "Frame/Physics/Broadphase": {
+            "samples": 960,
+            "average": 0.03706666666666667,
+            "p95": 0.0418,
+            "p99": 0.0464,
+            "max": 0.1242
+          },
+          "Frame/Physics/Narrowphase": {
+            "samples": 960,
+            "average": 0.0011944791666666668,
+            "p95": 0.0016,
+            "p99": 0.0019,
+            "max": 0.0024
+          },
+          "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds": {
+            "samples": 960,
+            "average": 0.028270520833333333,
+            "p95": 0.0329,
+            "p99": 0.0355,
+            "max": 0.1105
+          },
+          "Frame/Physics/Narrowphase/PersistentContacts/SolveRows": {
+            "samples": 960,
+            "average": 0.06952864583333333,
+            "p95": 0.0811,
+            "p99": 0.0857,
+            "max": 0.1581
+          },
+          "Frame/Physics/DiagnosticsDump": {
+            "samples": 960,
+            "average": 0.6951913541666667,
+            "p95": 0.7621,
+            "p99": 0.8323,
+            "max": 0.9047
+          }
+        },
+        "physicsExcludingDiagnosticDump": {
+          "samples": 960,
+          "average": 0.3550065625,
+          "p95": 0.4225,
+          "p99": 0.48449999999999993,
+          "max": 0.6179
+        }
+      },
+      "diagnostics": {
+        "speculative_summary": {
+          "candidate_pairs": {
+            "samples": 960,
+            "average": 37.72291666666667,
+            "p95": 41,
+            "p99": 41,
+            "max": 41
+          },
+          "admitted_rows": {
+            "samples": 960,
+            "average": 0.0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "eligibility_ns": {
+            "samples": 960,
+            "average": 2158.125,
+            "p95": 3000,
+            "p99": 3200,
+            "max": 4700
+          },
+          "articulation_ns": {
+            "samples": 960,
+            "average": 651.25,
+            "p95": 1100,
+            "p99": 1300,
+            "max": 1400
+          }
+        },
+        "solver_stats": {
+          "row_count": {
+            "samples": 960,
+            "average": 11.960416666666667,
+            "p95": 16,
+            "p99": 18,
+            "max": 19
+          },
+          "solver_iterations": {
+            "samples": 960,
+            "average": 11.988541666666666,
+            "p95": 12,
+            "p99": 12,
+            "max": 12
+          }
+        },
+        "joint_summary": {
+          "max_anchor_error_before_correction": {
+            "samples": 960,
+            "average": 0.3511240858208333,
+            "p95": 0.352560818,
+            "p99": 0.352762878,
+            "max": 0.353080601
+          }
+        },
+        "frame": {
+          "max_penetration": {
+            "samples": 960,
+            "average": 0.004842075,
+            "p95": 0.006481,
+            "p99": 0.016313,
+            "max": 0.041838
+          },
+          "max_speed": {
+            "samples": 960,
+            "average": 8.395463065625,
+            "p95": 64.278678,
+            "p99": 72.18755,
+            "max": 73.361145
+          },
+          "max_omega": {
+            "samples": 960,
+            "average": 1.184723884375,
+            "p95": 4.662631,
+            "p99": 5.969879,
+            "max": 10.027345
+          },
+          "sleeping_count": {
+            "samples": 960,
+            "average": 0.0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        }
+      },
+      "allocations": {
+        "total_allocations": 7829228,
+        "total_bytes": 1048666227,
+        "gameplay_violations": 0,
+        "foreign_frees": 0,
+        "mode": "gameplay",
+        "phases": {
+          "startup": {
+            "allocations": 9933,
+            "frees": 9929,
+            "bytes": 221223655,
+            "active_bytes": 1439752,
+            "high_water_bytes": 192421231
+          },
+          "scene_load": {
+            "allocations": 377795,
+            "frees": 377795,
+            "bytes": 43129848,
+            "active_bytes": 0,
+            "high_water_bytes": 3593304
+          },
+          "backend_init": {
+            "allocations": 321947,
+            "frees": 321940,
+            "bytes": 24435736,
+            "active_bytes": 392,
+            "high_water_bytes": 3362366
+          },
+          "replay": {
+            "allocations": 8212,
+            "frees": 8212,
+            "bytes": 65790117,
+            "active_bytes": 0,
+            "high_water_bytes": 61872500
+          },
+          "capture": {
+            "allocations": 5438,
+            "frees": 5438,
+            "bytes": 86116960,
+            "active_bytes": 0,
+            "high_water_bytes": 79019706
+          },
+          "diagnostics": {
+            "allocations": 7105897,
+            "frees": 7105894,
+            "bytes": 607969009,
+            "active_bytes": 7647,
+            "high_water_bytes": 95353
+          },
+          "shutdown": {
+            "allocations": 6,
+            "frees": 6,
+            "bytes": 902,
+            "active_bytes": 0,
+            "high_water_bytes": 774
+          }
+        },
+        "passed": true,
+        "physicsAllocations": 0
+      },
+      "processExit": {
+        "processId": 34660,
+        "exitCode": 0
+      }
+    },
+    {
+      "name": "B1",
+      "enabled": true,
+      "workers": 4,
+      "elapsedSeconds": 8.312999999994645,
+      "executableSha256": "b9df9507c6fb1c80a7a84af5d07320f1ec1242ab5e8bc861a81a968b7721cae9",
+      "recording": {
+        "path": "result.skreplay",
+        "sha256": "a41666b777044d43b664ef86db983895adc96ea8a920271478933f33354cd222",
+        "bytes": 2946392,
+        "expandedEstimateBytes": 7219200,
+        "ticks": 1200,
+        "bodyCount": 30,
+        "version": 5,
+        "firstPhysicsTick": 1,
+        "sceneFrameToPhysicsTick": 1,
+        "initialState": "not recorded",
+        "diagnosticFrames": [
+          1081,
+          1141
+        ]
+      },
+      "replay": {
+        "chunks": {
+          "BODY": {
+            "sha256": "7f296eff0e5264e7efb584ffc1f6565bbbc2d439583bcd3c03c0928861ff1d03",
+            "bytes": 2404
+          },
+          "PRES": {
+            "sha256": "4ca3a49fea51e5d6fda42705189477f2ec8122ee70e949461a11d621d95923e3",
+            "bytes": 2846404
+          },
+          "HASH": {
+            "sha256": "b42c58c1ee31834813a533e5b8a7a2681fe4f5f164e883faa290c33cbc583190",
+            "bytes": 5764
+          },
+          "SCHK": {
+            "sha256": "e49f7d073fe7e8b115754cfa370789735d15b788fdfff5bf7e68f68f9487f9fe",
+            "bytes": 61062
+          }
+        },
+        "finalStateHash": "0x146F99FEE1BBF0DA",
+        "solverHashCount": 120,
+        "checkpointCount": 2,
+        "dynamicBodies": 30,
+        "sleepingBodies": 0,
+        "supportedBodies": 0,
+        "lastSecondLinearSpeedRms": 0.38739096035467374,
+        "lastSecondAngularSpeedRms": 0.10179203625306898
+      },
+      "performance": {
+        "units": "milliseconds",
+        "markers": {
+          "Frame/Physics": {
+            "samples": 960,
+            "average": 1.097358125,
+            "p95": 1.2446,
+            "p99": 1.3323,
+            "max": 1.5358
+          },
+          "Frame/Physics/MotionEligibility": {
+            "samples": 960,
+            "average": 0.0024113541666666667,
+            "p95": 0.0035,
+            "p99": 0.0039,
+            "max": 0.0064
+          },
+          "Frame/Physics/Broadphase": {
+            "samples": 960,
+            "average": 0.041450625,
+            "p95": 0.0474,
+            "p99": 0.0513,
+            "max": 0.0569
+          },
+          "Frame/Physics/Narrowphase": {
+            "samples": 960,
+            "average": 0.0012168749999999999,
+            "p95": 0.0017,
+            "p99": 0.0019,
+            "max": 0.0025
+          },
+          "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds": {
+            "samples": 960,
+            "average": 0.07975625,
+            "p95": 0.0949,
+            "p99": 0.1028,
+            "max": 0.1629
+          },
+          "Frame/Physics/Narrowphase/PersistentContacts/SolveRows": {
+            "samples": 960,
+            "average": 0.06548385416666666,
+            "p95": 0.0759,
+            "p99": 0.0812,
+            "max": 0.158
+          },
+          "Frame/Physics/DiagnosticsDump": {
+            "samples": 960,
+            "average": 0.6931125,
+            "p95": 0.8117,
+            "p99": 0.8381,
+            "max": 0.9335
+          }
+        },
+        "physicsExcludingDiagnosticDump": {
+          "samples": 960,
+          "average": 0.404245625,
+          "p95": 0.47919999999999996,
+          "p99": 0.5215000000000001,
+          "max": 0.7949
+        }
+      },
+      "diagnostics": {
+        "speculative_summary": {
+          "candidate_pairs": {
+            "samples": 960,
+            "average": 38.228125,
+            "p95": 41,
+            "p99": 41,
+            "max": 41
+          },
+          "admitted_rows": {
+            "samples": 960,
+            "average": 1.5177083333333334,
+            "p95": 4,
+            "p99": 5,
+            "max": 7
+          },
+          "eligibility_ns": {
+            "samples": 960,
+            "average": 2215.5208333333335,
+            "p95": 3200,
+            "p99": 3500,
+            "max": 6100
+          },
+          "articulation_ns": {
+            "samples": 960,
+            "average": 644.6875,
+            "p95": 1100,
+            "p99": 1300,
+            "max": 1900
+          }
+        },
+        "solver_stats": {
+          "row_count": {
+            "samples": 960,
+            "average": 10.205208333333333,
+            "p95": 15,
+            "p99": 16,
+            "max": 17
+          },
+          "solver_iterations": {
+            "samples": 960,
+            "average": 11.984375,
+            "p95": 12,
+            "p99": 12,
+            "max": 12
+          }
+        },
+        "joint_summary": {
+          "max_anchor_error_before_correction": {
+            "samples": 960,
+            "average": 0.3512332630302083,
+            "p95": 0.35249269,
+            "p99": 0.352680594,
+            "max": 0.352747232
+          }
+        },
+        "frame": {
+          "max_penetration": {
+            "samples": 960,
+            "average": 0.005269239583333333,
+            "p95": 0.007519,
+            "p99": 0.019591,
+            "max": 0.058674
+          },
+          "max_speed": {
+            "samples": 960,
+            "average": 8.377404423958334,
+            "p95": 64.258684,
+            "p99": 72.211591,
+            "max": 73.376987
+          },
+          "max_omega": {
+            "samples": 960,
+            "average": 0.9661220802083333,
+            "p95": 4.870085,
+            "p99": 5.875567,
+            "max": 7.810869
+          },
+          "sleeping_count": {
+            "samples": 960,
+            "average": 0.0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        }
+      },
+      "allocations": {
+        "total_allocations": 7829156,
+        "total_bytes": 1048459366,
+        "gameplay_violations": 0,
+        "foreign_frees": 0,
+        "mode": "gameplay",
+        "phases": {
+          "startup": {
+            "allocations": 9933,
+            "frees": 9929,
+            "bytes": 221223655,
+            "active_bytes": 1439752,
+            "high_water_bytes": 192421231
+          },
+          "scene_load": {
+            "allocations": 377795,
+            "frees": 377795,
+            "bytes": 43129848,
+            "active_bytes": 0,
+            "high_water_bytes": 3593304
+          },
+          "backend_init": {
+            "allocations": 321947,
+            "frees": 321940,
+            "bytes": 24435736,
+            "active_bytes": 392,
+            "high_water_bytes": 3362366
+          },
+          "replay": {
+            "allocations": 8156,
+            "frees": 8156,
+            "bytes": 65605836,
+            "active_bytes": 0,
+            "high_water_bytes": 61678964
+          },
+          "capture": {
+            "allocations": 5438,
+            "frees": 5438,
+            "bytes": 86113828,
+            "active_bytes": 0,
+            "high_water_bytes": 79016574
+          },
+          "diagnostics": {
+            "allocations": 7105881,
+            "frees": 7105878,
+            "bytes": 607949561,
+            "active_bytes": 7647,
+            "high_water_bytes": 95353
+          },
+          "shutdown": {
+            "allocations": 6,
+            "frees": 6,
+            "bytes": 902,
+            "active_bytes": 0,
+            "high_water_bytes": 774
+          }
+        },
+        "passed": true,
+        "physicsAllocations": 0
+      },
+      "processExit": {
+        "processId": 28096,
+        "exitCode": 0
+      }
+    },
+    {
+      "name": "A2",
+      "enabled": false,
+      "workers": 4,
+      "elapsedSeconds": 8.312999999994645,
+      "executableSha256": "b9df9507c6fb1c80a7a84af5d07320f1ec1242ab5e8bc861a81a968b7721cae9",
+      "recording": {
+        "path": "result.skreplay",
+        "sha256": "948c2c0343b465d3442aaa784f90a1571f96720a12b89b3fe9144be36b0a587d",
+        "bytes": 2949524,
+        "expandedEstimateBytes": 7219200,
+        "ticks": 1200,
+        "bodyCount": 30,
+        "version": 5,
+        "firstPhysicsTick": 1,
+        "sceneFrameToPhysicsTick": 1,
+        "initialState": "not recorded",
+        "diagnosticFrames": [
+          1081,
+          1141
+        ]
+      },
+      "replay": {
+        "chunks": {
+          "BODY": {
+            "sha256": "7f296eff0e5264e7efb584ffc1f6565bbbc2d439583bcd3c03c0928861ff1d03",
+            "bytes": 2404
+          },
+          "PRES": {
+            "sha256": "07cadb42e6c3313e50013d530951bec3fe322966067e463324e33c2ecb3703ec",
+            "bytes": 2846404
+          },
+          "HASH": {
+            "sha256": "e0a667214fea5dcf0c09342b36e684aa25e507697e9f20434190cdd667eb5ab4",
+            "bytes": 5764
+          },
+          "SCHK": {
+            "sha256": "33d9e2cb4757aff6d8416ef0159a090b6751500521a07861bb1dfa97a34316b6",
+            "bytes": 64194
+          }
+        },
+        "finalStateHash": "0x5680771B5AF772F5",
+        "solverHashCount": 120,
+        "checkpointCount": 2,
+        "dynamicBodies": 30,
+        "sleepingBodies": 0,
+        "supportedBodies": 0,
+        "lastSecondLinearSpeedRms": 0.3813391791973012,
+        "lastSecondAngularSpeedRms": 0.10522267691019735
+      },
+      "performance": {
+        "units": "milliseconds",
+        "markers": {
+          "Frame/Physics": {
+            "samples": 960,
+            "average": 1.0535548958333334,
+            "p95": 1.2413,
+            "p99": 1.3642,
+            "max": 1.5005
+          },
+          "Frame/Physics/MotionEligibility": {
+            "samples": 960,
+            "average": 0.0025447916666666666,
+            "p95": 0.0033,
+            "p99": 0.0036,
+            "max": 0.0814
+          },
+          "Frame/Physics/Broadphase": {
+            "samples": 960,
+            "average": 0.03749020833333334,
+            "p95": 0.0441,
+            "p99": 0.0491,
+            "max": 0.1173
+          },
+          "Frame/Physics/Narrowphase": {
+            "samples": 960,
+            "average": 0.0011894791666666666,
+            "p95": 0.0016,
+            "p99": 0.0019,
+            "max": 0.0021
+          },
+          "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds": {
+            "samples": 960,
+            "average": 0.028113645833333333,
+            "p95": 0.0358,
+            "p99": 0.0394,
+            "max": 0.1099
+          },
+          "Frame/Physics/Narrowphase/PersistentContacts/SolveRows": {
+            "samples": 960,
+            "average": 0.069696875,
+            "p95": 0.0943,
+            "p99": 0.1002,
+            "max": 0.1805
+          },
+          "Frame/Physics/DiagnosticsDump": {
+            "samples": 960,
+            "average": 0.6989096875,
+            "p95": 0.8188,
+            "p99": 0.8895,
+            "max": 0.9803
+          }
+        },
+        "physicsExcludingDiagnosticDump": {
+          "samples": 960,
+          "average": 0.35464520833333335,
+          "p95": 0.43400000000000005,
+          "p99": 0.48729999999999996,
+          "max": 0.5521
+        }
+      },
+      "diagnostics": {
+        "speculative_summary": {
+          "candidate_pairs": {
+            "samples": 960,
+            "average": 37.72291666666667,
+            "p95": 41,
+            "p99": 41,
+            "max": 41
+          },
+          "admitted_rows": {
+            "samples": 960,
+            "average": 0.0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "eligibility_ns": {
+            "samples": 960,
+            "average": 2273.5416666666665,
+            "p95": 3100,
+            "p99": 3300,
+            "max": 6300
+          },
+          "articulation_ns": {
+            "samples": 960,
+            "average": 742.9166666666666,
+            "p95": 1100,
+            "p99": 1300,
+            "max": 4300
+          }
+        },
+        "solver_stats": {
+          "row_count": {
+            "samples": 960,
+            "average": 11.960416666666667,
+            "p95": 16,
+            "p99": 18,
+            "max": 19
+          },
+          "solver_iterations": {
+            "samples": 960,
+            "average": 11.988541666666666,
+            "p95": 12,
+            "p99": 12,
+            "max": 12
+          }
+        },
+        "joint_summary": {
+          "max_anchor_error_before_correction": {
+            "samples": 960,
+            "average": 0.3511240858208333,
+            "p95": 0.352560818,
+            "p99": 0.352762878,
+            "max": 0.353080601
+          }
+        },
+        "frame": {
+          "max_penetration": {
+            "samples": 960,
+            "average": 0.004842075,
+            "p95": 0.006481,
+            "p99": 0.016313,
+            "max": 0.041838
+          },
+          "max_speed": {
+            "samples": 960,
+            "average": 8.395463065625,
+            "p95": 64.278678,
+            "p99": 72.18755,
+            "max": 73.361145
+          },
+          "max_omega": {
+            "samples": 960,
+            "average": 1.184723884375,
+            "p95": 4.662631,
+            "p99": 5.969879,
+            "max": 10.027345
+          },
+          "sleeping_count": {
+            "samples": 960,
+            "average": 0.0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        }
+      },
+      "allocations": {
+        "total_allocations": 7829228,
+        "total_bytes": 1048666307,
+        "gameplay_violations": 0,
+        "foreign_frees": 0,
+        "mode": "gameplay",
+        "phases": {
+          "startup": {
+            "allocations": 9933,
+            "frees": 9929,
+            "bytes": 221223655,
+            "active_bytes": 1439752,
+            "high_water_bytes": 192421231
+          },
+          "scene_load": {
+            "allocations": 377795,
+            "frees": 377795,
+            "bytes": 43129848,
+            "active_bytes": 0,
+            "high_water_bytes": 3593304
+          },
+          "backend_init": {
+            "allocations": 321947,
+            "frees": 321940,
+            "bytes": 24435736,
+            "active_bytes": 392,
+            "high_water_bytes": 3362366
+          },
+          "replay": {
+            "allocations": 8212,
+            "frees": 8212,
+            "bytes": 65790117,
+            "active_bytes": 0,
+            "high_water_bytes": 61872500
+          },
+          "capture": {
+            "allocations": 5438,
+            "frees": 5438,
+            "bytes": 86116960,
+            "active_bytes": 0,
+            "high_water_bytes": 79019706
+          },
+          "diagnostics": {
+            "allocations": 7105897,
+            "frees": 7105894,
+            "bytes": 607969089,
+            "active_bytes": 7647,
+            "high_water_bytes": 95353
+          },
+          "shutdown": {
+            "allocations": 6,
+            "frees": 6,
+            "bytes": 902,
+            "active_bytes": 0,
+            "high_water_bytes": 774
+          }
+        },
+        "passed": true,
+        "physicsAllocations": 0
+      },
+      "processExit": {
+        "processId": 12680,
+        "exitCode": 0
+      }
+    },
+    {
+      "name": "B2",
+      "enabled": true,
+      "workers": 4,
+      "elapsedSeconds": 8.343000000008033,
+      "executableSha256": "b9df9507c6fb1c80a7a84af5d07320f1ec1242ab5e8bc861a81a968b7721cae9",
+      "recording": {
+        "path": "result.skreplay",
+        "sha256": "a41666b777044d43b664ef86db983895adc96ea8a920271478933f33354cd222",
+        "bytes": 2946392,
+        "expandedEstimateBytes": 7219200,
+        "ticks": 1200,
+        "bodyCount": 30,
+        "version": 5,
+        "firstPhysicsTick": 1,
+        "sceneFrameToPhysicsTick": 1,
+        "initialState": "not recorded",
+        "diagnosticFrames": [
+          1081,
+          1141
+        ]
+      },
+      "replay": {
+        "chunks": {
+          "BODY": {
+            "sha256": "7f296eff0e5264e7efb584ffc1f6565bbbc2d439583bcd3c03c0928861ff1d03",
+            "bytes": 2404
+          },
+          "PRES": {
+            "sha256": "4ca3a49fea51e5d6fda42705189477f2ec8122ee70e949461a11d621d95923e3",
+            "bytes": 2846404
+          },
+          "HASH": {
+            "sha256": "b42c58c1ee31834813a533e5b8a7a2681fe4f5f164e883faa290c33cbc583190",
+            "bytes": 5764
+          },
+          "SCHK": {
+            "sha256": "e49f7d073fe7e8b115754cfa370789735d15b788fdfff5bf7e68f68f9487f9fe",
+            "bytes": 61062
+          }
+        },
+        "finalStateHash": "0x146F99FEE1BBF0DA",
+        "solverHashCount": 120,
+        "checkpointCount": 2,
+        "dynamicBodies": 30,
+        "sleepingBodies": 0,
+        "supportedBodies": 0,
+        "lastSecondLinearSpeedRms": 0.38739096035467374,
+        "lastSecondAngularSpeedRms": 0.10179203625306898
+      },
+      "performance": {
+        "units": "milliseconds",
+        "markers": {
+          "Frame/Physics": {
+            "samples": 960,
+            "average": 1.0905915625,
+            "p95": 1.1855,
+            "p99": 1.2843,
+            "max": 1.4295
+          },
+          "Frame/Physics/MotionEligibility": {
+            "samples": 960,
+            "average": 0.0024364583333333334,
+            "p95": 0.0033,
+            "p99": 0.0036,
+            "max": 0.0154
+          },
+          "Frame/Physics/Broadphase": {
+            "samples": 960,
+            "average": 0.04059395833333333,
+            "p95": 0.0461,
+            "p99": 0.0493,
+            "max": 0.1122
+          },
+          "Frame/Physics/Narrowphase": {
+            "samples": 960,
+            "average": 0.0011817708333333335,
+            "p95": 0.0016,
+            "p99": 0.0018,
+            "max": 0.0037
+          },
+          "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds": {
+            "samples": 960,
+            "average": 0.07994145833333333,
+            "p95": 0.0909,
+            "p99": 0.097,
+            "max": 0.1691
+          },
+          "Frame/Physics/Narrowphase/PersistentContacts/SolveRows": {
+            "samples": 960,
+            "average": 0.06529677083333334,
+            "p95": 0.0746,
+            "p99": 0.0795,
+            "max": 0.1445
+          },
+          "Frame/Physics/DiagnosticsDump": {
+            "samples": 960,
+            "average": 0.6877689583333333,
+            "p95": 0.7182,
+            "p99": 0.8291,
+            "max": 0.9183
+          }
+        },
+        "physicsExcludingDiagnosticDump": {
+          "samples": 960,
+          "average": 0.40282260416666665,
+          "p95": 0.47250000000000003,
+          "p99": 0.5126999999999999,
+          "max": 0.6004
+        }
+      },
+      "diagnostics": {
+        "speculative_summary": {
+          "candidate_pairs": {
+            "samples": 960,
+            "average": 38.228125,
+            "p95": 41,
+            "p99": 41,
+            "max": 41
+          },
+          "admitted_rows": {
+            "samples": 960,
+            "average": 1.5177083333333334,
+            "p95": 4,
+            "p99": 5,
+            "max": 7
+          },
+          "eligibility_ns": {
+            "samples": 960,
+            "average": 2238.2291666666665,
+            "p95": 3000,
+            "p99": 3300,
+            "max": 15200
+          },
+          "articulation_ns": {
+            "samples": 960,
+            "average": 623.6458333333334,
+            "p95": 1100,
+            "p99": 1300,
+            "max": 13700
+          }
+        },
+        "solver_stats": {
+          "row_count": {
+            "samples": 960,
+            "average": 10.205208333333333,
+            "p95": 15,
+            "p99": 16,
+            "max": 17
+          },
+          "solver_iterations": {
+            "samples": 960,
+            "average": 11.984375,
+            "p95": 12,
+            "p99": 12,
+            "max": 12
+          }
+        },
+        "joint_summary": {
+          "max_anchor_error_before_correction": {
+            "samples": 960,
+            "average": 0.3512332630302083,
+            "p95": 0.35249269,
+            "p99": 0.352680594,
+            "max": 0.352747232
+          }
+        },
+        "frame": {
+          "max_penetration": {
+            "samples": 960,
+            "average": 0.005269239583333333,
+            "p95": 0.007519,
+            "p99": 0.019591,
+            "max": 0.058674
+          },
+          "max_speed": {
+            "samples": 960,
+            "average": 8.377404423958334,
+            "p95": 64.258684,
+            "p99": 72.211591,
+            "max": 73.376987
+          },
+          "max_omega": {
+            "samples": 960,
+            "average": 0.9661220802083333,
+            "p95": 4.870085,
+            "p99": 5.875567,
+            "max": 7.810869
+          },
+          "sleeping_count": {
+            "samples": 960,
+            "average": 0.0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        }
+      },
+      "allocations": {
+        "total_allocations": 7829156,
+        "total_bytes": 1048459366,
+        "gameplay_violations": 0,
+        "foreign_frees": 0,
+        "mode": "gameplay",
+        "phases": {
+          "startup": {
+            "allocations": 9933,
+            "frees": 9929,
+            "bytes": 221223655,
+            "active_bytes": 1439752,
+            "high_water_bytes": 192421231
+          },
+          "scene_load": {
+            "allocations": 377795,
+            "frees": 377795,
+            "bytes": 43129848,
+            "active_bytes": 0,
+            "high_water_bytes": 3593304
+          },
+          "backend_init": {
+            "allocations": 321947,
+            "frees": 321940,
+            "bytes": 24435736,
+            "active_bytes": 392,
+            "high_water_bytes": 3362366
+          },
+          "replay": {
+            "allocations": 8156,
+            "frees": 8156,
+            "bytes": 65605836,
+            "active_bytes": 0,
+            "high_water_bytes": 61678964
+          },
+          "capture": {
+            "allocations": 5438,
+            "frees": 5438,
+            "bytes": 86113828,
+            "active_bytes": 0,
+            "high_water_bytes": 79016574
+          },
+          "diagnostics": {
+            "allocations": 7105881,
+            "frees": 7105878,
+            "bytes": 607949561,
+            "active_bytes": 7647,
+            "high_water_bytes": 95353
+          },
+          "shutdown": {
+            "allocations": 6,
+            "frees": 6,
+            "bytes": 902,
+            "active_bytes": 0,
+            "high_water_bytes": 774
+          }
+        },
+        "passed": true,
+        "physicsAllocations": 0
+      },
+      "processExit": {
+        "processId": 18208,
+        "exitCode": 0
+      }
+    }
+  ],
+  "exactReplay": {
+    "A": {
+      "passed": true,
+      "comparisons": [
+        {
+          "reference": "A1",
+          "candidate": "A2",
+          "equal": true,
+          "differences": []
+        }
+      ]
+    },
+    "B": {
+      "passed": true,
+      "comparisons": [
+        {
+          "reference": "B1",
+          "candidate": "B2",
+          "equal": true,
+          "differences": []
+        }
+      ]
+    }
+  },
+  "abSummary": {
+    "off": {
+      "runs": 2,
+      "physicsAverageMs": 0.3548258854166667,
+      "lastSecondLinearSpeedRms": 0.3813391791973012,
+      "lastSecondAngularSpeedRms": 0.10522267691019735
+    },
+    "on": {
+      "runs": 2,
+      "physicsAverageMs": 0.4035341145833333,
+      "lastSecondLinearSpeedRms": 0.38739096035467374,
+      "lastSecondAngularSpeedRms": 0.10179203625306898
+    },
+    "predictiveAverageCostMs": 0.04870822916666662,
+    "predictiveAverageCostPercent": 13.727360705228502,
+    "timingScope": "Frame/Physics minus its nested DiagnosticsDump; other measured markers remain in runs"
+  },
+  "allocationGatePassed": true
+}

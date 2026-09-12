@@ -183,8 +183,12 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `bake_hulls.bat --check\|--write` | Check or rewrite serialized convex hull v2 runtime data from source geometry |
 | `migrate_data_formats.py --check\|--write` | Check or upgrade asset-library, hull, and engine-config files to their current owned versions |
 | `generate_physics_scale_sleepy_scene.py --check\|--write` | Check or deterministically regenerate the 5,000-body sleeping-heavy scale fixture |
-| `validate_format.bat` | Check changed first-party C++ source directly with the pinned clang-format binary |
-| `format_fix.bat` | Apply the pinned clang-format binary to changed first-party C++ source |
+| `measure_physics_scale.py --exe <producer> --out-dir <directory>` | Preserve three isolated four-worker runs of ten scale, gravity and joint workloads with executable/input hashes and raw CSVs |
+| `check_physics_scale.py --results <results.json> [--reference <results.json>]` | Check workload identity, complete measurement windows, work counters, scratch bounds and timing; `--self-test` exercises negative controls |
+| `validate_format.bat` | Check changed first-party C++ source with clang-format and argument-count wrapping |
+| `format_fix.bat` | Apply clang-format and argument-count wrapping to changed first-party C++ source |
+| `format_cpp.py` | Shared formatter for calls and brace initializers: up to three items stay together at any width; longer lists wrap beneath the first item, with delimiters beside the first and last items |
+| `test_format_cpp.py` | Wrapping regression checks run by `validate_format.bat`; also supports `python tools/test_format_cpp.py` with clang-format on PATH or in `CLANG_FMT` |
 | `check_plain_language.py --repo . [--self-test]` | Scan Git-tracked first-party source and documentation for retired wording; the self-test carries one failing source fixture, one failing documentation fixture, and a clean fixture |
 | `check_related_paths.py [--self-test]` | Advisory report for unresolved repository-relative paths in existing source `Related:` blocks; never blocks validation |
 | `check_build_config_consistency.py --repo . [--format text\|json] [--self-test]` | Inventory effective C++ metadata across the six first-party projects; fail on dropped per-file inheritance or shared-source divergence without an exact current-setting ruling |
@@ -239,10 +243,22 @@ bake; shader compiler diagnostics and a nonzero bake exit fail the build.
 `validate_perf.bat` is a hard gate: baseline regressions and
 `check_perf_budgets.py` absolute-budget failures return nonzero. Do not treat
 perf output as a warning-only review note unless the script itself exits 0.
-It also runs the deterministic 200/520/1,000/2,000-body physics scale matrix.
-Those four artifacts are measurement-only: they report stage timing for the
-retained scalar SoA path without weakening the existing DX12 and physics-bench
-baseline or absolute-budget comparisons.
+It also checks 200/520/1,000/2,000/sleepy-5,000-body scale scenes, 511/512/513/1,024
+mutual-gravity bodies and 320 jointed bodies. The runner fixes four workers,
+fixed stepping, disabled vsync/shadows and both profiler passes at frames
+60 through 600 inclusive (1,082 samples). Raw CSVs, launch logs, hashes and
+summaries are retained under `TestOutput/validation/physics_scale/`. Missing
+workloads, measurements or counters fail the gate. Structural limits reject
+full-world target scans, repeated joint resolution and excess scratch; broad
+absolute timing ceilings detect large regressions. Existing DX12 and small
+physics-bench budgets and baselines remain unchanged.
+
+Optimization acceptance uses three isolated runs per workload from both the
+preserved starting executable and current Profile build. Pass their result
+files to `check_physics_scale.py --results <current> --reference <starting>`
+for machine/input/worker/window matching and a 10% non-regression bound.
+The targeted large sweep, gravity and joint workloads also require at least
+10% median Physics improvement. These commands never update baselines.
 
 `validate_replay_visual_fidelity.bat` is the single replay presentation oracle.
 Each invocation starts exactly one hidden Automation engine process and permits

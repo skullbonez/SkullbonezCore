@@ -40,6 +40,7 @@ Related:
 #include <cstdio>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #endif
 
@@ -87,9 +88,20 @@ class EngineLog
     // operation. Returning a borrowed FILE outside that critical section would
     // make the map safe while leaving the CRT stream itself racy.
 #if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+    struct LogPathHash
+    {
+        using is_transparent = void;
+        size_t operator()( std::string_view path ) const noexcept
+        {
+            return std::hash<std::string_view> {}( path );
+        }
+    };
+
+    // Borrowed path lookup uses the same hash as retained string keys, so a
+    // cached event write does not allocate a temporary string during rendering.
     FILE* OpenLog( const char* fileName );
     std::mutex m_logMutex;
-    std::unordered_map<std::string, FILE*> m_logs;
+    std::unordered_map<std::string, FILE*, LogPathHash, std::equal_to<>> m_logs;
 #endif
 };
 

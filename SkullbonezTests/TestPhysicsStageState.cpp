@@ -47,6 +47,7 @@
 #include "../SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsMotionEligibilityStage.h"
+#include "../SkullbonezSource/Physics/PointJointConstraint.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsSleepController.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h"
 
@@ -305,6 +306,56 @@ TEST_CASE( "Physics motion eligibility: exact radius boundary sleep wake and top
     stage.InvalidateBodyTopology();
     stage.Run( bodies, colliders, sleep, 1.0f );
     CHECK( ( stage.State()[2] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) == 0u );
+}
+
+TEST_CASE( "Physics motion eligibility: articulation is rebuilt from valid joints after restore and removal" )
+{
+    using namespace SkullbonezCore::Physics;
+    PhysicsBodyStore& bodies = StageBodyStore();
+    ColliderStore& colliders = StageColliderStore();
+    for ( int index = 0; index < 3; ++index )
+    {
+        PhysicsBodyCreateRecord body;
+        body.cold.mass = 1.0f;
+        body.hot.inverseMass = index == 0 ? 0.0f : 1.0f;
+        body.hot.fixed = index == 0;
+        const auto handle = bodies.CreateBodyRecord( body );
+        ColliderRecord collider;
+        collider.body = handle;
+        REQUIRE(
+            SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, UnitSphere() ).IsValid() );
+    }
+    PhysicsMotionEligibilityStage stage;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope loading(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        stage.ReserveBodyCapacity( 3u );
+    }
+    std::array<uint8_t, 3> sleeping { 0u, 1u, 0u };
+    PointJointConstraint joint;
+    joint.bodyA = bodies.Records()[0].handle;
+    joint.bodyB = bodies.Records()[1].handle;
+    const std::span<const PointJointConstraint> joints( &joint, 1u );
+    stage.Run( bodies, colliders, sleeping, PHYSICS_FIXED_DT, joints );
+    CHECK( UsesArticulatedContacts( stage.CollisionPathState(), 0 ) );
+    CHECK( UsesArticulatedContacts( stage.CollisionPathState(), 1 ) );
+    CHECK_FALSE( UsesArticulatedContacts( stage.CollisionPathState(), 2 ) );
+    CHECK( stage.State()[0] == 0u );
+    CHECK( stage.State()[1] == 0u );
+    stage.CommitReplayRestoreState( true );
+    CHECK( stage.CollisionPathState().empty() );
+    stage.Run( bodies, colliders, sleeping, PHYSICS_FIXED_DT, joints );
+    CHECK( UsesArticulatedContacts( stage.CollisionPathState(), 1 ) );
+    stage.Run( bodies, colliders, sleeping, PHYSICS_FIXED_DT );
+    CHECK_FALSE( UsesArticulatedContacts( stage.CollisionPathState(), 0 ) );
+    CHECK_FALSE( UsesArticulatedContacts( stage.CollisionPathState(), 1 ) );
+    ++joint.bodyB.generation;
+    stage.Run( bodies, colliders, sleeping, PHYSICS_FIXED_DT, joints );
+    CHECK_FALSE( UsesArticulatedContacts( stage.CollisionPathState(), 0 ) );
+    CHECK_FALSE( UsesArticulatedContacts( stage.CollisionPathState(), 1 ) );
+    joint.bodyB = joint.bodyA;
+    stage.Run( bodies, colliders, sleeping, PHYSICS_FIXED_DT, joints );
+    CHECK_FALSE( UsesArticulatedContacts( stage.CollisionPathState(), 0 ) );
 }
 
 TEST_CASE( "Physics motion eligibility: linear and angular travel scale with collider geometry" )

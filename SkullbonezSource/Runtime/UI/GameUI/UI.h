@@ -51,9 +51,12 @@ Related:
 #include "../../Scene/SceneNavigationModel.h"
 #include "../../../UI/UIState.h"
 #include "../../../UI/UIDrawList.h"
+#include "../../../UI/UITooltip.h"
 #include "UITabProfiler.h"
 #include "UIWindowInteractionOwner.h"
 #include <cstdint>
+#include "../../../UI/UIPanelTransitions.h"
+#include <memory>
 
 namespace SkullbonezCore
 {
@@ -154,6 +157,10 @@ struct UIEditorTabFrameView
     bool editorPlacementMode = false;
     bool editorPlaceStatic = true;
     bool editorTerrainAlign = false;
+    bool editorTerrainBrush = false;
+    bool editorVelocityEdit = false;
+    bool editorVelocityAngular = false;
+    float editorTerrainBrushRadius = 40.0f;
     bool editorViewportLookActive = false;
     int editorObjectType = 0;
     int editorUndoDepth = 0;
@@ -301,12 +308,16 @@ struct UISceneTabFrameView
     float predictionRevealRate = 1.0f;
     bool fixedStep = false; // Scene/capture render-frame-lockstep request; Runtime resolves effective pacing.
     bool testComplete = false;
+    const char* activatedSceneName = nullptr;
+    bool authoredSceneActive = false;
+    bool crossScenePauseLocked = false;
 };
 
 // Cohesive storage sections keep the root frame readable while the view methods
 // below expose only the facts consumed by each tab.
 struct UIFrameSurfaceData
 {
+    float transportAlpha = 0.0f;
     int screenW = 1;
     int screenH = 1;
     const char* rendererName = "";
@@ -425,6 +436,10 @@ struct UIFrameEditorData
     bool editorPlacementMode = false;
     bool editorPlaceStatic = true;
     bool editorTerrainAlign = false;
+    bool editorTerrainBrush = false;
+    bool editorVelocityEdit = false;
+    bool editorVelocityAngular = false;
+    float editorTerrainBrushRadius = 40.0f;
     bool editorViewportLookActive = false;
     int editorObjectType = 0;
     int editorUndoDepth = 0;
@@ -456,6 +471,7 @@ struct InGameUIFrameData
     UIFrameEditorData editor;
     UIFrameRenderingData rendering;
     UIFrameRenderTargetsData renderTargets;
+    std::span<const UITooltipTarget> workspaceTooltips;
 
     UIControlsTabFrameView ControlsTabFrame() const;
     UIEditorTabFrameView EditorTabFrame() const;
@@ -474,15 +490,36 @@ class InGameUI
     }
     bool IsVisible() const;
     bool IsMinimized() const;
+    bool HasDockedSurface() const;
+    void ReturnToGame();
     void SetVisible( bool visible, double now = 0.0 );
     void ToggleVisible( double now );
     void SetMinimized( bool minimized, double now = 0.0 );
     void SetActiveTab( InGameUITab tab );
     InGameUITab GetActiveTab() const;
     bool BlocksCameraMouse() const;
+    bool BlocksReplayMouse() const;
+    bool BlocksCauseMouse() const;
+    bool SharedPresentationEnabled() const;
+    void RevealReplayControls( int width, int height );
+    void RevealCauseControls( int width, int height );
+    GameLayout::ComboPopupPresentation EditorPopup() const;
+    GameLayout::ComboPopupPresentation CameraPopup() const;
+    GameLayout::ComboPopupPresentation ToolsPopup() const;
+    GameLayout::ComboPopupPresentation TargetPopup() const;
+    GameLayout::ComboPopupPresentation RecordingPopup() const;
     bool BlocksKeyboard() const;
+    bool HasOpenPopup() const;
     bool WantsNativeMouseCursor() const;
     void SetWindowBounds( int x, int y, int width, int height );
+    // The frame prepass resolves layout changes before any world ray is built.
+    void UpdatePresentationInput( const InputControl::UIInputSnapshot& input, int width, int height, bool enabled );
+    GameLayout::PresentationRects PresentationBounds() const;
+    GameLayout::LayoutMode PresentationLayout() const;
+    GameLayout::Workspace PresentationWorkspace() const;
+    void SetPresentationWorkspace( GameLayout::Workspace workspace );
+    GameLayout::DiagnosticPresentation DiagnosticPresentation() const;
+    UITooltipTarget VisibleTooltip() const;
 
     // Captures a window-local semantic pointer anchor when the point belongs to this UI.
     bool CaptureInteractionAnchor( int clientX, int clientY, char* output, std::size_t outputSize ) const;
@@ -503,6 +540,8 @@ class InGameUI
     bool NeedsUiTextPass() const;
     void SetHitboxOverlayEnabled( bool enabled );
     void SetScrollY( float scrollY );
+    float ToolsScroll() const noexcept;
+    UIRect ToolsContentBounds() const noexcept;
     void SetMouseOverride( bool enabled, int x = 0, int y = 0 );
     void CancelInputCapture();
 
@@ -521,6 +560,10 @@ class InGameUI
     // Clears UI-owned layout/backdrop caches after presentation invalidation;
     // GPU resource release belongs exclusively to Runtime/Render.
     void ResetPresentationState();
+    void LoadPresentationPreferences();
+    int EvidenceSummarySectionsPreference() const noexcept;
+    void RememberEvidenceSummarySections( int section ) noexcept;
+    void SavePresentationPreferences( Core::SbDiagnosticStore& diagnostics ) const;
     SceneNavigationModel& SceneNavigation()
     {
         return m_sceneNavigation;
@@ -533,17 +576,33 @@ class InGameUI
     // Returns the UI-owned automation pointer substitution by value so Runtime
     // can apply it while constructing the detached input snapshot.
     InputControl::UIPointerOverride InputOverride() const;
-    InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight,
-                                     double now, bool editorModeEnabled, bool placementModeEnabled, bool placeStaticObject,
-                                     bool autoTerrainAlign, uint32_t cameraModeEnabledMask );
+    InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input,
+                                     int screenWidth,
+                                     int screenHeight,
+                                     double now,
+                                     bool editorModeEnabled,
+                                     bool placementModeEnabled,
+                                     bool placeStaticObject,
+                                     bool autoTerrainAlign,
+                                     uint32_t cameraModeEnabledMask );
 
     // Builds one complete ordered frame of backend-neutral draw values. The
     // returned view remains valid until the next Draw call on this owner.
     const UIDrawList& Draw( const InGameUIFrameData& data );
+    const UIDrawList& ForegroundDraw() const;
+    UIPanelTransitions& PanelTransitions()
+    {
+        return *m_panelTransitions;
+    }
+    const UIPanelTransitions& PanelTransitions() const
+    {
+        return *m_panelTransitions;
+    }
 
   private:
     // Lifetime: Init owns this profiler beyond the cohesive UI owner; input and
     // draw paths borrow it without resolving process-global diagnostics state.
+    std::unique_ptr<UIPanelTransitions> m_panelTransitions = std::make_unique<UIPanelTransitions>();
     Core::Profiler* m_profiler = nullptr;
     SceneNavigationModel m_sceneNavigation;
     OperatorEditorLookLabView m_lookLabView;
@@ -551,6 +610,7 @@ class InGameUI
     // Lifetime: the interaction owner holds every widget and gesture record
     // shared by hit testing and drawing. It never retains an InGameUI reach-back.
     UIWindowInteractionOwner m_windowInteraction;
+    char m_layoutPreferencesPath[1024] {};
 };
 
 } // namespace UI

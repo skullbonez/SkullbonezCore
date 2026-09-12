@@ -128,15 +128,29 @@ PhysicsColliderCreateDesc MakeSceneColliderDesc( CollisionShape shape, float res
     return MakeColliderCreateDesc( std::move( shape ), restitution, SceneContactMaterialId( safeName ), safeName );
 }
 
-PhysicsBodyCreateDesc MakeSceneBodyDesc( Physics::PhysicsSceneObjectId sceneObjectId, const CollisionShape& shape,
-                                         const Vector3& position, const Quaternion& orientation,
-                                         const Vector3& linearVelocity, const Vector3& angularVelocity,
-                                         const Vector3& rotationalInertia, float mass, float restitution, bool fixed,
+PhysicsBodyCreateDesc MakeSceneBodyDesc( Physics::PhysicsSceneObjectId sceneObjectId,
+                                         const CollisionShape& shape,
+                                         const Vector3& position,
+                                         const Quaternion& orientation,
+                                         const Vector3& linearVelocity,
+                                         const Vector3& angularVelocity,
+                                         const Vector3& rotationalInertia,
+                                         float mass,
+                                         float restitution,
+                                         bool fixed,
                                          const char* name )
 {
-    return MakePhysicsBodyCreateDesc( sceneObjectId, shape, position, orientation, linearVelocity, angularVelocity,
-                                      rotationalInertia, mass, restitution,
-                                      fixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic, name );
+    return MakePhysicsBodyCreateDesc( sceneObjectId,
+                                      shape,
+                                      position,
+                                      orientation,
+                                      linearVelocity,
+                                      angularVelocity,
+                                      rotationalInertia,
+                                      mass,
+                                      restitution,
+                                      fixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic,
+                                      name );
 }
 
 PhysicsColliderCreateDesc MakeSceneSphereColliderDesc( float radius, float restitution, const char* materialName )
@@ -192,8 +206,7 @@ int CountDistinctAuthoredHullVariants( const AuthoredScene& scene )
     return distinct;
 }
 
-PhysicsColliderCreateDesc MakeSceneHullColliderDesc( const ConvexHullShape& hull, const char* authoredPath,
-                                                     float restitution, const char* materialName )
+PhysicsColliderCreateDesc MakeSceneHullColliderDesc( const ConvexHullShape& hull, const char* authoredPath, float restitution, const char* materialName )
 {
     PhysicsColliderCreateDesc desc = MakeSceneColliderDesc( hull, restitution, materialName );
     desc.hullIdentity = UnitHullIdentity( authoredPath );
@@ -205,8 +218,7 @@ Vector3 ScaleSceneVector( const Vector3& value, float scale )
     return Vector3( value.x * scale, value.y * scale, value.z * scale );
 }
 
-SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-                                                            SceneWorld& sceneWorld, const RagdollBuildOptions& options )
+SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, SceneWorld& sceneWorld, const RagdollBuildOptions& options )
 {
     const int firstBody = sceneWorld.SceneEntityCount();
     const uint32_t groupId = static_cast<uint32_t>( firstBody + 1 );
@@ -215,9 +227,9 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SkullbonezCore::Core
     const RotationMatrix rotation = orientation.GetOrientationMatrix();
     const Vector3 base = options.terrainPoint + rotation * Vector3( 0.0f, Ragdoll::SurfaceEpsilon(), 0.0f );
     const char* prefix = options.namePrefix && options.namePrefix[0] ? options.namePrefix : "ragdoll";
-    const RagdollPartDesc* parts = Ragdoll::SimpleParts();
+    const RagdollPartDesc* parts = Ragdoll::SimpleParts( options.pose );
     int jointCount = 0;
-    const RagdollJointDesc* joints = Ragdoll::SimpleJoints( jointCount );
+    const RagdollJointDesc* joints = Ragdoll::SimpleJoints( jointCount, options.pose );
 
     // Invariant: the caller reserves SIMPLE_PART_COUNT ids as one range so
     // ragdoll parts append with deterministic, gap-free scene identity.
@@ -234,8 +246,7 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SkullbonezCore::Core
         {
             // Recoverable error: preflight the longest generated names before the first
             // append so one bad prefix cannot publish a partial ragdoll.
-            return resultDiagnostics.Failure( "Runtime/SceneAuthoredSetup",
-                                              "Ragdoll part name exceeds the 63-character display-name limit." );
+            return resultDiagnostics.Failure( "Runtime/SceneAuthoredSetup", "Ragdoll part name exceeds the 63-character display-name limit." );
         }
     }
 
@@ -243,8 +254,7 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SkullbonezCore::Core
     // the first part row is published. During initial scene load this is a
     // no-op against the exact whole-scene commit; editor placement extends the
     // retained backing and logical joint allowance once.
-    const SkullbonezCore::Core::SbResult
-        capacityCommit = sceneWorld.ReserveAdditionalPhysicsSceneCapacity( 0, Ragdoll::SIMPLE_PART_COUNT, 0, jointCount );
+    const SkullbonezCore::Core::SbResult capacityCommit = sceneWorld.ReserveAdditionalPhysicsSceneCapacity( 0, Ragdoll::SIMPLE_PART_COUNT, 0, jointCount );
 
     if ( !capacityCommit.Ok() )
     {
@@ -270,15 +280,17 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SkullbonezCore::Core
 
         // Invariant: ragdoll grouping is prefab metadata. Pass root/part facts
         // directly so the creation transaction never parses display names to recover it.
-        const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( model ),
-                                                                   MakeSceneBodyDesc( partSceneObjectId, shape, position,
+        const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( model ), MakeSceneBodyDesc( partSceneObjectId,
+                                                                                      shape,
+                                                                                      position,
                                                                                       orientation,
                                                                                       Vector3( 0.0f, 0.0f, 0.0f ),
-                                                                                      Vector3( 0.0f, 0.0f, 0.0f ), inertia,
-                                                                                      mass, parts[i].restitution,
-                                                                                      options.fixed, name ),
-                                                                   MakeSceneColliderDesc( shape, parts[i].restitution,
-                                                                                          "default" ) );
+                                                                                      Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                      inertia,
+                                                                                      mass,
+                                                                                      parts[i].restitution,
+                                                                                      options.fixed,
+                                                                                      name ), MakeSceneColliderDesc( shape, parts[i].restitution, "default" ) );
 
         if ( !appendResult.status.Ok() )
         {
@@ -315,9 +327,7 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SkullbonezCore::Core
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-SkullbonezCore::Core::SbResult ApplySceneBehaviorGroup( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-                                                        const SceneObjectGroupMetadata& group,
-                                                        SceneEntityCreateDesc& entity )
+SkullbonezCore::Core::SbResult ApplySceneBehaviorGroup( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, const SceneObjectGroupMetadata& group, SceneEntityCreateDesc& entity )
 {
     if ( group.kind == SceneObjectGroupKind::None )
     {
@@ -330,7 +340,8 @@ SkullbonezCore::Core::SbResult ApplySceneBehaviorGroup( SkullbonezCore::Core::Sb
         // editor save names a group root that cannot be resolved for this hull section.
         return resultDiagnostics.Failure( "Runtime/SceneAuthoredSetup",
                                           "Invalid authored scene object group metadata: kind=%u root_id=%u part=%d.",
-                                          static_cast<unsigned int>( group.kind ), group.rootObjectId.value,
+                                          static_cast<unsigned int>( group.kind ),
+                                          group.rootObjectId.value,
                                           group.partIndex );
     }
 
@@ -373,19 +384,16 @@ bool IsSimpleRagdollNeckJointName( const char* bodyA, const char* bodyB )
 {
     size_t torsoPrefixLength = 0;
     size_t headPrefixLength = 0;
-    return TryGetSimpleRagdollPartPrefixLength( bodyA, "torso", torsoPrefixLength ) &&
-           TryGetSimpleRagdollPartPrefixLength( bodyB, "head", headPrefixLength ) && torsoPrefixLength == headPrefixLength &&
-           strncmp( bodyA, bodyB, torsoPrefixLength ) == 0;
+    return TryGetSimpleRagdollPartPrefixLength( bodyA, "torso", torsoPrefixLength ) && TryGetSimpleRagdollPartPrefixLength( bodyB, "head", headPrefixLength ) &&
+           torsoPrefixLength == headPrefixLength && strncmp( bodyA, bodyB, torsoPrefixLength ) == 0;
 }
 
 bool IsBroadMaterialTarget( const char* target )
 {
-    return strcmp( target, "all" ) == 0 || strcmp( target, "balls" ) == 0 || strcmp( target, "boxes" ) == 0 ||
-           strcmp( target, "hulls" ) == 0 || strcmp( target, "convex_hulls" ) == 0;
+    return strcmp( target, "all" ) == 0 || strcmp( target, "balls" ) == 0 || strcmp( target, "boxes" ) == 0 || strcmp( target, "hulls" ) == 0 || strcmp( target, "convex_hulls" ) == 0;
 }
 
-bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const char* displayName,
-                                 bool simpleRagdollPart, ColliderShapeKind shapeKind )
+bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const char* displayName, bool simpleRagdollPart, ColliderShapeKind shapeKind )
 {
     // Invariant: broad scene style targets must not recolor generated ragdoll
     // body parts, but a named prefix/exact target may opt one authored ragdoll
@@ -431,9 +439,8 @@ bool SceneNameStartsWith( const char* name, const char* prefix )
 
 bool IsEditorPlacedSphereName( const char* name )
 {
-    return SceneNameStartsWith( name, "static_ball_" ) || SceneNameStartsWith( name, "dynamic_ball_" ) ||
-           SceneNameStartsWith( name, "sleeping_ball_" ) || SceneNameStartsWith( name, "static_sphere_" ) ||
-           SceneNameStartsWith( name, "dynamic_sphere_" ) || SceneNameStartsWith( name, "sleeping_sphere_" );
+    return SceneNameStartsWith( name, "static_ball_" ) || SceneNameStartsWith( name, "dynamic_ball_" ) || SceneNameStartsWith( name, "sleeping_ball_" ) ||
+           SceneNameStartsWith( name, "static_sphere_" ) || SceneNameStartsWith( name, "dynamic_sphere_" ) || SceneNameStartsWith( name, "sleeping_sphere_" );
 }
 
 void ApplyEditorPlacedSphereMaterial( SceneEntityCreateDesc& model, const char* displayName )
@@ -449,8 +456,7 @@ int FindModelByName( const SceneEntityStore& entities, const char* name )
     return entities.FindByDisplayName( name );
 }
 
-void ApplyAssetAffiliation( SceneEntityCreateDesc& entity, const AuthoredScene& scene, SceneAssetPartSource source,
-                            uint32_t sourceIndex )
+void ApplyAssetAffiliation( SceneEntityCreateDesc& entity, const AuthoredScene& scene, SceneAssetPartSource source, uint32_t sourceIndex )
 {
     // Why: parser provenance keeps exact shape-vector indices. Resolve that
     // cold key once during creation so steady runtime rows retain durable asset
@@ -475,8 +481,7 @@ void ApplyAssetAffiliation( SceneEntityCreateDesc& entity, const AuthoredScene& 
             }
 
             const SceneAssetLibraryRef& library = scene.GetAssetLibrary( static_cast<int>( instance.libraryRefIndex ) );
-            entity.SetAssetAffiliation( instance.rootSceneObjectId, library.token, instance.assetName, instance.instanceName,
-                                        part.partName, part.partIndex );
+            entity.SetAssetAffiliation( instance.rootSceneObjectId, library.token, instance.assetName, instance.instanceName, part.partName, part.partIndex );
 
             return;
         }
@@ -492,20 +497,17 @@ SkullbonezCore::Core::SbResult AppendSnapshotBall( const AuthoredScene& scene, S
     ApplyAssetAffiliation( entity, scene, SceneAssetPartSource::BallState, sourceIndex );
     entity.sceneObjectId = ball.sceneObjectId;
     const BoundingSphere shape( ball.radius, Vector3( 0.0f, 0.0f, 0.0f ) );
-    const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( entity ),
-                                                               MakeSceneBodyDesc( ball.sceneObjectId, shape,
+    const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( entity ), MakeSceneBodyDesc( ball.sceneObjectId,
+                                                                                  shape,
                                                                                   Vector3( ball.posX, ball.posY, ball.posZ ),
-                                                                                  Quaternion( ball.orientX, ball.orientY,
-                                                                                              ball.orientZ, ball.orientW ),
+                                                                                  Quaternion( ball.orientX, ball.orientY, ball.orientZ, ball.orientW ),
                                                                                   Vector3( ball.velX, ball.velY, ball.velZ ),
-                                                                                  Vector3( ball.angVelX, ball.angVelY,
-                                                                                           ball.angVelZ ),
-                                                                                  Vector3( ball.inertiaX, ball.inertiaY,
-                                                                                           ball.inertiaZ ),
-                                                                                  ball.mass, ball.restitution, ball.isFixed,
-                                                                                  ball.name ),
-                                                               MakeSceneColliderDesc( shape, ball.restitution,
-                                                                                      ball.contactMaterial ) );
+                                                                                  Vector3( ball.angVelX, ball.angVelY, ball.angVelZ ),
+                                                                                  Vector3( ball.inertiaX, ball.inertiaY, ball.inertiaZ ),
+                                                                                  ball.mass,
+                                                                                  ball.restitution,
+                                                                                  ball.isFixed,
+                                                                                  ball.name ), MakeSceneColliderDesc( shape, ball.restitution, ball.contactMaterial ) );
 
     if ( appendResult.status.Ok() && ball.isSleeping && !ball.isFixed )
     {
@@ -523,20 +525,17 @@ SkullbonezCore::Core::SbResult AppendSnapshotBox( const AuthoredScene& scene, Sc
     ApplyAssetAffiliation( entity, scene, SceneAssetPartSource::BoxState, sourceIndex );
     entity.sceneObjectId = box.sceneObjectId;
     const BoundingBox shape( Vector3( box.halfX, box.halfY, box.halfZ ), Vector3( 0.0f, 0.0f, 0.0f ) );
-    const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( entity ),
-                                                               MakeSceneBodyDesc( box.sceneObjectId, shape,
+    const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( entity ), MakeSceneBodyDesc( box.sceneObjectId,
+                                                                                  shape,
                                                                                   Vector3( box.posX, box.posY, box.posZ ),
-                                                                                  Quaternion( box.orientX, box.orientY,
-                                                                                              box.orientZ, box.orientW ),
+                                                                                  Quaternion( box.orientX, box.orientY, box.orientZ, box.orientW ),
                                                                                   Vector3( box.velX, box.velY, box.velZ ),
-                                                                                  Vector3( box.angVelX, box.angVelY,
-                                                                                           box.angVelZ ),
-                                                                                  Vector3( box.inertiaX, box.inertiaY,
-                                                                                           box.inertiaZ ),
-                                                                                  box.mass, box.restitution, box.isFixed,
-                                                                                  box.name ),
-                                                               MakeSceneColliderDesc( shape, box.restitution,
-                                                                                      box.contactMaterial ) );
+                                                                                  Vector3( box.angVelX, box.angVelY, box.angVelZ ),
+                                                                                  Vector3( box.inertiaX, box.inertiaY, box.inertiaZ ),
+                                                                                  box.mass,
+                                                                                  box.restitution,
+                                                                                  box.isFixed,
+                                                                                  box.name ), MakeSceneColliderDesc( shape, box.restitution, box.contactMaterial ) );
 
     if ( appendResult.status.Ok() && box.isSleeping && !box.isFixed )
     {
@@ -546,16 +545,13 @@ SkullbonezCore::Core::SbResult AppendSnapshotBox( const AuthoredScene& scene, Sc
     return appendResult.status;
 }
 
-SkullbonezCore::Core::SbResult
-AppendSnapshotRecordsBeforeAuthoredBoxes( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const AuthoredScene& scene,
-                                          SceneWorld& sceneWorld )
+SkullbonezCore::Core::SbResult AppendSnapshotRecordsBeforeAuthoredBoxes( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const AuthoredScene& scene, SceneWorld& sceneWorld )
 {
     if ( !scene.HasOrderedPrimitiveSnapshot() )
     {
         for ( int index = 0; index < scene.GetBallStateCount(); ++index )
         {
-            const SkullbonezCore::Core::SbResult appendResult = AppendSnapshotBall( scene, sceneWorld,
-                                                                                    static_cast<uint32_t>( index ) );
+            const SkullbonezCore::Core::SbResult appendResult = AppendSnapshotBall( scene, sceneWorld, static_cast<uint32_t>( index ) );
 
             if ( !appendResult.Ok() )
             {
@@ -605,8 +601,7 @@ SkullbonezCore::Core::SbResult AppendSnapshotBoxesAfterAuthoredBoxes( const Auth
 
     for ( int index = 0; index < scene.GetBoxStateCount(); ++index )
     {
-        const SkullbonezCore::Core::SbResult appendResult = AppendSnapshotBox( scene, sceneWorld,
-                                                                               static_cast<uint32_t>( index ) );
+        const SkullbonezCore::Core::SbResult appendResult = AppendSnapshotBox( scene, sceneWorld, static_cast<uint32_t>( index ) );
 
         if ( !appendResult.Ok() )
         {
@@ -619,9 +614,7 @@ SkullbonezCore::Core::SbResult AppendSnapshotBoxesAfterAuthoredBoxes( const Auth
 } // namespace
 
 
-SkullbonezCore::Core::SbResult
-SceneAuthoredSetup::AppendSimpleRagdoll( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, SceneWorld& sceneWorld,
-                                         const RagdollBuildOptions& options )
+SkullbonezCore::Core::SbResult SceneAuthoredSetup::AppendSimpleRagdoll( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, SceneWorld& sceneWorld, const RagdollBuildOptions& options )
 {
     return AppendAuthoredSimpleRagdoll( resultDiagnostics, sceneWorld, options );
 }
@@ -676,25 +669,22 @@ void SceneAuthoredSetup::SetUpCameras( SceneWorld& sceneWorld, const AuthoredSce
 }
 
 
-SkullbonezCore::Core::SbResult
-SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-                                        SceneSessionState& sceneState, SceneWorld& sceneWorld,
-                                        SceneAutomationGateConfiguration& automationGates, const AuthoredScene& scene )
+SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                                                       SceneSessionState& sceneState,
+                                                                       SceneWorld& sceneWorld,
+                                                                       SceneAutomationGateConfiguration& automationGates,
+                                                                       const AuthoredScene& scene )
 {
     int simpleRagdollJointCount = 0;
     (void)Ragdoll::SimpleJoints( simpleRagdollJointCount );
     const int sphereCount = scene.GetBallCount() + scene.GetBallStateCount();
-    const int boxCount = scene.GetBoxCount() + scene.GetBoxStateCount() +
-                         scene.GetRagdollCount() * Ragdoll::SIMPLE_PART_COUNT;
+    const int boxCount = scene.GetBoxCount() + scene.GetBoxStateCount() + scene.GetRagdollCount() * Ragdoll::SIMPLE_PART_COUNT;
 
     const int hullCount = scene.GetConvexHullCount() + scene.GetConvexHullStateCount();
     const int hullVariantCapacity = CountDistinctAuthoredHullVariants( scene );
     const int bodyCount = sphereCount + boxCount + hullCount;
     const int pointJointCount = scene.GetPointJointConstraintCount() + scene.GetRagdollCount() * simpleRagdollJointCount;
-    const SkullbonezCore::Core::SbResult capacityCommit = sceneWorld.CommitPhysicsSceneCapacity( bodyCount, sphereCount,
-                                                                                                 boxCount, hullCount,
-                                                                                                 hullVariantCapacity,
-                                                                                                 pointJointCount );
+    const SkullbonezCore::Core::SbResult capacityCommit = sceneWorld.CommitPhysicsSceneCapacity( bodyCount, sphereCount, boxCount, hullCount, hullVariantCapacity, pointJointCount );
 
     if ( !capacityCommit.Ok() )
     {
@@ -720,23 +710,17 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
         const Physics::PhysicsSceneObjectId sceneObjectId = ball.sceneObjectId;
         entity.sceneObjectId = sceneObjectId;
         const BoundingSphere shape( ball.m_radius, Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = sceneWorld
-                                      .TryCreateSceneEntity( std::move( entity ),
-                                                             MakeSceneBodyDesc( sceneObjectId, shape,
-                                                                                Vector3( ball.posX, ball.posY, ball.posZ ),
-                                                                                ball.hasInitOrient
-                                                                                    ? MakeSceneEulerQuaternion( ball.eulerX,
-                                                                                                                ball.eulerY,
-                                                                                                                ball.eulerZ )
-                                                                                    : Quaternion(),
-                                                                                Vector3( 0.0f, 0.0f, 0.0f ),
-                                                                                Vector3( 0.0f, 0.0f, 0.0f ),
-                                                                                Vector3( ball.moment, ball.moment,
-                                                                                         ball.moment ),
-                                                                                ball.m_mass, ball.restitution, ball.isFixed,
-                                                                                ball.name ),
-                                                             MakeSceneColliderDesc( shape, ball.restitution,
-                                                                                    ball.contactMaterial ) );
+        const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( entity ), MakeSceneBodyDesc( sceneObjectId,
+                                                                                      shape,
+                                                                                      Vector3( ball.posX, ball.posY, ball.posZ ),
+                                                                                      ball.hasInitOrient ? MakeSceneEulerQuaternion( ball.eulerX, ball.eulerY, ball.eulerZ ) : Quaternion(),
+                                                                                      Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                      Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                      Vector3( ball.moment, ball.moment, ball.moment ),
+                                                                                      ball.m_mass,
+                                                                                      ball.restitution,
+                                                                                      ball.isFixed,
+                                                                                      ball.name ), MakeSceneColliderDesc( shape, ball.restitution, ball.contactMaterial ) );
 
         if ( !appendResult.status.Ok() )
         {
@@ -748,8 +732,7 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
         ApplyAuthoredBallInitialImpulse( sceneWorld.Physics(), body, ball );
     }
 
-    const SkullbonezCore::Core::SbResult snapshotPrefix = AppendSnapshotRecordsBeforeAuthoredBoxes( resultDiagnostics, scene,
-                                                                                                    sceneWorld );
+    const SkullbonezCore::Core::SbResult snapshotPrefix = AppendSnapshotRecordsBeforeAuthoredBoxes( resultDiagnostics, scene, sceneWorld );
 
     if ( !snapshotPrefix.Ok() )
     {
@@ -775,23 +758,17 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
         const Physics::PhysicsSceneObjectId sceneObjectId = box.sceneObjectId;
         entity.sceneObjectId = sceneObjectId;
         const BoundingBox shape( Vector3( box.halfX, box.halfY, box.halfZ ), Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = sceneWorld
-                                      .TryCreateSceneEntity( std::move( entity ),
-                                                             MakeSceneBodyDesc( sceneObjectId, shape,
-                                                                                Vector3( box.posX, box.posY, box.posZ ),
-                                                                                box.hasInitOrient
-                                                                                    ? MakeSceneEulerQuaternion( box.eulerX,
-                                                                                                                box.eulerY,
-                                                                                                                box.eulerZ )
-                                                                                    : Quaternion(),
-                                                                                box.hasInitVelocity
-                                                                                    ? Vector3( box.velX, box.velY, box.velZ )
-                                                                                    : Vector3( 0.0f, 0.0f, 0.0f ),
-                                                                                Vector3( 0.0f, 0.0f, 0.0f ), inertia,
-                                                                                box.mass, box.restitution, box.isFixed,
-                                                                                box.name ),
-                                                             MakeSceneColliderDesc( shape, box.restitution,
-                                                                                    box.contactMaterial ) );
+        const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( entity ), MakeSceneBodyDesc( sceneObjectId,
+                                                                                      shape,
+                                                                                      Vector3( box.posX, box.posY, box.posZ ),
+                                                                                      box.hasInitOrient ? MakeSceneEulerQuaternion( box.eulerX, box.eulerY, box.eulerZ ) : Quaternion(),
+                                                                                      box.hasInitVelocity ? Vector3( box.velX, box.velY, box.velZ ) : Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                      Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                      inertia,
+                                                                                      box.mass,
+                                                                                      box.restitution,
+                                                                                      box.isFixed,
+                                                                                      box.name ), MakeSceneColliderDesc( shape, box.restitution, box.contactMaterial ) );
 
         if ( !appendResult.status.Ok() )
         {
@@ -811,10 +788,7 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
     {
         const SceneConvexHull& hullScene = scene.GetConvexHull( i );
         ConvexHullShape hull;
-        SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( resultDiagnostics,
-                                                                                    ResolveEditorHullAssetPath(
-                                                                                        hullScene.hullPath ),
-                                                                                    hull );
+        SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( resultDiagnostics, ResolveEditorHullAssetPath( hullScene.hullPath ), hull );
 
         if ( !hullLoad.Ok() )
         {
@@ -848,8 +822,7 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
 
         // Invariant: parsed scene grouping crosses the construction edge as a
         // stable root id and stays separate from asset affiliation.
-        const SkullbonezCore::Core::SbResult groupResult = ApplySceneBehaviorGroup( resultDiagnostics, hullScene.group,
-                                                                                    entity );
+        const SkullbonezCore::Core::SbResult groupResult = ApplySceneBehaviorGroup( resultDiagnostics, hullScene.group, entity );
 
         if ( !groupResult.Ok() )
         {
@@ -858,23 +831,21 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
 
         const Physics::PhysicsSceneObjectId sceneObjectId = hullScene.sceneObjectId;
         entity.sceneObjectId = sceneObjectId;
-        PhysicsBodyCreateDesc bodyDesc = MakeSceneBodyDesc( sceneObjectId, hull, bodyPosition, hullQuaternion,
-                                                            hullScene.hasInitVelocity
-                                                                ? Vector3( hullScene.velX, hullScene.velY, hullScene.velZ )
-                                                                : Vector3( 0.0f, 0.0f, 0.0f ),
-                                                            hullScene.hasInitAngularVelocity
-                                                                ? Vector3( hullScene.angVelX, hullScene.angVelY,
-                                                                           hullScene.angVelZ )
-                                                                : Vector3( 0.0f, 0.0f, 0.0f ),
-                                                            inertia, hullScene.mass, hullScene.restitution,
-                                                            hullScene.isFixed, hullScene.name );
+        PhysicsBodyCreateDesc bodyDesc = MakeSceneBodyDesc( sceneObjectId,
+                                                            hull,
+                                                            bodyPosition,
+                                                            hullQuaternion,
+                                                            hullScene.hasInitVelocity ? Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ) : Vector3( 0.0f, 0.0f, 0.0f ),
+                                                            hullScene.hasInitAngularVelocity ? Vector3( hullScene.angVelX, hullScene.angVelY, hullScene.angVelZ ) : Vector3( 0.0f, 0.0f, 0.0f ),
+                                                            inertia,
+                                                            hullScene.mass,
+                                                            hullScene.restitution,
+                                                            hullScene.isFixed,
+                                                            hullScene.name );
 
         bodyDesc.releasesFromFixedOnContact = hullScene.contactReleaseOnImpact;
         bodyDesc.contactReleaseImpulseThreshold = hullScene.contactReleaseImpulseThreshold;
-        const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( entity ), bodyDesc,
-                                                                   MakeSceneHullColliderDesc( hull, hullScene.hullPath,
-                                                                                              hullScene.restitution,
-                                                                                              hullScene.contactMaterial ) );
+        const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( entity ), bodyDesc, MakeSceneHullColliderDesc( hull, hullScene.hullPath, hullScene.restitution, hullScene.contactMaterial ) );
 
         if ( !appendResult.status.Ok() )
         {
@@ -896,10 +867,7 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
     {
         const SceneConvexHullState& hullScene = scene.GetConvexHullState( i );
         ConvexHullShape hull;
-        SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( resultDiagnostics,
-                                                                                    ResolveEditorHullAssetPath(
-                                                                                        hullScene.hullPath ),
-                                                                                    hull );
+        SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( resultDiagnostics, ResolveEditorHullAssetPath( hullScene.hullPath ), hull );
 
         if ( !hullLoad.Ok() )
         {
@@ -910,8 +878,7 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
 
         entity.SetName( hullScene.name );
         ApplyAssetAffiliation( entity, scene, SceneAssetPartSource::ConvexHullState, static_cast<uint32_t>( i ) );
-        const SkullbonezCore::Core::SbResult groupResult = ApplySceneBehaviorGroup( resultDiagnostics, hullScene.group,
-                                                                                    entity );
+        const SkullbonezCore::Core::SbResult groupResult = ApplySceneBehaviorGroup( resultDiagnostics, hullScene.group, entity );
 
         if ( !groupResult.Ok() )
         {
@@ -920,24 +887,21 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
 
         const Physics::PhysicsSceneObjectId sceneObjectId = hullScene.sceneObjectId;
         entity.sceneObjectId = sceneObjectId;
-        PhysicsBodyCreateDesc bodyDesc = MakeSceneBodyDesc( sceneObjectId, hull,
+        PhysicsBodyCreateDesc bodyDesc = MakeSceneBodyDesc( sceneObjectId,
+                                                            hull,
                                                             Vector3( hullScene.posX, hullScene.posY, hullScene.posZ ),
-                                                            Quaternion( hullScene.orientX, hullScene.orientY,
-                                                                        hullScene.orientZ, hullScene.orientW ),
+                                                            Quaternion( hullScene.orientX, hullScene.orientY, hullScene.orientZ, hullScene.orientW ),
                                                             Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ),
-                                                            Vector3( hullScene.angVelX, hullScene.angVelY,
-                                                                     hullScene.angVelZ ),
-                                                            Vector3( hullScene.inertiaX, hullScene.inertiaY,
-                                                                     hullScene.inertiaZ ),
-                                                            hullScene.mass, hullScene.restitution, hullScene.isFixed,
+                                                            Vector3( hullScene.angVelX, hullScene.angVelY, hullScene.angVelZ ),
+                                                            Vector3( hullScene.inertiaX, hullScene.inertiaY, hullScene.inertiaZ ),
+                                                            hullScene.mass,
+                                                            hullScene.restitution,
+                                                            hullScene.isFixed,
                                                             hullScene.name );
 
         bodyDesc.releasesFromFixedOnContact = hullScene.contactReleaseOnImpact;
         bodyDesc.contactReleaseImpulseThreshold = hullScene.contactReleaseImpulseThreshold;
-        const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( entity ), bodyDesc,
-                                                                   MakeSceneHullColliderDesc( hull, hullScene.hullPath,
-                                                                                              hullScene.restitution,
-                                                                                              hullScene.contactMaterial ) );
+        const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( entity ), bodyDesc, MakeSceneHullColliderDesc( hull, hullScene.hullPath, hullScene.restitution, hullScene.contactMaterial ) );
 
         if ( !appendResult.status.Ok() )
         {
@@ -1010,6 +974,20 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
         sceneWorld.Physics().CreatePointJoint( joint );
     }
 
+    if ( scene.GetPointJointConstraintCount() > 0 )
+    {
+        // Why: snapshot bodies are read before their joints. Reapply authored
+        // sleep after all joint creation so its queued wakes cannot undo the save.
+        const auto hotFields = bodyStore.HotFields();
+        for ( int bodyIndex = 0; bodyIndex < bodyStore.Count(); ++bodyIndex )
+        {
+            if ( !hotFields.awake[bodyIndex] && !hotFields.fixed[bodyIndex] )
+            {
+                sceneWorld.Physics().SeedBodyAsleep( bodyStore.HandleForModelIndex( bodyIndex ) );
+            }
+        }
+    }
+
     for ( int materialIndex = 0; materialIndex < scene.GetObjectMaterialOverrideCount(); ++materialIndex )
     {
         // Why: Material overrides are applied after all bodies exist so prefix
@@ -1020,12 +998,9 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
 
         for ( int modelIndex = 0; modelIndex < sceneWorld.SceneEntityCount(); ++modelIndex )
         {
-            const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() )
-                                                    ? colliders[static_cast<std::size_t>( modelIndex )].shapeKind
-                                                    : ColliderShapeKind::Sphere;
+            const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() ) ? colliders[static_cast<std::size_t>( modelIndex )].shapeKind : ColliderShapeKind::Sphere;
 
-            if ( SceneMaterialTargetMatches( material, sceneWorld.Entities().At( modelIndex ).displayName,
-                                             sceneWorld.Entities().IsSimpleRagdollPart( modelIndex ), shapeKind ) )
+            if ( SceneMaterialTargetMatches( material, sceneWorld.Entities().At( modelIndex ).displayName, sceneWorld.Entities().IsSimpleRagdollPart( modelIndex ), shapeKind ) )
             {
                 sceneWorld.Entities().MutableAt( modelIndex ).renderMaterial = material.material;
             }
@@ -1036,9 +1011,7 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
     // even when schema v2 deliberately uses sparse/non-contiguous values.
     sceneState.ResetSceneObjectIdCursor( sceneWorld.BodyStore() );
     sceneWorld.SetOrbitalStabilityContract( scene.GetOrbitalStabilityContract() );
-    const SkullbonezCore::Core::SbResult sleepingGateResult = SetUpRequiredSleepingDynamicBodies( resultDiagnostics,
-                                                                                                  sceneWorld,
-                                                                                                  automationGates, scene );
+    const SkullbonezCore::Core::SbResult sleepingGateResult = SetUpRequiredSleepingDynamicBodies( resultDiagnostics, sceneWorld, automationGates, scene );
 
     if ( !sleepingGateResult.Ok() )
     {
@@ -1051,20 +1024,18 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
 }
 
 
-SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpRequiredSleepingDynamicBodies(
-    SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, SceneWorld& sceneWorld,
-    SceneAutomationGateConfiguration& automationGates, const AuthoredScene& scene )
+SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpRequiredSleepingDynamicBodies( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                                                                       SceneWorld& sceneWorld,
+                                                                                       SceneAutomationGateConfiguration& automationGates,
+                                                                                       const AuthoredScene& scene )
 {
-    automationGates.ReserveRequiredSleepingDynamicBodies(
-        static_cast<std::size_t>( scene.GetRequiredSleepingDynamicBodyCount() ) );
+    automationGates.ReserveRequiredSleepingDynamicBodies( static_cast<std::size_t>( scene.GetRequiredSleepingDynamicBodyCount() ) );
     const std::span<const uint8_t> fixedBodies = sceneWorld.BodyStore().HotFields().fixed;
 
     for ( int i = 0; i < scene.GetRequiredSleepingDynamicBodyCount(); ++i )
     {
         const SceneRequiredSleepingDynamicBody& body = scene.GetRequiredSleepingDynamicBody( i );
-        const SkullbonezCore::Core::SbResult
-            appendResult = automationGates.TryAppendRequiredSleepingDynamicBody( resultDiagnostics, sceneWorld.Entities(),
-                                                                                 fixedBodies, body.name );
+        const SkullbonezCore::Core::SbResult appendResult = automationGates.TryAppendRequiredSleepingDynamicBody( resultDiagnostics, sceneWorld.Entities(), fixedBodies, body.name );
 
         if ( !appendResult.Ok() )
         {
@@ -1076,8 +1047,7 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpRequiredSleepingDynamicB
 }
 
 
-void SceneAuthoredSetup::SetUpRequiredContacts( SceneWorld& sceneWorld, SceneAutomationGateConfiguration& automationGates,
-                                                const AuthoredScene& scene )
+void SceneAuthoredSetup::SetUpRequiredContacts( SceneWorld& sceneWorld, SceneAutomationGateConfiguration& automationGates, const AuthoredScene& scene )
 {
     // Lifetime: Required contacts store body indices resolved for this load.
     // Scene reloads must rebuild them because model storage is recreated.
@@ -1099,16 +1069,14 @@ void SceneAuthoredSetup::SetUpRequiredContacts( SceneWorld& sceneWorld, SceneAut
 }
 
 
-void SceneAuthoredSetup::SetUpRequiredBroadphaseXCells( SceneAutomationGateConfiguration& automationGates,
-                                                        const AuthoredScene& scene )
+void SceneAuthoredSetup::SetUpRequiredBroadphaseXCells( SceneAutomationGateConfiguration& automationGates, const AuthoredScene& scene )
 {
     automationGates.ReserveRequiredBroadphaseXCells( static_cast<std::size_t>( scene.GetRequiredBroadphaseXCellCount() ) );
 
     for ( int i = 0; i < scene.GetRequiredBroadphaseXCellCount(); ++i )
     {
         const SceneRequiredBroadphaseXCells& sceneCells = scene.GetRequiredBroadphaseXCell( i );
-        automationGates.AppendRequiredBroadphaseXCells( sceneCells.minCellX, sceneCells.maxCellX, sceneCells.cellY,
-                                                        sceneCells.cellZ );
+        automationGates.AppendRequiredBroadphaseXCells( sceneCells.minCellX, sceneCells.maxCellX, sceneCells.cellY, sceneCells.cellZ );
     }
 }
 

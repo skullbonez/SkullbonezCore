@@ -35,8 +35,7 @@ Related:
 using namespace SkullbonezCore::Rendering;
 
 
-std::optional<MeshVertexDataView> MeshVertexDataView::TryCreate( const float* data, int vertexCount, int floatsPerVertex,
-                                                                 VertexFormat12 format ) noexcept
+std::optional<MeshVertexDataView> MeshVertexDataView::TryCreate( const float* data, int vertexCount, int floatsPerVertex, VertexFormat12 format ) noexcept
 {
     if ( !data || vertexCount <= 0 || floatsPerVertex <= 0 )
     {
@@ -55,11 +54,9 @@ std::optional<MeshVertexDataView> MeshVertexDataView::TryCreate( const float* da
 }
 
 
-std::optional<Dx12MeshUploadSlice> Dx12MeshUploadSlice::TryCreate( D3D12_GPU_VIRTUAL_ADDRESS address, uint8_t* bytes,
-                                                                   UINT64 byteCount, ID3D12Resource* backing ) noexcept
+std::optional<Dx12MeshUploadSlice> Dx12MeshUploadSlice::TryCreate( D3D12_GPU_VIRTUAL_ADDRESS address, uint8_t* bytes, UINT64 byteCount, ID3D12Resource* backing ) noexcept
 {
-    if ( address == 0 || !bytes || byteCount == 0 ||
-         byteCount > static_cast<UINT64>( ( std::numeric_limits<std::size_t>::max )() ) || !backing )
+    if ( address == 0 || !bytes || byteCount == 0 || byteCount > static_cast<UINT64>( ( std::numeric_limits<std::size_t>::max )() ) || !backing )
     {
         return std::nullopt;
     }
@@ -67,8 +64,7 @@ std::optional<Dx12MeshUploadSlice> Dx12MeshUploadSlice::TryCreate( D3D12_GPU_VIR
     const D3D12_GPU_VIRTUAL_ADDRESS backingAddress = backing->GetGPUVirtualAddress();
     const D3D12_RESOURCE_DESC backingDesc = backing->GetDesc();
 
-    if ( address < backingAddress || byteCount > backingDesc.Width ||
-         address - backingAddress > backingDesc.Width - byteCount )
+    if ( address < backingAddress || byteCount > backingDesc.Width || address - backingAddress > backingDesc.Width - byteCount )
     {
         return std::nullopt;
     }
@@ -78,8 +74,7 @@ std::optional<Dx12MeshUploadSlice> Dx12MeshUploadSlice::TryCreate( D3D12_GPU_VIR
 
 
 MeshDX12::MeshDX12( Dx12RenderDevice& device, Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics )
-    : m_device( device ), m_drawGate( drawGate ), m_diagnostics( diagnostics ), m_vertexBuffer( nullptr ),
-      m_vertexCount( 0 ), m_stride( 0 ), m_format( VertexFormat12::Pos3 )
+    : m_device( device ), m_drawGate( drawGate ), m_diagnostics( diagnostics ), m_vertexBuffer( nullptr ), m_vertexCount( 0 ), m_stride( 0 ), m_format( VertexFormat12::Pos3 )
 {
     m_vbView = {};
 }
@@ -128,18 +123,18 @@ bool MeshDX12::Create( const MeshVertexDataView& vertices, const Dx12MeshUploadS
     // specifying COPY_DEST fires warning #1328 (CREATERESOURCE_STATE_IGNORED). Use COMMON explicitly;
     // CopyBufferRegion promotes the buffer to COPY_DEST implicitly within the command list.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    HRESULT hr = device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COMMON,
-                                                  nullptr, IID_PPV_ARGS( &m_vertexBuffer ) );
+    HRESULT hr = device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS( &m_vertexBuffer ) );
 
     if ( FAILED( hr ) )
     {
         // Recoverable error: mesh buffers are backend resources. Factory callers receive
         // a null mesh and skip the dependent draw path while the DX12 gate keeps
         // the HRESULT visible.
-        SkullbonezCore::Core::Log()
-            .WriteEventf( "dx12_mesh_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d bytes=%llu",
-                          static_cast<unsigned int>( hr ), m_vertexCount, m_stride,
-                          static_cast<unsigned long long>( dataSize ) );
+        SkullbonezCore::Core::Log().WriteEventf( "dx12_mesh_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d bytes=%llu",
+                                                 static_cast<unsigned int>( hr ),
+                                                 m_vertexCount,
+                                                 m_stride,
+                                                 static_cast<unsigned long long>( dataSize ) );
 
         SkullbonezCore::Core::Log().FlushAll();
         return false;
@@ -167,8 +162,7 @@ bool MeshDX12::Create( const MeshVertexDataView& vertices, const Dx12MeshUploadS
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
     barrier.Transition.pResource = m_vertexBuffer;
     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER |
-                                    D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
@@ -185,6 +179,30 @@ bool MeshDX12::Create( const MeshVertexDataView& vertices, const Dx12MeshUploadS
     return true;
 }
 
+
+bool MeshDX12::UpdateVertices( const MeshVertexDataView& vertices, const Dx12MeshUploadSlice& upload )
+{
+    ID3D12GraphicsCommandList* commandList = m_device.CommandList();
+    if ( !commandList || !m_vertexBuffer || !m_drawGate.CanRecord() || vertices.ByteCount() != m_vbView.SizeInBytes || upload.Bytes().size() != vertices.ByteCount() )
+    {
+        return false;
+    }
+    // Lifetime: the frame arena retains staging bytes until its fence completes.
+    // Copies and later draws share the direct queue, so no CPU/GPU overwrite occurs.
+    memcpy( upload.Bytes().data(), vertices.Components().data(), vertices.ByteCount() );
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource = m_vertexBuffer;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+    commandList->ResourceBarrier( 1, &barrier );
+    ID3D12Resource& backing = upload.Backing();
+    commandList->CopyBufferRegion( m_vertexBuffer, 0, &backing, upload.Address() - backing.GetGPUVirtualAddress(), vertices.ByteCount() );
+    std::swap( barrier.Transition.StateBefore, barrier.Transition.StateAfter );
+    commandList->ResourceBarrier( 1, &barrier );
+    return true;
+}
 
 bool MeshDX12::PrecompileRasterState( const PassRasterStateBucket& bucket ) const
 {

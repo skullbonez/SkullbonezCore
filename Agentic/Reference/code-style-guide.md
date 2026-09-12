@@ -29,13 +29,19 @@ placement and parameter-order decisions.
 
 ## Parameters And Calls
 
-- Keep one to three short parameters or arguments on one line when the complete
-  line fits within the 125-character soft limit.
-- Split signatures and calls when they have at least four parameters or when
-  keeping them together would press past the soft limit.
-- The first parameter or argument stays on the same line as the opening
-  parenthesis. Never leave a function/call line ending with an empty `(`.
-- Align every continuation parameter beneath the first parameter.
+- Keep lists of one to three parameters or arguments together on one line,
+  even when that exceeds 200 characters.
+- Only lists of four or more may use multiline layout. Keep them together when
+  the complete line fits within 200 characters; otherwise keep the first item
+  beside the opening delimiter and put each remaining item on its own line,
+  aligned beneath the first. Keep the closing delimiter after the final item.
+- Apply the same rule to brace initializers: keep `= { firstValue,` on the
+  declaration line, align subsequent values beneath the first, and keep `};`
+  after the final value. Never drop the whole list below `=` or wrap only the
+  final item.
+- Preserve comments, preprocessor directives, and multiline argument bodies
+  such as lambdas and raw strings; their internal layout is independent of
+  argument-count wrapping.
 - Prefer pointer, reference, and other complex-type parameters before primitive
   value parameters. Ownership, ABI compatibility, or a clearer call-flow
   grouping may justify an exception; make that reason evident in the API.
@@ -66,16 +72,17 @@ into locals.
 Do not name a local after a member either. An `m_`-prefixed local claims owner
 state it does not have — see the Incomplete Extraction Rule in `AGENTS.md`.
 
-`Agentic/Skills/collapse_params.py` is a **line-layout formatter only**: it joins
-a multi-line parameter list onto one line to match the width rules above. Its name
-invites the opposite reading. It is never authority to collapse parameters into a
-type.
+`Agentic/Skills/collapse_params.py` is a legacy **line-layout helper only**.
+The active formatting scripts and Git hook use `tools/format_cpp.py`, which
+applies `.clang-format` and then the argument-count rule above. The legacy
+helper's name is never authority to collapse parameters into a type.
 
 ## Width
 
-- Treat 125 characters as a soft limit. A slightly longer indivisible token or
-  a clearer compact expression is preferable to an artificial wrap, but avoid
-  substantially exceeding it.
+- Treat 200 characters as a soft limit. Lists of up to three parameters or
+  arguments may exceed it rather than split. Elsewhere, a slightly longer
+  indivisible token or a clearer compact expression is preferable to an
+  artificial wrap, but avoid substantially exceeding the limit.
 
 ## Test File Ownership
 

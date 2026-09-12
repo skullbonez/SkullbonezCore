@@ -167,8 +167,7 @@ int EditorMiniTreeObjectType( int treeType, int placement )
     return EditorTab::OBJECT_TREE_SMALL;
 }
 
-EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW, int screenH, const UIRect& minimized,
-                                                      int flyoutAnchorEntry, bool flyoutOpen )
+EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW, int screenH, const UIRect& minimized, int flyoutAnchorEntry, bool flyoutOpen, const UIRect& grid, const UIRect& clip )
 {
     // Concept: The mini palette is the minimized editor's primary command
     // surface. One layout object drives drawing, hit boxes, flyout containment,
@@ -182,18 +181,15 @@ EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW, int screenH, 
     const float availableH = (std::max)( 80.0f, bottomLimit - topY );
     float gap = 4.0f;
     float buttonSize = 32.0f;
-    float requiredH = static_cast<float>( layout.buttonCount ) * buttonSize +
-                      static_cast<float>( layout.buttonCount - 1 ) * gap;
+    float requiredH = static_cast<float>( layout.buttonCount ) * buttonSize + static_cast<float>( layout.buttonCount - 1 ) * gap;
 
     if ( requiredH > availableH )
     {
         gap = 2.0f;
-        buttonSize = std::floor( ( availableH - static_cast<float>( layout.buttonCount - 1 ) * gap ) /
-                                 static_cast<float>( layout.buttonCount ) );
+        buttonSize = std::floor( ( availableH - static_cast<float>( layout.buttonCount - 1 ) * gap ) / static_cast<float>( layout.buttonCount ) );
 
         buttonSize = std::clamp( buttonSize, 10.0f, 32.0f );
-        requiredH = static_cast<float>( layout.buttonCount ) * buttonSize +
-                    static_cast<float>( layout.buttonCount - 1 ) * gap;
+        requiredH = static_cast<float>( layout.buttonCount ) * buttonSize + static_cast<float>( layout.buttonCount - 1 ) * gap;
     }
 
     layout.buttonSize = buttonSize;
@@ -205,6 +201,21 @@ EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW, int screenH, 
     }
 
     layout.bounds = { x, topY, buttonSize, requiredH };
+    if ( grid.w > 0.0f )
+    {
+        // Invariant: dock clipping participates in hit testing as well as paint;
+        // a scrolled-off button must not receive a new press.
+        layout.docked = true;
+        layout.clip = clip;
+        buttonSize = 32.0f;
+        layout.buttonSize = buttonSize;
+        const int columns = (std::max)( 1, static_cast<int>( ( grid.w + 4.0f ) / 36.0f ) );
+        for ( int i = 0; i < layout.buttonCount; ++i )
+        {
+            layout.buttons[i] = { grid.x + static_cast<float>( i % columns ) * 36.0f, grid.y + static_cast<float>( i / columns ) * 36.0f, buttonSize, buttonSize };
+        }
+        layout.bounds = { grid.x, grid.y, grid.w, static_cast<float>( ( layout.buttonCount + columns - 1 ) / columns ) * 36.0f };
+    }
 
     if ( flyoutOpen && flyoutAnchorEntry >= 0 && flyoutAnchorEntry < layout.buttonCount )
     {
@@ -219,15 +230,14 @@ EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW, int screenH, 
         const float optionSize = buttonSize;
         const float optionGap = (std::max)( 2.0f, std::floor( buttonSize * 0.12f ) );
         const float padding = 4.0f;
-        const float flyoutW = padding * 2.0f + optionSize * static_cast<float>( optionCount ) +
-                              optionGap * static_cast<float>( optionCount - 1 );
+        const float flyoutW = padding * 2.0f + optionSize * static_cast<float>( optionCount ) + optionGap * static_cast<float>( optionCount - 1 );
 
         const float flyoutH = padding * 2.0f + optionSize;
         float flyoutX = anchor.x + anchor.w + 8.0f;
 
         if ( flyoutX + flyoutW > static_cast<float>( screenW ) - margin )
         {
-            flyoutX = anchor.x + anchor.w + 4.0f;
+            flyoutX = (std::max)( margin, anchor.x - flyoutW - 8.0f );
         }
 
         const float maxY = (std::max)( margin, static_cast<float>( screenH ) - margin - flyoutH );
@@ -238,8 +248,7 @@ EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW, int screenH, 
 
         for ( int i = 0; i < optionCount; ++i )
         {
-            layout.flyoutOptions[i] = { flyoutX + padding + static_cast<float>( i ) * ( optionSize + optionGap ),
-                                        flyoutY + padding, optionSize, optionSize };
+            layout.flyoutOptions[i] = { flyoutX + padding + static_cast<float>( i ) * ( optionSize + optionGap ), flyoutY + padding, optionSize, optionSize };
         }
 
         layout.flyoutVisible = true;
@@ -250,6 +259,10 @@ EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW, int screenH, 
 
 int HitEditorMiniPaletteButton( const EditorMiniPaletteLayout& layout, int mouseX, int mouseY )
 {
+    if ( layout.docked && !layout.clip.Contains( mouseX, mouseY ) )
+    {
+        return -1;
+    }
     for ( int i = 0; i < layout.buttonCount; ++i )
     {
         if ( layout.buttons[i].Contains( mouseX, mouseY ) )
@@ -281,8 +294,7 @@ int HitEditorMiniPaletteFlyoutOption( const EditorMiniPaletteLayout& layout, int
 
 bool EditorMiniPaletteContains( const EditorMiniPaletteLayout& layout, int mouseX, int mouseY )
 {
-    return HitEditorMiniPaletteButton( layout, mouseX, mouseY ) >= 0 ||
-           HitEditorMiniPaletteFlyoutOption( layout, mouseX, mouseY ) >= 0 ||
+    return HitEditorMiniPaletteButton( layout, mouseX, mouseY ) >= 0 || HitEditorMiniPaletteFlyoutOption( layout, mouseX, mouseY ) >= 0 ||
            ( layout.flyoutVisible && layout.flyoutBounds.Contains( mouseX, mouseY ) );
 }
 
@@ -291,8 +303,7 @@ bool IsBlockVisible( float contentY, float contentH, float blockY, float blockH 
     return blockY + blockH >= contentY && blockY <= contentY + contentH;
 }
 
-void DrawHitboxRect( const UIDrawContext& draw, const UIRect& bounds, float r, float g, float b, float fillA,
-                     float outlineA )
+void DrawHitboxRect( const UIDrawContext& draw, const UIRect& bounds, float r, float g, float b, float fillA, float outlineA )
 {
     if ( bounds.w <= 0.0f || bounds.h <= 0.0f )
     {
@@ -331,8 +342,7 @@ void DrawTabHitboxes( const UIDrawContext& draw, const UITabBar& tabBar, int tab
 
     for ( int i = 0; i < tabCount; ++i )
     {
-        DrawHitboxRect( draw, { tabs.x + static_cast<float>( i ) * tabW, tabs.y, tabW, tabs.h }, 1.0f, 0.80f, 0.18f, 0.052f,
-                        0.84f );
+        DrawHitboxRect( draw, { tabs.x + static_cast<float>( i ) * tabW, tabs.y, tabW, tabs.h }, 1.0f, 0.80f, 0.18f, 0.052f, 0.84f );
     }
 }
 
@@ -492,8 +502,7 @@ float EditorMiniChipWidth( const char* label )
 }
 
 
-EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized, bool editorPlacementMode,
-                                                              bool editorPlaceStatic, bool editorTerrainAlign )
+EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized, bool editorPlacementMode, bool editorPlaceStatic, bool editorTerrainAlign )
 {
     EditorMinimizedStatusLayout layout;
     layout.restoreButton = { minimized.x + minimized.w - 36.0f, minimized.y + 7.0f, 26.0f, 22.0f };
@@ -538,8 +547,7 @@ EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& mini
 
 EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized, const UIEditorTabFrameView& data )
 {
-    return BuildEditorMinimizedStatusLayout( minimized, data.editorPlacementMode, data.editorPlaceStatic,
-                                             data.editorTerrainAlign );
+    return BuildEditorMinimizedStatusLayout( minimized, data.editorPlacementMode, data.editorPlaceStatic, data.editorTerrainAlign );
 }
 
 
@@ -554,15 +562,13 @@ float EditorMinimizedWidth( const UIEditorTabFrameView& data, int screenW )
     const char* modeLabel = data.editorPlacementMode ? "Place" : "Gizmo";
     const char* bodyLabel = data.editorPlaceStatic ? "Static" : "Dynamic";
     const char* alignLabel = data.editorTerrainAlign ? "Align" : "Level";
-    const float desiredW = 140.0f + UIFontMetrics::MeasureText( 12.0f, shapeLabel ) + EditorMiniChipWidth( modeLabel ) +
-                           EditorMiniChipWidth( bodyLabel ) + EditorMiniChipWidth( alignLabel );
+    const float desiredW = 140.0f + UIFontMetrics::MeasureText( 12.0f, shapeLabel ) + EditorMiniChipWidth( modeLabel ) + EditorMiniChipWidth( bodyLabel ) + EditorMiniChipWidth( alignLabel );
 
     return std::clamp( desiredW, minW, maxW );
 }
 
 
-void DrawEditorMiniChip( const UIDrawContext& draw, const UIRect& bounds, const char* label, const Style::UIColor& fill,
-                         const Style::UIColor& text, bool hot )
+void DrawEditorMiniChip( const UIDrawContext& draw, const UIRect& bounds, const char* label, const Style::UIColor& fill, const Style::UIColor& text, bool hot )
 {
     if ( bounds.w <= 0.0f || bounds.h <= 0.0f )
     {
@@ -572,13 +578,11 @@ void DrawEditorMiniChip( const UIDrawContext& draw, const UIRect& bounds, const 
     const Style::UIPalette& palette = Style::Palette();
     Style::UIColor chipFill = fill;
     chipFill.a = hot ? (std::min)( 1.0f, chipFill.a + 0.08f ) : chipFill.a;
-    draw.RoundedRect( bounds.x, bounds.y, bounds.w, bounds.h, Style::Radii().smallButton, chipFill.r, chipFill.g, chipFill.b,
-                      chipFill.a );
+    draw.RoundedRect( bounds.x, bounds.y, bounds.w, bounds.h, Style::Radii().smallButton, chipFill.r, chipFill.g, chipFill.b, chipFill.a );
 
     if ( hot )
     {
-        draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, palette.accentStrong.r, palette.accentStrong.g,
-                      palette.accentStrong.b, 0.72f );
+        draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.72f );
     }
 
     if ( bounds.w > 18.0f )

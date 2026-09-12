@@ -153,19 +153,28 @@ void AuthoredSceneParser::ApplyDebug( const Json& debug, const std::string& path
 void AuthoredSceneParser::ApplyTerrain( const Json& terrain, const std::string& path )
 {
     RequireObject( terrain, path, "terrain" );
+    if ( const Json* heightMap = FindMember( terrain, "heightMap" ) )
+    {
+        if ( FindMember( terrain, "flatSlope" ) )
+        {
+            Fail( path, "terrain must choose heightMap or flatSlope" );
+        }
+        m_scene.m_terrainOverride.heightMap = ReadString( *heightMap, path, "terrain.heightMap" );
+        if ( m_scene.m_terrainOverride.heightMap.empty() )
+        {
+            Fail( path, "terrain.heightMap must name a file" );
+        }
+    }
 
     if ( const Json* flatSlope = FindMember( terrain, "flatSlope" ) )
     {
         RequireObject( *flatSlope, path, "terrain.flatSlope" );
         m_scene.m_terrainOverride.hasFlatSlope = true;
-        m_scene.m_terrainOverride.flatBaseY = ReadFloat( RequireMember( *flatSlope, path, "terrain.flatSlope", "baseY" ),
-                                                         path, "terrain.flatSlope.baseY" );
+        m_scene.m_terrainOverride.flatBaseY = ReadFloat( RequireMember( *flatSlope, path, "terrain.flatSlope", "baseY" ), path, "terrain.flatSlope.baseY" );
 
-        m_scene.m_terrainOverride.flatSlopeX = ReadFloat( RequireMember( *flatSlope, path, "terrain.flatSlope", "slopeX" ),
-                                                          path, "terrain.flatSlope.slopeX" );
+        m_scene.m_terrainOverride.flatSlopeX = ReadFloat( RequireMember( *flatSlope, path, "terrain.flatSlope", "slopeX" ), path, "terrain.flatSlope.slopeX" );
 
-        m_scene.m_terrainOverride.flatSlopeZ = ReadFloat( RequireMember( *flatSlope, path, "terrain.flatSlope", "slopeZ" ),
-                                                          path, "terrain.flatSlope.slopeZ" );
+        m_scene.m_terrainOverride.flatSlopeZ = ReadFloat( RequireMember( *flatSlope, path, "terrain.flatSlope", "slopeZ" ), path, "terrain.flatSlope.slopeZ" );
     }
 }
 
@@ -361,18 +370,14 @@ void AuthoredSceneParser::ApplyCinematicBool( const Json& cinematic, const std::
         bool SkullbonezCore::Core::CinematicRenderConfig::* field;
         uint64_t bit;
     };
-    static constexpr BoolField kFields[] = {
-        { "rendering", &SkullbonezCore::Core::CinematicRenderConfig::enabled, SCENE_CINE_RENDERING },
-        { "skyAtmosphere", &SkullbonezCore::Core::CinematicRenderConfig::skyAtmosphereEnabled, SCENE_CINE_SKY_ATMOSPHERE },
-        { "clouds", &SkullbonezCore::Core::CinematicRenderConfig::cloudsEnabled, SCENE_CINE_CLOUDS },
-        { "godRays", &SkullbonezCore::Core::CinematicRenderConfig::godRaysEnabled, SCENE_CINE_GOD_RAYS },
-        { "volumetricLighting", &SkullbonezCore::Core::CinematicRenderConfig::volumetricLightingEnabled,
-          SCENE_CINE_VOLUMETRIC_LIGHTING },
-        { "bloom", &SkullbonezCore::Core::CinematicRenderConfig::bloomEnabled, SCENE_CINE_BLOOM },
-        { "fog", &SkullbonezCore::Core::CinematicRenderConfig::fogEnabled, SCENE_CINE_FOG },
-        { "terrainReliefEnabled", &SkullbonezCore::Core::CinematicRenderConfig::terrainReliefEnabled,
-          SCENE_CINE_TERRAIN_RELIEF_ENABLED },
-    };
+    static constexpr BoolField kFields[] = { { "rendering", &SkullbonezCore::Core::CinematicRenderConfig::enabled, SCENE_CINE_RENDERING },
+                                             { "skyAtmosphere", &SkullbonezCore::Core::CinematicRenderConfig::skyAtmosphereEnabled, SCENE_CINE_SKY_ATMOSPHERE },
+                                             { "clouds", &SkullbonezCore::Core::CinematicRenderConfig::cloudsEnabled, SCENE_CINE_CLOUDS },
+                                             { "godRays", &SkullbonezCore::Core::CinematicRenderConfig::godRaysEnabled, SCENE_CINE_GOD_RAYS },
+                                             { "volumetricLighting", &SkullbonezCore::Core::CinematicRenderConfig::volumetricLightingEnabled, SCENE_CINE_VOLUMETRIC_LIGHTING },
+                                             { "bloom", &SkullbonezCore::Core::CinematicRenderConfig::bloomEnabled, SCENE_CINE_BLOOM },
+                                             { "fog", &SkullbonezCore::Core::CinematicRenderConfig::fogEnabled, SCENE_CINE_FOG },
+                                             { "terrainReliefEnabled", &SkullbonezCore::Core::CinematicRenderConfig::terrainReliefEnabled, SCENE_CINE_TERRAIN_RELIEF_ENABLED }, };
 
     for ( const BoolField& field : kFields )
     {
@@ -407,10 +412,11 @@ void AuthoredSceneParser::ApplyCinematicInt( const Json& cinematic, const std::s
         int minValue;
         int maxValue;
     };
-    static constexpr IntField kFields[] = {
-        { "shadowMapSize", &SkullbonezCore::Core::ShadowQualityConfig::mapSize, SCENE_CINE_SHADOW_MAP_SIZE, 256, 8192 },
-        { "shadowPcfRadius", &SkullbonezCore::Core::ShadowQualityConfig::pcfRadius, SCENE_CINE_SHADOW_PCF_RADIUS, 0, 3 },
-    };
+    static constexpr IntField kFields[] = { { "shadowMapSize", &SkullbonezCore::Core::ShadowQualityConfig::mapSize, SCENE_CINE_SHADOW_MAP_SIZE, 256, 8192 }, { "shadowPcfRadius",
+                                                                                                                                                               &SkullbonezCore::Core::ShadowQualityConfig::pcfRadius,
+                                                                                                                                                               SCENE_CINE_SHADOW_PCF_RADIUS,
+                                                                                                                                                               0,
+                                                                                                                                                               3 }, };
 
     for ( const IntField& field : kFields )
     {
@@ -443,64 +449,156 @@ void AuthoredSceneParser::ApplyCinematicFloat( const Json& cinematic, const std:
         float minValue;
         float maxValue;
     };
-    static constexpr FloatField kFields[] = {
-        { "exposure", &SkullbonezCore::Core::CinematicRenderConfig::exposure, SCENE_CINE_EXPOSURE, 0.0f, 16.0f },
-        { "gamma", &SkullbonezCore::Core::CinematicRenderConfig::gamma, SCENE_CINE_GAMMA, 0.1f, 8.0f },
+    static constexpr FloatField kFields[] = { { "exposure", &SkullbonezCore::Core::CinematicRenderConfig::exposure, SCENE_CINE_EXPOSURE, 0.0f, 16.0f }, { "gamma",
+                                                                                                                                                          &SkullbonezCore::Core::CinematicRenderConfig::gamma,
+                                                                                                                                                          SCENE_CINE_GAMMA,
+                                                                                                                                                          0.1f,
+                                                                                                                                                          8.0f },
 
         // Compatibility: scene/style JSON retains its original key spellings;
 
         // only the in-memory owner vocabulary changed.
-        { "sunScreenX", &SkullbonezCore::Core::CinematicRenderConfig::sunAzimuth, SCENE_CINE_SUN_AZIMUTH, 0.0f, 1.0f },
-        { "sunScreenY", &SkullbonezCore::Core::CinematicRenderConfig::sunElevation, SCENE_CINE_SUN_ELEVATION, 0.0f, 1.0f },
-        { "sunColorR", &SkullbonezCore::Core::CinematicRenderConfig::sunColorR, SCENE_CINE_SUN_COLOR_R, 0.0f, 4.0f },
-        { "sunColorG", &SkullbonezCore::Core::CinematicRenderConfig::sunColorG, SCENE_CINE_SUN_COLOR_G, 0.0f, 4.0f },
-        { "sunColorB", &SkullbonezCore::Core::CinematicRenderConfig::sunColorB, SCENE_CINE_SUN_COLOR_B, 0.0f, 4.0f },
-        { "sunIntensity", &SkullbonezCore::Core::CinematicRenderConfig::sunIntensity, SCENE_CINE_SUN_INTENSITY, 0.0f,
-          80.0f },
-        { "skyHorizonR", &SkullbonezCore::Core::CinematicRenderConfig::skyHorizonR, SCENE_CINE_SKY_HORIZON_R, 0.0f, 4.0f },
-        { "skyHorizonG", &SkullbonezCore::Core::CinematicRenderConfig::skyHorizonG, SCENE_CINE_SKY_HORIZON_G, 0.0f, 4.0f },
-        { "skyHorizonB", &SkullbonezCore::Core::CinematicRenderConfig::skyHorizonB, SCENE_CINE_SKY_HORIZON_B, 0.0f, 4.0f },
-        { "skyZenithR", &SkullbonezCore::Core::CinematicRenderConfig::skyZenithR, SCENE_CINE_SKY_ZENITH_R, 0.0f, 4.0f },
-        { "skyZenithG", &SkullbonezCore::Core::CinematicRenderConfig::skyZenithG, SCENE_CINE_SKY_ZENITH_G, 0.0f, 4.0f },
-        { "skyZenithB", &SkullbonezCore::Core::CinematicRenderConfig::skyZenithB, SCENE_CINE_SKY_ZENITH_B, 0.0f, 4.0f },
-        { "skyGlowStrength", &SkullbonezCore::Core::CinematicRenderConfig::skyGlowStrength, SCENE_CINE_SKY_GLOW_STRENGTH,
-          0.0f, 16.0f },
-        { "cloudCoverage", &SkullbonezCore::Core::CinematicRenderConfig::cloudCoverage, SCENE_CINE_CLOUD_COVERAGE, 0.0f,
-          1.0f },
-        { "cloudSoftness", &SkullbonezCore::Core::CinematicRenderConfig::cloudSoftness, SCENE_CINE_CLOUD_SOFTNESS, 0.001f,
-          1.0f },
-        { "cloudScale", &SkullbonezCore::Core::CinematicRenderConfig::cloudScale, SCENE_CINE_CLOUD_SCALE, 0.1f, 64.0f },
-        { "cloudIntensity", &SkullbonezCore::Core::CinematicRenderConfig::cloudIntensity, SCENE_CINE_CLOUD_INTENSITY, 0.0f,
-          4.0f },
-        { "sunShaftStrength", &SkullbonezCore::Core::CinematicRenderConfig::sunShaftStrength, SCENE_CINE_SUN_SHAFT_STRENGTH,
-          0.0f, 8.0f },
-        { "sunShaftFalloff", &SkullbonezCore::Core::CinematicRenderConfig::sunShaftFalloff, SCENE_CINE_SUN_SHAFT_FALLOFF,
-          0.1f, 10.0f },
-        { "volumetricStrength", &SkullbonezCore::Core::CinematicRenderConfig::volumetricStrength,
-          SCENE_CINE_VOLUMETRIC_STRENGTH, 0.0f, 8.0f },
-        { "volumetricDensity", &SkullbonezCore::Core::CinematicRenderConfig::volumetricDensity,
-          SCENE_CINE_VOLUMETRIC_DENSITY, 0.0f, 8.0f },
-        { "volumetricDecay", &SkullbonezCore::Core::CinematicRenderConfig::volumetricDecay, SCENE_CINE_VOLUMETRIC_DECAY,
-          0.0f, 1.0f },
-        { "bloomThreshold", &SkullbonezCore::Core::CinematicRenderConfig::bloomThreshold, SCENE_CINE_BLOOM_THRESHOLD, 0.0f,
-          16.0f },
-        { "bloomKnee", &SkullbonezCore::Core::CinematicRenderConfig::bloomKnee, SCENE_CINE_BLOOM_KNEE, 0.001f, 8.0f },
-        { "bloomStrength", &SkullbonezCore::Core::CinematicRenderConfig::bloomStrength, SCENE_CINE_BLOOM_STRENGTH, 0.0f,
-          8.0f },
-        { "bloomRadius", &SkullbonezCore::Core::CinematicRenderConfig::bloomRadius, SCENE_CINE_BLOOM_RADIUS, 0.1f, 32.0f },
-        { "terrainRelief", &SkullbonezCore::Core::CinematicRenderConfig::terrainRelief, SCENE_CINE_TERRAIN_RELIEF, 0.0f,
-          4.0f },
-        { "basinDepth", &SkullbonezCore::Core::CinematicRenderConfig::basinDepth, SCENE_CINE_BASIN_DEPTH, 0.0f, 256.0f },
-        { "basinRimLift", &SkullbonezCore::Core::CinematicRenderConfig::basinRimLift, SCENE_CINE_BASIN_RIM_LIFT, 0.0f,
-          256.0f },
-        { "fogColorR", &SkullbonezCore::Core::CinematicRenderConfig::fogColorR, SCENE_CINE_FOG_COLOR_R, 0.0f, 4.0f },
-        { "fogColorG", &SkullbonezCore::Core::CinematicRenderConfig::fogColorG, SCENE_CINE_FOG_COLOR_G, 0.0f, 4.0f },
-        { "fogColorB", &SkullbonezCore::Core::CinematicRenderConfig::fogColorB, SCENE_CINE_FOG_COLOR_B, 0.0f, 4.0f },
-        { "fogStart", &SkullbonezCore::Core::CinematicRenderConfig::fogStart, SCENE_CINE_FOG_START, 0.0f, 10000.0f },
-        { "fogEnd", &SkullbonezCore::Core::CinematicRenderConfig::fogEnd, SCENE_CINE_FOG_END, 0.0f, 20000.0f },
-        { "fogDensity", &SkullbonezCore::Core::CinematicRenderConfig::fogDensity, SCENE_CINE_FOG_DENSITY, 0.0f, 0.1f },
-        { "fogMaxOpacity", &SkullbonezCore::Core::CinematicRenderConfig::fogMaxOpacity, SCENE_CINE_FOG_MAX_OPACITY, 0.0f,
-          1.0f },
+        { "sunScreenX", &SkullbonezCore::Core::CinematicRenderConfig::sunAzimuth, SCENE_CINE_SUN_AZIMUTH, 0.0f, 1.0f }, { "sunScreenY",
+                                                                                                                          &SkullbonezCore::Core::CinematicRenderConfig::sunElevation,
+                                                                                                                          SCENE_CINE_SUN_ELEVATION,
+                                                                                                                          0.0f,
+                                                                                                                          1.0f }, { "sunColorR",
+                                                                                                                                    &SkullbonezCore::Core::CinematicRenderConfig::sunColorR,
+                                                                                                                                    SCENE_CINE_SUN_COLOR_R,
+                                                                                                                                    0.0f,
+                                                                                                                                    4.0f }, { "sunColorG",
+                                                                                                                                              &SkullbonezCore::Core::CinematicRenderConfig::sunColorG,
+                                                                                                                                              SCENE_CINE_SUN_COLOR_G,
+                                                                                                                                              0.0f,
+                                                                                                                                              4.0f }, { "sunColorB",
+                                                                                                                                                        &SkullbonezCore::Core::CinematicRenderConfig::sunColorB,
+                                                                                                                                                        SCENE_CINE_SUN_COLOR_B,
+                                                                                                                                                        0.0f,
+                                                                                                                                                        4.0f }, { "sunIntensity",
+                                                                                                                                                                  &SkullbonezCore::Core::CinematicRenderConfig::sunIntensity,
+                                                                                                                                                                  SCENE_CINE_SUN_INTENSITY,
+                                                                                                                                                                  0.0f,
+                                                                                                                                                                  80.0f }, { "skyHorizonR",
+                                                                                                                                                                             &SkullbonezCore::Core::CinematicRenderConfig::skyHorizonR,
+                                                                                                                                                                             SCENE_CINE_SKY_HORIZON_R,
+                                                                                                                                                                             0.0f,
+                                                                                                                                                                             4.0f }, { "skyHorizonG",
+                                                                                                                                                                                       &SkullbonezCore::Core::CinematicRenderConfig::skyHorizonG,
+                                                                                                                                                                                       SCENE_CINE_SKY_HORIZON_G,
+                                                                                                                                                                                       0.0f,
+                                                                                                                                                                                       4.0f }, { "skyHorizonB",
+                                                                                                                                                                                                 &SkullbonezCore::Core::CinematicRenderConfig::skyHorizonB,
+                                                                                                                                                                                                 SCENE_CINE_SKY_HORIZON_B,
+                                                                                                                                                                                                 0.0f,
+                                                                                                                                                                                                 4.0f }, { "skyZenithR",
+                                                                                                                                                                                                           &SkullbonezCore::Core::CinematicRenderConfig::skyZenithR,
+                                                                                                                                                                                                           SCENE_CINE_SKY_ZENITH_R,
+                                                                                                                                                                                                           0.0f,
+                                                                                                                                                                                                           4.0f }, { "skyZenithG",
+                                                                                                                                                                                                                     &SkullbonezCore::Core::CinematicRenderConfig::skyZenithG,
+                                                                                                                                                                                                                     SCENE_CINE_SKY_ZENITH_G,
+                                                                                                                                                                                                                     0.0f,
+                                                                                                                                                                                                                     4.0f }, { "skyZenithB",
+                                                                                                                                                                                                                               &SkullbonezCore::Core::CinematicRenderConfig::skyZenithB,
+                                                                                                                                                                                                                               SCENE_CINE_SKY_ZENITH_B,
+                                                                                                                                                                                                                               0.0f,
+                                                                                                                                                                                                                               4.0f }, { "skyGlowStrength",
+                                                                                                                                                                                                                                         &SkullbonezCore::Core::CinematicRenderConfig::skyGlowStrength,
+                                                                                                                                                                                                                                         SCENE_CINE_SKY_GLOW_STRENGTH,
+                                                                                                                                                                                                                                         0.0f,
+                                                                                                                                                                                                                                         16.0f }, { "cloudCoverage",
+                                                                                                                                                                                                                                                    &SkullbonezCore::Core::CinematicRenderConfig::cloudCoverage,
+                                                                                                                                                                                                                                                    SCENE_CINE_CLOUD_COVERAGE,
+                                                                                                                                                                                                                                                    0.0f,
+                                                                                                                                                                                                                                                    1.0f }, { "cloudSoftness",
+                                                                                                                                                                                                                                                              &SkullbonezCore::Core::CinematicRenderConfig::cloudSoftness,
+                                                                                                                                                                                                                                                              SCENE_CINE_CLOUD_SOFTNESS,
+                                                                                                                                                                                                                                                              0.001f,
+                                                                                                                                                                                                                                                              1.0f }, { "cloudScale",
+                                                                                                                                                                                                                                                                        &SkullbonezCore::Core::CinematicRenderConfig::cloudScale,
+                                                                                                                                                                                                                                                                        SCENE_CINE_CLOUD_SCALE,
+                                                                                                                                                                                                                                                                        0.1f,
+                                                                                                                                                                                                                                                                        64.0f }, { "cloudIntensity",
+                                                                                                                                                                                                                                                                                   &SkullbonezCore::Core::CinematicRenderConfig::cloudIntensity,
+                                                                                                                                                                                                                                                                                   SCENE_CINE_CLOUD_INTENSITY,
+                                                                                                                                                                                                                                                                                   0.0f,
+                                                                                                                                                                                                                                                                                   4.0f }, { "sunShaftStrength",
+                                                                                                                                                                                                                                                                                             &SkullbonezCore::Core::CinematicRenderConfig::sunShaftStrength,
+                                                                                                                                                                                                                                                                                             SCENE_CINE_SUN_SHAFT_STRENGTH,
+                                                                                                                                                                                                                                                                                             0.0f,
+                                                                                                                                                                                                                                                                                             8.0f }, { "sunShaftFalloff",
+                                                                                                                                                                                                                                                                                                       &SkullbonezCore::Core::CinematicRenderConfig::sunShaftFalloff,
+                                                                                                                                                                                                                                                                                                       SCENE_CINE_SUN_SHAFT_FALLOFF,
+                                                                                                                                                                                                                                                                                                       0.1f,
+                                                                                                                                                                                                                                                                                                       10.0f }, { "volumetricStrength",
+                                                                                                                                                                                                                                                                                                                  &SkullbonezCore::Core::CinematicRenderConfig::volumetricStrength,
+                                                                                                                                                                                                                                                                                                                  SCENE_CINE_VOLUMETRIC_STRENGTH,
+                                                                                                                                                                                                                                                                                                                  0.0f,
+                                                                                                                                                                                                                                                                                                                  8.0f }, { "volumetricDensity",
+                                                                                                                                                                                                                                                                                                                            &SkullbonezCore::Core::CinematicRenderConfig::volumetricDensity,
+                                                                                                                                                                                                                                                                                                                            SCENE_CINE_VOLUMETRIC_DENSITY,
+                                                                                                                                                                                                                                                                                                                            0.0f,
+                                                                                                                                                                                                                                                                                                                            8.0f }, { "volumetricDecay",
+                                                                                                                                                                                                                                                                                                                                      &SkullbonezCore::Core::CinematicRenderConfig::volumetricDecay,
+                                                                                                                                                                                                                                                                                                                                      SCENE_CINE_VOLUMETRIC_DECAY,
+                                                                                                                                                                                                                                                                                                                                      0.0f,
+                                                                                                                                                                                                                                                                                                                                      1.0f }, { "bloomThreshold",
+                                                                                                                                                                                                                                                                                                                                                &SkullbonezCore::Core::CinematicRenderConfig::bloomThreshold,
+                                                                                                                                                                                                                                                                                                                                                SCENE_CINE_BLOOM_THRESHOLD,
+                                                                                                                                                                                                                                                                                                                                                0.0f,
+                                                                                                                                                                                                                                                                                                                                                16.0f }, { "bloomKnee",
+                                                                                                                                                                                                                                                                                                                                                           &SkullbonezCore::Core::CinematicRenderConfig::bloomKnee,
+                                                                                                                                                                                                                                                                                                                                                           SCENE_CINE_BLOOM_KNEE,
+                                                                                                                                                                                                                                                                                                                                                           0.001f,
+                                                                                                                                                                                                                                                                                                                                                           8.0f }, { "bloomStrength",
+                                                                                                                                                                                                                                                                                                                                                                     &SkullbonezCore::Core::CinematicRenderConfig::bloomStrength,
+                                                                                                                                                                                                                                                                                                                                                                     SCENE_CINE_BLOOM_STRENGTH,
+                                                                                                                                                                                                                                                                                                                                                                     0.0f,
+                                                                                                                                                                                                                                                                                                                                                                     8.0f }, { "bloomRadius",
+                                                                                                                                                                                                                                                                                                                                                                               &SkullbonezCore::Core::CinematicRenderConfig::bloomRadius,
+                                                                                                                                                                                                                                                                                                                                                                               SCENE_CINE_BLOOM_RADIUS,
+                                                                                                                                                                                                                                                                                                                                                                               0.1f,
+                                                                                                                                                                                                                                                                                                                                                                               32.0f }, { "terrainRelief",
+                                                                                                                                                                                                                                                                                                                                                                                          &SkullbonezCore::Core::CinematicRenderConfig::terrainRelief,
+                                                                                                                                                                                                                                                                                                                                                                                          SCENE_CINE_TERRAIN_RELIEF,
+                                                                                                                                                                                                                                                                                                                                                                                          0.0f,
+                                                                                                                                                                                                                                                                                                                                                                                          4.0f }, { "basinDepth",
+                                                                                                                                                                                                                                                                                                                                                                                                    &SkullbonezCore::Core::CinematicRenderConfig::basinDepth,
+                                                                                                                                                                                                                                                                                                                                                                                                    SCENE_CINE_BASIN_DEPTH,
+                                                                                                                                                                                                                                                                                                                                                                                                    0.0f,
+                                                                                                                                                                                                                                                                                                                                                                                                    256.0f }, { "basinRimLift",
+                                                                                                                                                                                                                                                                                                                                                                                                                &SkullbonezCore::Core::CinematicRenderConfig::basinRimLift,
+                                                                                                                                                                                                                                                                                                                                                                                                                SCENE_CINE_BASIN_RIM_LIFT,
+                                                                                                                                                                                                                                                                                                                                                                                                                0.0f,
+                                                                                                                                                                                                                                                                                                                                                                                                                256.0f }, { "fogColorR",
+                                                                                                                                                                                                                                                                                                                                                                                                                            &SkullbonezCore::Core::CinematicRenderConfig::fogColorR,
+                                                                                                                                                                                                                                                                                                                                                                                                                            SCENE_CINE_FOG_COLOR_R,
+                                                                                                                                                                                                                                                                                                                                                                                                                            0.0f,
+                                                                                                                                                                                                                                                                                                                                                                                                                            4.0f }, { "fogColorG",
+                                                                                                                                                                                                                                                                                                                                                                                                                                      &SkullbonezCore::Core::CinematicRenderConfig::fogColorG,
+                                                                                                                                                                                                                                                                                                                                                                                                                                      SCENE_CINE_FOG_COLOR_G,
+                                                                                                                                                                                                                                                                                                                                                                                                                                      0.0f,
+                                                                                                                                                                                                                                                                                                                                                                                                                                      4.0f }, { "fogColorB",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                &SkullbonezCore::Core::CinematicRenderConfig::fogColorB,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                SCENE_CINE_FOG_COLOR_B,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                0.0f,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                4.0f }, { "fogStart",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                          &SkullbonezCore::Core::CinematicRenderConfig::fogStart,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                          SCENE_CINE_FOG_START,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                          0.0f,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                          10000.0f }, { "fogEnd",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                        &SkullbonezCore::Core::CinematicRenderConfig::fogEnd,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                        SCENE_CINE_FOG_END,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                        0.0f,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                        20000.0f }, { "fogDensity",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      &SkullbonezCore::Core::CinematicRenderConfig::fogDensity,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      SCENE_CINE_FOG_DENSITY,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      0.0f,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      0.1f }, { "fogMaxOpacity",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                &SkullbonezCore::Core::CinematicRenderConfig::fogMaxOpacity,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                SCENE_CINE_FOG_MAX_OPACITY,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                0.0f,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                1.0f },
     };
 
     for ( const FloatField& field : kFields )
@@ -542,16 +640,27 @@ void AuthoredSceneParser::ApplyCinematicFloat( const Json& cinematic, const std:
         float minValue;
         float maxValue;
     };
-    static constexpr ShadowFloatField kShadowFields[] = {
-        { "shadowStrength", &SkullbonezCore::Core::ShadowQualityConfig::strength, SCENE_CINE_SHADOW_STRENGTH, 0.0f, 1.0f },
-        { "shadowSoftness", &SkullbonezCore::Core::ShadowQualityConfig::softness, SCENE_CINE_SHADOW_SOFTNESS, 0.25f, 4.0f },
-        { "shadowDepthBias", &SkullbonezCore::Core::ShadowQualityConfig::depthBias, SCENE_CINE_SHADOW_DEPTH_BIAS, 0.0f,
-          0.05f },
-        { "shadowSlopeBias", &SkullbonezCore::Core::ShadowQualityConfig::slopeBias, SCENE_CINE_SHADOW_SLOPE_BIAS, 0.0f,
-          0.05f },
-        { "shadowMaxDistance", &SkullbonezCore::Core::ShadowQualityConfig::maxDistance, SCENE_CINE_SHADOW_MAX_DISTANCE,
-          128.0f, 10000.0f },
-    };
+    static constexpr ShadowFloatField kShadowFields[] = { { "shadowStrength", &SkullbonezCore::Core::ShadowQualityConfig::strength, SCENE_CINE_SHADOW_STRENGTH, 0.0f, 1.0f },
+                                                          { "shadowSoftness",
+                                                                                                                                                                                &SkullbonezCore::Core::ShadowQualityConfig::softness,
+                                                                                                                                                                                SCENE_CINE_SHADOW_SOFTNESS,
+                                                                                                                                                                                0.25f,
+                                                                                                                                                                                4.0f },
+                                                          { "shadowDepthBias",
+                                                                                                                                                                                          &SkullbonezCore::Core::ShadowQualityConfig::depthBias,
+                                                                                                                                                                                          SCENE_CINE_SHADOW_DEPTH_BIAS,
+                                                                                                                                                                                          0.0f,
+                                                                                                                                                                                          0.05f },
+                                                          { "shadowSlopeBias",
+                                                                                                                                                                                                     &SkullbonezCore::Core::ShadowQualityConfig::slopeBias,
+                                                                                                                                                                                                     SCENE_CINE_SHADOW_SLOPE_BIAS,
+                                                                                                                                                                                                     0.0f,
+                                                                                                                                                                                                     0.05f },
+                                                          { "shadowMaxDistance",
+                                                                                                                                                                                                                &SkullbonezCore::Core::ShadowQualityConfig::maxDistance,
+                                                                                                                                                                                                                SCENE_CINE_SHADOW_MAX_DISTANCE,
+                                                                                                                                                                                                                128.0f,
+                                                                                                                                                                                                                10000.0f }, };
 
     for ( const ShadowFloatField& field : kShadowFields )
     {
@@ -674,8 +783,7 @@ void AuthoredSceneParser::ApplyCinematicVector( const Json& cinematic, const std
 
     if ( const Json* waterProfile = FindMember( cinematic, "waterProfile" ) )
     {
-        ReadVec3( *waterProfile, path, "cinematic.waterProfile", c.waterAlpha, c.waterReflectionStrength,
-                  c.waterGlintStrength );
+        ReadVec3( *waterProfile, path, "cinematic.waterProfile", c.waterAlpha, c.waterReflectionStrength, c.waterGlintStrength );
 
         m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_WATER_PROFILE;
     }
@@ -729,8 +837,7 @@ void AuthoredSceneParser::ApplyCamera( const Json& camera, const std::string& pa
 
     SceneCamera out = {};
     ReadRequiredStringField( out.name, camera, path, "camera", "name" );
-    ReadVec3( RequireMember( camera, path, "camera", "position" ), path, "camera.position", out.m_position.x,
-              out.m_position.y, out.m_position.z );
+    ReadVec3( RequireMember( camera, path, "camera", "position" ), path, "camera.position", out.m_position.x, out.m_position.y, out.m_position.z );
 
     ReadVec3( RequireMember( camera, path, "camera", "view" ), path, "camera.view", out.view.x, out.view.y, out.view.z );
 

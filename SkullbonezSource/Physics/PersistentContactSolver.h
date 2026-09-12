@@ -41,28 +41,22 @@ class PhysicsContactSolverStage;
 // distinguishes terrain rows from object/object rows.
 inline constexpr uint64_t PERSISTENT_CONTACT_BODY_MASK = 0x7fffull;
 inline constexpr uint64_t PERSISTENT_CONTACT_TERRAIN_KIND_BIT = 1ull << 62;
-static_assert( static_cast<uint64_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) <=
-                   PERSISTENT_CONTACT_BODY_MASK,
+static_assert( static_cast<uint64_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) <= PERSISTENT_CONTACT_BODY_MASK,
                "Persistent-contact key body fields must encode every valid scene body index." );
 
 inline int64_t MakePersistentContactCacheKey( int bodyA, int bodyB, uint32_t featureId ) noexcept
 {
     if ( bodyB == -1 )
     {
-        const uint64_t packed = PERSISTENT_CONTACT_TERRAIN_KIND_BIT |
-                                ( ( static_cast<uint64_t>( static_cast<uint32_t>( bodyA ) ) & PERSISTENT_CONTACT_BODY_MASK )
-                                  << 32 ) |
+        const uint64_t packed = PERSISTENT_CONTACT_TERRAIN_KIND_BIT | ( ( static_cast<uint64_t>( static_cast<uint32_t>( bodyA ) ) & PERSISTENT_CONTACT_BODY_MASK ) << 32 ) |
                                 static_cast<uint64_t>( featureId );
         return static_cast<int64_t>( packed );
     }
 
     const int lowBody = ( bodyA < bodyB ) ? bodyA : bodyB;
     const int highBody = ( bodyA < bodyB ) ? bodyB : bodyA;
-    const uint64_t packed = ( ( static_cast<uint64_t>( static_cast<uint32_t>( lowBody ) ) & PERSISTENT_CONTACT_BODY_MASK )
-                              << 47 ) |
-                            ( ( static_cast<uint64_t>( static_cast<uint32_t>( highBody ) ) & PERSISTENT_CONTACT_BODY_MASK )
-                              << 32 ) |
-                            static_cast<uint64_t>( featureId );
+    const uint64_t packed = ( ( static_cast<uint64_t>( static_cast<uint32_t>( lowBody ) ) & PERSISTENT_CONTACT_BODY_MASK ) << 47 ) |
+                            ( ( static_cast<uint64_t>( static_cast<uint32_t>( highBody ) ) & PERSISTENT_CONTACT_BODY_MASK ) << 32 ) | static_cast<uint64_t>( featureId );
     return static_cast<int64_t>( packed );
 }
 
@@ -80,8 +74,7 @@ inline bool PersistentContactCacheKeyReferencesBody( int64_t signedKey, int body
         return ( ( key >> 32 ) & PERSISTENT_CONTACT_BODY_MASK ) == target;
     }
 
-    return ( ( key >> 47 ) & PERSISTENT_CONTACT_BODY_MASK ) == target ||
-           ( ( key >> 32 ) & PERSISTENT_CONTACT_BODY_MASK ) == target;
+    return ( ( key >> 47 ) & PERSISTENT_CONTACT_BODY_MASK ) == target || ( ( key >> 32 ) & PERSISTENT_CONTACT_BODY_MASK ) == target;
 }
 
 inline bool PersistentContactCacheKeyBodiesFit( int64_t signedKey, int bodyCount ) noexcept
@@ -111,6 +104,9 @@ inline bool PersistentContactCacheKeyBodiesFit( int64_t signedKey, int bodyCount
 
 struct PersistentContactSolverStepPolicy
 {
+    // Lifetime: synchronous borrow of motion stage collision-path bits for this
+    // solve. The stage never retains this policy or its borrowed membership.
+    std::span<const uint8_t> collisionPathState;
     float objectSlop = 0.0f;
     float objectBaumgarteBeta = 0.0f;
     float objectPositionCorrectionPercent = 0.0f;
@@ -151,8 +147,7 @@ struct PersistentContactCacheEntry
     float accT2 = 0.0f;
 };
 
-bool PersistentContactCacheHasImpulse( std::span<const PersistentContactCacheEntry> cache, int bodyA, int bodyB,
-                                       uint32_t featureId );
+bool PersistentContactCacheHasImpulse( std::span<const PersistentContactCacheEntry> cache, int bodyA, int bodyB, uint32_t featureId );
 
 struct SolverBodyState
 {

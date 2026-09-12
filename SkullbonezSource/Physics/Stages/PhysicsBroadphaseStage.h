@@ -58,15 +58,70 @@ class PhysicsBodyStore;
 struct ColliderRecord;
 struct PhysicsBodyRecord;
 class PhysicsPipelineTraceRecorder;
+class BroadphasePairFilter;
 
 class PhysicsBroadphaseStage
 {
+  public:
+    // Invariant: Run starts one step's work counts; contact refresh adds joint
+    // resolutions and replaces its key count. Clear/topology/restore reset all
+    // counters. Scratch bytes are capacity, while geometry counts evaluations.
+    struct WorkStats
+    {
+        uint64_t sweepMovers = 0;
+        uint64_t sweepTargets = 0;
+        uint64_t sweepGeometryBodies = 0;
+        uint64_t sweepPairProbes = 0;
+        uint64_t sweepQueryNodes = 0;
+        uint64_t sweepFullScanMovers = 0;
+        uint64_t sweepScratchBytes = 0;
+        uint64_t jointEndpointResolutions = 0;
+        uint64_t jointExclusionKeys = 0;
+    };
+
   private:
+    // Invariant: one row copies the exact current collider center and shape
+    // radius used by the original sweep predicate, without body-radius inflation.
+    struct SweepGeometry
+    {
+        Math::Vector::Vector3 center;
+        float radius = 0.0f;
+    };
+
+    // Invariant: supported leaves enclose the whole swept sphere on each axis;
+    // parents enclose both children. Empty leaves use low=+inf, high=-inf.
+    struct SweepBounds
+    {
+        double low[3] = {};
+        double high[3] = {};
+    };
+
+    // Invariant: scratch is rebuilt from current dense rows whenever a sweep
+    // runs. SceneLoad commits bounded backing; replay/compaction never reuse
+    // cached body identity. Pair membership is seeded from this step's grid.
+    PhysicsBodyRowList<SweepGeometry> m_sweepGeometry { "PhysicsBroadphaseStage.sweepGeometry", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<uint64_t, PHYSICS_MAX_CANDIDATE_PAIRS * 2u> m_sweepPairs { "PhysicsBroadphaseStage.sweepPairs", "Power-of-two sweep membership at twice the candidate capacity" };
+    WorkStats m_workStats;
+    PhysicsBodyRowList<std::pair<int, int>> m_jointPairs { "PhysicsBroadphaseStage.jointPairs", PhysicsCapacityReason::PointJoints };
+    void PrepareJointExclusions( const PhysicsBodyStore& bodies, std::span<const PointJointConstraint> joints );
+    void PruneJointPairs( PhysicsCandidatePairList& pairs ) const;
+    PhysicsBodyRowList<int> m_sweepOrder { "PhysicsBroadphaseStage.sweepOrder", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<SweepBounds, PHYSICS_MAX_BODY_ROWS * 2u> m_sweepTree { "PhysicsBroadphaseStage.sweepTree", "Complete binary swept-bounds tree over scene body rows" };
+    std::size_t m_sweepLeafBase = 0;
+    bool SweepBoundsForBody( const PhysicsBodyHotFieldsConstView& hotFields, BroadphaseSweepContactEnvelope envelope, int body, SweepBounds& bounds ) const;
+    bool PrepareSweepQuery( const PhysicsBodyHotFieldsConstView& hotFields, BroadphaseSweepContactEnvelope envelope );
+    void AppendSweepTarget( const BroadphasePairFilter& filter, const PhysicsBodyHotFieldsConstView& hotFields, BroadphaseSweepContactEnvelope envelope, int moving, int target );
+    void QuerySweepTargets( const BroadphasePairFilter& filter, const PhysicsBodyHotFieldsConstView& hotFields, BroadphaseSweepContactEnvelope envelope, int moving );
+    bool MarkSweepPairFirstSeen( int a, int b );
+    bool SweepTouches( const PhysicsBodyHotFieldsConstView& hotFields, int movingIndex, int targetIndex, BroadphaseSweepContactEnvelope envelope ) const;
+    bool AppendFastSmallSweepPairs( const BroadphasePairFilter& pairFilter,
+                                    const PhysicsBodyHotFieldsConstView& hotFields,
+                                    std::span<const ColliderRecord> colliders,
+                                    BroadphaseBodyActivityView activity,
+                                    BroadphaseSweepContactEnvelope envelope );
     Math::CollisionDetection::SpatialGrid m_spatialGrid;
-    PhysicsCandidatePairList m_candidatePairs { "PhysicsBroadphaseStage.candidatePairs",
-                                                PhysicsCapacityReason::CandidatePairs };
-    PhysicsCollisionCellKeyList m_collisionCellKeys { "PhysicsBroadphaseStage.collisionCellKeys",
-                                                      PhysicsCapacityReason::CandidatePairs };
+    PhysicsCandidatePairList m_candidatePairs { "PhysicsBroadphaseStage.candidatePairs", PhysicsCapacityReason::CandidatePairs };
+    PhysicsCollisionCellKeyList m_collisionCellKeys { "PhysicsBroadphaseStage.collisionCellKeys", PhysicsCapacityReason::CandidatePairs };
     bool m_gridMembershipSeeded = false;
     int m_gridMembershipBodyCount = 0;
     float m_configuredCellSize = 24.0f;
@@ -74,14 +129,18 @@ class PhysicsBroadphaseStage
     bool m_largestBroadphaseRadiusValid = false;
 #if defined( _DEBUG )
     // Debug-only bounded evidence for pairs now suppressed at grid emission.
-    PhysicsCandidatePairList m_sleepPrunedPairs { "PhysicsBroadphaseStage.sleepPrunedPairs",
-                                                  PhysicsCapacityReason::CandidatePairs };
+    PhysicsCandidatePairList m_sleepPrunedPairs { "PhysicsBroadphaseStage.sleepPrunedPairs", PhysicsCapacityReason::CandidatePairs };
 #endif
 
   public:
     PhysicsBroadphaseStage();
 
-    void ReserveSceneCapacity( std::size_t bodyCapacity );
+    const WorkStats& Stats() const noexcept
+    {
+        return m_workStats;
+    }
+
+    void ReserveSceneCapacity( std::size_t bodyCapacity, std::size_t pointJointCapacity = 0u );
     void ApplyRuntimeSettings( const BroadphaseSettings& settings );
     void Clear();
     void InvalidateBodyTopology();
@@ -89,17 +148,17 @@ class PhysicsBroadphaseStage
 
     // Lifetime: every argument is borrowed for this synchronous fixed-step
     // call; only the stage-owned grid and bounded result buffers are retained.
-    std::span<const std::pair<int, int>> Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+    std::span<const std::pair<int, int>> Run( const PhysicsBodyStore& bodyStore,
+                                              const ColliderStore& colliderStore,
                                               std::span<const PointJointConstraint> pointJointConstraints,
-                                              BroadphaseBodyActivityView activity, BroadphaseSweepContactEnvelope envelope,
+                                              BroadphaseBodyActivityView activity,
+                                              BroadphaseSweepContactEnvelope envelope,
                                               PhysicsPipelineTraceRecorder& physicsPipelineTrace );
 
     // Re-query resident membership after same-tick release/wake, without another
     // movement or CCD pass. Dormant members retain valid grid occupancy.
-    std::span<const std::pair<int, int>> RefreshCurrentContacts( const PhysicsBodyStore& bodies,
-                                                                 const ColliderStore& colliders,
-                                                                 std::span<const PointJointConstraint> joints,
-                                                                 BroadphaseBodyActivityView activity, float contactEpsilon );
+    std::span<const std::pair<int, int>>
+    RefreshCurrentContacts( const PhysicsBodyStore& bodies, const ColliderStore& colliders, std::span<const PointJointConstraint> joints, BroadphaseBodyActivityView activity, float contactEpsilon );
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     float GetCellSize() const;
     std::span<const std::pair<int, int>> GetCandidatePairs() const;

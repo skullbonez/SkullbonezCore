@@ -179,6 +179,8 @@ struct ToolEditorOverlayValues
     bool editorModeEnabled = false;
     bool placementModeEnabled = false;
     bool placementPreviewVisible = false;
+    bool velocityEditEnabled = false;
+    bool velocityEditAngular = false;
     int objectType = 0;
     int hotGizmoAxis = -1;
     int hotRotationAxis = -1;
@@ -282,8 +284,7 @@ struct LauncherPointerResult
 class RuntimeTools
 {
   public:
-    explicit RuntimeTools( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
-        : m_resultDiagnostics( resultDiagnostics ), m_editorTracer( resultDiagnostics )
+    explicit RuntimeTools( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) : m_resultDiagnostics( resultDiagnostics ), m_editorTracer( resultDiagnostics )
     {
     }
 
@@ -300,30 +301,39 @@ class RuntimeTools
     const char* LauncherFireModeLabel() const;
     void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;
     void RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample );
-    bool TryRayCastTestHit( const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
-                            const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
-                            float maxDistance, int& outIndex, float& outT ) const;
-    bool TryLauncherTerrainHit( Geometry::Terrain* terrain, const Math::Vector::Vector3& rayOrigin,
-                                const Math::Vector::Vector3& rayDirection, float maxDistance, float& outT ) const;
-    bool TryBuildLauncherCameraRay( Environment::CameraCollection* cameras, Math::Vector::Vector3& outOrigin,
-                                    Math::Vector::Vector3& outDirection, Math::Vector::Vector3& outCameraUp ) const;
-    bool FireLauncherRay( SceneWorld& world, SceneSessionState& scene, int activeModelCapacity,
-                          const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
+    bool TryRayCastTestHit( const Physics::PhysicsBodyStore& bodyStore,
+                            const Physics::ColliderStore& colliderStore,
+                            const Math::Vector::Vector3& rayOrigin,
+                            const Math::Vector::Vector3& rayDirection,
+                            float maxDistance,
+                            int& outIndex,
+                            float& outT ) const;
+    bool TryLauncherTerrainHit( Geometry::Terrain* terrain, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float maxDistance, float& outT ) const;
+    bool TryBuildLauncherCameraRay( Environment::CameraCollection* cameras, Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection, Math::Vector::Vector3& outCameraUp ) const;
+    bool FireLauncherRay( SceneWorld& world,
+                          SceneSessionState& scene,
+                          int activeModelCapacity,
+                          const Math::Vector::Vector3& rayOrigin,
+                          const Math::Vector::Vector3& rayDirection,
                           const Math::Vector::Vector3& cameraUp );
-    LauncherPointerResult RouteLauncherPointer( const LauncherPointerInput& input, SceneWorld& world,
-                                                SceneSessionState& scene );
-    void FireLauncherLaser( Physics::PhysicsEngine& physics, int modelCount, Geometry::Terrain* terrain,
-                            const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
+    LauncherPointerResult RouteLauncherPointer( const LauncherPointerInput& input, SceneWorld& world, SceneSessionState& scene );
+    void FireLauncherLaser( Physics::PhysicsEngine& physics,
+                            int modelCount,
+                            Geometry::Terrain* terrain,
+                            const Math::Vector::Vector3& rayOrigin,
+                            const Math::Vector::Vector3& rayDirection,
                             const Math::Vector::Vector3& cameraUp );
-    bool FireLauncherProjectile( SceneWorld& world, SceneSessionState& scene, int activeModelCapacity, int modelCount,
-                                 const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
+    bool FireLauncherProjectile( SceneWorld& world,
+                                 SceneSessionState& scene,
+                                 int activeModelCapacity,
+                                 int modelCount,
+                                 const Math::Vector::Vector3& rayOrigin,
+                                 const Math::Vector::Vector3& rayDirection,
                                  const Math::Vector::Vector3& cameraUp );
 #ifdef _DEBUG
-    bool PickLauncherReproTarget( const SceneWorld& world, int& outIndex, float& outRayT,
-                                  float& outCrosshairDistance ) const;
+    bool PickLauncherReproTarget( const SceneWorld& world, int& outIndex, float& outRayT, float& outCrosshairDistance ) const;
     LauncherReproSnapshotStatus WriteLauncherReproSnapshot( const LauncherReproSnapshotRequest& request ) const;
-    LauncherReproSnapshotResult
-    WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotRequest& request ) const;
+    LauncherReproSnapshotResult WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotRequest& request ) const;
 #endif
 
     LauncherLaser& Laser();
@@ -335,22 +345,23 @@ class RuntimeTools
     // proves manipulator mode is the active world owner. All borrows expire
     // before the method returns; pickup retains only its typed body handle and
     // camera-plane values.
-    MousePickupPointerResult RouteMousePickupPointer( const RuntimePointerEvent& pointer, bool hasWorldRay,
-                                                      const Geometry::Ray& worldRay, bool hasClampedWorldRay,
+    MousePickupPointerResult RouteMousePickupPointer( const RuntimePointerEvent& pointer,
+                                                      bool hasWorldRay,
+                                                      const Geometry::Ray& worldRay,
+                                                      bool hasClampedWorldRay,
                                                       const Geometry::Ray& clampedWorldRay,
                                                       const Math::Vector::Vector3& cameraEye,
-                                                      const Math::Vector::Vector3& cameraView, const SceneWorld& world,
-                                                      InputRouter& inputRouter, RuntimeInteractionController& interaction );
+                                                      const Math::Vector::Vector3& cameraView,
+                                                      const SceneWorld& world,
+                                                      InputRouter& inputRouter,
+                                                      RuntimeInteractionController& interaction );
 
     // Applies the manipulator spring at the fixed-step boundary. Tool state is
     // owned here; scene physics and input/interaction owners are synchronous borrows.
-    void ApplyMousePickupPhysicsStep( SceneWorld& world, InputRouter& inputRouter,
-                                      RuntimeInteractionController& interaction );
-    void RestoreMousePickupAngularVelocity( SceneWorld& world, InputRouter& inputRouter,
-                                            RuntimeInteractionController& interaction );
+    void ApplyMousePickupPhysicsStep( SceneWorld& world, InputRouter& inputRouter, RuntimeInteractionController& interaction );
+    void RestoreMousePickupAngularVelocity( SceneWorld& world, InputRouter& inputRouter, RuntimeInteractionController& interaction );
     void CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction );
-    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, InputRouter& inputRouter,
-                                RuntimeInteractionController& interaction );
+    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, InputRouter& inputRouter, RuntimeInteractionController& interaction );
 
     EditorTracer& Tracer();
 

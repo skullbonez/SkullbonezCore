@@ -16,6 +16,40 @@ from validate_skarness_prediction_matrix import ReplayStateReader, vector_distan
 
 REPO = Path(__file__).resolve().parents[1]
 
+def show_cause_surface(connection: SkarnessConnection, session: Path) -> None:
+    def ui():
+        latest = None
+        for event in map(json.loads, (session / "runtime.skarness.ndjson").read_text().splitlines()):
+            if event.get("topic") == "ui.presentation": latest = event["payload"]
+        assert latest is not None
+        return latest
+    def click(bounds):
+        x,y,w,h=bounds
+        assert w>0 and h>0
+        result=connection.wait(connection.send("input.pointer_drag",dict(button="left",x=int(x+w/2),y=int(y+h/2),deltaX=0,deltaY=0)))
+        assert result.get("status")=="applied",result
+        result=connection.wait(connection.send("run.step_frames",dict(count=2)))
+        assert result.get("status")=="applied",result
+    state=ui()
+    if state["causeControlsBounds"][2] == 0:
+        # Causes lives on the Editor rail; Tools no longer contains its tab.
+        if state["layout"] == "Canvas":
+            click(state["headerLayoutBounds"])
+        click(ui()["causeTabBounds"])
+        # Switching clocks preserves animation phase; advance the pinned clock
+        # after that rebase to finish the rail before inspecting its pixels.
+        result = connection.wait(connection.send("ui.animation_clock", {"seconds": 1000.0, "enabled": True}))
+        assert result.get("status") == "applied", result
+        result = connection.wait(connection.send("run.step_frames", {"count": 2}))
+        assert result.get("status") == "applied", result
+        result = connection.wait(connection.send("ui.animation_clock", {"seconds": 1001.0, "enabled": True}))
+        assert result.get("status") == "applied", result
+        result = connection.wait(connection.send("run.step_frames", {"count": 2}))
+        assert result.get("status") == "applied", result
+        result = connection.wait(connection.send("ui.animation_clock", {"seconds": 0.0, "enabled": False}))
+        assert result.get("status") == "applied", result
+    assert ui()["causeControlsBounds"][2]>0
+
 
 def verify_causal_loading(connection: SkarnessConnection, session: Path) -> None:
     """Observe an empty loading panel becoming a complete, selectable hierarchy."""
@@ -23,6 +57,7 @@ def verify_causal_loading(connection: SkarnessConnection, session: Path) -> None
     cause = None
     observations = []
     captured = False
+    captured_bounds = None
     for _ in range(3000):
         result = connection.wait(connection.send("run.step_frames", {"count": 1}))
         assert result.get("status") == "applied", result
@@ -39,11 +74,12 @@ def verify_causal_loading(connection: SkarnessConnection, session: Path) -> None
                         assert 0.0 <= cause["loadingProgress"] < 1.0
                         observations.append(cause["loadingProgress"])
             offset = trace.tell()
-        if cause and cause["loading"] and cause["loadingProgress"] > 0.0 and not captured:
+        if cause and cause["loading"] and cause["loadingProgress"] >= 0.05 and not captured:
             result = connection.wait(connection.send("capture.screenshot", {
                 "path": str((session / "causal-loading.png").resolve())}))
             assert result.get("status") == "applied", result
             captured = True
+            captured_bounds = cause["window"][:]
         if cause and not cause["loading"] and cause["rowCount"]:
             assert cause["rows"][0]["id"] == 6
             break
@@ -52,7 +88,9 @@ def verify_causal_loading(connection: SkarnessConnection, session: Path) -> None
     assert observations and max(observations) > min(observations), "loading bar did not advance"
     assert captured, "no loading screenshot captured"
     with Image.open(session / "causal-loading.png") as image:
-        panel = image.convert("RGB").crop((image.width - 400, 200, image.width - 24, 350))
+        x,y,w,h=captured_bounds
+        # Published hierarchy bounds locate the same loading bar after docking.
+        panel = image.convert("RGB").crop((x+20,y+190,x+w-20,y+205))
         bar_rows = sum(sum(1 for red, green, blue in (panel.getpixel((x, y)) for x in range(panel.width))
                            if 15 < red < 70 and 150 < green < 205 and 180 < blue < 235) >= 8
                        for y in range(panel.height))
@@ -63,15 +101,36 @@ def verify_causal_loading(connection: SkarnessConnection, session: Path) -> None
     assert result.get("status") == "applied", result
 
 
+def latest_gate_state(session: Path) -> dict:
+    latest = {}
+    with (session / "runtime.skarness.ndjson").open(encoding="utf-8") as trace:
+        for line in trace:
+            event = json.loads(line)
+            if event.get("topic") in ("ui.presentation", "replay.state"):
+                latest[event["topic"]] = event["payload"]
+    return latest
+
+
 def verify_position_gate(path: Path) -> None:
     """The followed primary object's projected center must carry the cyan diamond."""
+    latest = latest_gate_state(path.parent)
+    replay = latest["replay.state"]
+    gates = latest["ui.presentation"]["positionGates"]
+    selected_id = replay["selectedCausePrimaryId"]
+    matches = [gate for gate in gates if gate["sceneObjectId"] == selected_id]
+    assert selected_id > 0 and len(matches) == 1, (selected_id, gates)
+    gate = matches[0]
+    assert gate["visible"] and gate["frame"] == replay["causePresentedFrame"], (gate, replay["causePresentedFrame"])
+    center_x, center_y = (round(value) for value in gate["center"])
     with Image.open(path) as image:
-        center_x, center_y = image.width // 2, image.height // 2
+        assert 24 <= center_x < image.width - 24 and 24 <= center_y < image.height - 24, gate
         pixels = image.convert("RGB").crop((center_x - 24, center_y - 24, center_x + 24, center_y + 24))
         samples = (pixels.getpixel((x, y)) for y in range(pixels.height) for x in range(pixels.width))
         cyan_count = sum(1 for red, green, blue in samples
                          if red < 110 and green > 200 and blue > 230)
         assert cyan_count >= 35, f"selected-object position gate missing from {path}: {cyan_count} cyan pixels"
+    path.with_suffix(".position-gate.json").write_text(json.dumps({"gate": gate, "cyanPixels": cyan_count}, indent=2),
+                                                     encoding="utf-8")
 
 
 def verify_retained_geometry(session: Path) -> None:
@@ -196,12 +255,13 @@ def verify_inspector_controls(connection: SkarnessConnection, session: Path) -> 
             trace.seek(offset)
             for line in trace:
                 event = json.loads(line)
-                if event.get("topic") in ("replay.cause", "replay.state"):
+                if event.get("topic") in ("replay.cause", "replay.state", "ui.presentation"):
                     latest[event["topic"]] = event["payload"]
             offset = trace.tell()
         (session / f"controls-{label}.json").write_text(json.dumps(latest, indent=2), encoding="utf-8")
         return latest["replay.state"].copy()
 
+    send("window.resize", width=1280, height=720)
     send("replay.set_cause_inspector_open", open=True)
     send("run.step_frames", count=20)
     initial = sample("initial")
@@ -210,29 +270,38 @@ def verify_inspector_controls(connection: SkarnessConnection, session: Path) -> 
     assert all(item["available"] and item["dimensionsAvailable"] and item["mass"] > 0 for item in cause["objects"])
     assert {item["sceneObjectId"] for item in cause["objects"]} == {
         initial["selectedCausePrimaryId"], initial["selectedCauseCounterpartId"]}
-    window_x, window_y, window_width, window_height = cause["window"]
-    inspector_x = window_x - 100
+    window_x, window_y, window_width, window_height = latest["ui.presentation"]["causeControlsBounds"]
+    viewport_x, viewport_y, _, _ = latest["ui.presentation"]["viewport"]
+    inspector_width = min(window_x - viewport_x, max(400, window_width))
+    inspector_x = int(window_x - inspector_width / 2)
     # Expand geometry so the larger summary needs scrolling.
-    send("input.pointer_drag", button="left", x=inspector_x, y=window_y + 388, deltaX=0, deltaY=0)
+    send("input.pointer_drag", button="left", x=inspector_x, y=int(viewport_y + 88 + 28 + 12 + 254 + 17), deltaX=0, deltaY=0)
     sample("expanded")
-    assert latest["replay.cause"]["summaryExpandedSection"] == 0
+    assert latest["replay.cause"]["summaryExpandedSections"] == 1
     eye = initial["cameraPrimaryEye"]
     for label, x, y in (("summary-wheel", inspector_x, window_y + 200),
                          ("hierarchy-wheel", window_x + window_width // 2, window_y + 200)):
-        send("input.pointer_wheel", x=x, y=y, wheelDelta=-120)
+        if label == "hierarchy-wheel":
+            send("replay.set_cause_inspector_open",open=False)
+            sample("hierarchy-visible")
+        send("input.pointer_wheel", x=int(x), y=int(y), wheelDelta=-120)
         current = sample(label)
         assert current["cameraPrimaryEye"] == eye, "captured UI wheel moved the world camera"
         assert current["selectedCauseRow"] == initial["selectedCauseRow"]
         if label == "summary-wheel":
             assert latest["replay.cause"]["summaryScrollOffset"] > 0
 
-    send("input.pointer_wheel", x=20, y=window_y + window_height + 20, wheelDelta=120)
+    send("input.pointer_wheel", x=int(viewport_x + 100), y=int(viewport_y + 100), wheelDelta=120)
     zoomed = sample("world-wheel")
     assert vector_distance(eye, zoomed["cameraPrimaryEye"]) > 0.01, "world wheel no longer zooms"
+    # The shell places outline controls in the hierarchy footer; expanded
+    # evidence replaces that hierarchy and preserves the chosen visibility.
+    assert latest["replay.cause"]["drawerProgress"] == 0
+    assert window_width > 0 and window_height > 0
     initial_counts = (initial["drawnCollisionWireframeCount"], initial["drawnEndingWireframeCount"])
     assert initial_counts[0] > 0 and initial_counts[1] > 0
     for index, blue, grey in ((0, False, True), (1, False, False), (0, True, False), (1, True, True)):
-        send("input.pointer_drag", button="left", x=window_x + 50, y=window_y + window_height - 66 + index * 26,
+        send("input.pointer_drag", button="left", x=int(window_x + 50), y=int(window_y + window_height - 66 + index * 26),
              deltaX=0, deltaY=0)
         current = sample(f"blue-{blue}-grey-{grey}")
         assert latest["replay.cause"]["blueOutlinesVisible"] == blue
@@ -251,15 +320,37 @@ def verify_inspector_controls(connection: SkarnessConnection, session: Path) -> 
     send("replay.set_cause_inspector_open", open=False)
     send("run.step_frames", count=40)
     for enabled in (False, True):
-        send("input.pointer_drag", button="left", x=window_x + 50, y=window_y + window_height - 66,
+        send("input.pointer_drag", button="left", x=int(window_x + 50), y=int(window_y + window_height - 66),
              deltaX=0, deltaY=0)
         sample(f"closed-drawer-blue-{enabled}")
         assert latest["replay.cause"]["drawerProgress"] == 0
         assert latest["replay.cause"]["blueOutlinesVisible"] == enabled
     send("replay.set_cause_inspector_open", open=True)
     send("run.step_frames", count=40)
-    send("input.pointer_wheel", x=inspector_x, y=window_y + 200, wheelDelta=12000)
+    send("input.pointer_wheel", x=inspector_x, y=int(window_y + 200), wheelDelta=12000)
     send("capture.screenshot", path=str((session / "inspector-controls.png").resolve()))
+
+
+def verify_timeline_drag(send, state, session: Path) -> None:
+    """A captured timeline gesture changes time without replacing causal selection."""
+    before = state("timeline-before")
+    latest = latest_gate_state(session)
+    x, y, width, height = latest["ui.presentation"]["transportBounds"]
+    inset = min(72, width * 0.22)
+    track_x, track_width = x + inset, max(1, width - inset - 12)
+    send("input.pointer_drag", button="left", x=int(track_x + track_width * 0.45), y=int(y + height / 2),
+         deltaX=int(track_width * 0.25), deltaY=0, moveClient=True)
+    after = state("timeline-after")
+    assert after["causePresentedFrame"] != before["causePresentedFrame"], (before, after)
+    for key in ("causeInspectionMode", "selectedCauseRow", "causeTargetFrame", "selectedCausePrimaryId", "inspectionCameraFocusKind", "predictionGeneration"):
+        assert after[key] == before[key], (key, before[key], after[key])
+    send("input.pointer_drag", button="left", x=int(track_x + track_width * 0.25), y=int(y + height / 2),
+         deltaX=0, deltaY=0)
+    clicked = state("timeline-clicked")
+    assert clicked["causePresentedFrame"] < after["causePresentedFrame"]
+    for key in ("causeInspectionMode", "selectedCauseRow", "causeTargetFrame", "selectedCausePrimaryId", "inspectionCameraFocusKind", "predictionGeneration"):
+        assert clicked[key] == before[key], (key, before[key], clicked[key])
+    send("capture.screenshot", path=str((session / "timeline-drag.png").resolve()))
 
 
 def run(session: Path, executable: Path) -> None:
@@ -299,6 +390,7 @@ def run(session: Path, executable: Path) -> None:
         assert any(row["name"] == "path_striker" and row["sceneObjectId"] == 6 for row in objects)
         send("replay.set_prediction_horizon", seconds=60.0)
         send("prediction.select_target", name="path_striker")
+        show_cause_surface(connection, session)
         send("replay.set_prediction_enabled", enabled=True)
         verify_causal_loading(connection, session)
         send("replay.set_prediction_horizon", seconds=7.5)
@@ -308,6 +400,9 @@ def run(session: Path, executable: Path) -> None:
         before = state("selected")
         assert before["inspectionCameraFocusKind"] == 2
         assert before["selectedCausePrimaryId"] == 1
+        verify_timeline_drag(send, state, session)
+        send("replay.select_cause_row", row=2)
+        send("run.until", condition="camera.inspection_settled", maxFrames=1000)
         verify_manifold_flash(connection, session)
         # Restore the chosen event before checking the established camera path.
         send("replay.select_cause_row", row=2)
@@ -360,6 +455,10 @@ def run(session: Path, executable: Path) -> None:
             offset = [a - b for a, b in zip(sample["cameraPrimaryEye"], sample["inspectionPivot"])]
             orbit_offset = [a - b for a, b in zip(orbit["cameraPrimaryEye"], orbit["inspectionPivot"])]
             assert vector_distance(offset, orbit_offset) < 0.01
+        send("replay.set_prediction_enabled", enabled=False)
+        send("run.step_frames", count=2)
+        hidden_gates = latest_gate_state(session)["ui.presentation"]["positionGates"]
+        assert all(not gate["visible"] and gate["sceneObjectId"] == 0 for gate in hidden_gates), hidden_gates
         print(f"PASS: causal arrows, release, both keys, zoom/orbit, retained futures, and exit time ({session})")
     finally:
         try:

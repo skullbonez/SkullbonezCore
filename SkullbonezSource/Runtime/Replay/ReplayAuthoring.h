@@ -35,6 +35,7 @@ Related:
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsHandles.h"
+#include "../../UI/UIDraw.h"
 
 #include <vector>
 
@@ -71,6 +72,7 @@ struct ReplayAuthoringPredictionRequest
 
 struct ReplayVelocityEditDragStart
 {
+    ReplayVelocityScreenDrag screenDrag;
     Physics::PhysicsSceneObjectId targetId;
     float axisT = 0.0f;
     float angle = 0.0f;
@@ -219,8 +221,8 @@ class ReplayAuthoring
     // Cause-window commands retain layout mutation inside the authoring owner;
     // input and rendering consume only the published const state.
     void BeginCauseTreeInputFrame() noexcept;
-    void EnsureCauseTreeWindowPlacement( int screenWidth, int screenHeight, float desiredAttachedLeftWidth = 0.0f,
-                                         float minimumAttachedLeftWidth = 0.0f ) noexcept;
+    void EnsureCauseTreeWindowPlacement( int screenWidth, int screenHeight, float desiredAttachedLeftWidth = 0.0f, float minimumAttachedLeftWidth = 0.0f ) noexcept;
+    void SetCauseTreePresentationBounds( const UI::UIRect& bounds ) noexcept;
     void SetCauseTreePointer( int mouseX, int mouseY, bool blocked ) noexcept;
     void MoveCauseTreeWindow( int mouseX, int mouseY, int screenWidth, int screenHeight ) noexcept;
     void ResizeCauseTreeWindow( int mouseX, int mouseY, int screenWidth, int screenHeight ) noexcept;
@@ -229,25 +231,28 @@ class ReplayAuthoring
     void BeginCauseTreeMove( int mouseX, int mouseY ) noexcept;
     bool TryGetCauseTreeRow( int rowIndex, RunReplayCauseTreeRow& outRow ) const noexcept;
     void SetCauseTreeFocus( int rowIndex, Physics::PhysicsSceneObjectId focusedId ) noexcept;
-    ReplayCauseTreeInputResult TickCauseTreeInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
-                                                   const ReplayCauseTreeInputFrame& frame );
+    ReplayCauseTreeInputResult TickCauseTreeInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner, const ReplayCauseTreeInputFrame& frame );
 
     // Unwinds a stale drag when velocity editing cannot run this frame. The
     // following gizmo and target-pick phases are invoked only when this succeeds.
-    bool PrepareVelocityEditInput( bool editorModeEnabled, bool scenePhysicsEnabled, int screenWidth, int screenHeight,
-                                   const ReplayToolGestureView& gesture, ReplayInteractionRequest& outInteraction );
-    bool TickVelocityEditInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
-                                const ReplayPathPickInput& pointerRay, bool uiBlocksMouse, double now,
-                                const ReplayVelocityInputFrame& frame, Physics::PhysicsEngine& physics,
-                                std::size_t entityCount, ReplayVelocityInputResult& outResult,
+    bool
+    PrepareVelocityEditInput( bool editorModeEnabled, bool scenePhysicsEnabled, int screenWidth, int screenHeight, const ReplayToolGestureView& gesture, ReplayInteractionRequest& outInteraction );
+    bool TickVelocityEditInput( ReplayPresentation& presentationOwner,
+                                ReplayScrubber& scrubberOwner,
+                                bool uiBlocksMouse,
+                                double now,
+                                const ReplayVelocityInputFrame& frame,
+                                Physics::PhysicsEngine& physics,
+                                std::size_t entityCount,
+                                ReplayVelocityInputResult& outResult,
                                 ReplayInspectionCameraAction& outInspectionCameraAction );
-    bool ApplyVelocityEditTargetPick( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
-                                      const ReplayPathPickResult& pickResult, double now,
+    bool ApplyVelocityEditTargetPick( ReplayPresentation& presentationOwner,
+                                      ReplayScrubber& scrubberOwner,
+                                      const ReplayPathPickResult& pickResult,
+                                      double now,
                                       ReplayVelocityInputResult& outResult,
                                       ReplayInspectionCameraAction& outInspectionCameraAction );
-    ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input,
-                                                                ReplayScrubber& scrubberOwner,
-                                                                const ReplayPresentation& presentationOwner );
+    ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input, ReplayScrubber& scrubberOwner, const ReplayPresentation& presentationOwner );
     const RunReplayVelocityEditState& VelocityEdit() const noexcept
     {
         return m_velocityEdit;
@@ -260,12 +265,10 @@ class ReplayAuthoring
     // Starts a new live lineage after restoring a retained solver sample. The
     // returned parent id is the value that the timeline records in its branch
     // event; callers never receive mutable provenance state.
-    uint32_t BeginRestoredBranch( const ReplayBranchInfo& sourceBranch, ReplayFrameIndex sourceFrame,
-                                  uint64_t sourceSolverHash ) noexcept
+    uint32_t BeginRestoredBranch( const ReplayBranchInfo& sourceBranch, ReplayFrameIndex sourceFrame, uint64_t sourceSolverHash ) noexcept
     {
         const uint32_t currentBranchId = m_branch.branchId;
-        const uint32_t parentBranchId = sourceBranch.branchId != 0 ? sourceBranch.branchId
-                                                                   : ( currentBranchId != 0 ? currentBranchId : 1u );
+        const uint32_t parentBranchId = sourceBranch.branchId != 0 ? sourceBranch.branchId : ( currentBranchId != 0 ? currentBranchId : 1u );
 
         ReplayBranchInfo restoredBranch;
         restoredBranch.branchId = ( currentBranchId > parentBranchId ? currentBranchId : parentBranchId ) + 1u;
@@ -293,11 +296,8 @@ class ReplayAuthoring
         m_velocityEdit.hotLinearAxis = -1;
         m_velocityEdit.hotAngularAxis = -1;
 
-        if ( enabled )
-        {
-            QueuePredictionRefresh( true );
-        }
-        else
+        // Showing the widget does not invalidate the published future.
+        if ( !enabled )
         {
             (void)FinishVelocityEditDrag();
         }
@@ -323,6 +323,11 @@ class ReplayAuthoring
         m_velocityEdit.keyboardAltWasDown = isDown;
     }
 
+    void SetVelocityEditAngular( bool angular ) noexcept
+    {
+        m_velocityEdit.angular = angular;
+    }
+
     void SetVelocityEditHoverAxes( int linearAxis, int angularAxis ) noexcept
     {
         m_velocityEdit.hotLinearAxis = linearAxis;
@@ -331,6 +336,7 @@ class ReplayAuthoring
 
     void BeginVelocityEditDrag( const ReplayVelocityEditDragStart& start ) noexcept
     {
+        m_velocityEdit.screenDrag = start.screenDrag;
         m_velocityEdit.dragTargetId = start.targetId;
         m_velocityEdit.dragChanged = false;
         m_velocityEdit.dragStartAxisT = start.axisT;
@@ -342,8 +348,7 @@ class ReplayAuthoring
     // Invariant: held pointer samples update only this newest-state value.
     // Prediction generation remains untouched until FinishVelocityEditDrag()
     // observes the release edge.
-    void QueueVelocityEditPreview( Physics::PhysicsSceneObjectId targetId,
-                                   const Math::Vector::Vector3& velocityDelta ) noexcept
+    void QueueVelocityEditPreview( Physics::PhysicsSceneObjectId targetId, const Math::Vector::Vector3& velocityDelta ) noexcept
     {
         m_velocityEdit.dragChanged = true;
         m_pendingPrediction.velocityPreviewTargetId = targetId;
@@ -383,9 +388,12 @@ class ReplayAuthoring
 
     // Publishes the authoring-owned velocity gizmo from value-selected replay
     // identity. App applies the detached command to its Tools sibling.
-    bool BuildVelocityOverlayCommand( Physics::PhysicsSceneObjectId targetId, Physics::ModelRowHint targetModelRow,
-                                      Physics::PhysicsEngine& physics, bool editorModeEnabled,
-                                      const ReplayToolGestureView& gesture, ReplayVelocityOverlayCommand& outCommand ) const;
+    bool BuildVelocityOverlayCommand( Physics::PhysicsSceneObjectId targetId,
+                                      Physics::ModelRowHint targetModelRow,
+                                      Physics::PhysicsEngine& physics,
+                                      bool editorModeEnabled,
+                                      const ReplayToolGestureView& gesture,
+                                      ReplayVelocityOverlayCommand& outCommand ) const;
 
     // Concept: authoring publishes a value command instead of holding a
     // prediction pointer or callback. Multiple edits before consumption fold

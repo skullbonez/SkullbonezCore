@@ -48,6 +48,10 @@ class PhysicsBodyStore;
 struct PointJointConstraint;
 } // namespace Physics
 
+namespace Geometry
+{
+class Terrain;
+}
 namespace GameObjects
 {
 struct SceneWorldSaveState
@@ -67,6 +71,7 @@ struct SceneWorldSaveState
     Math::Vector::Vector3 cameraView;
     Math::Vector::Vector3 cameraUp;
     SkullbonezCore::Scene::OrbitalStabilityContract orbitalStability;
+    const Geometry::Terrain* terrain = nullptr;
 };
 
 struct SceneSessionSaveState
@@ -101,8 +106,7 @@ class SceneSnapshotWriter
   public:
     // Saves one current schema-v5 snapshot. External path/write failures return recoverable error;
     // mismatched owner topology fails through the engine fatal-invariant lane.
-    static SkullbonezCore::Core::SbResult Save( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                const SceneSaveRequest& request );
+    static SkullbonezCore::Core::SbResult Save( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const SceneSaveRequest& request );
 };
 } // namespace GameObjects
 } // namespace SkullbonezCore

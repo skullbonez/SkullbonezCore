@@ -26,6 +26,7 @@ Related:
 #include "../../Core/SbDiagnosticStore.h"
 #include "../../Core/WindowConstants.h"
 #include "../../Core/Common.h"
+#include "../../Core/PlatformWin32.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -41,6 +42,20 @@ namespace Runtime
 {
 namespace
 {
+std::string RenderDefaultsPath()
+{
+#if defined( SKULLBONEZ_SKARNESS )
+    // Native save checks rewrite an isolated copy through the actual writer.
+    // Interactive builds continue to save the configured engine defaults.
+    char path[1024] {};
+    const std::size_t length = Core::Platform::ReadEnvironmentVariable( "SKULLBONEZ_RENDER_DEFAULTS_FILE", path, sizeof( path ) );
+    if ( length != 0 )
+    {
+        return length < sizeof( path ) ? path : "";
+    }
+#endif
+    return std::string( DATA_ROOT ) + "engine.cfg";
+}
 
 bool ConfigLineMatchesKey( const std::string& line, const char* key )
 {
@@ -101,23 +116,18 @@ bool ReplaceConfigLine( std::vector<std::string>& lines, const char* key, const 
 
 void EraseConfigLines( std::vector<std::string>& lines, const char* key )
 {
-    lines.erase( std::remove_if( lines.begin(), lines.end(),
-                                 [key]( const std::string& line ) { return ConfigLineMatchesKey( line, key ); } ),
-                 lines.end() );
+    lines.erase( std::remove_if( lines.begin(), lines.end(), [key]( const std::string& line ) { return ConfigLineMatchesKey( line, key ); } ), lines.end() );
 }
 
 void EraseConfigLinesWithPrefix( std::vector<std::string>& lines, const char* prefix )
 {
     const std::size_t prefixLength = std::strlen( prefix );
-    lines.erase( std::remove_if( lines.begin(), lines.end(),
-                                 [prefix, prefixLength]( const std::string& line )
+    lines.erase( std::remove_if( lines.begin(), lines.end(), [prefix, prefixLength]( const std::string& line )
                                  {
                                      const std::size_t start = line.find_first_not_of( " \t" );
 
-                                     return start != std::string::npos && line[start] != '#' &&
-                                            line.compare( start, prefixLength, prefix ) == 0;
-                                 } ),
-                 lines.end() );
+                                     return start != std::string::npos && line[start] != '#' && line.compare( start, prefixLength, prefix ) == 0;
+                                 } ), lines.end() );
 }
 
 std::size_t OrdinaryConfigInsertIndex( const std::vector<std::string>& lines )
@@ -129,17 +139,14 @@ std::size_t OrdinaryConfigInsertIndex( const std::vector<std::string>& lines )
             std::size_t sectionBody = i + 1;
 
             while ( sectionBody < lines.size() &&
-                    ( lines[sectionBody].empty() ||
-                      lines[sectionBody].find( "# ---------------------------------------------------------------------------" ) !=
-                          std::string::npos ) )
+                    ( lines[sectionBody].empty() || lines[sectionBody].find( "# ---------------------------------------------------------------------------" ) != std::string::npos ) )
             {
                 ++sectionBody;
             }
 
             for ( std::size_t j = sectionBody; j < lines.size(); ++j )
             {
-                if ( lines[j].find( "# ---------------------------------------------------------------------------" ) !=
-                     std::string::npos )
+                if ( lines[j].find( "# ---------------------------------------------------------------------------" ) != std::string::npos )
                 {
                     return j;
                 }
@@ -169,17 +176,14 @@ std::size_t CinematicConfigInsertIndex( const std::vector<std::string>& lines )
             std::size_t sectionBody = i + 1;
 
             while ( sectionBody < lines.size() &&
-                    ( lines[sectionBody].empty() ||
-                      lines[sectionBody].find( "# ---------------------------------------------------------------------------" ) !=
-                          std::string::npos ) )
+                    ( lines[sectionBody].empty() || lines[sectionBody].find( "# ---------------------------------------------------------------------------" ) != std::string::npos ) )
             {
                 ++sectionBody;
             }
 
             for ( std::size_t j = sectionBody; j < lines.size(); ++j )
             {
-                if ( lines[j].find( "# ---------------------------------------------------------------------------" ) !=
-                     std::string::npos )
+                if ( lines[j].find( "# ---------------------------------------------------------------------------" ) != std::string::npos )
                 {
                     return j;
                 }
@@ -211,8 +215,7 @@ void AppendMissingOrdinaryConfigLines( std::vector<std::string>& lines, std::vec
 
     // Why: Missing keys should land near their owning section when possible,
     // preserving user comments and unrelated config ordering.
-    const bool hasOrdinarySection = std::any_of( lines.begin(), lines.end(), []( const std::string& line )
-                                                 { return line.find( "Ordinary rendering" ) != std::string::npos; } );
+    const bool hasOrdinarySection = std::any_of( lines.begin(), lines.end(), []( const std::string& line ) { return line.find( "Ordinary rendering" ) != std::string::npos; } );
 
     if ( !hasOrdinarySection )
     {
@@ -236,8 +239,7 @@ void AppendMissingCinematicConfigLines( std::vector<std::string>& lines, std::ve
     }
 
     std::vector<std::string> insertLines;
-    const bool hasCinematicSection = std::any_of( lines.begin(), lines.end(), []( const std::string& line )
-                                                  { return line.find( "Cinematic rendering" ) != std::string::npos; } );
+    const bool hasCinematicSection = std::any_of( lines.begin(), lines.end(), []( const std::string& line ) { return line.find( "Cinematic rendering" ) != std::string::npos; } );
 
     if ( !hasCinematicSection )
     {
@@ -319,12 +321,11 @@ void StampCurrentConfigVersion( std::vector<std::string>& lines )
 
 } // namespace
 
-SkullbonezCore::Core::SbResult
-RenderDefaultsStore::PersistOrdinary( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary )
+SkullbonezCore::Core::SbResult RenderDefaultsStore::PersistOrdinary( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary )
 {
     // Concept: Saving ordinary defaults is a text rewrite, not a full config
     // serialization. Unknown keys and comments must survive the round trip.
-    const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
+    const std::string configPath = RenderDefaultsPath();
     SkullbonezCore::Core::EngineConfig versionProbe;
     const SkullbonezCore::Core::SbResult versionResult = versionProbe.Load( m_resultDiagnostics, configPath.c_str() );
 
@@ -340,8 +341,7 @@ RenderDefaultsStore::PersistOrdinary( const SkullbonezCore::Core::OrdinaryRender
     if ( !LoadConfigLines( configPath, lines ) )
     {
         // Recoverable error: the user-facing config may be missing, locked, or unreadable.
-        return m_resultDiagnostics.Failure( "Runtime/RenderDefaultsStore", "Could not read render defaults file: %s",
-                                            configPath.c_str() );
+        return m_resultDiagnostics.Failure( "Runtime/RenderDefaultsStore", "Could not read render defaults file: %s", configPath.c_str() );
     }
 
     std::vector<std::string> missing;
@@ -430,17 +430,15 @@ RenderDefaultsStore::PersistOrdinary( const SkullbonezCore::Core::OrdinaryRender
 
     if ( !WriteConfigLines( configPath, lines ) )
     {
-        return m_resultDiagnostics.Failure( "Runtime/RenderDefaultsStore", "Could not write render defaults file: %s",
-                                            configPath.c_str() );
+        return m_resultDiagnostics.Failure( "Runtime/RenderDefaultsStore", "Could not write render defaults file: %s", configPath.c_str() );
     }
 
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-SkullbonezCore::Core::SbResult
-RenderDefaultsStore::PersistCinematic( const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
+SkullbonezCore::Core::SbResult RenderDefaultsStore::PersistCinematic( const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
-    const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
+    const std::string configPath = RenderDefaultsPath();
     SkullbonezCore::Core::EngineConfig versionProbe;
     const SkullbonezCore::Core::SbResult versionResult = versionProbe.Load( m_resultDiagnostics, configPath.c_str() );
 
@@ -453,8 +451,7 @@ RenderDefaultsStore::PersistCinematic( const SkullbonezCore::Core::CinematicRend
 
     if ( !LoadConfigLines( configPath, lines ) )
     {
-        return m_resultDiagnostics.Failure( "Runtime/RenderDefaultsStore", "Could not read cinematic defaults file: %s",
-                                            configPath.c_str() );
+        return m_resultDiagnostics.Failure( "Runtime/RenderDefaultsStore", "Could not read cinematic defaults file: %s", configPath.c_str() );
     }
 
     std::vector<std::string> missing;
@@ -532,8 +529,7 @@ RenderDefaultsStore::PersistCinematic( const SkullbonezCore::Core::CinematicRend
 
     if ( !WriteConfigLines( configPath, lines ) )
     {
-        return m_resultDiagnostics.Failure( "Runtime/RenderDefaultsStore", "Could not write cinematic defaults file: %s",
-                                            configPath.c_str() );
+        return m_resultDiagnostics.Failure( "Runtime/RenderDefaultsStore", "Could not write cinematic defaults file: %s", configPath.c_str() );
     }
 
     return SkullbonezCore::Core::SbResult::Success();

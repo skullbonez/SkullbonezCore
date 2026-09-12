@@ -120,7 +120,9 @@ jobs:
             "-DCMAKE_EXE_LINKER_FLAGS=${sanitizer_flags}" \
             2>&1 | tee "${evidence_dir}/configure.log"
 
-          cmake --build "${build_dir}" --target skullbonez_portable_tests --parallel 2 \
+          # Collect independent compiler failures in one run; Ninja still exits
+          # nonzero and the job cannot reach tests when compilation fails.
+          cmake --build "${build_dir}" --target skullbonez_portable_tests --parallel 2 -- -k 0 \
             2>&1 | tee "${evidence_dir}/build.log"
 
           ctest --test-dir "${build_dir}" --output-on-failure \

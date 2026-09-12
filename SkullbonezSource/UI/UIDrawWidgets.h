@@ -72,18 +72,26 @@ bool CanActivateComponent( const UIRect& bounds, UIVisualState state, int pointe
 
 // Compact panels preserve the restrained owner-local Runtime surface while
 // keeping fill, border, and radius decisions inside the component foundation.
-void DrawPanel( const UIDrawContext& draw, const UIRect& bounds, UIVisualState state,
-                ComponentAppearance appearance = ComponentAppearance::Adaptive, float fillOpacity = 1.0f );
-void DrawButton( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state,
+void DrawPanel( const UIDrawContext& draw, const UIRect& bounds, UIVisualState state, ComponentAppearance appearance = ComponentAppearance::Adaptive, float fillOpacity = 1.0f );
+void DrawButton( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state, ComponentAppearance appearance = ComponentAppearance::Adaptive );
+void DrawToggle( const UIDrawContext& draw,
+                 const UIRect& bounds,
+                 const char* label,
+                 const Style::UIColor& accent,
+                 UIVisualState state,
                  ComponentAppearance appearance = ComponentAppearance::Adaptive );
-void DrawToggle( const UIDrawContext& draw, const UIRect& bounds, const char* label, const Style::UIColor& accent,
-                 UIVisualState state, ComponentAppearance appearance = ComponentAppearance::Adaptive );
 
 float SliderValueFromPointer( const UIRect& bounds, int pointerX, float minValue, float maxValue, float step );
 UIRect SliderTrackBounds( const UIRect& bounds );
 UIRect SliderThumbBounds( const UIRect& bounds, float value, float minValue, float maxValue );
-void DrawSlider( const UIDrawContext& draw, const UIRect& bounds, const char* label, const char* valueText, float value,
-                 float minValue, float maxValue, UIVisualState state,
+void DrawSlider( const UIDrawContext& draw,
+                 const UIRect& bounds,
+                 const char* label,
+                 const char* valueText,
+                 float value,
+                 float minValue,
+                 float maxValue,
+                 UIVisualState state,
                  ComponentAppearance appearance = ComponentAppearance::Adaptive );
 
 // Carries the complete tab geometry decision. Adaptive tabs use one rectangle
@@ -96,17 +104,18 @@ struct TabLayout
     UIRect visualBounds;
 };
 
-TabLayout ResolveTabLayout( const UIRect& stripBounds, int tabIndex, int tabCount,
-                            ComponentAppearance appearance = ComponentAppearance::Adaptive );
-int HitTestTab( const UIRect& stripBounds, UIVisualState state, int pointerX, int pointerY, int tabCount,
-                ComponentAppearance appearance = ComponentAppearance::Adaptive );
-void DrawTab( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state,
-              ComponentAppearance appearance = ComponentAppearance::Adaptive );
+TabLayout ResolveTabLayout( const UIRect& stripBounds, int tabIndex, int tabCount, ComponentAppearance appearance = ComponentAppearance::Adaptive );
+int HitTestTab( const UIRect& stripBounds, UIVisualState state, int pointerX, int pointerY, int tabCount, ComponentAppearance appearance = ComponentAppearance::Adaptive );
+void DrawTab( const UIDrawContext& draw, const UIRect& bounds, const char* label, UIVisualState state, ComponentAppearance appearance = ComponentAppearance::Adaptive );
 
-UIRect ScrollThumbBounds( const UIRect& trackBounds, float contentHeight, float viewportHeight, float scrollOffset,
-                          ComponentAppearance appearance = ComponentAppearance::Adaptive );
-void DrawScrollBar( const UIDrawContext& draw, const UIRect& trackBounds, float contentHeight, float viewportHeight,
-                    float scrollOffset, float alpha, UIVisualState state,
+UIRect ScrollThumbBounds( const UIRect& trackBounds, float contentHeight, float viewportHeight, float scrollOffset, ComponentAppearance appearance = ComponentAppearance::Adaptive );
+void DrawScrollBar( const UIDrawContext& draw,
+                    const UIRect& trackBounds,
+                    float contentHeight,
+                    float viewportHeight,
+                    float scrollOffset,
+                    float alpha,
+                    UIVisualState state,
                     ComponentAppearance appearance = ComponentAppearance::Adaptive );
 
 // Carries the complete combo geometry decision. Interaction bounds preserve
@@ -125,14 +134,23 @@ ComboLayout ResolveComboLayout( const UIRect& bounds, bool labelVisible, bool dr
 // interaction owner uses IsComboOptionEnabled before producing an action.
 int ComboOptionAtPointer( const UIRect& popupBounds, UIVisualState state, int pointerX, int pointerY, int optionCount );
 bool IsComboOptionEnabled( uint32_t disabledOptionMask, int optionIndex );
-void DrawComboField( const UIDrawContext& draw, const ComboLayout& layout, const char* label, const char* selectedText,
-                     bool labelVisible, bool open, UIVisualState state, bool selectedEnabled = true,
+void DrawComboField( const UIDrawContext& draw,
+                     const ComboLayout& layout,
+                     const char* label,
+                     const char* selectedText,
+                     bool labelVisible,
+                     bool open,
+                     UIVisualState state,
+                     bool selectedEnabled = true,
                      ComponentAppearance appearance = ComponentAppearance::Adaptive );
-void DrawComboPopup( const UIDrawContext& draw, const ComboLayout& layout, const UIComboPresentationView& presentation,
-                     int hoveredIndex, UIVisualState state, ComponentAppearance appearance = ComponentAppearance::Adaptive );
+void DrawComboPopup( const UIDrawContext& draw,
+                     const ComboLayout& layout,
+                     const UIComboPresentationView& presentation,
+                     int hoveredIndex,
+                     UIVisualState state,
+                     ComponentAppearance appearance = ComponentAppearance::Adaptive );
 
-void DrawIconButton( const UIDrawContext& draw, const UIRect& bounds, ComponentIcon icon, UIVisualState state,
-                     ComponentAppearance appearance = ComponentAppearance::Adaptive );
+void DrawIconButton( const UIDrawContext& draw, const UIRect& bounds, ComponentIcon icon, UIVisualState state, ComponentAppearance appearance = ComponentAppearance::Adaptive );
 
 enum class TitleButtonIcon
 {
@@ -148,17 +166,12 @@ void DrawTitleButton( const UIDrawContext& draw, const UIRect& bounds, TitleButt
 void DrawPipelineStepButton( const UIDrawContext& draw, const UIRect& bounds, bool previous, bool hot );
 void DrawFooterToggle( const UIDrawContext& draw, const UIRect& bounds, const char* label, bool checked );
 
-void DrawLabelValueAt( const UIDrawContext& draw, float contentY, float contentH, float tx, float rowY, const char* label,
-                       const char* value, float vr, float vg, float vb );
-void DrawSectionTitle( const UIDrawContext& draw, float contentX, float contentY, float contentH, float rowY, float textSize,
-                       const char* text );
-void DrawContentToggle( const UIDrawContext& draw, float contentY, float contentH, UICheckBox& toggle, float tx, float rowY,
-                        float controlW, const char* label, bool checked );
+void DrawLabelValueAt( const UIDrawContext& draw, float contentY, float contentH, float tx, float rowY, const char* label, const char* value, float vr, float vg, float vb );
+void DrawSectionTitle( const UIDrawContext& draw, float contentX, float contentY, float contentH, float rowY, float textSize, const char* text );
+void DrawContentToggle( const UIDrawContext& draw, float contentY, float contentH, UICheckBox& toggle, float tx, float rowY, float controlW, const char* label, bool checked, bool enabled = true );
 
-void DrawFooterStatCell( const UIDrawContext& draw, float tx, float bottomY, const char* name, const char* value, float r,
-                         float g, float b );
-void DrawCompactFooterStat( const UIDrawContext& draw, float statsX, float ty, const char* name, const char* value, float r,
-                            float g, float b );
+void DrawFooterStatCell( const UIDrawContext& draw, float tx, float bottomY, const char* name, const char* value, float r, float g, float b );
+void DrawCompactFooterStat( const UIDrawContext& draw, float statsX, float ty, const char* name, const char* value, float r, float g, float b );
 void DrawFooterStatDivider( const UIDrawContext& draw, float x, float bottomY );
 
 } // namespace Widgets

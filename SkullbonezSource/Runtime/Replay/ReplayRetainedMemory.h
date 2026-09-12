@@ -58,15 +58,10 @@ struct ReplayRetainedOwnershipRule
     bool durableArtifact;
 };
 
-inline constexpr std::array<ReplayRetainedOwnershipRule, 4> REPLAY_RETAINED_OWNERSHIP_RULES =
-    { ReplayRetainedOwnershipRule { ReplayRetainedDataOwner::PresentationRecorder, "ReplayPresentationSample",
-                                    "ReplayRecorder", true, true },
-      ReplayRetainedOwnershipRule { ReplayRetainedDataOwner::SolverRecorder, "ReplaySolverFrameSample",
-                                    "ReplaySolverRecorder", true, true },
-      ReplayRetainedOwnershipRule { ReplayRetainedDataOwner::PredictionPrefix, "RunReplayPredictionFrame",
-                                    "ReplayPrediction working set and trajectory storage", true, false },
-      ReplayRetainedOwnershipRule { ReplayRetainedDataOwner::V2Artifact, "ReplayV2Document", "ReplayV2Artifact cold I/O",
-                                    false, true } };
+inline constexpr std::array<ReplayRetainedOwnershipRule, 4> REPLAY_RETAINED_OWNERSHIP_RULES = { ReplayRetainedOwnershipRule { ReplayRetainedDataOwner::PresentationRecorder, "ReplayPresentationSample", "ReplayRecorder", true, true },
+                                                                                                ReplayRetainedOwnershipRule { ReplayRetainedDataOwner::SolverRecorder, "ReplaySolverFrameSample", "ReplaySolverRecorder", true, true },
+                                                                                                ReplayRetainedOwnershipRule { ReplayRetainedDataOwner::PredictionPrefix, "RunReplayPredictionFrame", "ReplayPrediction working set and trajectory storage", true, false },
+                                                                                                ReplayRetainedOwnershipRule { ReplayRetainedDataOwner::V2Artifact, "ReplayV2Document", "ReplayV2Artifact cold I/O", false, true } };
 
 enum class ReplayGrowthExhaustionRule : uint8_t
 {
@@ -89,15 +84,17 @@ inline constexpr const char* REPLAY_RECORDER_SAMPLE_RESERVE_OWNER = "replay_reco
 // recorder bytes, while the ordinary 300-body generated demo legitimately
 // exceeds 32 MiB before its first second of history is complete. Keep the
 // process-wide ceiling aligned with the largest supported replay memory budget; individual
-// vectors remain bounded by the scene/body and source-owner limits.
+// vectors remain bounded by the scene/body and source-owner limits. Fixed
+// launcher payloads (64 rays and 32 shots per solver slot) consume this same
+// owner budget when configured or reconfigured; they have no separate grant.
 inline constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES = REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB * 1024 * 1024;
-inline constexpr std::array<ReplayGrowthOwnerPolicy, 2> REPLAY_CORE_GROWTH_OWNER_POLICIES =
-    { ReplayGrowthOwnerPolicy { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
-                                SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-                                REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES, 16223044u,
-                                ReplayGrowthExhaustionRule::FatalRetainedState },
-      ReplayGrowthOwnerPolicy { Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
-                                SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-                                Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES, 3401552u,
-                                ReplayGrowthExhaustionRule::FatalRetainedState } };
+inline constexpr std::array<ReplayGrowthOwnerPolicy, 2> REPLAY_CORE_GROWTH_OWNER_POLICIES = { ReplayGrowthOwnerPolicy { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
+                                                                                                                        SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
+                                                                                                                        REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES,
+                                                                                                                        16223044u,
+                                                                                                                        ReplayGrowthExhaustionRule::FatalRetainedState }, ReplayGrowthOwnerPolicy { Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
+                                                                                                                        SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
+                                                                                                                        Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
+                                                                                                                        3401552u,
+                                                                                                                        ReplayGrowthExhaustionRule::FatalRetainedState } };
 } // namespace SkullbonezCore::Runtime
