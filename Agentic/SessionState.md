@@ -1,8 +1,46 @@
 # Session State
 
-Date: 2026-09-12
+Date: 2026-09-13
 Branch: `codex/unified-ui`
-Status: PHYSICS_SCALE complete at 7/7; live portfolio 138/144; PHYSICS_AB queued at 0/6. Measured performance improves with byte-identical tested Physics output and no baseline changes.
+Status: Owner-approved baseline reconciliation complete; canonical gates pass. PR #169 is the clean review destination. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
+
+## Approved gate repairs — 2026-09-13
+
+The owner approved all six exact candidates and requested a clean PR. They are
+now applied with new append-only old/new producer bundles under
+`Agentic/Plans/Artifacts/physics-baseline-reconciliation/BR0/golden-transitions/`.
+Every other protected file (130) remains unchanged, including the core Physics
+golden. No runtime source, scene, tolerance or previous archive was changed.
+
+Canonical post-replacement gates pass: deep Physics 133.312s,
+replay fidelity 356.280s and performance 108.233s.
+The archived FP7 producer reproduces the new known-issue and query output;
+accepted construction-wake behavior explains replay changes. Three repeated
+old/new performance runs and an independent holdout justify the approved
+machine-local references under unchanged tolerances.
+
+Two checker fixes retain contact-energy physical pins with current schema v5
+and start the velocity comparison only after a changed preview. The ordinary
+Automation gate now includes the detailed velocity regression: unchanged
+published frames and no snapshot on open, resolved target identity on preview,
+both native choices, repeated edits, playback and scene-reset cleanup. The
+full Automation gate passes in 473.248s; seven bodies / 361 frames per branch,
+four inspected screenshots and clean allocation guards support this result.
+
+Current cumulative preflight, all six CPU lanes, core Physics and DX12 evidence
+remain valid for byte-identical Debug/Profile/Automation executables. Profile
+passes 1,047 active cases / 3,735,850 assertions, with one existing skip; all
+ten coverage floors pass. Independent final review found no correctness or
+baseline-integrity issue. Two obsolete Agentic/Reports files were preserved
+locally and removed; the scratch scene is backed up under
+`TestOutput/gate-repair-2026-09-13/local-backup/`. No loose scene enters the PR.
+
+Commands, approval hashes, timings and review are in
+`TestOutput/gate-repair-2026-09-13/`. The earlier PHYSICS_SCALE terminal wrapper
+remains recorded as failed; this handoff uses its passing mapped constituents
+and does not relabel or rerun that historical wrapper. Consult PR #169 checks
+for current hosted CI. Live portfolio remains 138/144; PHYSICS_AB 0/6 is queued
+for the owner's next instruction.
 
 ## Physics Scale Optimization — 2026-09-12
 
@@ -70,7 +108,7 @@ existing renderer regions. CPU snapshot growth shares the registered 960 MiB cap
 The dense native regression proves 15,916 Original records remain exact while
 15,250 Modified records reveal progressively, including a second edit. Allocation
 guard and DX12 checks pass. Final closure evidence is recorded in
-`Agentic/Reports/2026-09-12-velocity-reveal.md`.
+`TestOutput/gate-repair-2026-09-13/prior-review/2026-09-12-velocity-reveal.md`.
 
 ## PR 169 adversarial review - 2026-09-12
 
@@ -88,7 +126,7 @@ recorded active tween demonstrates successful re-entry and handle editing.
 Fast validation passes all 1,044 tests with one existing skip. Native terrain,
 sleeping ragdoll placement/reload/wake, dense 200-box comparisons, renderer and
 one-minute stress checks pass. Final gate results and review evidence are in
-`Agentic/Reports/2026-09-12-pr169-adversarial.md` and `TestOutput/pr169-*.log`.
+`TestOutput/gate-repair-2026-09-13/prior-review/2026-09-12-pr169-adversarial.md` and `TestOutput/pr169-*.log`.
 
 The unchanged 200-box replay oracle differs due to the earlier authored-sleep
 fix. Reverting only queued construction-wake retirement in an isolated build

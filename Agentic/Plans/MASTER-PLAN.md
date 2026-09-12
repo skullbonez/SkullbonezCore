@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-09-13
-Status: 138/145 tasks complete; BASELINE_REPAIR 0/1; PHYSICS_SCALE complete at 7/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
+Status: 138/144 tasks complete; BASELINE_REPAIR complete at 1/1; PHYSICS_SCALE complete at 7/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
 
 ## Owner Direction
 
@@ -509,11 +509,26 @@ plan leaves 138/144. Git history is the plan archive. PHYSICS_AB remains queued
 at 0/6. The foreign unfinished GOV1 work ledger and unrelated untracked scene
 remain untouched; no accounting or completion-ledger artifacts are fabricated.
 
+## Approved Baseline Reconciliation — 2026-09-13
+
+BASELINE_REPAIR BR0 is complete at 1/1. The owner approved the six exact
+reviewed replacements. New append-only Debug, Automation and Profile
+old/new producer bundles are retained under
+`Artifacts/physics-baseline-reconciliation/BR0/golden-transitions/`.
+Canonical deep Physics, replay fidelity and performance gates pass after
+replacement; core Physics and all 130 other protected files remain unchanged.
+The Automation gate now includes the stronger velocity-comparison regression.
+Independent review is clean after removing two obsolete per-run reports.
+
+This reconciles accepted FP7 solver and construction-wake output plus measured
+machine-local performance drift; it changes no runtime source or threshold.
+Accepting BR0 takes 138/145 to 139/145; deleting the completed one-task checklist
+returns the live inventory to 138/144. PHYSICS_AB remains queued at 0/6.
+
 ## Active Plans
 
 | Plan | Code | Total | Complete | Next task | File |
 |---|---|---|---|---|---|
-| Approved Physics Baseline Reconciliation | `BASELINE_REPAIR` | 1 | 0 | BR0: approved references and mapped gates | `TODO/physics-baseline-reconciliation.md` |
 | Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
@@ -531,8 +546,8 @@ an owner decision, not a run decision.
 
 | Plan | Status | Phases | File |
 |---|---|---|---|
-| Skarness Command And State Harness | Complete 2026-09-05 | 7/7 | `DONE/skarness-command-and-state-harness.md` |
-| Governance Simplification And Scar Removal | Complete 2026-08-28 | 5/5 | `DONE/governance-simplification-and-scar-removal.md` |
+| Skarness Command And State Harness | Complete 2026-09-05 | 7/7 | Git history |
+| Governance Simplification And Scar Removal | Complete 2026-08-28 | 5/5 | Git history |
 | Recorded Interaction Playback Cursor | Complete 2026-08-28 | 4/4 | `DONE/recorded-interaction-playback-cursor.md` |
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
 | Deterministic Trigonometry Adoption | Owner-parked 2026-08-18 | 0/8 | `WNF/deterministic-trigonometry-adoption.md` |
@@ -551,8 +566,9 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-`BASELINE_REPAIR` BR0 is the current owner-requested approval/validation task
-(0/1). Its addition temporarily takes the live portfolio to 138/145.
+`BASELINE_REPAIR` BR0 is complete at 1/1 with all six owner-approved
+references applied and mapped gates passing. Its checklist is deleted; the
+live portfolio returns to 138/144. PR #169 is the review destination.
 
 `PHYSICS_SCALE` PS0-PS6 is complete at 7/7 on `codex/unified-ui`, with unchanged
 baselines and measured before/after performance. Current portfolio is 138/144.
@@ -562,7 +578,7 @@ baselines and measured before/after performance. Current portfolio is 138/144.
 `RAGDOLL_PHYSICS` is complete at 10/10. The owner's requested ragdoll-playground
 sleep investigation is complete, with results in SessionState and
 `TestOutput/skarness/ragdoll-sleep-experiments-01/README.md`. No parked plan was
-reactivated. Normal push remains pending explicit remote approval.
+reactivated. The owner requested the clean PR #169 handoff on 2026-09-13.
 `PHYSICS_AB` AB1-AB6 remains queued at 0/6.
 `SKARNESS` SK0-SK6 and `SIGNATURE_COHESION` SC0-SC7 are complete.
 

@@ -79,9 +79,19 @@ def run(session: Path, executable: Path) -> None:
             ghost = ghosts[body["modelRow"]]
             assert ghost["position"] == body["position"]
             assert ghost["tint"][2] > ghost["tint"][0] and 0 < ghost["alpha"] < 0.5
-        assert vector_distance(blue[6]["position"], red[6]["position"]) > 1
+        assert vector_distance(blue[target_id]["position"], red[target_id]["position"]) > 1
         snapshot(label, observed)
         return observed
+
+    def verify_released(observed: dict) -> None:
+        comparison = observed["divergence"]
+        assert not comparison["active"], "comparison remained active"
+        assert comparison["allocatedOwnerBytes"] == 0, "comparison retained its snapshot allocation"
+        assert comparison["blueFrameCount"] == 0, "comparison retained Original frames"
+        assert not comparison["ghosts"], "comparison retained Original ghosts"
+        packet = topics()["replay.visual_packet"]
+        assert packet["originalStreamId"] == 0, "render packet retained the Original stream"
+        assert packet["originalPath"]["records"] == 0, "render packet retained Original geometry"
 
     def accept(red: bool) -> dict:
         ui = topics()["ui.presentation"]
@@ -93,13 +103,7 @@ def run(session: Path, executable: Path) -> None:
         send("input.pointer_drag", button="left", x=int(button_x),
              y=int(ui["transportBounds"][1] - 25), deltaX=0, deltaY=0)
         observed = state()
-        assert not observed["divergence"]["active"]
-        assert observed["divergence"]["allocatedOwnerBytes"] == 0
-        assert observed["divergence"]["blueFrameCount"] == 0
-        assert not observed["divergence"]["ghosts"]
-        packet = topics()["replay.visual_packet"]
-        assert packet["originalStreamId"] == 0
-        assert packet["originalPath"]["records"] == 0
+        verify_released(observed)
         return observed
 
     try:
@@ -108,17 +112,29 @@ def run(session: Path, executable: Path) -> None:
         send("state.subscribe", topics=[], detail="normal")
         assert state()["divergence"]["allocatedOwnerBytes"] == 0
         send("replay.set_prediction_horizon", seconds=3)
+        target = send("scene.object.resolve", name="path_striker")["result"]["objects"][0]
+        target_id = target["sceneObjectId"]
         send("prediction.select_target", name="path_striker")
         send("replay.set_prediction_enabled", enabled=True)
         stock = ready(lambda row: row["predictionComplete"] and row["publishedPredictionFrames"] > 2)
         assert stock["divergence"]["allocatedOwnerBytes"] == 0
+        assert stock["publishedPredictionTargetId"] == target_id
         snapshot("stock", stock)
         original = frozen_frames()
 
         for round_index, red_choice in enumerate((False, True)):
+            before_open = frozen_frames()
             send("replay.set_velocity_edit_enabled", enabled=True)
-            assert not state()["divergence"]["active"]
+            opened = state()
+            verify_released(opened)
+            assert opened["publishedPredictionTargetId"] == target_id
+            assert frozen_frames() == before_open, "opening velocity controls changed the published Physics frames"
+            snapshot(f"round-{round_index}-opened", opened)
             send("replay.velocity_preview", linear=[90, 12, 20], angular=[0, 0, 0])
+            preview = ready(lambda row: row["divergence"]["active"])
+            assert preview["divergence"]["allocatedOwnerBytes"] > 0
+            assert any(body["id"] == target_id for body in preview["divergence"]["blueBodies"])
+            snapshot(f"round-{round_index}-preview", preview)
             send("replay.velocity_commit")
             ready(lambda row: row["divergence"]["redReady"])
             for index, normalized in enumerate((0.7, 0.85, 1.0)):
@@ -193,14 +209,15 @@ def run(session: Path, executable: Path) -> None:
         ready(lambda row: row["divergence"]["active"])
         send("scene.load", name=scene.name)
         cleared = state()
-        assert cleared["divergence"]["allocatedOwnerBytes"] == 0
+        verify_released(cleared)
         snapshot("scene-reset", cleared)
         send("replay.set_prediction_horizon", seconds=3)
         send("prediction.select_target", name="path_striker")
         send("replay.set_prediction_enabled", enabled=True)
         resumed = ready(lambda row: row["predictionComplete"])
         assert resumed["predictionGenerationPermitted"]
-        assert resumed["publishedPredictionTargetId"] == 6
+        reset_target = send("scene.object.resolve", name="path_striker")["result"]["objects"][0]
+        assert resumed["publishedPredictionTargetId"] == reset_target["sceneObjectId"]
         snapshot("prediction-after-unedited-reset", resumed)
     finally:
         try:
@@ -218,7 +235,9 @@ def run(session: Path, executable: Path) -> None:
     assert "gameplay_violations=0" in shutdown_log and "policy_violations=0" in shutdown_log
     (session / "result.json").write_text(json.dumps({"passed": True, "choices": ["Blue", "Red"],
         "bodyCount": len(original[0]), "framesPerBranch": len(original), "allocationGuard": "pass",
-        "lazyAllocation": True, "releasedAfterBothChoices": True}), encoding="utf-8")
+        "targetId": target_id, "lazyAllocation": True, "unchangedFramesOnOpen": True,
+        "previewStartsComparison": True, "releasedAfterBothChoices": True,
+        "releasedAfterSceneReset": True}), encoding="utf-8")
     print(f"PASS: lazy divergence, every ghost, repeated edits, playback, both choices, and reset ({session})")
 
 

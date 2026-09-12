@@ -134,14 +134,22 @@ def validate_routes(connection: SkarnessConnection, output: Path) -> None:
     else:
         raise RuntimeError("stock prediction did not complete before velocity comparison")
     require_applied(connection, "replay.set_velocity_edit_enabled", {"enabled": True})
+    require_applied(connection, "run.step_frames", {"count": 2})
+    require(not reader.latest()["payload"]["divergence"]["active"],
+            "opening velocity controls unexpectedly started a comparison")
+    # The first changed vector starts the comparison; enabling the widget only
+    # exposes controls and must leave the original prediction untouched.
+    require_applied(connection, "replay.velocity_preview", {"linear": [90.0, 12.0, 20.0], "angular": [0.0, 0.0, 0.0]})
     deadline = time.monotonic() + 90
     while time.monotonic() < deadline:
         require_applied(connection, "run.step_frames", {"count": 2})
-        if reader.latest()["payload"]["divergence"]["active"]:
+        observed = reader.latest()["payload"]
+        if observed["divergence"]["active"]:
+            require(any(body["id"] == object_id for body in observed["divergence"]["blueBodies"]),
+                    "velocity comparison omitted the selected original body")
             break
     else:
         raise RuntimeError("velocity comparison did not become active")
-    require_applied(connection, "replay.velocity_preview", {"linear": [0.0, 0.0, 0.0], "angular": [0.0, 0.0, 0.0]})
     require_applied(connection, "replay.velocity_cancel")
     require_applied(connection, "scene.object.clear_selection", {"scope": "inspect"})
     # A canceled drag still leaves the two-future choice open; reset this fixture

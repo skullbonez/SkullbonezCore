@@ -4,12 +4,12 @@
   "tests": [
     {
       "artifact": "Debug/physics_regression_solver.csv",
-      "bytes": 4329006,
+      "bytes": 4329004,
       "lines": 20001,
       "name": "seeded_solver_distribution_watch",
       "risk": "Seeded mixed solver distribution drifts after the varied scene becomes the primary full CSV baseline.",
       "scene": "SkullbonezData/scenes/physics_regression_solver.scene.json",
-      "sha256": "fae21b61dbf5d9127892953fff7d1eb3419378c269adedd8e5e66a7dd507b6e4"
+      "sha256": "60bdba218c47666c8b89392f78ee73f4c9c68fd7f0968696c8f4507f3bf80d0a"
     },
     {
       "artifact": "Debug/physics_known_stacking.csv",
@@ -22,12 +22,12 @@
     },
     {
       "artifact": "Debug/physics_known_at_rest.csv",
-      "bytes": 8328824,
-      "lines": 41071,
+      "bytes": 98953082,
+      "lines": 487411,
       "name": "at_rest_settling_watch",
       "risk": "Mixed ball/box resting jitter or interpenetration in at_rest.scene.json.",
       "scene": "SkullbonezData/scenes/at_rest.scene.json",
-      "sha256": "0bbeadf82043be72258b4834d8222c10b0cbe2717c474b13fe3197c408112247"
+      "sha256": "698494f2ed038087ba1f707e5949ec93837d5f40f0970cef5ceb25962e7f1dd4"
     },
     {
       "artifact": "Debug/physics_known_terrain_contact.csv",

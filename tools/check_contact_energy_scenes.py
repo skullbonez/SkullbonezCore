@@ -455,7 +455,7 @@ def close_number(value: Any, expected: float) -> bool:
 def validate_tower_scene(path: Path) -> set[str]:
     payload = read_packet(path)
     failures: set[str] = set()
-    if payload.get("format") != "skullbonez.scene.json" or payload.get("version") != 3:
+    if payload.get("format") != "skullbonez.scene.json" or payload.get("version") != 5:
         failures.add("scene_schema")
 
     world = payload.get("simulation", {}).get("world", {})
@@ -521,7 +521,7 @@ def canonical_payload_sha256(payload: dict[str, Any]) -> str:
 
 def validate_wall_scene_payload(payload: dict[str, Any]) -> set[str]:
     failures: set[str] = set()
-    if payload.get("format") != "skullbonez.scene.json" or payload.get("version") != 3:
+    if payload.get("format") != "skullbonez.scene.json" or payload.get("version") != 5:
         failures.add("scene_schema")
 
     world = payload.get("simulation", {}).get("world", {})
@@ -538,11 +538,12 @@ def validate_wall_scene_payload(payload: dict[str, Any]) -> set[str]:
         failures.add("scene_body_count")
         return failures
 
-    # Invariant: the catcher is the sole authorized scene delta. Hashing the
-    # complete pre-catcher payload pins striker, ragdoll, bricks, materials,
-    # world, playback, presentation, and cameras without freezing final physics.
+    # Invariant: schema v5 changed only the version of this v3 fixture. Compare
+    # its pre-catcher values in the historical schema to retain the original
+    # physical and presentation contract without replacing its pinned digest.
     base_payload = dict(payload)
     base_payload["objects"] = objects[:-1]
+    base_payload["version"] = 3
     if canonical_payload_sha256(base_payload) != WALL_SCENE_BASE_SHA256:
         failures.add("scene_original_payload")
 
@@ -1229,8 +1230,15 @@ def run_self_test() -> None:
     failures, _ = compare_wall200_impact(impact_reference, unordered_window)
     assert "candidate:impact_window_order" in failures
 
+    assert not validate_tower_scene(Path("SkullbonezData/scenes/contact_energy_tower_64.scene.json"))
     wall_scene = read_packet(Path("SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json"))
     assert not validate_wall_scene_payload(wall_scene)
+    old_schema = json.loads(json.dumps(wall_scene))
+    old_schema["version"] = 3
+    assert "scene_schema" in validate_wall_scene_payload(old_schema)
+    unknown_schema = json.loads(json.dumps(wall_scene))
+    unknown_schema["version"] = 6
+    assert "scene_schema" in validate_wall_scene_payload(unknown_schema)
     retuned_wall = json.loads(json.dumps(wall_scene))
     retuned_wall["objects"][0]["velocity"][0] = 1.0
     retuned_wall["objects"][0]["restitution"] = 0.0
