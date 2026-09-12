@@ -221,7 +221,16 @@ class DistanceSimplex
             result.pointB += vertices[index].pointB * static_cast<float>( weights[index] );
             features[index] = ( vertices[index].indexA << 16u ) | vertices[index].indexB;
         }
-        std::sort( features.begin(), features.begin() + count );
+        // Why: at most four integer feature keys need ordering. A direct
+        // insertion pass avoids GCC's out-of-bounds warning in std::sort's
+        // larger insertion-sort tail while preserving the exact hash input.
+        for ( int index = 1; index < count; ++index )
+        {
+            for ( int cursor = index; cursor > 0 && features[cursor] < features[cursor - 1]; --cursor )
+            {
+                std::swap( features[cursor], features[cursor - 1] );
+            }
+        }
         uint32_t hash = 2166136261u;
         for ( int index = 0; index < count; ++index )
         {

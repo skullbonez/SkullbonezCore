@@ -113,6 +113,7 @@ set(SKULLBONEZ_PORTABLE_CPU_SOURCES
     SkullbonezSource/UI/UITooltip.cpp
     SkullbonezSource/UI/UIWindowChrome.cpp
     SkullbonezSource/World/Terrain.cpp
+    SkullbonezSource/World/TerrainEditing.cpp
 )
 
 set(SKULLBONEZ_PORTABLE_TEST_SOURCES
