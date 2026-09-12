@@ -2,62 +2,59 @@
 
 Date: 2026-09-12
 Branch: `codex/unified-ui`
-Status: PHYSICS_SCALE active at 6/7 on the current branch; portfolio 144/151. Complete all seven phases and report measured performance benefit. No baseline modification is allowed.
+Status: PHYSICS_SCALE complete at 7/7; live portfolio 138/144; PHYSICS_AB queued at 0/6. Measured performance improves with byte-identical tested Physics output and no baseline changes.
 
 ## Physics Scale Optimization — 2026-09-12
 
-Owner requested complete execution on `codex/unified-ui`. Starting revision
-`16d472bb47bdf27a224327419783639d67ccf325`; user-owned untracked
-`SkullbonezData/scenes/asdasd.scene.json` remains untouched. Pre-change Profile
-artifacts and 136 tracked baseline/golden path hashes are preserved under
-`TestOutput/physics-scale-optimization/`. Sweep geometry/membership, conservative
-spatial queries, joint keys and bounded gravity batches are implemented. The
-normal performance gate now checks all ten workloads with identified inputs,
-complete windows and negative controls. The final three-run matrix passes all ten workloads; targeted improvements are
-50.3% (2000), 92.4% (sleepy 5000), 17.2% (gravity 1024), 39.4% (joints 320).
-Exact reference and multi-tick worker checks pass 97,798 assertions; the complete
-eight-file source-design check passes 58 compile contexts. Independent review
-found four issues; all four have been repaired and independently rechecked.
-No baseline hashes changed. Core 0/repeat/1/4 Physics output matches its unchanged baseline byte-for-byte.
-The exactly-once terminal umbrella passed Physics/preflight, then caught old
-scratch-memory test expectations. Those tests now cover all five new owners;
-all 1,047 active Profile tests pass (3,735,350 assertions; one existing skip).
-DX12 passes. Automation command coverage needs inherited-failure disposition;
-normal perf and hosted portable diagnostics remain outstanding. A 5/7
-implementation checkpoint enables hosted Linux diagnostics.
-The 1,025-body prediction seed/reseed test passes another 165,035 assertions
-and both source-design contexts. Large sweep/gravity allocation guards pass
-with zero gameplay violations. Deep seeded-solver output and the bounded
-diagnostic query packet are byte-identical to the pre-change producer despite
-inherited golden mismatches; the at-rest 600-frame witness is also identical.
-Plan: `Agentic/Plans/TODO/physics-scale-optimization.md`.
+PHYSICS_SCALE is complete at 7/7 on `codex/unified-ui`, from starting revision
+`16d472bb47bdf27a224327419783639d67ccf325`. Sweep geometry caching, bounded
+pair membership, conservative target queries, current joint keys and bounded
+parallel gravity preserve exact admission and force-reduction order. The normal
+performance gate checks ten identified workloads and rejects incomplete,
+malformed or regressing evidence. No body-record field or Replay growth
+privilege was added; gameplay allocation guards report zero violations.
 
-The historical work ledger has an unfinished governance goal/task GOV1 owned
-by another session; `start-goal` rejected this run. Preserve that record and
-continue implementation without fabricated usage accounting. The inherited
-200-box authored-sleep replay mismatch remains separate and unchanged.
+Thirty final runs pass the new performance checks. Median Physics CPU time
+improves 51.3% at 2,000 bodies (2.8480 to 1.3858 ms), 92.4% for sleepy 5,000
+(12.4594 to 0.9420 ms), 16.2% for gravity 1,024 (3.9263 to 3.2905 ms), and
+40.2% for joints 320 (2.1987 to 1.3158 ms). All ten measured workloads improve;
+these are Physics timings, not guaranteed whole-game FPS gains.
 
-Closure checkpoint: implementation commits b801544ec, f9aa698fd and
-2689bbcde are pushed. Full Profile tests pass 1,047 cases/3,735,350
-assertions; Debug coverage passes all ten floors. All 15 native prediction
-scene-transition cases and remaining state/query/render/playback/shortcut
-constituents pass. The Automation command-coverage velocity-comparison
-failure reproduces on preserved pre-change Debug with the same commands.
-Canonical replay visual/causal projections match the retained pre-change
-report exactly; archive round-trip and determinism negative controls pass.
-The normal perf gate passed all ten new workload checks and both absolute
-budgets. Its sixteen legacy relative UI/frame/memory failures reproduce on
-the preserved pre-change producer. Those failures remain unmodified. Hosted run 34690166699 passes
-Clang warning-clean and ASan; UBSan is running. GCC stops on a signedness
-warning in a compile-time bound, now repaired locally with no runtime change.
-Earlier portable configuration/link omissions were repaired by adding six
-existing production sources. Commit 7be64f85c contains the compile-only signedness repair. Hosted run
-34690480793 passes all Clang lanes but exposes an existing enum/integer
-conversion warning in GCC. Its explicit conversion repair produces identical
-Windows machine code to the final measured executable (3,749,376 .text bytes).
-The final thirty-run matrix passes: 2,000 bodies 51.3% faster, sleepy 5,000
-92.4%, gravity 1,024 16.2%, and joints 320 40.2%. GCC/TSan will rerun after
-this final compiler-only correction. No baseline has changed.
+All 1,047 active Profile tests pass, with 3,735,830 assertions and one existing
+skip. Debug coverage passes all ten floors. Original-algorithm references,
+0/1/4-worker state checks and 1,025-body prediction seeding/reseeding pass.
+The four core Debug worker outputs match the unchanged 44,401-line baseline
+byte-for-byte. All 136 tracked baseline/golden hashes remain unchanged.
+DX12, all 15 native prediction transitions, remaining state/query/render/
+playback/shortcut constituents and source/dependency/allocation checks pass.
+Independent review findings were repaired and rechecked.
+
+Hosted Linux run 34690813794 passes GCC and Clang warning-clean builds, ASan,
+UBSan and TSan. Portable repairs restore six existing CMake sources and retain
+equivalent integer sorting/conversions. The final Windows Profile .text section
+is byte-identical to the measured producer (3,749,376 bytes).
+
+The terminal umbrella ran exactly once and failed on old scratch-memory test
+expectations. Those were repaired and full tests plus unreached constituents
+were run separately; the umbrella remains recorded as failed. Deep/query
+golden mismatches, contact-energy payload/schema rejection, canonical replay
+topology mismatch, Automation velocity-comparison command coverage and sixteen
+legacy relative perf failures remain failures. Preserved pre-change producers,
+reports or unchanged source establish their inherited status. No thresholds
+or baselines were loosened. The optional informational frame-spike diagnostic
+was not reached by the umbrella and was not run separately.
+
+Detailed timings, p99/max, counters, scratch bytes, exact producer comparisons,
+commands and logs are in `TestOutput/physics-scale-optimization/handoff.md`.
+Implementation checkpoints: b801544ec, f9aa698fd, 2689bbcde, 7be64f85c,
+b3b85701f. The completed TODO plan is deleted; its history and MASTER-PLAN
+retain closure evidence. Live portfolio returns to 138/144; PHYSICS_AB remains
+queued at 0/6, with AB1 next. No AB implementation was requested in this run.
+The unrelated untracked `SkullbonezData/scenes/asdasd.scene.json` is untouched.
+
+The historical work ledger contains another session's unfinished GOV1 task and
+rejected this run's bootstrap. That record remains untouched; no token/cost
+accounting or derived completion-ledger artifacts were fabricated.
 
 ## Original and Modified reveal - 2026-09-12
 

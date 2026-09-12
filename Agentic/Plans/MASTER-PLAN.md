@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-09-12
-Status: 144/151 tasks complete; PHYSICS_SCALE active at 6/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
+Status: 138/144 tasks complete; PHYSICS_SCALE complete at 7/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
 
 ## Owner Direction
 
@@ -462,11 +462,51 @@ The approved screenshot exception is recorded in FP9/ui-baseline-review.
 The foreign work ledger remains untouched and no model/cost telemetry or
 completion-ledger artifacts are fabricated.
 
+## Physics Scale Optimization Closure — 2026-09-12
+
+PS0-PS6 completes at 7/7 on `codex/unified-ui`. Checkpoints b801544ec,
+f9aa698fd, 2689bbcde, 7be64f85c and b3b85701f retain implementation and phase
+evidence. Exact geometry caching, bounded pair membership, conservative sweep
+queries and current joint keys reduce broadphase work. Bounded gravity batches
+preserve original pair and force-addition order. The normal performance entry
+point checks all ten workloads with complete-window and negative controls.
+
+Thirty final matched runs pass. Median Physics CPU time improves 51.3% at
+2,000 bodies (2.8480 to 1.3858 ms), 92.4% for sleepy 5,000 (12.4594 to 0.9420),
+16.2% for gravity 1,024 (3.9263 to 3.2905), and 40.2% for joints 320 (2.1987
+to 1.3158). All ten measured workloads improve. Final p99/max, spread, counters,
+scratch bounds, rejected candidates and fallbacks are retained in
+`TestOutput/physics-scale-optimization/handoff.md` and `final-portable/`.
+
+Final Profile tests pass 1,047 active cases and 3,735,830 assertions, with one
+existing skip. All ten coverage floors pass. Four worker configurations match
+the unchanged 44,401-line core Physics baseline exactly; original-algorithm
+references and prediction seed/reseed checks pass. All 136 tracked baseline/
+golden hashes remain unchanged. DX12, all 15 native prediction transitions,
+remaining state/query/render/playback/shortcut constituents and source/
+dependency/allocation checks pass. Independent review findings are repaired.
+[Linux run 34690813794](https://github.com/skullbonez/SkullbonezCore/actions/runs/34690813794)
+passes GCC/Clang warning-clean, ASan, UBSan and TSan. The final Windows Profile
+machine-code section matches the measured producer byte-for-byte.
+
+The exactly-once umbrella failed on old memory-test expectations, subsequently
+repaired and covered by the full test rerun. Its result remains a failure.
+Inherited deep/query/replay golden mismatches, contact-energy input rejection,
+Automation velocity-comparison coverage failure and sixteen relative legacy
+perf failures remain explicitly failed. Pre-change producer/report comparisons
+or unchanged source establish attribution. No baseline or threshold changed.
+The optional informational frame-spike diagnostic was not run after the
+umbrella stopped. No material review issue remains in this implementation.
+
+Accepting PS6 takes 144/151 to 145/151; removing the completed seven-phase TODO
+plan leaves 138/144. Git history is the plan archive. PHYSICS_AB remains queued
+at 0/6. The foreign unfinished GOV1 work ledger and unrelated untracked scene
+remain untouched; no accounting or completion-ledger artifacts are fabricated.
+
 ## Active Plans
 
 | Plan | Code | Total | Complete | Next task | File |
 |---|---|---|---|---|---|
-| Physics Scale Optimization | `PHYSICS_SCALE` | 7 | 6 | PS6: final portable and measured closure evidence | `TODO/physics-scale-optimization.md` |
 | Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
@@ -504,8 +544,9 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-`PHYSICS_SCALE` PS0-PS6 executes first on the current branch, with unchanged
-baselines and measured before/after performance. Current portfolio is 144/151.
+`PHYSICS_SCALE` PS0-PS6 is complete at 7/7 on `codex/unified-ui`, with unchanged
+baselines and measured before/after performance. Current portfolio is 138/144.
+`PHYSICS_AB` remains queued; AB1 is the next selectable task.
 
 `UNIFIED_UI` UU0-UU7 is complete at 8/8.
 `RAGDOLL_PHYSICS` is complete at 10/10. The owner's requested ragdoll-playground
@@ -598,7 +639,8 @@ read-only review passes closed nine matcher, scope, fixture, and metadata
 findings; the final pass is clean. No scanner, fixture, build, test, or
 validation command ran by explicit owner direction.
 Ragdoll Physics is complete at 10/10 and its completed plan is removed. Current
-portfolio progress is 144/151, including PHYSICS_SCALE and queued PHYSICS_AB.
+portfolio progress is 138/144 after removing completed PHYSICS_SCALE;
+PHYSICS_AB remains queued at 0/6.
 Previously completed phases remain represented in the historical count.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
