@@ -236,6 +236,7 @@ class PhysicsWorld
     // Cold authored mutation boundary: dense-row identity or fixed/sleep
     // classification may have changed before the next fixed step.
     void InvalidateBodyTopology();
+    void ResetSimulationState();
     void ClearPointJointConstraints();
 
     // Deletion pre-pass: no constraint may retain a body handle after retirement.

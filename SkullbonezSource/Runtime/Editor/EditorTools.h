@@ -240,6 +240,11 @@ struct RunEditorPlacementState
     bool editorModeEnabled = false;
     bool placementModeEnabled = false;
     bool terrainBrushEnabled = false;
+    bool velocityEditEnabled = false;
+    bool velocityEditAngular = false;
+    Math::Vector::Vector3 velocityDragStartLinear = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 velocityDragStartAngular = Math::Vector::ZERO_VECTOR;
+    bool velocityDragStartSleeping = false;
     bool terrainBrushVisible = false;
     float terrainBrushRadius = 40.0f;
     std::array<Math::Vector::Vector3, 65> terrainBrushOutline = {};
@@ -373,6 +378,7 @@ class EditorToolsOwner
                                                                         RuntimeInteractionController& interaction );
     EditorGizmoDragPointerResult RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input, SceneWorld& world, RuntimeInteractionController& interaction );
     void RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmoDragKind gizmoKind, int selectedModelIndex );
+    void RecordEditorVelocityHistory( SceneWorld& world );
     void RecordEditorPlacementHistory( SceneWorld& world, int modelCountBefore, int modelCountAfter );
     bool UndoEditorCommand( SceneWorld& world, SceneSessionState& scene );
     bool RedoEditorCommand( SceneWorld& world, SceneSessionState& scene );

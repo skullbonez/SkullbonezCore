@@ -289,6 +289,8 @@ struct UIEditorCommands
     bool togglePlaceStatic = false;
     bool toggleTerrainAlign = false;
     bool toggleTerrainBrush = false;
+    bool toggleEditorVelocity = false;
+    bool toggleEditorAngularVelocity = false;
     bool enterPlacementMode = false;
     bool requestPlaceStatic = false;
     bool requestedPlaceStatic = false;

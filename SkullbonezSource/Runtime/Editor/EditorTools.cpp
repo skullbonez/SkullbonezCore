@@ -285,6 +285,7 @@ EditorPlacementModeChangeResult SetEditorPlacementMode( RunEditorPlacementState&
     if ( editor.placementModeEnabled )
     {
         editor.terrainBrushEnabled = false;
+        editor.velocityEditEnabled = false;
     }
     editor.viewportLookActive = false;
 
@@ -310,6 +311,7 @@ EditorPlacementModeChangeResult ToggleEditorPlacementMode( RunEditorPlacementSta
 void EnterEditorModeState( RunEditorPlacementState& editor, RuntimeInteractionController& interaction, RunCameraMode restoreCameraMode )
 {
     editor.editorModeEnabled = true;
+    editor.velocityEditEnabled = false;
     editor.placementModeEnabled = true;
     editor.terrainBrushEnabled = false;
     editor.viewportLookActive = false;
@@ -322,6 +324,7 @@ void ExitEditorModeState( RunEditorPlacementState& editor, RuntimeInteractionCon
 {
     editor.history.Clear();
     editor.editorModeEnabled = false;
+    editor.velocityEditEnabled = false;
     editor.viewportLookActive = false;
     editor.placementPreviewVisible = false;
     editor.placementModeEnabled = false;
@@ -413,6 +416,21 @@ EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( R
 {
     EditorPlacementPostModeUICommandResult result;
 
+    if ( editor.editorModeEnabled && commands.toggleEditorVelocity )
+    {
+        CancelEditorGizmoDragState( editor, interaction );
+        EndEditorPlacementScaleGesture( interaction );
+        editor.velocityEditEnabled = !editor.velocityEditEnabled;
+        editor.placementModeEnabled = false;
+        editor.terrainBrushEnabled = false;
+        editor.placementPreviewVisible = false;
+    }
+    if ( editor.editorModeEnabled && commands.toggleEditorAngularVelocity )
+    {
+        CancelEditorGizmoDragState( editor, interaction );
+        editor.velocityEditAngular = !editor.velocityEditAngular;
+    }
+
     if ( commands.togglePlaceStatic )
     {
         ToggleEditorPlaceStaticObject( editor );
@@ -425,6 +443,7 @@ EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( R
         editor.terrainBrushVisible = false;
         if ( editor.terrainBrushEnabled )
         {
+            editor.velocityEditEnabled = false;
             editor.placementModeEnabled = false;
             CancelEditorGizmoDragState( editor, interaction );
         }

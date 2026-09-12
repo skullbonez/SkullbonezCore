@@ -535,6 +535,8 @@ void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData,
                                                    editor.placeStaticObject,
                                                    editor.autoTerrainAlign,
                                                    editor.terrainBrushEnabled,
+                                                   editor.velocityEditEnabled,
+                                                   editor.velocityEditAngular,
                                                    editor.terrainBrushRadius,
                                                    editor.viewportLookActive };
     uiData.surface.transportAlpha = projection.replayHud.scrubberAlpha;

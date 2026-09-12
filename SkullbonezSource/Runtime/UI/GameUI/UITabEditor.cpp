@@ -54,6 +54,8 @@ void SetContentBounds( SkullbonezCore::UI::EditorTab::UIEditorTabState& state, f
     state.placementModeToggle.SetBounds( contentX, contentBaseY + EDITOR_PLACE_TOGGLE_Y, colW, 24.0f );
     state.staticObjectToggle.SetBounds( contentX, contentBaseY + EDITOR_STATIC_TOGGLE_Y, colW, 24.0f );
     state.terrainBrushToggle.SetBounds( contentX, contentBaseY + 76.0f, colW, 24.0f );
+    state.velocityToggle.SetBounds( contentX, contentBaseY + 404.0f, colW, 24.0f );
+    state.angularVelocityToggle.SetBounds( contentX, contentBaseY + 438.0f, colW, 24.0f );
     state.terrainAlignToggle.SetBounds( contentX, contentBaseY + EDITOR_ALIGN_TOGGLE_Y, colW, 24.0f );
     state.objectCombo.SetBounds( contentX, contentBaseY + EDITOR_OBJECT_COMBO_Y, contentW < 400.0f ? contentW : contentW * 0.55f, 24.0f );
 }
@@ -123,6 +125,17 @@ bool HandleContentClick( UIEditorTabState& state, InGameUIInputResult& result, i
         result.commands.editor.toggleTerrainBrush = state.placementModeAvailable;
         return true;
     }
+
+    if ( state.velocityToggle.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.editor.toggleEditorVelocity = state.placementModeAvailable;
+        return true;
+    }
+    if ( state.angularVelocityToggle.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.editor.toggleEditorAngularVelocity = state.placementModeAvailable;
+        return true;
+    }
     if ( state.terrainAlignToggle.HitTest( mouseX, mouseY ) )
     {
         result.commands.editor.toggleTerrainAlign = true;
@@ -173,6 +186,17 @@ void Draw( UIEditorTabState& state,
     DrawContentToggle( draw, contentY, contentH, state.terrainAlignToggle, contentX, scrolledY + EDITOR_ALIGN_TOGGLE_Y, colW, "Terrain align", data.editorTerrainAlign );
 
     DrawContentToggle( draw, contentY, contentH, state.terrainBrushToggle, contentX, scrolledY + 76.0f, colW, "Terrain brush", data.editorTerrainBrush, data.editorModeEnabled );
+    DrawContentToggle( draw, contentY, contentH, state.velocityToggle, contentX, scrolledY + 404.0f, colW, "Modify velocity", data.editorVelocityEdit, data.editorModeEnabled );
+    DrawContentToggle( draw,
+                       contentY,
+                       contentH,
+                       state.angularVelocityToggle,
+                       contentX,
+                       scrolledY + 438.0f,
+                       colW,
+                       "Angular velocity",
+                       data.editorVelocityAngular,
+                       data.editorModeEnabled && data.editorVelocityEdit );
     char brushSize[48] = {};
     snprintf( brushSize, sizeof( brushSize ), "%.1f", data.editorTerrainBrushRadius );
     DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 110.0f, "Brush radius", brushSize, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b );

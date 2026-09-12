@@ -321,7 +321,13 @@ RuntimePointerRouteResult Run::RouteRuntimePointer( const RuntimePointerEvent& p
 
         // Cleanup may temporarily select a camera/replay owner; the editor's
         // already-accepted claim is the final state for this pointer route.
-        m_interaction.SetWorldInteractionOwnerInWorkspace( editorResult.interactionTransition.workspace, editorResult.interactionTransition.owner, editorResult.interactionTransition.reason );
+        // TransitionTo ends the active gesture even when the owner is unchanged.
+        // Keep the drag just captured by RouteEditorPointer when cleanup already
+        // left the requested editor owner in place.
+        if ( m_interaction.Workspace() != editorResult.interactionTransition.workspace || m_interaction.Owner() != editorResult.interactionTransition.owner )
+        {
+            m_interaction.SetWorldInteractionOwnerInWorkspace( editorResult.interactionTransition.workspace, editorResult.interactionTransition.owner, editorResult.interactionTransition.reason );
+        }
     }
 
     for ( std::size_t replayEventIndex = 0; replayEventIndex < editorResult.replayEvents.count; ++replayEventIndex )

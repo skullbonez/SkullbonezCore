@@ -49,6 +49,7 @@ enum class EditorCommandKind : uint8_t
 {
     None,
     Transform,
+    Velocity,
     Place,
     Delete
 };
@@ -70,6 +71,9 @@ struct EditorPrimitiveShapeSnapshot
 
 struct EditorTransformSnapshot
 {
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+    bool sleeping = false;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     EditorPrimitiveShapeSnapshot shape;
@@ -124,10 +128,8 @@ struct EditorCommandEntry
     EditorPrimitiveRecreateRecipe primitive;
 };
 
-bool TryCaptureEditorPrimitiveShape( const Math::CollisionDetection::CollisionShapeReference& shape,
-                                     EditorPrimitiveShapeSnapshot& outSnapshot );
-bool TryBuildEditorPrimitiveShape( const EditorPrimitiveShapeSnapshot& snapshot,
-                                   Math::CollisionDetection::CollisionShape& outShape );
+bool TryCaptureEditorPrimitiveShape( const Math::CollisionDetection::CollisionShapeReference& shape, EditorPrimitiveShapeSnapshot& outSnapshot );
+bool TryBuildEditorPrimitiveShape( const EditorPrimitiveShapeSnapshot& snapshot, Math::CollisionDetection::CollisionShape& outShape );
 
 class EditorCommandHistory
 {

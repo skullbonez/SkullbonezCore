@@ -26,7 +26,7 @@ Related:
 
 namespace SkullbonezCore::UI::GameLayout
 {
-inline constexpr float EDITOR_CONTROLS_HEIGHT = 402.0f;
+inline constexpr float EDITOR_CONTROLS_HEIGHT = 470.0f;
 inline constexpr float EDITOR_PALETTE_TOP = EDITOR_CONTROLS_HEIGHT + 22.0f;
 float EditorContentHeight( float width );
 

@@ -392,6 +392,13 @@ struct SkarnessFrameState
         bool editorStaticObject = false;
         bool editorTerrainAlign = false;
         bool editorTerrainBrush = false;
+        bool editorVelocityEdit = false;
+        bool editorVelocityAngular = false;
+        uint64_t editorSelectedObjectId = 0;
+        int editorHotAxis = -1;
+        int editorGestureAxis = -1;
+        bool pointerWorldSuppressed = false;
+        int worldInteractionOwner = 0;
         bool terrainBrushVisible = false;
         float editorTerrainBrushRadius = 40.0f;
         uint64_t terrainEditRevision = 0;

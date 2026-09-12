@@ -148,6 +148,7 @@ class PhysicsEngine
     // Cold editor/replay authoring edits enter by stable handle; no caller can
     // mutate a descriptor row independently from its live body record.
     bool UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update );
+    bool RestoreAuthoredBodyState();
     bool UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& update, PhysicsColliderCreateDesc collider );
     void ClearPendingBodyImpulses();
 

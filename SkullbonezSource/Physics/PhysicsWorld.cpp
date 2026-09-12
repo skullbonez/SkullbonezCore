@@ -347,6 +347,29 @@ void PhysicsWorld::InvalidateBodyTopology()
     m_motionEligibility.InvalidateBodyTopology();
 }
 
+void PhysicsWorld::ResetSimulationState()
+{
+    // Invariant: restarting authored motion preserves terrain bindings and joint
+    // identities, but no contact or joint impulse from the previous run survives.
+    m_timeRemaining.clear();
+    m_lastTimeRemainingStepValid = false;
+    m_underwaterSleepProbeNeeded = true;
+    m_lastUnderwaterProbeFluidSurfaceHeightValid = false;
+    m_forceStage.Clear();
+    m_externalForceStage.Clear();
+    m_broadphase.Clear();
+    m_motionEligibility.Clear();
+    m_sleepController.Clear();
+    m_stepDiagnostics.Clear();
+    m_contactSolverStage.Clear();
+    m_terrain.Clear();
+    m_narrowphase.Clear();
+    for ( auto& joint : m_pointJointConstraints )
+    {
+        joint.accumulatedImpulse = Math::Vector::ZERO_VECTOR;
+    }
+}
+
 
 void PhysicsWorld::ReserveBodyScratchCapacity( std::size_t bodyCapacity, std::size_t pointJointCapacity )
 {

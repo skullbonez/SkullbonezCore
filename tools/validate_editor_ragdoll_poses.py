@@ -131,6 +131,11 @@ def run(session: Path) -> None:
             all_names.extend(names)
         # Placement is dynamic sleep, not static pinning: physics ticks must leave
         # all undisturbed parts exactly at their authored pose.
+        if ui['editorMode']:
+            x, y, _, _ = ui['editorControlsBounds']
+            click(x + 25, y + 54)
+            ui = observe('leave-editor-for-physics')
+        assert not ui['editorMode']
         before = bodies(all_names)
         send("run.step", count=240)
         after = bodies(all_names)

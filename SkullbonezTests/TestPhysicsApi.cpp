@@ -100,37 +100,38 @@ constexpr float FP2_LAUNCHER_SPEED_MAX = 360.0f;
 constexpr float FP2_LAUNCHER_SPEED_STEP = 5.0f;
 constexpr float FP2_LAUNCHER_PROJECTILE_RADIUS = 0.85f;
 constexpr float FIRST_FP2_LAUNCHER_SPEED = 105.0f;
-constexpr int FIRST_FP2_LAUNCHER_SPEED_STEP = static_cast<int>( ( FIRST_FP2_LAUNCHER_SPEED - FP2_LAUNCHER_SPEED_MIN ) /
-                                                                FP2_LAUNCHER_SPEED_STEP );
-constexpr int LAST_LAUNCHER_SPEED_STEP = static_cast<int>( ( FP2_LAUNCHER_SPEED_MAX - FP2_LAUNCHER_SPEED_MIN ) /
-                                                           FP2_LAUNCHER_SPEED_STEP );
+constexpr int FIRST_FP2_LAUNCHER_SPEED_STEP = static_cast<int>( ( FIRST_FP2_LAUNCHER_SPEED - FP2_LAUNCHER_SPEED_MIN ) / FP2_LAUNCHER_SPEED_STEP );
+constexpr int LAST_LAUNCHER_SPEED_STEP = static_cast<int>( ( FP2_LAUNCHER_SPEED_MAX - FP2_LAUNCHER_SPEED_MIN ) / FP2_LAUNCHER_SPEED_STEP );
 constexpr int FP2_LAUNCHER_SPEED_COUNT = LAST_LAUNCHER_SPEED_STEP - FIRST_FP2_LAUNCHER_SPEED_STEP + 1;
 constexpr int FP2_LAUNCHER_BODY_COUNT = FP2_LAUNCHER_SPEED_COUNT * 2;
 
-static_assert( FP2_LAUNCHER_SPEED_MIN + static_cast<float>( FIRST_FP2_LAUNCHER_SPEED_STEP ) * FP2_LAUNCHER_SPEED_STEP ==
-                   FIRST_FP2_LAUNCHER_SPEED,
+static_assert( FP2_LAUNCHER_SPEED_MIN + static_cast<float>( FIRST_FP2_LAUNCHER_SPEED_STEP ) * FP2_LAUNCHER_SPEED_STEP == FIRST_FP2_LAUNCHER_SPEED,
                "The FP2 matrix must begin on a supported launcher slider step." );
-static_assert( FP2_LAUNCHER_SPEED_MIN + static_cast<float>( LAST_LAUNCHER_SPEED_STEP ) * FP2_LAUNCHER_SPEED_STEP ==
-                   FP2_LAUNCHER_SPEED_MAX,
+static_assert( FP2_LAUNCHER_SPEED_MIN + static_cast<float>( LAST_LAUNCHER_SPEED_STEP ) * FP2_LAUNCHER_SPEED_STEP == FP2_LAUNCHER_SPEED_MAX,
                "The FP2 matrix must include the supported launcher maximum." );
 static_assert( FP2_LAUNCHER_SPEED_COUNT == 52 );
 
 // Invariant: these body constants mirror RuntimeTools' launcher projectile.
 // The paired rows differ in presentation name and position only, leaving shape
 // and velocity as identical Physics classification inputs.
-void AddLauncherClassificationBody( PhysicsEngine& engine, uint32_t sceneObjectId, float speed, float z,
-                                    const char* diagnosticName )
+void AddLauncherClassificationBody( PhysicsEngine& engine, uint32_t sceneObjectId, float speed, float z, const char* diagnosticName )
 {
     constexpr float projectileRadius = FP2_LAUNCHER_PROJECTILE_RADIUS;
     constexpr float projectileMass = 6.0f;
     constexpr float projectileRestitution = 0.42f;
     constexpr float projectileMoment = 0.4f * projectileMass * projectileRadius * projectileRadius;
     const CollisionShape shape = BoundingSphere( projectileRadius, ZERO_VECTOR, 0.0f );
-    auto body = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( sceneObjectId ), shape, Vector3( 0.0f, 0.0f, z ),
+    auto body = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( sceneObjectId ),
+                                           shape,
+                                           Vector3( 0.0f, 0.0f, z ),
                                            SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
-                                           Vector3( speed, 0.0f, 0.0f ), ZERO_VECTOR,
-                                           Vector3( projectileMoment, projectileMoment, projectileMoment ), projectileMass,
-                                           projectileRestitution, PhysicsBodyMotionKind::Dynamic, diagnosticName );
+                                           Vector3( speed, 0.0f, 0.0f ),
+                                           ZERO_VECTOR,
+                                           Vector3( projectileMoment, projectileMoment, projectileMoment ),
+                                           projectileMass,
+                                           projectileRestitution,
+                                           PhysicsBodyMotionKind::Dynamic,
+                                           diagnosticName );
     body.angularVelocityLimit = 1000.0f;
     auto collider = MakeColliderCreateDesc( shape, projectileRestitution, 0u, "unit" );
     collider.sceneObjectId = body.sceneObjectId;
@@ -141,10 +142,17 @@ void AddLauncherCollisionWall( PhysicsEngine& engine, uint32_t sceneObjectId, fl
 {
     constexpr float projectileRestitution = 0.42f;
     const CollisionShape shape = BoundingBox( Vector3( 0.05f, 2.0f, 1.0f ), ZERO_VECTOR );
-    auto body = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( sceneObjectId ), shape, Vector3( x, 0.0f, z ),
-                                           SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION, ZERO_VECTOR, ZERO_VECTOR,
-                                           Vector3( 1.0f, 1.0f, 1.0f ), 1.0f, projectileRestitution,
-                                           PhysicsBodyMotionKind::Fixed, diagnosticName );
+    auto body = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( sceneObjectId ),
+                                           shape,
+                                           Vector3( x, 0.0f, z ),
+                                           SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                           ZERO_VECTOR,
+                                           ZERO_VECTOR,
+                                           Vector3( 1.0f, 1.0f, 1.0f ),
+                                           1.0f,
+                                           projectileRestitution,
+                                           PhysicsBodyMotionKind::Fixed,
+                                           diagnosticName );
     auto collider = MakeColliderCreateDesc( shape, projectileRestitution, 0u, "unit" );
     collider.sceneObjectId = body.sceneObjectId;
     REQUIRE( engine.RegisterAuthoredBody( body, collider ).IsValid() );
@@ -164,16 +172,20 @@ void CheckVectorExact( const Vector3& actual, const Vector3& expected )
     CHECK( actual.z == expected.z );
 }
 
-Vector3 RunAngularDragCase( const CollisionShape& shape, const Vector3& bodyPrincipalInertia, const Quaternion& orientation,
-                            const Vector3& worldAngularVelocity, float dragCoefficient, float gasDensity, float deltaSeconds,
+Vector3 RunAngularDragCase( const CollisionShape& shape,
+                            const Vector3& bodyPrincipalInertia,
+                            const Quaternion& orientation,
+                            const Vector3& worldAngularVelocity,
+                            float dragCoefficient,
+                            float gasDensity,
+                            float deltaSeconds,
                             bool usesWorldInertia )
 {
     PhysicsBodyStore bodies;
     ColliderStore colliders;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( 1u );
         colliders.ReserveCapacity( 1u );
         colliders.ReserveShapeCapacity( 1u, 1u, 0u );
@@ -188,8 +200,7 @@ Vector3 RunAngularDragCase( const CollisionShape& shape, const Vector3& bodyPrin
     body.hot.orientation = orientation;
     body.hot.angularVelocity = worldAngularVelocity;
     body.hot.inverseMass = 1.0f;
-    body.hot.inverseRotationalInertia = Vector3( 1.0f / bodyPrincipalInertia.x, 1.0f / bodyPrincipalInertia.y,
-                                                 1.0f / bodyPrincipalInertia.z );
+    body.hot.inverseRotationalInertia = Vector3( 1.0f / bodyPrincipalInertia.x, 1.0f / bodyPrincipalInertia.y, 1.0f / bodyPrincipalInertia.z );
     body.hot.boundingRadius = GetShapeBoundingRadius( shape );
     const auto bodyHandle = bodies.CreateBodyRecord( body );
     REQUIRE( bodyHandle.IsValid() );
@@ -222,8 +233,7 @@ PhysicsBodyHotState SolveAnchorCase( const Vector3& anchorForBodyA )
     PhysicsBodyStore bodies;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( 2u );
     }
 
@@ -283,20 +293,16 @@ TEST_CASE( "Physics launcher classification: every supported fast speed promotes
     engine.SetSleepEnabled( false );
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
-        engine.ReserveAuthoredBodyCapacity( static_cast<std::size_t>( FP2_LAUNCHER_BODY_COUNT ),
-                                            static_cast<std::size_t>( FP2_LAUNCHER_BODY_COUNT ) );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        engine.ReserveAuthoredBodyCapacity( static_cast<std::size_t>( FP2_LAUNCHER_BODY_COUNT ), static_cast<std::size_t>( FP2_LAUNCHER_BODY_COUNT ) );
 
         for ( int speedStep = FIRST_FP2_LAUNCHER_SPEED_STEP; speedStep <= LAST_LAUNCHER_SPEED_STEP; ++speedStep )
         {
             const int speedOffset = speedStep - FIRST_FP2_LAUNCHER_SPEED_STEP;
             const int firstBodyRow = speedOffset * 2;
             const float speed = FP2_LAUNCHER_SPEED_MIN + static_cast<float>( speedStep ) * FP2_LAUNCHER_SPEED_STEP;
-            AddLauncherClassificationBody( engine, 12000u + static_cast<uint32_t>( firstBodyRow ), speed,
-                                           static_cast<float>( firstBodyRow ) * 4.0f, "launcher_projectile" );
-            AddLauncherClassificationBody( engine, 12001u + static_cast<uint32_t>( firstBodyRow ), speed,
-                                           static_cast<float>( firstBodyRow + 1 ) * 4.0f, "generic_fast_ball" );
+            AddLauncherClassificationBody( engine, 12000u + static_cast<uint32_t>( firstBodyRow ), speed, static_cast<float>( firstBodyRow ) * 4.0f, "launcher_projectile" );
+            AddLauncherClassificationBody( engine, 12001u + static_cast<uint32_t>( firstBodyRow ), speed, static_cast<float>( firstBodyRow + 1 ) * 4.0f, "generic_fast_ball" );
         }
     }
 
@@ -327,10 +333,8 @@ TEST_CASE( "Physics launcher classification: every supported fast speed promotes
         CHECK( expectedTravel > FP2_LAUNCHER_PROJECTILE_RADIUS );
         CHECK( hot.positionX[launcherRow] == doctest::Approx( expectedTravel ) );
         CHECK( hot.positionX[genericRow] == doctest::Approx( expectedTravel ) );
-        CHECK( diagnostics.motionEligibilityState[launcherRow] ==
-               SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted );
-        CHECK( diagnostics.motionEligibilityState[genericRow] ==
-               SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted );
+        CHECK( diagnostics.motionEligibilityState[launcherRow] == SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted );
+        CHECK( diagnostics.motionEligibilityState[genericRow] == SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted );
         CHECK( diagnostics.motionEligibilityState[genericRow] == diagnostics.motionEligibilityState[launcherRow] );
     }
 }
@@ -365,8 +369,7 @@ TEST_CASE( "Physics launcher collision path: generic and launcher names produce 
     engine.SetPipelineTraceFullRecordConsumerActive( true );
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         engine.ReserveAuthoredBodyCapacity( 4u, 2u, 2u );
         AddLauncherClassificationBody( engine, 13000u, speed, 0.0f, "launcher_projectile" );
         AddLauncherCollisionWall( engine, 13001u, wallCenterX, 0.0f, "launcher_collision_wall" );
@@ -382,26 +385,16 @@ TEST_CASE( "Physics launcher collision path: generic and launcher names produce 
 
     const auto diagnostics = engine.GetDiagnosticsView();
     REQUIRE( diagnostics.motionEligibilityState.size() == 4u );
-    CHECK( diagnostics.motionEligibilityState[launcherBodyRow] ==
-           SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted );
+    CHECK( diagnostics.motionEligibilityState[launcherBodyRow] == SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted );
     CHECK( diagnostics.motionEligibilityState[genericBodyRow] == diagnostics.motionEligibilityState[launcherBodyRow] );
 
     const auto pairMatches = []( int actualA, int actualB, int expectedA, int expectedB )
     { return ( actualA == expectedA && actualB == expectedB ) || ( actualA == expectedB && actualB == expectedA ); };
     const auto hasCandidatePair = [&]( int bodyA, int bodyB )
-    {
-        return std::ranges::any_of( diagnostics.candidatePairs, [&]( const auto& candidate )
-                                    { return pairMatches( candidate.first, candidate.second, bodyA, bodyB ); } );
-    };
+    { return std::ranges::any_of( diagnostics.candidatePairs, [&]( const auto& candidate ) { return pairMatches( candidate.first, candidate.second, bodyA, bodyB ); } ); };
     const auto findSweptHit = [&]( int bodyA, int bodyB )
     {
-        return std::ranges::find_if( diagnostics.physicsPipelineTrace,
-                                     [&]( const auto& record )
-                                     {
-                                         return record.stage ==
-                                                    SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit &&
-                                                pairMatches( record.bodyA, record.bodyB, bodyA, bodyB );
-                                     } );
+        return std::ranges::find_if( diagnostics.physicsPipelineTrace, [&]( const auto& record ) { return record.stage == SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit && pairMatches( record.bodyA, record.bodyB, bodyA, bodyB ); } );
     };
 
     CHECK( hasCandidatePair( launcherBodyRow, launcherWallRow ) );
@@ -439,8 +432,7 @@ TEST_CASE( "Physics articulated collision: fast linked limbs meet thin walls on 
     engine.SetSleepEnabled( false );
     engine.SetPipelineTraceFullRecordConsumerActive( true );
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         engine.ReserveAuthoredBodyCapacity( 4u, 2u, 2u, 0u, 1u );
         AddLauncherClassificationBody( engine, 15000u, 360.0f, 0.0f, "linked-limb-a" );
         AddLauncherCollisionWall( engine, 15001u, 1.5f, 0.0f, "thin-wall-a" );
@@ -467,14 +459,8 @@ TEST_CASE( "Physics articulated collision: fast linked limbs meet thin walls on 
     CHECK( hot.linearVelocityX[2] == hot.linearVelocityX[0] );
     CHECK( hot.positionZ[2] - hot.positionZ[0] == 8.0f );
     const auto trace = PhysicsEngine::ReadPipelineTrace( engine );
-    CHECK( std::none_of( trace.begin(), trace.end(), []( const auto& row )
-                         { return row.stage == SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit; } ) );
-    CHECK( std::count_if( trace.begin(), trace.end(),
-                          []( const auto& row )
-                          {
-                              return row.stage == SkullbonezCore::Physics::PhysicsPipelineStage::ManifoldRow &&
-                                     row.scalarA < 0.0f;
-                          } ) == 2 );
+    CHECK( std::none_of( trace.begin(), trace.end(), []( const auto& row ) { return row.stage == SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit; } ) );
+    CHECK( std::count_if( trace.begin(), trace.end(), []( const auto& row ) { return row.stage == SkullbonezCore::Physics::PhysicsPipelineStage::ManifoldRow && row.scalarA < 0.0f; } ) == 2 );
 }
 
 TEST_CASE( "Physics API frames: body-local shape offsets project into world queries" )
@@ -489,16 +475,23 @@ TEST_CASE( "Physics API frames: body-local shape offsets project into world quer
     Quaternion orientation;
     orientation.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), HALF_PI_RADIANS );
 
-    const auto bodyDesc = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 41u ), shape, bodyPosition, orientation,
-                                                     linearVelocity, angularVelocity, bodyPrincipalInertia, 2.0f, 0.1f,
-                                                     PhysicsBodyMotionKind::Dynamic, "physics-api-frame-body" );
+    const auto bodyDesc = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 41u ),
+                                                     shape,
+                                                     bodyPosition,
+                                                     orientation,
+                                                     linearVelocity,
+                                                     angularVelocity,
+                                                     bodyPrincipalInertia,
+                                                     2.0f,
+                                                     0.1f,
+                                                     PhysicsBodyMotionKind::Dynamic,
+                                                     "physics-api-frame-body" );
 
     auto colliderDesc = MakeColliderCreateDesc( shape, bodyDesc.restitution, 0u );
     PhysicsAuthoredBodyRegistration registration;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         engine.ReserveAuthoredBodyCapacity( 1u, 1u );
         registration = engine.RegisterAuthoredBody( bodyDesc, colliderDesc );
     }
@@ -507,8 +500,7 @@ TEST_CASE( "Physics API frames: body-local shape offsets project into world quer
     const PhysicsBodyStore& bodies = PhysicsEngine::ReadBodies( engine );
     const int bodyRow = bodies.ModelIndexForHandle( registration.body );
     REQUIRE( bodyRow >= 0 );
-    const PhysicsBodyHotState hot = SkullbonezCore::Physics::LoadPhysicsBodyHotState( bodies.HotFields(),
-                                                                                      static_cast<std::size_t>( bodyRow ) );
+    const PhysicsBodyHotState hot = SkullbonezCore::Physics::LoadPhysicsBodyHotState( bodies.HotFields(), static_cast<std::size_t>( bodyRow ) );
 
     CheckVectorApprox( hot.position, bodyPosition );
     CheckVectorApprox( hot.linearVelocity, linearVelocity );
@@ -552,8 +544,7 @@ TEST_CASE( "Physics broadphase fixed step rotates body-local collider centers" )
     auto broadphase = std::make_unique<SkullbonezCore::Physics::PhysicsBroadphaseStage>();
     auto diagnostics = std::make_unique<SkullbonezCore::Physics::PhysicsStepDiagnostics>();
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies->ReserveCapacity( 2u );
         colliders->ReserveCapacity( 2u );
         colliders->ReserveShapeCapacity( 2u, 0u, 0u );
@@ -573,16 +564,14 @@ TEST_CASE( "Physics broadphase fixed step rotates body-local collider centers" )
         body.cold.mass = 1.0f;
         body.hot.position = bodyPositions[bodyIndex];
         body.hot.inverseMass = 1.0f;
-        body.hot.boundingRadius = SkullbonezCore::Math::CollisionDetection::GetShapeBodyOriginBoundingRadius(
-            shapes[bodyIndex] );
+        body.hot.boundingRadius = SkullbonezCore::Math::CollisionDetection::GetShapeBodyOriginBoundingRadius( shapes[bodyIndex] );
         const auto bodyHandle = bodies->CreateBodyRecord( body );
         REQUIRE( bodyHandle.IsValid() );
         ColliderRecord collider;
         collider.body = bodyHandle;
         collider.sceneObjectId = body.cold.sceneObjectId;
         collider.boundingRadius = body.hot.boundingRadius;
-        REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( *colliders, collider, shapes[bodyIndex] )
-                     .IsValid() );
+        REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( *colliders, collider, shapes[bodyIndex] ).IsValid() );
     }
 
     diagnostics->BeginStep( 2 );
@@ -593,11 +582,9 @@ TEST_CASE( "Physics broadphase fixed step rotates body-local collider centers" )
     SkullbonezCore::Physics::BroadphaseSettings settings;
     settings.cellSize = 2.0f;
     broadphase->ApplyRuntimeSettings( settings );
-    const SkullbonezCore::Physics::BroadphaseBodyActivityView activity( 2, sleepState, awakeBodies, motionEligibilityState,
-                                                                        angularBroadphaseExpansion );
+    const SkullbonezCore::Physics::BroadphaseBodyActivityView activity( 2, sleepState, awakeBodies, motionEligibilityState, angularBroadphaseExpansion );
     const SkullbonezCore::Physics::BroadphaseSweepContactEnvelope envelope( 1.0f / 120.0f, 0.0f, 0.05f );
-    const auto unrotatedPairs = broadphase->Run( *bodies, *colliders, {}, activity, envelope,
-                                                 diagnostics->MutablePipelineTraceRecorder() );
+    const auto unrotatedPairs = broadphase->Run( *bodies, *colliders, {}, activity, envelope, diagnostics->MutablePipelineTraceRecorder() );
     CHECK( unrotatedPairs.empty() );
 
     auto offsetBody = SkullbonezCore::Physics::LoadPhysicsBodyHotState( bodies->HotFields(), 0u );
@@ -605,8 +592,7 @@ TEST_CASE( "Physics broadphase fixed step rotates body-local collider centers" )
     SkullbonezCore::Physics::StorePhysicsBodyHotState( bodies->MutableHotFields(), 0u, offsetBody );
     broadphase->InvalidateBodyTopology();
     diagnostics->BeginStep( 2 );
-    const auto pairs = broadphase->Run( *bodies, *colliders, {}, activity, envelope,
-                                        diagnostics->MutablePipelineTraceRecorder() );
+    const auto pairs = broadphase->Run( *bodies, *colliders, {}, activity, envelope, diagnostics->MutablePipelineTraceRecorder() );
     REQUIRE( pairs.size() == 1u );
     CHECK( pairs[0] == std::make_pair( 0, 1 ) );
 }
@@ -643,20 +629,13 @@ TEST_CASE( "Physics API frames: anisotropic angular drag clamps in body-principa
     const float dragScale = dragCoefficient * gasDensity * radius * radius * radius;
     const Vector3 initialBodyAngularVelocity = rotation.TransposeMultiply( initialWorldAngularVelocity );
     Vector3 bodyTorque = initialBodyAngularVelocity * ( -dragScale );
-    bodyTorque.x = ClampDragAxisReference( bodyTorque.x, initialBodyAngularVelocity.x, bodyPrincipalInertia.x,
-                                           deltaSeconds );
-    bodyTorque.y = ClampDragAxisReference( bodyTorque.y, initialBodyAngularVelocity.y, bodyPrincipalInertia.y,
-                                           deltaSeconds );
-    bodyTorque.z = ClampDragAxisReference( bodyTorque.z, initialBodyAngularVelocity.z, bodyPrincipalInertia.z,
-                                           deltaSeconds );
-    const Vector3 expectedBodyAngularVelocity = initialBodyAngularVelocity +
-                                                Vector3( bodyTorque.x * deltaSeconds / bodyPrincipalInertia.x,
-                                                         bodyTorque.y * deltaSeconds / bodyPrincipalInertia.y,
-                                                         bodyTorque.z * deltaSeconds / bodyPrincipalInertia.z );
+    bodyTorque.x = ClampDragAxisReference( bodyTorque.x, initialBodyAngularVelocity.x, bodyPrincipalInertia.x, deltaSeconds );
+    bodyTorque.y = ClampDragAxisReference( bodyTorque.y, initialBodyAngularVelocity.y, bodyPrincipalInertia.y, deltaSeconds );
+    bodyTorque.z = ClampDragAxisReference( bodyTorque.z, initialBodyAngularVelocity.z, bodyPrincipalInertia.z, deltaSeconds );
+    const Vector3 expectedBodyAngularVelocity = initialBodyAngularVelocity + Vector3( bodyTorque.x * deltaSeconds / bodyPrincipalInertia.x, bodyTorque.y * deltaSeconds / bodyPrincipalInertia.y, bodyTorque.z * deltaSeconds / bodyPrincipalInertia.z );
     const Vector3 expectedWorldAngularVelocity = rotation * expectedBodyAngularVelocity;
 
-    const Vector3 actual = RunAngularDragCase( shape, bodyPrincipalInertia, orientation, initialWorldAngularVelocity,
-                                               dragCoefficient, gasDensity, deltaSeconds, true );
+    const Vector3 actual = RunAngularDragCase( shape, bodyPrincipalInertia, orientation, initialWorldAngularVelocity, dragCoefficient, gasDensity, deltaSeconds, true );
     CheckVectorApprox( actual, expectedWorldAngularVelocity );
     CHECK( fabsf( rotation.TransposeMultiply( actual ).x ) < 0.00001f );
 }
@@ -680,12 +659,10 @@ TEST_CASE( "Physics API frames: isotropic angular drag retains exact world-path 
     worldTorque.y = ClampDragAxisReference( worldTorque.y, initialWorldAngularVelocity.y, isotropicInertia.y, deltaSeconds );
     worldTorque.z = ClampDragAxisReference( worldTorque.z, initialWorldAngularVelocity.z, isotropicInertia.z, deltaSeconds );
     const Vector3 bodyImpulse = rotation.TransposeMultiply( worldTorque * deltaSeconds );
-    const Vector3 bodyDelta( bodyImpulse.x / isotropicInertia.x, bodyImpulse.y / isotropicInertia.y,
-                             bodyImpulse.z / isotropicInertia.z );
+    const Vector3 bodyDelta( bodyImpulse.x / isotropicInertia.x, bodyImpulse.y / isotropicInertia.y, bodyImpulse.z / isotropicInertia.z );
     const Vector3 expected = initialWorldAngularVelocity + rotation * bodyDelta;
 
-    const Vector3 actual = RunAngularDragCase( shape, isotropicInertia, orientation, initialWorldAngularVelocity,
-                                               dragCoefficient, gasDensity, deltaSeconds, false );
+    const Vector3 actual = RunAngularDragCase( shape, isotropicInertia, orientation, initialWorldAngularVelocity, dragCoefficient, gasDensity, deltaSeconds, false );
     CheckVectorExact( actual, expected );
 }
 
@@ -707,18 +684,22 @@ std::array<float, 12> RunReleasedArticulation( bool impact )
     engine.SetPipelineTraceFullRecordConsumerActive( true );
     std::array<PhysicsAuthoredBodyRegistration, 5> registered {};
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope loading(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope loading( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         engine.ReserveAuthoredBodyCapacity( 5u, 5u, 0u, 0u, 1u );
         const CollisionShape sphere = BoundingSphere( 1.0f, ZERO_VECTOR, 0.0f );
-        const std::array<Vector3, 5> positions { Vector3( 0, 3, 0 ), Vector3( 0, 1, 0 ), Vector3( -10.0f, 3, 0 ),
-                                                 Vector3( 30, 4, 0 ), Vector3( 30, 5.9f, 0 ) };
+        const std::array<Vector3, 5> positions { Vector3( 0, 3, 0 ), Vector3( 0, 1, 0 ), Vector3( -10.0f, 3, 0 ), Vector3( 30, 4, 0 ), Vector3( 30, 5.9f, 0 ) };
         for ( std::size_t i = 0; i < registered.size(); ++i )
         {
             const Vector3 velocity = i == 4u ? Vector3( 0, -12, 0 ) : ZERO_VECTOR;
-            auto body = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 17000u + static_cast<uint32_t>( i ) ), sphere,
-                                                   positions[i], SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
-                                                   velocity, ZERO_VECTOR, Vector3( 0.8f, 0.8f, 0.8f ), 2.0f, 0.0f,
+            auto body = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 17000u + static_cast<uint32_t>( i ) ),
+                                                   sphere,
+                                                   positions[i],
+                                                   SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                                   velocity,
+                                                   ZERO_VECTOR,
+                                                   Vector3( 0.8f, 0.8f, 0.8f ),
+                                                   2.0f,
+                                                   0.0f,
                                                    i == 0u ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic );
             body.startsAsleep = i == 1u;
             body.releasesFromFixedOnContact = i == 0u;
@@ -768,26 +749,14 @@ std::array<float, 12> RunReleasedArticulation( bool impact )
         CHECK( hot.fixed[0] == 0u );
         CHECK( PhysicsEngine::ReadSleepStates( engine )[1] == 0u );
         CHECK( hot.linearVelocityX[1] > 0.01f );
-        CHECK( SkullbonezCore::Math::Vector::VectorMagSquared(
-                   PhysicsEngine::ReadPointJointConstraints( engine )[0].accumulatedImpulse ) > 0.001f );
+        CHECK( SkullbonezCore::Math::Vector::VectorMagSquared( PhysicsEngine::ReadPointJointConstraints( engine )[0].accumulatedImpulse ) > 0.001f );
         const auto contacts = diagnostics.persistentContacts;
-        const auto support = std::find_if( contacts.begin(), contacts.end(),
-                                           []( const PersistentContact& row ) { return row.isTerrain && row.bodyA == 1; } );
+        const auto support = std::find_if( contacts.begin(), contacts.end(), []( const PersistentContact& row ) { return row.isTerrain && row.bodyA == 1; } );
         REQUIRE( support != contacts.end() );
         CHECK( support->accN > 0.0f );
-        CHECK( std::count_if( diagnostics.terrainContactManifolds.begin(), diagnostics.terrainContactManifolds.end(),
-                              []( const TerrainContactManifold& row ) { return row.bodyA == 1; } ) == 1 );
-        CHECK( std::count_if( diagnostics.physicsPipelineTrace.begin(), diagnostics.physicsPipelineTrace.end(),
-                              []( const PhysicsPipelineRecord& row )
-                              {
-                                  return row.stage == PhysicsPipelineStage::WarmStart && row.bodyA == 0 && row.bodyB == 2;
-                              } ) == 1 );
-        CHECK( std::count_if( diagnostics.physicsPipelineTrace.begin(), diagnostics.physicsPipelineTrace.end(),
-                              []( const PhysicsPipelineRecord& row )
-                              {
-                                  return row.stage == PhysicsPipelineStage::PositionCorrection && row.bodyA == 0 &&
-                                         row.bodyB == 2;
-                              } ) <= 1 );
+        CHECK( std::count_if( diagnostics.terrainContactManifolds.begin(), diagnostics.terrainContactManifolds.end(), []( const TerrainContactManifold& row ) { return row.bodyA == 1; } ) == 1 );
+        CHECK( std::count_if( diagnostics.physicsPipelineTrace.begin(), diagnostics.physicsPipelineTrace.end(), []( const PhysicsPipelineRecord& row ) { return row.stage == PhysicsPipelineStage::WarmStart && row.bodyA == 0 && row.bodyB == 2; } ) == 1 );
+        CHECK( std::count_if( diagnostics.physicsPipelineTrace.begin(), diagnostics.physicsPipelineTrace.end(), []( const PhysicsPipelineRecord& row ) { return row.stage == PhysicsPipelineStage::PositionCorrection && row.bodyA == 0 && row.bodyB == 2; } ) <= 1 );
         CHECK( hot.linearVelocityY[1] > -0.02f );
     }
     else
@@ -830,24 +799,26 @@ void CheckRotatingArticulationWallCase( bool predictive, bool fixedWalls )
     engine.SetPipelineTraceFullRecordConsumerActive( true );
     engine.SetSpeculativeContactsEnabledForValidation( predictive );
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope loading(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope loading( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         engine.ReserveAuthoredBodyCapacity( 4u, 0u, 4u, 0u, 1u );
         for ( uint32_t index = 0; index < 4u; ++index )
         {
             const bool wall = index % 2u != 0u;
             const Vector3 extent = wall ? Vector3( 0.05f, 4, 4 ) : Vector3( 1, 1, 1 );
             const float mass = wall ? 1000.0f : 2.0f;
-            const Vector3 inertia( mass * ( extent.y * extent.y + extent.z * extent.z ) / 3.0f,
-                                   mass * ( extent.x * extent.x + extent.z * extent.z ) / 3.0f,
-                                   mass * ( extent.x * extent.x + extent.y * extent.y ) / 3.0f );
+            const Vector3 inertia( mass * ( extent.y * extent.y + extent.z * extent.z ) / 3.0f, mass * ( extent.x * extent.x + extent.z * extent.z ) / 3.0f, mass * ( extent.x * extent.x + extent.y * extent.y ) / 3.0f );
             const CollisionShape shape = BoundingBox( extent, ZERO_VECTOR );
             const Vector3 position( wall ? 1.3f : 0.0f, 0, index >= 2u ? 10.0f : 0.0f );
-            auto body = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 18000u + index ), shape, position,
-                                                   SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION, ZERO_VECTOR,
-                                                   wall ? ZERO_VECTOR : Vector3( 0, 0, -100 ), inertia, mass, 0.0f,
-                                                   wall && fixedWalls ? PhysicsBodyMotionKind::Fixed
-                                                                      : PhysicsBodyMotionKind::Dynamic );
+            auto body = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 18000u + index ),
+                                                   shape,
+                                                   position,
+                                                   SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                                   ZERO_VECTOR,
+                                                   wall ? ZERO_VECTOR : Vector3( 0, 0, -100 ),
+                                                   inertia,
+                                                   mass,
+                                                   0.0f,
+                                                   wall && fixedWalls ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic );
             body.angularVelocityLimit = 1000.0f;
             auto collider = MakeColliderCreateDesc( shape, 0.0f, 0u );
             collider.sceneObjectId = body.sceneObjectId;
@@ -878,8 +849,7 @@ void CheckRotatingArticulationWallCase( bool predictive, bool fixedWalls )
         float maximumLocalX = -100.0f;
         for ( unsigned cornerIndex = 0; cornerIndex < 8u; ++cornerIndex )
         {
-            const Vector3 localCorner( cornerIndex & 1u ? 1.0f : -1.0f, cornerIndex & 2u ? 1.0f : -1.0f,
-                                       cornerIndex & 4u ? 1.0f : -1.0f );
+            const Vector3 localCorner( cornerIndex & 1u ? 1.0f : -1.0f, cornerIndex & 2u ? 1.0f : -1.0f, cornerIndex & 4u ? 1.0f : -1.0f );
             const Vector3 corner = position + rotation * localCorner;
             maximumLocalX = (std::max)( maximumLocalX, wallRotation.TransposeMultiply( corner - wallPosition ).x );
         }
@@ -898,8 +868,7 @@ void CheckRotatingArticulationWallCase( bool predictive, bool fixedWalls )
     }
     CHECK( hot.positionZ[2] - hot.positionZ[0] == 10.0f );
     const auto trace = PhysicsEngine::ReadPipelineTrace( engine );
-    CHECK( std::none_of( trace.begin(), trace.end(), []( const auto& row )
-                         { return row.stage == SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit; } ) );
+    CHECK( std::none_of( trace.begin(), trace.end(), []( const auto& row ) { return row.stage == SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit; } ) );
     CHECK( engine.GetDiagnosticsView().motionEligibilityStats.speculativeEnabled == predictive );
 }
 } // namespace
@@ -930,17 +899,21 @@ void CheckPredictiveSleepingTarget( bool impact )
     engine.SetPipelineTraceFullRecordConsumerActive( true );
     std::array<PhysicsAuthoredBodyRegistration, 3> registered {};
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope loading(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope loading( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         engine.ReserveAuthoredBodyCapacity( 3u, 3u, 0u, 0u, 1u );
         const CollisionShape sphere = BoundingSphere( 1.0f, ZERO_VECTOR );
-        const std::array<Vector3, 3> positions = { Vector3( 0, 10, 0 ), Vector3( 0, 10, 8 ),
-                                                   impact ? Vector3( -2.25f, 10, 0 ) : Vector3( -4, 11.99f, 0.3f ) };
+        const std::array<Vector3, 3> positions = { Vector3( 0, 10, 0 ), Vector3( 0, 10, 8 ), impact ? Vector3( -2.25f, 10, 0 ) : Vector3( -4, 11.99f, 0.3f ) };
         for ( std::size_t i = 0; i < registered.size(); ++i )
         {
-            auto body = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 19000u + static_cast<uint32_t>( i ) ), sphere,
-                                                   positions[i], SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
-                                                   ZERO_VECTOR, ZERO_VECTOR, Vector3( 0.8f, 0.8f, 0.8f ), 2.0f, 0.0f,
+            auto body = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 19000u + static_cast<uint32_t>( i ) ),
+                                                   sphere,
+                                                   positions[i],
+                                                   SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                                   ZERO_VECTOR,
+                                                   ZERO_VECTOR,
+                                                   Vector3( 0.8f, 0.8f, 0.8f ),
+                                                   2.0f,
+                                                   0.0f,
                                                    PhysicsBodyMotionKind::Dynamic );
             auto collider = MakeColliderCreateDesc( sphere, 0.0f, 0u, "predictive-wake" );
             collider.sceneObjectId = body.sceneObjectId;
@@ -970,8 +943,7 @@ void CheckPredictiveSleepingTarget( bool impact )
     engine.Step( PHYSICS_FIXED_DT, forces, workers, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
     const auto hot = PhysicsEngine::ReadBodies( engine ).HotFields();
     const auto rows = engine.GetDiagnosticsView().persistentContacts;
-    const auto hit = std::find_if( rows.begin(), rows.end(),
-                                   []( const auto& row ) { return row.bodyA == 0 && row.bodyB == 2; } );
+    const auto hit = std::find_if( rows.begin(), rows.end(), []( const auto& row ) { return row.bodyA == 0 && row.bodyB == 2; } );
     if ( impact )
     {
         REQUIRE( hit != rows.end() );
@@ -996,4 +968,74 @@ TEST_CASE( "Physics articulated collision: predictive impact wakes sleeping targ
 {
     CheckPredictiveSleepingTarget( false );
     CheckPredictiveSleepingTarget( true );
+}
+
+TEST_CASE( "Authored restart restores initial motion without retiring bodies or joints" )
+{
+    using namespace SkullbonezCore::Physics;
+    SkullbonezCore::Core::EngineConfig config;
+    config.physicsExecution.parallel = false;
+    PhysicsEngine engine;
+    engine.ApplyRuntimeConfig( config );
+    PhysicsAuthoredBodyRegistration first;
+    PhysicsAuthoredBodyRegistration second;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope loading( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        engine.ReserveAuthoredBodyCapacity( 2u, 2u, 0u, 0u, 1u );
+        const CollisionShape sphere = BoundingSphere( 1.0f, ZERO_VECTOR, 0.0f );
+        auto desc = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 90001u ),
+                                               sphere,
+                                               Vector3( 10, 20, 30 ),
+                                               Quaternion(),
+                                               Vector3( 2, 0, 0 ),
+                                               ZERO_VECTOR,
+                                               Vector3( 1, 1, 1 ),
+                                               2.0f,
+                                               0.0f,
+                                               PhysicsBodyMotionKind::Dynamic );
+        first = engine.RegisterAuthoredBody( desc, MakeColliderCreateDesc( sphere, 0.0f, 0u ) );
+        desc.sceneObjectId = MakePhysicsSceneObjectId( 90002u );
+        desc.position = Vector3( 10, 22, 30 );
+        desc.linearVelocity = ZERO_VECTOR;
+        desc.startsAsleep = true;
+        second = engine.RegisterAuthoredBody( desc, MakeColliderCreateDesc( sphere, 0.0f, 0u ) );
+    }
+    REQUIRE( first.IsValid() );
+    REQUIRE( second.IsValid() );
+    PhysicsPointJointCreateDesc joint;
+    joint.bodyA = first.body;
+    joint.bodyB = second.body;
+    joint.localAnchorA = Vector3( 0, 1, 0 );
+    joint.localAnchorB = Vector3( 0, -1, 0 );
+    const auto constraint = engine.CreatePointJoint( joint );
+    REQUIRE( constraint.IsValid() );
+    PhysicsBodyRestoreState future;
+    future.body = first.body;
+    future.sceneObjectId = MakePhysicsSceneObjectId( 90001u );
+    future.position = Vector3( 100, 200, 300 );
+    future.linearVelocity = Vector3( -3, 4, 5 );
+    future.mass = 2;
+    future.inverseMass = .5f;
+    future.rotationalInertia = Vector3( 1, 1, 1 );
+    future.inverseRotationalInertia = Vector3( 1, 1, 1 );
+    REQUIRE( engine.RestoreReplayBodyState( future ) );
+    REQUIRE( engine.RestoreAuthoredBodyState() );
+    const auto& bodies = PhysicsEngine::ReadBodies( engine );
+    CHECK( bodies.HandleForModelIndex( 0 ) == first.body );
+    CHECK( bodies.HandleForModelIndex( 1 ) == second.body );
+    CheckVectorExact( PhysicsBodyPosition( bodies.HotFields(), 0 ), Vector3( 10, 20, 30 ) );
+    CheckVectorExact( PhysicsBodyLinearVelocity( bodies.HotFields(), 0 ), Vector3( 2, 0, 0 ) );
+    CHECK( PhysicsEngine::ReadSleepStates( engine )[1] != 0u );
+    REQUIRE( PhysicsEngine::ReadPointJointConstraints( engine ).size() == 1u );
+    CHECK( PhysicsEngine::ReadPointJointConstraints( engine )[0].handle == constraint );
+    PhysicsBodyUpdateDesc edit;
+    edit.body = first.body;
+    edit.updateMask = PHYSICS_BODY_UPDATE_VELOCITY;
+    edit.linearVelocity = Vector3( 7, 8, 9 );
+    edit.angularVelocity = Vector3( .2f, .3f, .4f );
+    REQUIRE( engine.UpdateAuthoredBody( edit ) );
+    REQUIRE( engine.RestoreReplayBodyState( future ) );
+    REQUIRE( engine.RestoreAuthoredBodyState() );
+    CheckVectorExact( PhysicsBodyLinearVelocity( bodies.HotFields(), 0 ), edit.linearVelocity );
+    CheckVectorExact( PhysicsBodyAngularVelocity( bodies.HotFields(), 0 ), edit.angularVelocity );
 }

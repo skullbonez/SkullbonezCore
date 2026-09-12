@@ -673,6 +673,8 @@ void ProjectOperatorUiInteraction( UI::InGameUIFrameData& UIData, const Operator
     UIData.editor.editorPlaceStatic = facts.editorPlaceStatic;
     UIData.editor.editorTerrainAlign = facts.editorTerrainAlign;
     UIData.editor.editorTerrainBrush = facts.editorTerrainBrush;
+    UIData.editor.editorVelocityEdit = facts.editorVelocityEdit;
+    UIData.editor.editorVelocityAngular = facts.editorVelocityAngular;
     UIData.editor.editorTerrainBrushRadius = facts.editorTerrainBrushRadius;
     UIData.editor.editorViewportLookActive = facts.editorViewportLookActive;
     UIData.editor.editorObjectType = facts.editorObjectType;

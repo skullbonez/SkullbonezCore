@@ -101,6 +101,8 @@ void Run::Render( const RuntimeRenderFrameViews& renderFrame, float presentation
     toolEditor.editorModeEnabled = editor.editorModeEnabled;
     toolEditor.placementModeEnabled = editor.placementModeEnabled;
     toolEditor.placementPreviewVisible = editor.placementPreviewVisible;
+    toolEditor.velocityEditEnabled = editor.velocityEditEnabled;
+    toolEditor.velocityEditAngular = editor.velocityEditAngular;
     toolEditor.objectType = editor.objectType;
     toolEditor.hotGizmoAxis = editor.hotGizmoAxis;
     toolEditor.hotRotationAxis = editor.hotRotationAxis;
@@ -111,6 +113,12 @@ void Run::Render( const RuntimeRenderFrameViews& renderFrame, float presentation
     toolEditor.placementScale = editor.placementScale;
     toolEditor.placementOrientation = editor.placementOrientation;
     toolEditor.selectionCount = ProjectEditorOverlaySelection( editor, m_sceneController.Scene(), toolEditor.selectionBodies, toolEditor.selectionColliders );
+    if ( editor.velocityEditEnabled && editor.selectedBody.IsValid() )
+    {
+        toolEditor.selectionCount = 1;
+        toolEditor.selectionBodies[0] = editor.selectedBody;
+        toolEditor.selectionColliders[0] = editor.selectedCollider;
+    }
 
     // Update the active camera selection and any transition/tween state before
     // rendering asks for view matrices.

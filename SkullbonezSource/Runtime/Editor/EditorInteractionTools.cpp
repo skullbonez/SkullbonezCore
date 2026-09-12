@@ -1190,6 +1190,14 @@ EditorGizmoDragPointerResult EditorToolsOwner::RouteEditorGizmoDragPointer( cons
         return result;
     }
 
+    if ( m_editor.velocityEditEnabled )
+    {
+        RecordEditorVelocityHistory( world );
+        CancelEditorGizmoDragState( m_editor, interaction );
+        result.endedGesture = true;
+        return result;
+    }
+
     const bool recordRelease = input.leftReleased && !input.suppressWorldAction && input.selectedModelIndex >= 0 && input.selectedModelIndex < world.SceneEntityCount();
 
     if ( recordRelease && gesture.gizmoKind == RuntimeGizmoDragKind::Scale )
@@ -1241,7 +1249,7 @@ bool EditorToolsOwner::PrepareEditorGizmoGesture( bool inspectGizmoActive,
     outPlan.clientX = clientX;
     outPlan.clientY = clientY;
 
-    if ( scaleMode )
+    if ( scaleMode && !m_editor.velocityEditEnabled )
     {
         if ( selectedModelIndex >= world.SceneEntityCount() || m_editor.hotGizmoAxis < 0 )
         {
@@ -1306,6 +1314,17 @@ bool EditorToolsOwner::PrepareEditorGizmoGesture( bool inspectGizmoActive,
     }
 
     const Vector3 planeNormal = EditorAxisDragPlaneNormal( m_editor.hotGizmoAxis, rayDirection );
+    if ( m_editor.velocityEditEnabled )
+    {
+        const auto hot = bodyStore.HotFields();
+        if ( hot.fixed[selectedModelIndex] )
+        {
+            return false;
+        }
+        selectionOrigin = PhysicsBodyPosition( hot, selectedModelIndex ) +
+                          ( m_editor.velocityEditAngular ? PhysicsBodyAngularVelocity( hot, selectedModelIndex ) : PhysicsBodyLinearVelocity( hot, selectedModelIndex ) ) *
+                              ReplayVelocityVectorScale( m_editor.velocityEditAngular );
+    }
     float axisParameter = 0.0f;
 
     if ( !TryEditorAxisPlaneRayParameter( m_editor.hotGizmoAxis, selectionOrigin, planeNormal, rayOrigin, rayDirection, axisParameter ) )
@@ -1371,7 +1390,10 @@ EditorGizmoGestureResult EditorToolsOwner::CommitEditorGizmoGesture( const Edito
         m_editor.gizmoDragPlaneNormal = plan.dragPlaneNormal;
     }
 
-    CaptureEditorGizmoDragGroupState( m_editor, world, plan.kind != EditorGizmoGestureKind::Scale );
+    m_editor.velocityDragStartLinear = PhysicsBodyLinearVelocity( world.BodyStore().HotFields(), selectedModelIndex );
+    m_editor.velocityDragStartAngular = PhysicsBodyAngularVelocity( world.BodyStore().HotFields(), selectedModelIndex );
+    m_editor.velocityDragStartSleeping = !world.BodyStore().HotFields().awake[selectedModelIndex];
+    CaptureEditorGizmoDragGroupState( m_editor, world, !m_editor.velocityEditEnabled && plan.kind != EditorGizmoGestureKind::Scale );
     result.consumed = true;
     result.kind = plan.kind;
     return result;

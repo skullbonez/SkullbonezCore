@@ -524,45 +524,48 @@ RuntimeUIFrameResult Run::BeginRuntimeUIFrame( const ReplayPathPickInput& replay
         return result;
     }
     const RECT velocityViewport = m_window.PresentationViewport();
-    m_replayRuntime.TickWorkspace( ReplayWorkspaceFrameInput { windowHandle,
-                                                               m_operatorUi->BlocksCameraMouse() || facts.externalUiCapture.mouse,
-                                                               facts.gameUiActive,
-                                                               m_operatorUi->PresentationBounds().causeControls.Contains( deviceFrame.clientX, deviceFrame.clientY ) ? deviceFrame.wheelDelta : result.editorUnhandledWheelDelta,
-                                                               replayPointerRay,
-                                                               facts.replayCurrentCameraMode,
-                                                               facts.replayRestoreCameraMode,
-                                                               m_attachedCamera.State().activeFollow,
-                                                               m_camera.director.grabbed,
-                                                               m_editorTools.Editor().editorModeEnabled,
-                                                               m_sceneController.State().isScenePhysics,
-                                                               m_operatorUi->IsVisible(),
-                                                               m_operatorUi->IsMinimized(),
-                                                               m_inputRouter.DeviceFrame().keys.IsDown( VK_SPACE ),
-                                                               m_window.ClientWidth(),
-                                                               m_window.ClientHeight(),
-                                                               m_camera.mouseRadiansPerPixel,
-                                                               m_timers.SimulationTotalSeconds(),
-                                                               facts.requestedReplayCauseRow,
-                                                               m_operatorUi->SharedPresentationEnabled() ? m_operatorUi->PresentationBounds().transport : UI::UIRect {},
-                                                               m_operatorUi->PresentationBounds().replayControls,
-                                                               m_operatorUi->PresentationBounds().replayScroll,
-                                                               m_operatorUi->BlocksReplayMouse() || facts.externalUiCapture.mouse,
-                                                               m_operatorUi->PresentationBounds().causeControls,
-                                                               m_operatorUi->BlocksCauseMouse() || facts.externalUiCapture.mouse,
-                                                               m_operatorUi->PresentationBounds().statusContent,
-                                                               m_window.GetProjectionMatrix() * m_sceneController.Scene().Cameras().GetViewMatrix(),
-                                                               { static_cast<float>( velocityViewport.left ),
-                                                                                                                                                       static_cast<float>( velocityViewport.top ),
-                                                                                                                                                       static_cast<float>( velocityViewport.right - velocityViewport.left ),
-                                                                                                                                                       static_cast<float>( velocityViewport.bottom - velocityViewport.top ) },
-                                                               m_operatorUi->SharedPresentationEnabled() && m_operatorUi->PresentationLayout() == UI::GameLayout::LayoutMode::Editor },
-                                   m_inputRouter,
-                                   m_interaction,
-                                   m_sceneController.Scene(),
-                                   m_camera,
-                                   m_attachedCamera,
-                                   m_runtimeTools.MousePickup(),
-                                   result.replayWorkspace );
+    if ( !m_editorTools.Editor().editorModeEnabled )
+    {
+        m_replayRuntime.TickWorkspace( ReplayWorkspaceFrameInput { windowHandle,
+                                                                   m_operatorUi->BlocksCameraMouse() || facts.externalUiCapture.mouse,
+                                                                   facts.gameUiActive,
+                                                                   m_operatorUi->PresentationBounds().causeControls.Contains( deviceFrame.clientX, deviceFrame.clientY ) ? deviceFrame.wheelDelta : result.editorUnhandledWheelDelta,
+                                                                   replayPointerRay,
+                                                                   facts.replayCurrentCameraMode,
+                                                                   facts.replayRestoreCameraMode,
+                                                                   m_attachedCamera.State().activeFollow,
+                                                                   m_camera.director.grabbed,
+                                                                   m_editorTools.Editor().editorModeEnabled,
+                                                                   m_sceneController.State().isScenePhysics,
+                                                                   m_operatorUi->IsVisible(),
+                                                                   m_operatorUi->IsMinimized(),
+                                                                   m_inputRouter.DeviceFrame().keys.IsDown( VK_SPACE ),
+                                                                   m_window.ClientWidth(),
+                                                                   m_window.ClientHeight(),
+                                                                   m_camera.mouseRadiansPerPixel,
+                                                                   m_timers.SimulationTotalSeconds(),
+                                                                   facts.requestedReplayCauseRow,
+                                                                   m_operatorUi->SharedPresentationEnabled() ? m_operatorUi->PresentationBounds().transport : UI::UIRect {},
+                                                                   m_operatorUi->PresentationBounds().replayControls,
+                                                                   m_operatorUi->PresentationBounds().replayScroll,
+                                                                   m_operatorUi->BlocksReplayMouse() || facts.externalUiCapture.mouse,
+                                                                   m_operatorUi->PresentationBounds().causeControls,
+                                                                   m_operatorUi->BlocksCauseMouse() || facts.externalUiCapture.mouse,
+                                                                   m_operatorUi->PresentationBounds().statusContent,
+                                                                   m_window.GetProjectionMatrix() * m_sceneController.Scene().Cameras().GetViewMatrix(),
+                                                                   { static_cast<float>( velocityViewport.left ),
+                                                                                                                                                           static_cast<float>( velocityViewport.top ),
+                                                                                                                                                           static_cast<float>( velocityViewport.right - velocityViewport.left ),
+                                                                                                                                                           static_cast<float>( velocityViewport.bottom - velocityViewport.top ) },
+                                                                   m_operatorUi->SharedPresentationEnabled() && m_operatorUi->PresentationLayout() == UI::GameLayout::LayoutMode::Editor },
+                                       m_inputRouter,
+                                       m_interaction,
+                                       m_sceneController.Scene(),
+                                       m_camera,
+                                       m_attachedCamera,
+                                       m_runtimeTools.MousePickup(),
+                                       result.replayWorkspace );
+    }
 
     if ( result.replayWorkspace.velocityExperimentClosed && m_comparison.IsVelocityExperiment() )
     {
@@ -630,6 +633,10 @@ SkullbonezCore::UI::OperatorEditorArbitrationResult Run::PrepareOperatorInputCom
 
 void Run::ApplyReplayTransportCommand( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts, const ReplayTransportCommand& command )
 {
+    if ( m_editorTools.Editor().editorModeEnabled )
+    {
+        return;
+    }
     ReplayWorkspaceOutput transportOutput;
     const double now = m_timers.SimulationTotalSeconds();
     std::visit(
@@ -1601,6 +1608,36 @@ void Run::ApplyEditorModeToggleCommand( RuntimeUIFrameResult& result, const Runt
     const bool enteringEditor = !m_editorTools.Editor().editorModeEnabled;
     if ( enteringEditor )
     {
+        if ( m_comparison.IsVelocityExperiment() )
+        {
+            CloseComparison();
+        }
+        const auto timeline = DescribeReplaySceneTimeline( m_sceneController,
+                                                           m_operatorUi->SceneNavigation().overrides,
+                                                           m_sceneController.State(),
+                                                           m_sceneController.Scene().ActiveSceneObjectCapacity(),
+                                                           static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+        m_replayRuntime.ResetSceneTimeline( timeline,
+                                            m_inputRouter,
+                                            m_interaction,
+                                            &m_sceneController.Scene().Cameras(),
+                                            m_sceneController.Scene().Terrain().Get(),
+                                            m_camera,
+                                            facts.replayRestoreCameraMode,
+                                            m_attachedCamera.State().activeFollow,
+                                            m_camera.director.grabbed );
+        // Restore the authored seed before exposing any editor operation. This
+        // retains unsaved objects and edits without reading the level from disk.
+        if ( !m_sceneController.Scene().Physics().RestoreAuthoredBodyState() )
+        {
+            SB_FATAL( "Runtime/Editor", "Cannot restore the authored frame-zero body state." );
+        }
+        m_sceneController.State().currentFrame = 0;
+        m_simulation.Reset();
+        m_sceneController.Scene().BeginPhysicsStepPresentationCapture();
+        m_sceneController.Scene().CompletePhysicsStepPresentationCapture();
+        m_sceneController.Scene().PrepareRenderInstances( 1.0f );
+        result.replayWorkspace = {};
         const RuntimeInteractionTransition transition = m_interaction.EnterEdit();
         m_inputRouter
             .ApplyInteractionTransition( transition, m_editorTools, m_runtimeTools, m_interaction, m_attachedCamera, m_camera, m_sceneController, m_replayRuntime, facts.replayRestoreCameraMode );
@@ -1643,7 +1680,7 @@ void Run::ApplyEditorModeCommands( RuntimeUIFrameResult& result, bool keyboardTo
 {
     if ( m_replayRuntime.VelocityComparisonActive() )
     {
-        if ( m_editorTools.Editor().editorModeEnabled && ( commands.editor.toggleEditorMode || keyboardToggleEditorMode ) )
+        if ( commands.editor.toggleEditorMode || keyboardToggleEditorMode )
         {
             ApplyEditorModeToggleCommand( result, facts, keyboardToggleEditorMode ? RuntimeInputActionSource::Keyboard : RuntimeInputActionSource::UI );
         }

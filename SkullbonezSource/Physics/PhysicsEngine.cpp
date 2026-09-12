@@ -808,6 +808,33 @@ void PhysicsEngine::ClearPendingBodyImpulses()
     m_bodyStore.ClearPendingImpulses();
 }
 
+bool PhysicsEngine::RestoreAuthoredBodyState()
+{
+    if ( m_authoredBodyDescs.size() != static_cast<std::size_t>( m_bodyStore.Count() ) )
+    {
+        return false;
+    }
+    // Authored descriptors change only through authoring commands. Integration
+    // and replay restoration leave these initial poses and velocities intact.
+    m_world->ResetSimulationState();
+    for ( int row = 0; row < m_bodyStore.Count(); ++row )
+    {
+        const auto& desc = m_authoredBodyDescs[static_cast<std::size_t>( row )];
+        m_bodyStore.RefreshRecordFromDescriptorAt( desc, row );
+        if ( !m_buoyancySystem.RefreshBodyFacts( row, desc ) )
+        {
+            SB_FATAL( "Physics/PhysicsEngine", "Authored restart lost a buoyancy row." );
+        }
+        if ( desc.startsAsleep )
+        {
+            SeedBodyAsleep( m_bodyStore.HandleForModelIndex( row ) );
+        }
+    }
+    ClearPendingBodyImpulses();
+    m_world->InvalidateBodyTopology();
+    return true;
+}
+
 
 bool PhysicsEngine::TrimBodiesToCount( PhysicsBodyCount bodyCount )
 {

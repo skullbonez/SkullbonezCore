@@ -1358,6 +1358,14 @@ void Run::PublishSkarnessFrameState()
     state.presentation.editorObjectType = m_editorTools.Editor().objectType;
     state.presentation.editorTerrainAlign = m_editorTools.Editor().autoTerrainAlign;
     state.presentation.editorTerrainBrush = m_editorTools.Editor().terrainBrushEnabled;
+    state.presentation.editorVelocityEdit = m_editorTools.Editor().velocityEditEnabled;
+    state.presentation.editorVelocityAngular = m_editorTools.Editor().velocityEditAngular;
+    const auto* selectedEditorBody = m_sceneController.Scene().BodyStore().RecordForHandle( m_editorTools.Editor().selectedBody );
+    state.presentation.editorSelectedObjectId = selectedEditorBody ? selectedEditorBody->sceneObjectId.value : 0;
+    state.presentation.editorHotAxis = m_editorTools.Editor().hotGizmoAxis;
+    state.presentation.editorGestureAxis = m_interaction.Gesture().kind == RuntimeInteractionGestureKind::GizmoDrag ? m_interaction.Gesture().axis : -1;
+    state.presentation.pointerWorldSuppressed = m_inputRouter.RuntimeSnapshot().pointer.suppressWorldAction;
+    state.presentation.worldInteractionOwner = static_cast<int>( m_interaction.Owner() );
     state.presentation.editorTerrainBrushRadius = m_editorTools.Editor().terrainBrushRadius;
     state.presentation.terrainBrushVisible = m_editorTools.Editor().terrainBrushVisible;
     if ( auto* terrain = m_sceneController.Scene().Terrain().Get() )
@@ -1665,7 +1673,7 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned, 
 
     // A comparison animates stored futures; Space and launcher mode must not
     // advance the live seed that Accept Red/Blue will commit.
-    if ( replayInput.scrubPaused || replayInput.velocityComparisonActive )
+    if ( m_editorTools.Editor().editorModeEnabled || replayInput.scrubPaused || replayInput.velocityComparisonActive )
     {
         PROFILE_SCOPED( "Frame/Replay/ScrubCamera" );
         UpdateLogic( 0.0f, static_cast<float>( secondsPerFrame ), 1.0f );
@@ -2070,6 +2078,10 @@ void Run::TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy )
 
 bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
 {
+    if ( m_editorTools.Editor().editorModeEnabled )
+    {
+        return false;
+    }
     const SceneAutomationGateStatus automationGateStatus = m_validationHarness->SceneGates().Status();
     const SceneFrameAdvanceResult result = m_sceneController.AdvanceFrame( automationGateStatus,
                                                                            proceedPolicy.proceedAllowed,

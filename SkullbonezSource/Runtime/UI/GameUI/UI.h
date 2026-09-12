@@ -158,6 +158,8 @@ struct UIEditorTabFrameView
     bool editorPlaceStatic = true;
     bool editorTerrainAlign = false;
     bool editorTerrainBrush = false;
+    bool editorVelocityEdit = false;
+    bool editorVelocityAngular = false;
     float editorTerrainBrushRadius = 40.0f;
     bool editorViewportLookActive = false;
     int editorObjectType = 0;
@@ -435,6 +437,8 @@ struct UIFrameEditorData
     bool editorPlaceStatic = true;
     bool editorTerrainAlign = false;
     bool editorTerrainBrush = false;
+    bool editorVelocityEdit = false;
+    bool editorVelocityAngular = false;
     float editorTerrainBrushRadius = 40.0f;
     bool editorViewportLookActive = false;
     int editorObjectType = 0;

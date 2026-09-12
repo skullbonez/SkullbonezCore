@@ -1595,7 +1595,7 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
     const UiInputHitSnapshot& routedUiSnapshot = inputRouter.UiSnapshot();
     const ReplayInputView replayInput = replayRuntime.BuildInputView();
     RuntimeInteractionFrameInput frameInput;
-    frameInput.scenePhysicsEnabled = SceneState().isScenePhysics && !replayInput.velocityComparisonActive;
+    frameInput.scenePhysicsEnabled = SceneState().isScenePhysics && !replayInput.velocityComparisonActive && !editorTools.Editor().editorModeEnabled;
     frameInput.stepHeld = routedDeviceFrame.keys.IsDown( VK_SPACE ) || uiFrameResult.requestSceneStep;
     frameInput.replayScrubbedHistoricalSample = replayInput.scrubPaused;
     frameInput.replayLiveHeldAtCurrentFrame = replayInput.liveAdvanceHeld;

@@ -2,7 +2,53 @@
 
 Date: 2026-09-12
 Branch: `codex/unified-ui`
-Status: The editor offers standing, one-arm-raised and both-arms-raised sleeping ragdolls. Native placement, sleep persistence, save/reload and impact wake pass. Prior terrain, velocity and viewport fixes remain intact. Portfolio 138/144 unchanged.
+Status: Editor velocity authoring and frame-zero enforcement are complete. Native mouse edits, undo/redo, unsaved placement, save/reload and entry from an active replay experiment pass. Prior terrain, sleeping ragdoll, replay velocity and viewport fixes remain intact. Portfolio 138/144 unchanged.
+
+## Editor initial velocity and frame zero - 2026-09-12
+
+The Editor tab now has Modify velocity and Angular velocity checkboxes. Dynamic
+bodies use the existing white vector and world-aligned XYZ handles; fixed bodies
+reject velocity edits. Each released drag records one velocity history entry,
+including initial sleep state, and updates authored values for save/reload.
+
+Entering Edit restores retained authored body descriptors and frame zero while
+preserving body/joint identities, unsaved placements and terrain. Physics clears
+transient contacts and warm impulses. Simulation, frame stepping and replay
+scrubbing cannot advance the scene while editing. Entering from an active
+Original/Modified experiment discards its futures and associated Solver Lab.
+Input routing also preserves a newly captured editor drag instead of cancelling
+it through a redundant interaction-owner transition.
+
+Validation: validate_fast passes all 1,044 tests (one existing skip; 3,484,483
+assertions), including authored restart with stable body and joint handles.
+Compiler source design, dependency graph/proof, formatting, plain language and
+allocation checks pass. The final staged physics gate passes the unchanged
+golden with fingerprint `19b3f541c3ba`. Automation builds pass; native Skarness
+tests exercise all six velocity axes, identity, undo/redo, static rejection,
+unsaved placement, frame stepping, scrub rejection, save/reload and replay
+experiment cancellation on Edit. Allocation guard passes and DX12 has zero
+errors. Screenshots were inspected. Existing replay velocity pointer and
+sleeping-ragdoll placement/wake suites pass. All 15 prediction scene-transition
+cases pass, including the 200-box wall before and after transitions.
+
+Evidence: `TestOutput/skarness/editor-velocity-commit/`,
+`TestOutput/skarness/editor-velocity-replay-regression/`,
+`TestOutput/skarness/editor-velocity-ragdoll-regression/`,
+`TestOutput/skarness/editor-velocity-prediction-matrix/`, and
+`TestOutput/editor-velocity-*.log`. The unrelated untracked `asdasd.scene.json`
+remains untouched. Isolated staged-tree validation uses separate Git metadata;
+no baseline, allocation cap, growth privilege or physics-body field was added.
+Review findings and fixes are recorded in `TestOutput/editor-velocity-review.md`.
+
+Closure: Debug, Profile and Automation builds are ready. The immutable 200-box
+visual oracle reports `causal.topology[0].id: expected=91 actual=70`. A separate
+run from pre-change HEAD `f328382e6` reports the same failure; both comparable
+visual and causal projections are identical before and after this editor work.
+All 2,401 frames are complete and the durable artifact round-trip passes.
+This existing golden mismatch remains unresolved; no baseline was refreshed.
+Evidence: `TestOutput/editor-velocity-visual-current/`,
+`TestOutput/editor-velocity-visual-before/`, and
+`TestOutput/editor-velocity-oracle-comparison.json`.
 
 ## Sleeping ragdoll editor poses - 2026-09-12
 

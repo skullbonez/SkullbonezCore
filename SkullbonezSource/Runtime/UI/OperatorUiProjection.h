@@ -251,6 +251,8 @@ struct OperatorUiInteractionFacts
     bool editorPlaceStatic = false;
     bool editorTerrainAlign = false;
     bool editorTerrainBrush = false;
+    bool editorVelocityEdit = false;
+    bool editorVelocityAngular = false;
     float editorTerrainBrushRadius = 40.0f;
     bool editorViewportLookActive = false;
 };

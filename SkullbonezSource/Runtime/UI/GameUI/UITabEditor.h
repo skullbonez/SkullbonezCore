@@ -45,6 +45,8 @@ struct UIEditorTabState
     UICheckBox staticObjectToggle;
     UICheckBox terrainAlignToggle;
     UICheckBox terrainBrushToggle;
+    UICheckBox velocityToggle;
+    UICheckBox angularVelocityToggle;
     UIComboBox objectCombo;
     int selectedObjectType = OBJECT_BOX;
     bool placementModeAvailable = false;

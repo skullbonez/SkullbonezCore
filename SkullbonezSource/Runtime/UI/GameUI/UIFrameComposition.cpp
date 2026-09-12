@@ -403,6 +403,8 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.editor.editorPlaceStatic );
     hash = HashBool( hash, data.editor.editorTerrainAlign );
     hash = HashBool( hash, data.editor.editorTerrainBrush );
+    hash = HashBool( hash, data.editor.editorVelocityEdit );
+    hash = HashBool( hash, data.editor.editorVelocityAngular );
     hash = HashFloat( hash, data.editor.editorTerrainBrushRadius, 1000.0f );
     hash = HashBool( hash, data.editor.editorViewportLookActive );
     hash = HashInt( hash, data.editor.editorObjectType );
