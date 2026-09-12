@@ -54,7 +54,9 @@ set(SKULLBONEZ_PORTABLE_CPU_SOURCES
     SkullbonezSource/Physics/BoundingSphere.cpp
     SkullbonezSource/Physics/BuoyancySystem.cpp
     SkullbonezSource/Physics/ColliderStore.cpp
+    SkullbonezSource/Physics/ConvexDistance.cpp
     SkullbonezSource/Physics/ConvexHullShape.cpp
+    SkullbonezSource/Physics/ConvexMotionBounds.cpp
     SkullbonezSource/Physics/Diagnostics/SkullScope.cpp
     SkullbonezSource/Physics/ObjectContactManifold.cpp
     SkullbonezSource/Physics/PersistentContactSolver.cpp
@@ -70,6 +72,7 @@ set(SKULLBONEZ_PORTABLE_CPU_SOURCES
     SkullbonezSource/Physics/Ragdoll.cpp
     SkullbonezSource/Physics/SleepIslandSystem.cpp
     SkullbonezSource/Physics/SpatialGrid.cpp
+    SkullbonezSource/Physics/SpeculativeContacts.cpp
     SkullbonezSource/Physics/Stages/ExternalForceStage.cpp
     SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp
     SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp
@@ -102,10 +105,12 @@ set(SKULLBONEZ_PORTABLE_CPU_SOURCES
     SkullbonezSource/UI/UIIconButton.cpp
     SkullbonezSource/UI/UIInput.cpp
     SkullbonezSource/UI/UILayout.cpp
+    SkullbonezSource/UI/UIPanelTransitions.cpp
     SkullbonezSource/UI/UIScrollBar.cpp
     SkullbonezSource/UI/UISlider.cpp
     SkullbonezSource/UI/UIStyle.cpp
     SkullbonezSource/UI/UITabBar.cpp
+    SkullbonezSource/UI/UITooltip.cpp
     SkullbonezSource/UI/UIWindowChrome.cpp
     SkullbonezSource/World/Terrain.cpp
 )
