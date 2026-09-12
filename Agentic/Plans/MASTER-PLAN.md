@@ -1,9 +1,15 @@
 # MASTER PLAN
 
-Date: 2026-09-12
-Status: 138/144 tasks complete; PHYSICS_SCALE complete at 7/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
+Date: 2026-09-13
+Status: 138/145 tasks complete; BASELINE_REPAIR 0/1; PHYSICS_SCALE complete at 7/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
 
 ## Owner Direction
+
+- On 2026-09-13 the owner approved the six exact baseline replacements in
+  `TestOutput/gate-repair-2026-09-13/approval-manifest.json` and requested a
+  clean PR. Complete BASELINE_REPAIR BR0 on `codex/unified-ui` before any
+  PHYSICS_AB work. This approval supersedes the prior no-baseline-change
+  restriction for these six files only.
 
 - On 2026-09-12 the owner activated Physics Scale Optimization for complete
   execution on `codex/unified-ui`, ahead of PHYSICS_AB. Report measured
@@ -507,6 +513,7 @@ remain untouched; no accounting or completion-ledger artifacts are fabricated.
 
 | Plan | Code | Total | Complete | Next task | File |
 |---|---|---|---|---|---|
+| Approved Physics Baseline Reconciliation | `BASELINE_REPAIR` | 1 | 0 | BR0: approved references and mapped gates | `TODO/physics-baseline-reconciliation.md` |
 | Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
@@ -543,6 +550,9 @@ One detail in that table is recorded:
   disagree with the directory. A review decision should settle which it is.
 
 ## Binding Order
+
+`BASELINE_REPAIR` BR0 is the current owner-requested approval/validation task
+(0/1). Its addition temporarily takes the live portfolio to 138/145.
 
 `PHYSICS_SCALE` PS0-PS6 is complete at 7/7 on `codex/unified-ui`, with unchanged
 baselines and measured before/after performance. Current portfolio is 138/144.
