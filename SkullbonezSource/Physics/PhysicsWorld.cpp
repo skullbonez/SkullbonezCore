@@ -378,7 +378,7 @@ void PhysicsWorld::ReserveBodyScratchCapacity( std::size_t bodyCapacity, std::si
 
     m_forceStage.ReserveBodyScratchCapacity( bodyCapacity );
     m_externalForceStage.ReserveBodyCapacity( bodyCapacity );
-    m_broadphase.ReserveSceneCapacity( bodyCapacity );
+    m_broadphase.ReserveSceneCapacity( bodyCapacity, pointJointCapacity );
     m_motionEligibility.ReserveBodyCapacity( bodyCapacity );
     m_narrowphase.ReserveSceneCapacity( bodyCapacity );
     m_contactSolverStage.ReserveSceneCapacity( bodyCapacity, pointJointCapacity );
@@ -1112,14 +1112,13 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     // Sleeping bodies keep cached state until a contact or scene change wakes
     // them, so force integration only runs for awake rows.
-    const Vector3* mutualGravityForces = m_forceStage.PrepareMutualGravityForces( m_profiler, bodyRecords, hotFields, sleepStates, modelCount, worldForces, settings.execution, workerPool );
+    (void)m_forceStage.PrepareMutualGravityForces( m_profiler, bodyRecords, hotFields, sleepStates, modelCount, worldForces, settings.execution, workerPool );
 
 #ifdef SKULLBONEZ_PROFILE_ENABLED
     const int forceAwakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
 #endif
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
-    m_forceStage
-        .ApplyForces( bodyStore, colliderStore, m_terrainView, worldForces, buoyancyFacts, sleepStates, m_timeRemaining, mutualGravityForces, dt, awakeBodyIndices, workerPool, settings.execution );
+    m_forceStage.ApplyForces( bodyStore, colliderStore, m_terrainView, worldForces, buoyancyFacts, sleepStates, m_timeRemaining, dt, awakeBodyIndices, workerPool, settings.execution );
 
     PROFILE_END( "Frame/Physics/ApplyForces" );
 
@@ -1391,6 +1390,18 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     PROFILE_COUNTER( m_profiler, "Counter/Physics/MotionDemotionsThisStep", m_motionEligibility.Stats().demotionsThisStep );
     PROFILE_COUNTER( m_profiler, "Counter/Physics/AngularExpandedBodies", m_motionEligibility.Stats().angularExpandedBodies );
     PROFILE_COUNTER( m_profiler, "Counter/Physics/BroadphaseCandidatePairs", candidatePairCount );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/SweepMovers", m_broadphase.Stats().sweepMovers );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/SweepTargets", m_broadphase.Stats().sweepTargets );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/SweepGeometryBodies", m_broadphase.Stats().sweepGeometryBodies );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/SweepPairProbes", m_broadphase.Stats().sweepPairProbes );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/SweepQueryNodes", m_broadphase.Stats().sweepQueryNodes );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/SweepFullScanMovers", m_broadphase.Stats().sweepFullScanMovers );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/SweepScratchBytes", m_broadphase.Stats().sweepScratchBytes );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/JointEndpointResolutions", m_broadphase.Stats().jointEndpointResolutions );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/JointExclusionKeys", m_broadphase.Stats().jointExclusionKeys );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/GravityPairContributions", m_forceStage.Stats().pairContributions );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/GravityPairBatches", m_forceStage.Stats().pairBatches );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/GravityScratchBytes", m_forceStage.Stats().scratchBytes );
     PROFILE_COUNTER( m_profiler, "Counter/Physics/SweptOverlayCells", m_broadphase.GetSpatialGrid().GetMaintenanceStats().sweptOverlayCellsAdded );
     PROFILE_COUNTER( m_profiler, "Counter/Physics/SweptFallbackBodies", m_broadphase.GetSpatialGrid().GetSweptFallbackBodyCount() );
 

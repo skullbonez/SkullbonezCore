@@ -53,7 +53,7 @@ class Profiler
         return s_active;
     }
     static constexpr int MAX_MARKERS = 192;      // Registry capacity; overflow is a profiling contract bug.
-    static constexpr int MAX_COUNTERS = 16;      // Scalar diagnostic columns carried beside marker timings.
+    static constexpr int MAX_COUNTERS = 32;      // Fixed diagnostic columns, including Physics scale work and scratch counters.
     static constexpr int MAX_WORKER_CORES = 128; // Worker overlay capacity, not a thread-spawn request.
     static constexpr int MAX_DEPTH = 16;         // Nested marker stack depth before begin/end mismatch becomes unsafe.
     static constexpr int RING_SIZE = 600;        // ~10 s @ 60 fps
@@ -66,8 +66,7 @@ class Profiler
     {
         float r, g, b;
     };
-    static constexpr BarColor BAR_PALETTE[BAR_PALETTE_SIZE] = {
-        { 0.90f, 0.30f, 0.30f }, // red
+    static constexpr BarColor BAR_PALETTE[BAR_PALETTE_SIZE] = { { 0.90f, 0.30f, 0.30f }, // red
         { 0.30f, 0.75f, 0.93f }, // sky blue
         { 0.40f, 0.85f, 0.40f }, // green
         { 0.95f, 0.70f, 0.20f }, // amber
@@ -191,8 +190,7 @@ class Profiler
     // one adds to the per-core wall-clock accumulator: nested spans overlap in
     // time, so counting them all would report several times the core's real
     // occupancy.
-    void RecordWorkerSample( const char* fullPath, uint32_t hash, int workerIndex, int64_t startTicks, int64_t endTicks,
-                             bool outermostOnThread, uint64_t frameToken );
+    void RecordWorkerSample( const char* fullPath, uint32_t hash, int workerIndex, int64_t startTicks, int64_t endTicks, bool outermostOnThread, uint64_t frameToken );
     void RecordCounter( const char* fullPath, uint32_t hash, double value );
 
     // Rendering calls these around command recording. Core owns the nested CPU
@@ -327,8 +325,7 @@ class Profiler
 class ProfilerScope
 {
   public:
-    ProfilerScope( Profiler* profiler, const char* fullPath, uint32_t hash )
-        : m_profiler( profiler ), m_fullPath( fullPath ), m_hash( hash )
+    ProfilerScope( Profiler* profiler, const char* fullPath, uint32_t hash ) : m_profiler( profiler ), m_fullPath( fullPath ), m_hash( hash )
     {
         if ( m_profiler )
         {
@@ -395,61 +392,58 @@ class WorkerProfilerScope
 #define PROFILE_PASTE_INNER( a, b ) a##b
 #define PROFILE_PASTE( a, b ) PROFILE_PASTE_INNER( a, b )
 
-#define PROFILE_BEGIN( name )                                                                                               \
-    do                                                                                                                      \
-    {                                                                                                                       \
-        constexpr uint32_t PROFILE_PASTE( _profH_, __LINE__ ) = ::HashStr( name );                                          \
-        auto* PROFILE_PASTE( _profP_, __LINE__ ) = ::SkullbonezCore::Core::Profiler::Active();                              \
-        if ( PROFILE_PASTE( _profP_, __LINE__ ) )                                                                           \
-            PROFILE_PASTE( _profP_, __LINE__ )->Begin( name, PROFILE_PASTE( _profH_, __LINE__ ) );                          \
+#define PROFILE_BEGIN( name )                                                                                                                                                                          \
+    do                                                                                                                                                                                                 \
+    {                                                                                                                                                                                                  \
+        constexpr uint32_t PROFILE_PASTE( _profH_, __LINE__ ) = ::HashStr( name );                                                                                                                     \
+        auto* PROFILE_PASTE( _profP_, __LINE__ ) = ::SkullbonezCore::Core::Profiler::Active();                                                                                                         \
+        if ( PROFILE_PASTE( _profP_, __LINE__ ) )                                                                                                                                                      \
+            PROFILE_PASTE( _profP_, __LINE__ )->Begin( name, PROFILE_PASTE( _profH_, __LINE__ ) );                                                                                                     \
     } while ( 0 )
 
-#define PROFILE_END( name )                                                                                                 \
-    do                                                                                                                      \
-    {                                                                                                                       \
-        constexpr uint32_t PROFILE_PASTE( _profH_, __LINE__ ) = ::HashStr( name );                                          \
-        auto* PROFILE_PASTE( _profP_, __LINE__ ) = ::SkullbonezCore::Core::Profiler::Active();                              \
-        if ( PROFILE_PASTE( _profP_, __LINE__ ) )                                                                           \
-            PROFILE_PASTE( _profP_, __LINE__ )->End( name, PROFILE_PASTE( _profH_, __LINE__ ) );                            \
+#define PROFILE_END( name )                                                                                                                                                                            \
+    do                                                                                                                                                                                                 \
+    {                                                                                                                                                                                                  \
+        constexpr uint32_t PROFILE_PASTE( _profH_, __LINE__ ) = ::HashStr( name );                                                                                                                     \
+        auto* PROFILE_PASTE( _profP_, __LINE__ ) = ::SkullbonezCore::Core::Profiler::Active();                                                                                                         \
+        if ( PROFILE_PASTE( _profP_, __LINE__ ) )                                                                                                                                                      \
+            PROFILE_PASTE( _profP_, __LINE__ )->End( name, PROFILE_PASTE( _profH_, __LINE__ ) );                                                                                                       \
     } while ( 0 )
 
-#define PROFILE_SCOPED( name )                                                                                              \
-    constexpr uint32_t PROFILE_PASTE( _profSH_, __LINE__ ) = ::HashStr( name );                                             \
-    ::SkullbonezCore::Core::ProfilerScope PROFILE_PASTE( _profS_, __LINE__ )( ::SkullbonezCore::Core::Profiler::Active(),   \
-                                                                              name, PROFILE_PASTE( _profSH_, __LINE__ ) )
+#define PROFILE_SCOPED( name )                                                                                                                                                                         \
+    constexpr uint32_t PROFILE_PASTE( _profSH_, __LINE__ ) = ::HashStr( name );                                                                                                                        \
+    ::SkullbonezCore::Core::ProfilerScope PROFILE_PASTE( _profS_, __LINE__ )( ::SkullbonezCore::Core::Profiler::Active(), name, PROFILE_PASTE( _profSH_, __LINE__ ) )
 
-#define PROFILE_WORKER_SCOPED( profiler, name )                                                                             \
-    constexpr uint32_t PROFILE_PASTE( _profWH_, __LINE__ ) = ::HashStr( name );                                             \
-    ::SkullbonezCore::Core::WorkerProfilerScope PROFILE_PASTE( _profW_, __LINE__ )( profiler, name,                         \
-                                                                                    PROFILE_PASTE( _profWH_, __LINE__ ) )
+#define PROFILE_WORKER_SCOPED( profiler, name )                                                                                                                                                        \
+    constexpr uint32_t PROFILE_PASTE( _profWH_, __LINE__ ) = ::HashStr( name );                                                                                                                        \
+    ::SkullbonezCore::Core::WorkerProfilerScope PROFILE_PASTE( _profW_, __LINE__ )( profiler, name, PROFILE_PASTE( _profWH_, __LINE__ ) )
 
-#define PROFILE_COUNTER( profiler, name, value )                                                                            \
-    do                                                                                                                      \
-    {                                                                                                                       \
-        constexpr uint32_t PROFILE_PASTE( _profCH_, __LINE__ ) = ::HashStr( name );                                         \
-        auto* PROFILE_PASTE( _profCP_, __LINE__ ) = ( profiler );                                                           \
-        if ( PROFILE_PASTE( _profCP_, __LINE__ ) )                                                                          \
-            PROFILE_PASTE( _profCP_, __LINE__ )                                                                             \
-                ->RecordCounter( name, PROFILE_PASTE( _profCH_, __LINE__ ), static_cast<double>( value ) );                 \
+#define PROFILE_COUNTER( profiler, name, value )                                                                                                                                                       \
+    do                                                                                                                                                                                                 \
+    {                                                                                                                                                                                                  \
+        constexpr uint32_t PROFILE_PASTE( _profCH_, __LINE__ ) = ::HashStr( name );                                                                                                                    \
+        auto* PROFILE_PASTE( _profCP_, __LINE__ ) = ( profiler );                                                                                                                                      \
+        if ( PROFILE_PASTE( _profCP_, __LINE__ ) )                                                                                                                                                     \
+            PROFILE_PASTE( _profCP_, __LINE__ )->RecordCounter( name, PROFILE_PASTE( _profCH_, __LINE__ ), static_cast<double>( value ) );                                                             \
     } while ( 0 )
 
-#define PROFILE_FRAME_BEGIN( profiler )                                                                                     \
-    do                                                                                                                      \
-    {                                                                                                                       \
-        if ( profiler )                                                                                                     \
-            ( profiler )->FrameBegin();                                                                                     \
+#define PROFILE_FRAME_BEGIN( profiler )                                                                                                                                                                \
+    do                                                                                                                                                                                                 \
+    {                                                                                                                                                                                                  \
+        if ( profiler )                                                                                                                                                                                \
+            ( profiler )->FrameBegin();                                                                                                                                                                \
     } while ( 0 )
-#define PROFILE_FRAME_END( profiler )                                                                                       \
-    do                                                                                                                      \
-    {                                                                                                                       \
-        if ( profiler )                                                                                                     \
-            ( profiler )->FrameEnd();                                                                                       \
+#define PROFILE_FRAME_END( profiler )                                                                                                                                                                  \
+    do                                                                                                                                                                                                 \
+    {                                                                                                                                                                                                  \
+        if ( profiler )                                                                                                                                                                                \
+            ( profiler )->FrameEnd();                                                                                                                                                                  \
     } while ( 0 )
-#define PROFILE_SCHEDULE_RESET( profiler )                                                                                  \
-    do                                                                                                                      \
-    {                                                                                                                       \
-        if ( profiler )                                                                                                     \
-            ( profiler )->ScheduleReset();                                                                                  \
+#define PROFILE_SCHEDULE_RESET( profiler )                                                                                                                                                             \
+    do                                                                                                                                                                                                 \
+    {                                                                                                                                                                                                  \
+        if ( profiler )                                                                                                                                                                                \
+            ( profiler )->ScheduleReset();                                                                                                                                                             \
     } while ( 0 )
 
 #else // SKULLBONEZ_PROFILE_ENABLED

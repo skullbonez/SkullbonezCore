@@ -1,9 +1,13 @@
 # MASTER PLAN
 
-Date: 2026-09-11
-Status: 138/144 tasks complete in the live inventory; RAGDOLL_PHYSICS closed at 10/10; UNIFIED_UI closed at 8/8; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
+Date: 2026-09-12
+Status: 143/151 tasks complete; PHYSICS_SCALE active at 5/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
 
 ## Owner Direction
+
+- On 2026-09-12 the owner activated Physics Scale Optimization for complete
+  execution on `codex/unified-ui`, ahead of PHYSICS_AB. Report measured
+  performance benefit. No baseline modification is allowed.
 
 - On 2026-09-10 the owner directed FP8 and FP9 implementation now on the
   current `codex/unified-ui` branch, ahead of the remaining PHYSICS_AB work.
@@ -462,6 +466,7 @@ completion-ledger artifacts are fabricated.
 
 | Plan | Code | Total | Complete | Next task | File |
 |---|---|---|---|---|---|
+| Physics Scale Optimization | `PHYSICS_SCALE` | 7 | 5 | PS5-PS6: normal performance gate and cumulative evidence | `TODO/physics-scale-optimization.md` |
 | Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
@@ -498,6 +503,9 @@ One detail in that table is recorded:
   disagree with the directory. A review decision should settle which it is.
 
 ## Binding Order
+
+`PHYSICS_SCALE` PS0-PS6 executes first on the current branch, with unchanged
+baselines and measured before/after performance. Current portfolio is 143/151.
 
 `UNIFIED_UI` UU0-UU7 is complete at 8/8.
 `RAGDOLL_PHYSICS` is complete at 10/10. The owner's requested ragdoll-playground
@@ -590,7 +598,7 @@ read-only review passes closed nine matcher, scope, fixture, and metadata
 findings; the final pass is clean. No scanner, fixture, build, test, or
 validation command ran by explicit owner direction.
 Ragdoll Physics is complete at 10/10 and its completed plan is removed. Current
-portfolio progress is 138/144, including the queued six-phase PHYSICS_AB plan.
+portfolio progress is 143/151, including PHYSICS_SCALE and queued PHYSICS_AB.
 Previously completed phases remain represented in the historical count.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.

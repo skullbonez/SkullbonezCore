@@ -2,7 +2,40 @@
 
 Date: 2026-09-12
 Branch: `codex/unified-ui`
-Status: PR 169 follow-up preserves Original displayed geometry and restores full-quality progressive Modified reveal after every changed-vector release. Final preflight, 1,044 tests, full UI, renderer, stress and staged physics gates pass. The canonical replay gate reproduces only the reviewed authored-sleep mismatch; candidate and negative controls pass. The earlier 200-box authored-sleep baseline transition still requires owner approval. Portfolio 138/144 unchanged.
+Status: PHYSICS_SCALE active at 5/7 on the current branch; portfolio 143/151. Complete all seven phases and report measured performance benefit. No baseline modification is allowed.
+
+## Physics Scale Optimization — 2026-09-12
+
+Owner requested complete execution on `codex/unified-ui`. Starting revision
+`16d472bb47bdf27a224327419783639d67ccf325`; user-owned untracked
+`SkullbonezData/scenes/asdasd.scene.json` remains untouched. Pre-change Profile
+artifacts and 136 tracked baseline/golden path hashes are preserved under
+`TestOutput/physics-scale-optimization/`. Sweep geometry/membership, conservative
+spatial queries, joint keys and bounded gravity batches are implemented. The
+normal performance gate now checks all ten workloads with identified inputs,
+complete windows and negative controls. The final three-run matrix passes all ten workloads; targeted improvements are
+50.3% (2000), 92.4% (sleepy 5000), 17.2% (gravity 1024), 39.4% (joints 320).
+Exact reference and multi-tick worker checks pass 97,798 assertions; the complete
+eight-file source-design check passes 58 compile contexts. Independent review
+found four issues; all four have been repaired and independently rechecked.
+No baseline hashes changed. Core 0/repeat/1/4 Physics output matches its unchanged baseline byte-for-byte.
+The exactly-once terminal umbrella passed Physics/preflight, then caught old
+scratch-memory test expectations. Those tests now cover all five new owners;
+all 1,047 active Profile tests pass (3,735,350 assertions; one existing skip).
+DX12 passes. Automation command coverage needs inherited-failure disposition;
+normal perf and hosted portable diagnostics remain outstanding. A 5/7
+implementation checkpoint enables hosted Linux diagnostics.
+The 1,025-body prediction seed/reseed test passes another 165,035 assertions
+and both source-design contexts. Large sweep/gravity allocation guards pass
+with zero gameplay violations. Deep seeded-solver output and the bounded
+diagnostic query packet are byte-identical to the pre-change producer despite
+inherited golden mismatches; the at-rest 600-frame witness is also identical.
+Plan: `Agentic/Plans/TODO/physics-scale-optimization.md`.
+
+The historical work ledger has an unfinished governance goal/task GOV1 owned
+by another session; `start-goal` rejected this run. Preserve that record and
+continue implementation without fabricated usage accounting. The inherited
+200-box authored-sleep replay mismatch remains separate and unchanged.
 
 ## Original and Modified reveal - 2026-09-12
 

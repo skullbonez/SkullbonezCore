@@ -837,13 +837,13 @@
     {
       "path": "SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp",
       "patterns": [
-        "{\"symbol\":\"PhysicsForceStage::PrepareMutualGravityForces\",\"before\":[\"m_mutualGravityForces.capacity(), requiredBodyCapacity );\",\"}\"],\"statement\":\"m_mutualGravityForces.assign( requiredBodyCapacity, ZERO_VECTOR );\",\"after\":[\"const float softeningLength = (std::max)( settings.softeningLength, TOLERANCE );\",\"const float softenedDistanceSq = softeningLength * softeningLength;\"]}"
+        "{\"symbol\":\"PhysicsForceStage::PrepareMutualGravityForces\",\"before\":[\"requiredBodyCapacity );\",\"}\"],\"statement\":\"m_mutualGravityForces.assign( requiredBodyCapacity, ZERO_VECTOR );\",\"after\":[\"const float softeningLength = (std::max)( settings.softeningLength, TOLERANCE );\",\"const float softenedDistanceSq = softeningLength * softeningLength;\"]}"
       ],
       "owner": "PhysicsForceStage bounded mutual-gravity scratch",
       "phase": "scene_load",
-      "reason": "SC3 commits model-order and triangular pair-force storage from exact incoming body count B before steady gameplay; fixed ticks assign only within retained capacity.",
-      "cap": "The body vector is B rows. The parallel path is choose2(min(B, 512)); larger fields through the 8,192-body hard ceiling use exact serial accumulation into body-count scratch.",
-      "removal_or_wrapper_plan": "Replace both vectors with fixed-capacity arrays owned by PhysicsForceStage, then remove this row.",
+      "reason": "Scene load commits body-force and bounded pair scratch; PhysicsFixedList assign checks capacity and never grows during fixed ticks.",
+      "cap": "B body rows (at most 8,192), plus choose2(min(B,512)) 16-byte pair records. Larger parallel fields reuse this unchanged 130,816-record ceiling in whole-row batches.",
+      "removal_or_wrapper_plan": "Retain this exact-site metadata while the STL-shaped assign API is used on checked PhysicsFixedList storage.",
       "match_mode": "exact_finding"
     },
     {
@@ -893,14 +893,14 @@
     {
       "path": "SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp",
       "patterns": [
-        "{\"symbol\":\"AppendCandidatePairIfMissing\",\"before\":[\"candidatePairs.capacity() );\",\"}\"],\"statement\":\"candidatePairs.emplace_back( a, b );\",\"after\":[\"}\",\"bool IsFastSmallSweepBody( const Physics::PhysicsBodyHotFieldsConstView& hotFields,\"]}",
+        "{\"symbol\":\"PhysicsBroadphaseStage::AppendSweepTarget\",\"before\":[\"SB_FATAL( , , m_candidatePairs.size(), m_candidatePairs.capacity() );\",\"}\"],\"statement\":\"m_candidatePairs.emplace_back( a, b );\",\"after\":[\"}\",\"void PhysicsBroadphaseStage::QuerySweepTargets( const BroadphasePairFilter& filter, const PhysicsBodyHotFieldsConstView& hotFields, BroadphaseSweepContactEnvelope envelope, int moving )\"]}",
         "{\"symbol\":\"PhysicsBroadphaseStage::AppendCollisionCellKey\",\"before\":[\"SB_FATAL( , );\",\"}\"],\"statement\":\"m_collisionCellKeys.push_back( collisionCellKey );\",\"after\":[\"}\",\"uint64_t PhysicsBroadphaseStage::CollectDynamicMemoryBytes() const\"]}"
       ],
       "owner": "PhysicsBroadphaseStage bounded candidate and diagnostic output",
       "phase": "startup_preallocation_scene_load",
-      "reason": "The broadphase owner reserves candidate-pair and collision-cell-key storage at construction. Fixed-step appends are bounded by those retained capacities, and the runtime allocation guard rejects accidental growth.",
+      "reason": "Scene load reserves PhysicsFixedList candidate and collision-key storage. Duplicate sweep pairs are rejected before append; the fixed lists reject any append beyond retained capacity.",
       "cap": "Each vector is capped at four rows per 8,192 scene bodies: 32,768 candidate pairs and 32,768 collision-cell keys.",
-      "removal_or_wrapper_plan": "Replace both vectors with fixed-capacity stores owned by PhysicsBroadphaseStage, then remove this row.",
+      "removal_or_wrapper_plan": "Retain exact-site metadata for checked PhysicsFixedList append APIs; no gameplay allocation privilege is granted.",
       "match_mode": "exact_finding"
     },
     {
@@ -3123,6 +3123,18 @@
       "reason": "The first changed velocity allocates a frozen copy of displayed geometry after RequestReplayPredictionReserveGrowth and inside RuntimeReserveAllocationScope. Both vectors reserve their fixed lane capacity before bounded copies. Checkbox-only and normal drawing do not allocate this snapshot.",
       "cap": "One optional snapshot with 24000 ordinary and 3000 priority compact records; shares the existing 960 MiB registered prediction cap and counters. Released on accept, cancel or scene replacement.",
       "removal_or_wrapper_plan": "Keep the allocation scoped to the optional Original path lifetime; replace with an equivalent capped arena if presentation storage changes.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp",
+      "patterns": [
+        "{\"symbol\":\"PhysicsBroadphaseStage::PrepareJointExclusions\",\"before\":[\"std::swap( a, b );\",\"}\"],\"statement\":\"m_jointPairs.emplace_back( a, b );\",\"after\":[\"}\",\"std::sort( m_jointPairs.begin(), m_jointPairs.end() );\"]}"
+      ],
+      "owner": "PhysicsBroadphaseStage joint exclusion keys",
+      "phase": "scene_load",
+      "reason": "ReserveSceneCapacity commits the incoming point-joint count. Each valid joint contributes at most one key before sorting/unique, and PhysicsFixedList rejects capacity overflow without heap growth.",
+      "cap": "At most the scene-reserved point-joint count, bounded by PHYSICS_MAX_BODY_ROWS (8,192 pairs, 65,536 bytes).",
+      "removal_or_wrapper_plan": "Retain exact-site metadata while the checked PhysicsFixedList emplace_back API constructs the per-pass key set.",
       "match_mode": "exact_finding"
     }
   ]
