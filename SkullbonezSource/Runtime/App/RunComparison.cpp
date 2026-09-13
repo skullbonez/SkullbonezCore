@@ -51,6 +51,8 @@ void Run::SyncComparisonWorkspace()
     const bool foreground = ComparisonUiActive();
     if ( foreground == m_comparisonForeground )
     {
+        // Loading a Lab bundle replaces the scene cameras without changing workspace.
+        m_sceneController.Scene().Cameras().SetEditorViewWorkspace( foreground );
         return;
     }
     m_comparisonPanel.CancelInput();
@@ -73,6 +75,7 @@ void Run::SyncComparisonWorkspace()
         cameras.CancelTween();
         cameras.SetPrimaryPose( m_comparisonCamera.eye, m_comparisonCamera.view, m_comparisonCamera.up );
     }
+    cameras.SetEditorViewWorkspace( foreground );
     m_comparisonForeground = foreground;
     if ( foreground && !m_comparison.Active() && !m_comparisonLoad.Pending() && m_comparisonLoad.Error().empty() )
     {
@@ -263,6 +266,11 @@ void Run::FocusComparison()
 void Run::MoveComparisonCamera( float yaw, float pitch, float panX, float panY, float zoom )
 {
     auto& cameras = m_sceneController.Scene().Cameras();
+    if ( cameras.EditorView() != 0 )
+    {
+        cameras.ZoomEditorView( zoom );
+        return;
+    }
     Vector3 eye = cameras.GetCameraTranslation(), pivot = cameras.GetCameraView();
     const auto* selected = m_comparison.Body( 0, m_comparison.Selected(), m_comparison.Tick() );
     if ( !selected )
@@ -304,7 +312,7 @@ void Run::MoveComparisonCamera( float yaw, float pitch, float panX, float panY, 
 }
 void Run::FlyComparisonCamera( float forward, float strafe, float seconds )
 {
-    if ( forward == 0 && strafe == 0 )
+    if ( m_sceneController.Scene().Cameras().EditorView() != 0 || ( forward == 0 && strafe == 0 ) )
     {
         return;
     }

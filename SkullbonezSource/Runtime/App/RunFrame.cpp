@@ -1377,6 +1377,7 @@ void Run::PublishSkarnessFrameState()
         state.presentation.terrainCenterHeight = terrain->GetTerrainHeightAt( 500.0f, 500.0f );
     }
     state.presentation.cameraMode = static_cast<int>( m_camera.mode );
+    state.presentation.editorView = m_sceneController.Scene().Cameras().EditorView();
     state.presentation.cameraModeEnabledMask = RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode, m_sceneController.Scene().SceneEntityCount() );
     const auto cameraPopup = m_operatorUi->CameraPopup();
     state.presentation.cameraPopupBounds = { cameraPopup.bounds.x, cameraPopup.bounds.y, cameraPopup.bounds.w, cameraPopup.bounds.h };

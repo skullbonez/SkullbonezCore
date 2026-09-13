@@ -346,6 +346,7 @@ struct UIFrameSurfaceData
     bool nativeCursorVisible = false;
     const char* runtimeInputModeLabel = "";
     int cameraModeIndex = 0;
+    int editorView = 0;
     uint32_t cameraModeEnabledMask = 0x7Fu;
 };
 

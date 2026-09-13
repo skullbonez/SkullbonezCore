@@ -27,6 +27,14 @@ echo [skarness] Lazy velocity comparison, frozen Original, both choices, and cle
 "%PYTHON_EXE%" "%~dp0validate_velocity_divergence.py" --session TestOutput\skarness\validation\velocity-divergence
 if errorlevel 1 goto fail
 
+echo [skarness] Original and Modified prediction speed and quality...
+"%PYTHON_EXE%" "%~dp0validate_velocity_prediction_speed.py" --session TestOutput\skarness\validation\velocity-speed
+if errorlevel 1 goto fail
+
+echo [skarness] Editor and Solver Lab fixed camera views...
+"%PYTHON_EXE%" "%~dp0validate_editor_views.py" --session TestOutput\skarness\validation\editor-views
+if errorlevel 1 goto fail
+
 echo [skarness] Snapshot, delta, eviction, reset, and Physics correlation state...
 "%PYTHON_EXE%" "%~dp0validate_skarness_state_stream.py" --session TestOutput\validation\skarness\state-stream
 if errorlevel 1 goto fail

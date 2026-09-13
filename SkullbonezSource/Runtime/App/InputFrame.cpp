@@ -2055,7 +2055,17 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
                                        m_inputRouter.RuntimeContext() );
     }
 
+    if ( commands.run.requestedEditorView >= 0 )
+    {
+        SelectEditorCameraView( commands.run.requestedEditorView );
+    }
     ApplyEditorModeCommands( result, keyboardToggleEditorMode, facts, commands );
+    if ( !ComparisonUiActive() && !m_editorTools.Editor().editorModeEnabled && m_operatorUi->PresentationLayout() != UI::GameLayout::LayoutMode::Editor &&
+         m_sceneController.Scene().Cameras().EditorView() != 0 )
+    {
+        // Leaving every editor surface also releases its camera lock.
+        SelectEditorCameraView( 0 );
+    }
     ApplyEditorSceneCommands( result, commands );
     ApplyRuntimePresentationCommands( result, transaction, acceptance );
     ApplyReplayAndPhysicsTuningCommands( commands, transaction, acceptance );
@@ -2101,6 +2111,11 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
         result.enterInteractiveScene = true;
     }
 
+    if ( sceneController.Scene().Cameras().EditorView() != 0 && !ui.BlocksCameraMouse() )
+    {
+        sceneController.Scene().Cameras().ZoomEditorView( -result.editorUnhandledWheelDelta * 0.001f );
+        result.editorUnhandledWheelDelta = 0;
+    }
     const DeviceInputFrame& editorDevice = inputRouter.DeviceFrame();
     const EditorViewportPlacementResult editorPointerResult = editorTools.RouteEditorViewportPlacement( { result.editorUnhandledWheelDelta,
                                                                                                           editorDevice.rightDown,

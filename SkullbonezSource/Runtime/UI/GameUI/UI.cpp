@@ -1433,6 +1433,35 @@ void UIWindowInteractionOwner::DrawPresentedEditorPalette( const InGameUIFrameDa
                            data.surface.screenH );
 }
 
+void UIWindowInteractionOwner::DrawEditorViewGizmo( const InGameUIFrameData& data )
+{
+    if ( !m_presentationEnabled || !( data.editor.editorModeEnabled || m_presentation.preferences.layout == LayoutMode::Editor || m_presentation.workspace == Workspace::SolverLab ) )
+    {
+        return;
+    }
+    const UIPanelScope panelScope( m_frameDrawList, UIPanel::Header );
+    const UIDrawContext draw( data.surface.screenW, data.surface.screenH, m_frameDrawList );
+    const auto& palette = Style::Palette();
+    const auto buttons = EditorViewGizmoRects( m_presentationRects.viewport );
+    const char* labels[] = { "Persp", "Y Top", "X Side", "Z Side" };
+    const float colors[4][3] = { { 0.8f, 0.85f, 0.9f }, { 0.35f, 0.9f, 0.55f }, { 1.0f, 0.4f, 0.4f }, { 0.4f, 0.65f, 1.0f } };
+    draw.BeginLayer();
+    draw.PushClip( m_presentationRects.viewport );
+    for ( int axis = 0; axis < 4; ++axis )
+    {
+        const auto& rect = buttons[axis];
+        if ( rect.w <= 0.0f )
+        {
+            continue;
+        }
+        const auto& fill = data.surface.editorView == axis ? palette.selection : rect.Contains( m_mouseX, m_mouseY ) ? palette.controlHover : palette.window;
+        draw.RoundedRect( rect.x, rect.y, rect.w, rect.h, 5.0f, fill.r, fill.g, fill.b, 0.95f );
+        draw.Outline( rect.x, rect.y, rect.w, rect.h, colors[axis][0], colors[axis][1], colors[axis][2], data.surface.editorView == axis ? 1.0f : 0.45f );
+        draw.Text( rect.x + 7, rect.y + 6, 11, colors[axis][0], colors[axis][1], colors[axis][2], labels[axis] );
+    }
+    draw.PopClip();
+}
+
 void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& data )
 {
     const UIPanelScope panelScope( m_frameDrawList, UIPanel::Header );
@@ -1593,6 +1622,22 @@ void UIWindowInteractionOwner::DrawTooltips( const InGameUIFrameData& data )
             target.hovered = true;
         }
     }
+    if ( target.id == 0 && m_presentationEnabled && !HasOpenPopup() && ( data.editor.editorModeEnabled || m_presentation.preferences.layout == LayoutMode::Editor || solverLab ) )
+    {
+        const auto buttons = EditorViewGizmoRects( m_presentationRects.viewport );
+        const char* help[] = { "Restore perspective and free camera movement.",
+                               "Look straight down Y. Scroll to zoom; rotation and panning are locked.",
+                               "Look along X. Scroll to zoom; rotation and panning are locked.",
+                               "Look along Z. Scroll to zoom; rotation and panning are locked." };
+        for ( int axis = 0; axis < 4; ++axis )
+        {
+            if ( buttons[axis].Contains( m_mouseX, m_mouseY ) )
+            {
+                target = { static_cast<uint32_t>( 180 + axis ), buttons[axis], { help[axis] } };
+                target.hovered = true;
+            }
+        }
+    }
     if ( target.id == 0 && !HasOpenPopup() )
     {
         target = FindToolsTooltip( content );
@@ -1658,6 +1703,7 @@ const UIDrawList& UIWindowInteractionOwner::Draw( const InGameUIFrameData& data 
     {
         DrawPresentedEditorPalette( data );
         DrawDiagnosticLinks( data );
+        DrawEditorViewGizmo( data );
         DrawPresentationHeader( data );
         DrawTooltips( data );
         // Why: every exit path must publish capacity evidence. Hidden,

@@ -539,6 +539,7 @@ void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData,
                                                    editor.velocityEditAngular,
                                                    editor.terrainBrushRadius,
                                                    editor.viewportLookActive };
+    uiData.surface.editorView = m_sceneController.Scene().Cameras().EditorView();
     uiData.surface.transportAlpha = projection.replayHud.scrubberAlpha;
     ProjectOperatorUiInteraction( uiData, interaction );
     ProjectOperatorUiPresentation( uiData, projection.scene, operatorEditorView );

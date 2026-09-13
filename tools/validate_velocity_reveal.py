@@ -71,6 +71,7 @@ def run(session: Path, executable: Path) -> None:
         original = normal["activePath"]
         assert original["records"] > 2400, original
         screenshot("normal")
+        send("replay.set_reveal_speed", rate=1)
         send("replay.set_velocity_edit_enabled", enabled=True)
         _, widget = observe()
         assert widget["activePath"] == original

@@ -140,6 +140,8 @@ class UIWindowInteractionOwner
     UITooltipTarget FindToolsTooltip( const UIRect& content ) const;
     UITooltipTarget FindRenderTooltip() const;
     void DrawPresentationHeader( const InGameUIFrameData& data );
+    void DrawEditorViewGizmo( const InGameUIFrameData& data );
+    bool HandleEditorViewGizmo( const InputControl::UIInputSnapshot& input, bool editorMode, InGameUIInputResult& result );
     void DrawPresentationDocks( const InGameUIFrameData& data );
     void DrawEditorDock( const InGameUIFrameData& data );
     FrameComposition::EditorMiniPaletteLayout PresentedEditorPalette() const;

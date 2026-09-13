@@ -379,3 +379,14 @@ uint32_t ReflectionDisabledMask()
     return 0u;
 }
 } // namespace SkullbonezCore::UI::GameLayout
+
+std::array<SkullbonezCore::UI::UIRect, 4> SkullbonezCore::UI::GameLayout::EditorViewGizmoRects( const UIRect& viewport )
+{
+    if ( viewport.w < 132.0f || viewport.h < 96.0f )
+    {
+        return {};
+    }
+    const float x = viewport.x + 8.0f;
+    const float y = viewport.y + viewport.h - 88.0f;
+    return { UIRect { x + 30, y + 54, 60, 24 }, UIRect { x + 30, y, 60, 24 }, UIRect { x, y + 27, 56, 24 }, UIRect { x + 60, y + 27, 56, 24 } };
+}

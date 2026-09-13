@@ -336,3 +336,11 @@ summary identifies completed, failed, and not-run targets.
 - Git for Windows
 - Python 3.x with Pillow (`py -m pip install Pillow`)
 - Built executable in `Profile\` for render/perf tests or `Debug\` for physics tests
+
+The Skarness Automation gate also runs `validate_velocity_prediction_speed.py`
+for equal Original/Modified reveal settings, full-detail geometry, repeated edits
+and completion timing in the 200-ball space scene. `validate_editor_views.py`
+clicks the shared view gizmo in authored/generated scenes and Solver Lab,
+checks axis-only zoom and locked movement, and verifies Perspective restoration
+and workspace retention. Both write native state and screenshots below
+`TestOutput/skarness/`.

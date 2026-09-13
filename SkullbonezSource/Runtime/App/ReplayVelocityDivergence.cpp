@@ -87,7 +87,8 @@ bool ReplayRuntime::BeginVelocityDivergence( Physics::PhysicsEngine& physics )
     ReplayPrediction& modified = *replacement;
     modified.ApplyDetailModeCommand( { settings.diagnostics.detailMode } );
     modified.SetHorizonSeconds( settings.controls.horizonSeconds );
-    modified.SetRevealRatePreservingCursor( (std::min)( settings.controls.revealSecondsPerSecond, 1.0 ) );
+    // Invariant: comparison changes the vector, not prediction quality or pace.
+    modified.SetRevealRatePreservingCursor( settings.controls.revealSecondsPerSecond );
     // The first changed vector allocates the comparison; simulation waits for release.
     modified.SetGenerationPermitted( false );
     modified.SetEnabled( true );

@@ -230,6 +230,7 @@ class Run
     void FocusComparison();
     void FlyComparisonCamera( float forward, float strafe, float seconds );
     void PickComparisonObject( int x, int y );
+    void SelectEditorCameraView( int axis );
     void MoveComparisonCamera( float yaw, float pitch, float panX, float panY, float zoom );
     EditorToolsOwner m_editorTools; // Retains editor placement, selection, gizmo, and history authority.
     RuntimeTools m_runtimeTools;    // Launcher, manipulator, and transient render feedback.

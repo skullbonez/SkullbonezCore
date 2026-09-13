@@ -96,8 +96,7 @@ TEST_CASE( "Camera: generated demo cycling follows the supplied frame delta" )
 TEST_CASE( "Camera: authored zero up remains the SetAll sentinel" )
 {
     CameraCollection cameras;
-    cameras.AddCamera( Vector3( 1.0f, 2.0f, 3.0f ), Vector3( 1.0f, 2.0f, 2.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR,
-                       0xCA01u );
+    cameras.AddCamera( Vector3( 1.0f, 2.0f, 3.0f ), Vector3( 1.0f, 2.0f, 2.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR, 0xCA01u );
     CHECK( cameras.GetCameraUp() == SkullbonezCore::Math::Vector::ZERO_VECTOR );
 }
 TEST_CASE( "Camera: rounded pole dot remains finite and engages the pitch cap" )
@@ -132,8 +131,7 @@ TEST_CASE( "Camera: zero authored up uses the deterministic world basis for pitc
     CameraMovementSettings settings;
     settings.cameraCollisionThreshold = 0.01f;
     cameras.ApplyMovementSettings( settings );
-    cameras.AddCamera( SkullbonezCore::Math::Vector::ZERO_VECTOR, Vector3( 0.0f, -1.0f, 0.0f ),
-                       SkullbonezCore::Math::Vector::ZERO_VECTOR, 0xCA08u );
+    cameras.AddCamera( SkullbonezCore::Math::Vector::ZERO_VECTOR, Vector3( 0.0f, -1.0f, 0.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR, 0xCA08u );
 
     cameras.RotatePrimary( 0.0f, 0.25f );
 
@@ -158,16 +156,14 @@ TEST_CASE( "Camera input: right and up mouse motion turns free and launcher came
 
     CameraCollection freeCameras;
     freeCameras.ApplyMovementSettings( settings );
-    freeCameras.AddCamera( SkullbonezCore::Math::Vector::ZERO_VECTOR, Vector3( 0.0f, 0.0f, -1.0f ),
-                           Vector3( 0.0f, 1.0f, 0.0f ), 0xCA24u );
+    freeCameras.AddCamera( SkullbonezCore::Math::Vector::ZERO_VECTOR, Vector3( 0.0f, 0.0f, -1.0f ), Vector3( 0.0f, 1.0f, 0.0f ), 0xCA24u );
     freeCameras.RotatePrimary( yaw, pitch );
     CHECK( freeCameras.GetCameraView().x > 0.0f );
     CHECK( freeCameras.GetCameraView().y > 0.0f );
 
     CameraCollection launcherCameras;
     launcherCameras.ApplyMovementSettings( settings );
-    launcherCameras.AddCamera( Vector3( 0.0f, 0.0f, 10.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR,
-                               Vector3( 0.0f, 1.0f, 0.0f ), 0xCA25u );
+    launcherCameras.AddCamera( Vector3( 0.0f, 0.0f, 10.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR, Vector3( 0.0f, 1.0f, 0.0f ), 0xCA25u );
     launcherCameras.SetLockedMode( true );
     launcherCameras.RotatePrimary( yaw, pitch );
     launcherCameras.ApplyPrimaryMovementBuffer();
@@ -183,8 +179,7 @@ TEST_CASE( "Camera: locked dolly clamps the requested endpoint to orbit limits" 
     settings.minViewMag = 2.0f;
     settings.maxViewMag = 12.0f;
     cameras.ApplyMovementSettings( settings );
-    cameras.AddCamera( Vector3( 0.0f, 0.0f, 10.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR, Vector3( 0.0f, 1.0f, 0.0f ),
-                       0xCA09u );
+    cameras.AddCamera( Vector3( 0.0f, 0.0f, 10.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR, Vector3( 0.0f, 1.0f, 0.0f ), 0xCA09u );
     cameras.SetLockedMode( true );
 
     cameras.MovePrimary( Camera::TravelDirection::Forward, 5.0f );
@@ -200,8 +195,7 @@ TEST_CASE( "Camera: locked dolly clamps the requested endpoint to orbit limits" 
 
     CameraCollection recoveryCameras;
     recoveryCameras.ApplyMovementSettings( settings );
-    recoveryCameras.AddCamera( Vector3( 0.0f, 0.0f, 1.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR,
-                               Vector3( 0.0f, 1.0f, 0.0f ), 0xCA0Bu );
+    recoveryCameras.AddCamera( Vector3( 0.0f, 0.0f, 1.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR, Vector3( 0.0f, 1.0f, 0.0f ), 0xCA0Bu );
     recoveryCameras.SetLockedMode( true );
     recoveryCameras.MovePrimary( Camera::TravelDirection::Forward, 0.0f );
     recoveryCameras.ApplyPrimaryMovementBuffer();
@@ -251,8 +245,7 @@ TEST_CASE( "Camera: locked yaw and pitch compose without moving the orbit target
     zeroUpCameras.RotatePrimary( yaw, pitch );
     zeroUpCameras.ApplyPrimaryMovementBuffer();
     CHECK( zeroUpCameras.GetCameraView() == target );
-    CHECK( SkullbonezCore::Math::Vector::Distance( zeroUpCameras.GetCameraTranslation(), target ) ==
-           doctest::Approx( 10.0f ) );
+    CHECK( SkullbonezCore::Math::Vector::Distance( zeroUpCameras.GetCameraTranslation(), target ) == doctest::Approx( 10.0f ) );
 }
 
 TEST_CASE( "Camera: repeated locked rotation recovery never rewrites the target" )
@@ -272,8 +265,7 @@ TEST_CASE( "Camera: repeated locked rotation recovery never rewrites the target"
         cameras.RotatePrimary( 0.137f, pitch );
         cameras.ApplyPrimaryMovementBuffer();
         CHECK( cameras.GetCameraView() == target );
-        CHECK( SkullbonezCore::Math::Vector::Distance( cameras.GetCameraTranslation(), target ) ==
-               doctest::Approx( retainedDistance ).epsilon( 0.0001f ) );
+        CHECK( SkullbonezCore::Math::Vector::Distance( cameras.GetCameraTranslation(), target ) == doctest::Approx( retainedDistance ).epsilon( 0.0001f ) );
     }
 }
 
@@ -339,8 +331,7 @@ TEST_CASE( "Camera: completed terrain-clamped tween retains its published endpoi
     cameras.AddCamera( Vector3( 20.0f, 20.0f, 10.0f ), Vector3( 20.0f, 20.0f, 0.0f ), Vector3( 0.0f, 1.0f, 0.0f ), 0xCA23u );
     cameras.SetCamera();
 
-    cameras.TweenPrimaryToPose( Vector3( 0.0f, 0.0f, 10.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR,
-                                Vector3( 0.0f, 1.0f, 0.0f ) );
+    cameras.TweenPrimaryToPose( Vector3( 0.0f, 0.0f, 10.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR, Vector3( 0.0f, 1.0f, 0.0f ) );
     cameras.SetTweenProgress( 1.0f );
     cameras.SetCamera();
     CHECK( cameras.GetRenderCameraTranslation().y == doctest::Approx( 11.5f ) );
@@ -357,8 +348,7 @@ TEST_CASE( "Camera: completed terrain-clamped tween retains its published endpoi
     cameras.SetLockedMode( true );
     cameras.ApplyPrimaryMovementBuffer();
     CHECK( cameras.GetCameraView() == correctedView );
-    CHECK( SkullbonezCore::Math::Vector::Distance( cameras.GetCameraTranslation(), correctedView ) ==
-           doctest::Approx( correctedDistance ) );
+    CHECK( SkullbonezCore::Math::Vector::Distance( cameras.GetCameraTranslation(), correctedView ) == doctest::Approx( correctedDistance ) );
 }
 
 TEST_CASE( "Scene camera slots: causal detail registration preserves main selection and stays outside demo cycling" )
@@ -376,8 +366,7 @@ TEST_CASE( "Scene camera slots: causal detail registration preserves main select
 
     CHECK( cameras.HasCamera( CAMERA_CAUSAL_DETAIL ) );
     CHECK( cameras.GetSelectedCameraName() == selectedMain );
-    CHECK( std::find( DEMO_CAMERA_CYCLE_SLOTS.begin(), DEMO_CAMERA_CYCLE_SLOTS.end(), CAMERA_CAUSAL_DETAIL ) ==
-           DEMO_CAMERA_CYCLE_SLOTS.end() );
+    CHECK( std::find( DEMO_CAMERA_CYCLE_SLOTS.begin(), DEMO_CAMERA_CYCLE_SLOTS.end(), CAMERA_CAUSAL_DETAIL ) == DEMO_CAMERA_CYCLE_SLOTS.end() );
 }
 
 TEST_CASE( "Camera inspection: saved main slot and visible pose restore after dedicated inspection" )
@@ -472,7 +461,66 @@ TEST_CASE( "Causal camera: destination is prepared before an upright tween start
     REQUIRE( BuildAttachedCameraOrbitPose( follow, target, prepared.pose, 0.55f, -0.2f, orbited ) );
     CHECK( orbited.pose.view == target.position );
     CHECK( orbited.pose.up == up );
-    CHECK( SkullbonezCore::Math::Vector::Distance( orbited.pose.eye, target.position ) ==
-           doctest::Approx( retainedDistance ).epsilon( 0.0001f ) );
+    CHECK( SkullbonezCore::Math::Vector::Distance( orbited.pose.eye, target.position ) == doctest::Approx( retainedDistance ).epsilon( 0.0001f ) );
     CHECK( SkullbonezCore::Math::Vector::Distance( orbited.pose.eye, prepared.pose.eye ) > 1.0f );
+}
+
+TEST_CASE( "Editor camera views: fixed axes allow only bounded zoom and restore perspective" )
+{
+    CameraCollection cameras;
+    const Vector3 eye( 10, 40, 70 ), focus( 1, 2, 3 ), up( 0, 1, 0 );
+    cameras.AddCamera( eye, focus, up, CAMERA_FREE );
+    cameras.SetCamera();
+    for ( int axis = 1; axis <= 3; ++axis )
+    {
+        cameras.SelectEditorView( cameras.GetCameraView(), 100.0f, axis );
+        CHECK( cameras.EditorView() == axis );
+        const Vector3 direction = axis == 1 ? Vector3( 0, 1, 0 ) : axis == 2 ? Vector3( 1, 0, 0 ) : Vector3( 0, 0, 1 );
+        CHECK( cameras.GetRenderCameraTranslation() == focus + direction * 100.0f );
+        CHECK( cameras.GetRenderCameraView() == focus );
+        CHECK( cameras.GetRenderCameraUp() == ( axis == 1 ? Vector3( 0, 0, -1 ) : up ) );
+        cameras.RotatePrimary( 1, 1 );
+        cameras.MovePrimary( Camera::TravelDirection::Left, 500 );
+        cameras.ApplyPrimaryMovementBuffer();
+        cameras.TweenPrimaryToPose( Vector3( 99, 99, 99 ), Vector3( 4, 4, 4 ), up );
+        cameras.SetCamera();
+        CHECK_FALSE( cameras.IsTweening() );
+        CHECK( cameras.GetRenderCameraTranslation() == focus + direction * 100.0f );
+        cameras.ZoomEditorView( -0.5f );
+        CHECK( SkullbonezCore::Math::Vector::Distance( cameras.GetRenderCameraTranslation(), focus ) < 100.0f );
+        CHECK( cameras.GetRenderCameraView() == focus );
+        const Vector3 zoomed = cameras.GetRenderCameraTranslation();
+        cameras.SelectEditorView( cameras.GetCameraView(), 100.0f, 99 );
+        CHECK( cameras.GetRenderCameraTranslation() == zoomed );
+        cameras.SelectEditorView( cameras.GetCameraView(), 100.0f, 0 );
+        CHECK( cameras.GetRenderCameraTranslation() == eye );
+        CHECK( cameras.GetRenderCameraView() == focus );
+        CHECK( cameras.GetRenderCameraUp() == up );
+    }
+}
+
+TEST_CASE( "Editor camera views: workspace axis and zoom are independent and reset with the scene" )
+{
+    CameraCollection cameras;
+    cameras.AddCamera( Vector3( 0, 30, 80 ), Vector3( 0, 0, 0 ), Vector3( 0, 1, 0 ), CAMERA_FREE );
+    cameras.SetCamera();
+    cameras.SelectEditorView( cameras.GetCameraView(), 100.0f, 1 );
+    cameras.ZoomEditorView( 0.5f );
+    const Vector3 sceneEye = cameras.GetCameraTranslation();
+    cameras.SetEditorViewWorkspace( true );
+    CHECK( cameras.EditorView() == 0 );
+    cameras.SetPrimaryPose( Vector3( 100, 100, 100 ), Vector3( 0, 0, 0 ), Vector3( 0, 1, 0 ) );
+    cameras.SetCamera();
+    cameras.SelectEditorView( cameras.GetCameraView(), 100.0f, 2 );
+    const Vector3 labEye = cameras.GetCameraTranslation();
+    cameras.SetEditorViewWorkspace( false );
+    cameras.SetCamera();
+    CHECK( cameras.EditorView() == 1 );
+    CHECK( cameras.GetRenderCameraTranslation() == sceneEye );
+    cameras.SetEditorViewWorkspace( true );
+    cameras.SetCamera();
+    CHECK( cameras.EditorView() == 2 );
+    CHECK( cameras.GetRenderCameraTranslation() == labEye );
+    cameras.Reset();
+    CHECK( cameras.EditorView() == 0 );
 }

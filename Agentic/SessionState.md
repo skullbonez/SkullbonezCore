@@ -1,8 +1,42 @@
 # Session State
 
 Date: 2026-09-13
-Branch: `codex/unified-ui`
-Status: Owner-approved baseline reconciliation complete; canonical gates pass. PR #169 is the clean review destination. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
+Branch: `codex/prediction-speed-editor-views`
+Status: Prediction speed parity and editor axis views complete; focused, native, renderer and replay gates pass. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
+
+## Prediction speed and editor views — 2026-09-13
+
+Modified velocity prediction now retains the selected reveal rate instead of
+silently reducing it to 1x. The 200-ball space regression verifies equal
+20-second horizons, high detail, 2,401 published frames, selected/published/
+rendered target identity, and unchanged Original geometry across two edits.
+The final isolated run completed Original in 2.0 seconds and Modified in 2.9–3.0
+seconds, using 155 versus 164–165 update frames. Changed collision work and
+comparison drawing still affect wall time; there is no separate slow reveal.
+Skarness summary snapshots omit comparison body arrays to avoid measuring
+diagnostic serialization as prediction cost; normal/full detail stays intact.
+
+Every editor viewport and Solve Lab now offers bottom-left Top, X Side,
+Z Side, and Perspective buttons. Axis views frame movable scene content,
+hold focus/orientation, and accept zoom only. Perspective restores the prior
+pose. Scene and Lab retain independent views, scene replacement resets them,
+and leaving every editor surface releases the camera lock. Lab framing uses
+displayed recording positions. Native coverage includes 12 views across space,
+at-rest, demo and Lab, actual edit mode, and a 640x480 Canvas viewport.
+
+Profile tests pass 1,049 active cases / 3,735,127 assertions with one existing
+skip. The complete Skarness gate passes in 510.6 seconds, DX12 in 114.2
+seconds, replay visual fidelity in 358.5 seconds, and repository preflight
+in 117.7 seconds. Progressive normal-detail
+reveal also passes with zero gameplay allocation violations and DX12 errors.
+Native screenshots and state traces are under
+`TestOutput/skarness/editor-views-final/`,
+`TestOutput/skarness/prediction-speed-final/`, and
+`TestOutput/skarness/velocity-reveal-final/`; gate logs use
+`TestOutput/editor-views-*-final.log`.
+No Physics or visual baseline, downward dependency, or replay growth
+privilege changed. The allocation-policy edit only refreshes an existing
+diagnostic statement's surrounding source context.
 
 ## Approved gate repairs — 2026-09-13
 

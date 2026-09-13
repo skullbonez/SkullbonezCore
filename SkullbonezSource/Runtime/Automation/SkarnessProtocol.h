@@ -408,6 +408,7 @@ struct SkarnessFrameState
         float terrainMaximumHeight = 0.0f;
         int cameraMode = 0;
         uint32_t cameraModeEnabledMask = 0;
+        int editorView = 0;
         std::array<float, 4> cameraPopupBounds = {};
         bool cameraPopupOpen = false;
         std::array<float, 4> toolsPopupBounds = {};

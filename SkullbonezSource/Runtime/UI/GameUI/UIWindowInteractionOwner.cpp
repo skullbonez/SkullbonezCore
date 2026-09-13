@@ -2192,6 +2192,37 @@ bool UIWindowInteractionOwner::HandleMemoryOverlayInput( const InputControl::UII
     return inside || active;
 }
 
+bool UIWindowInteractionOwner::HandleEditorViewGizmo( const InputControl::UIInputSnapshot& input, bool editorMode, InGameUIInputResult& result )
+{
+    if ( !m_presentationEnabled || HasOpenPopup() || m_interaction.isDragging || m_interaction.isResizing || m_editorMiniPalettePressActive || m_activeSlider != 0 ||
+         !( editorMode || m_presentation.preferences.layout == LayoutMode::Editor || m_presentation.workspace == Workspace::SolverLab ) )
+    {
+        return false;
+    }
+    const auto buttons = EditorViewGizmoRects( m_presentationRects.viewport );
+    for ( int axis = 0; axis < 4; ++axis )
+    {
+        if ( !buttons[axis].Contains( input.mouseX, input.mouseY ) )
+        {
+            continue;
+        }
+        m_blocksCameraMouse = true;
+        result.unhandledWheelDelta = 0;
+        if ( input.leftPressed && !input.rightDown && !input.middleDown )
+        {
+            result.commands.run.requestedEditorView = axis;
+            if ( m_presentation.workspace == Workspace::Scene && !editorMode )
+            {
+                // Inspect owns the free perspective camera; disable unattended cycling.
+                result.commands.run.requestedCameraMode = 2;
+            }
+            result.commands.ui.userInteracted = true;
+        }
+        return true;
+    }
+    return false;
+}
+
 InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input,
                                                            const SceneNavigationModel& sceneNavigation,
                                                            int screenWidth,
@@ -2282,6 +2313,10 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
             result.unhandledWheelDelta = 0;
             return result;
         }
+    }
+    if ( HandleEditorViewGizmo( input, editorModeEnabled, result ) )
+    {
+        return result;
     }
     if ( HandleEditorDockInput( input, result ) )
     {
