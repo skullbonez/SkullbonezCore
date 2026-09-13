@@ -33,7 +33,11 @@ if errorlevel 1 goto fail
 
 echo [skarness] Editor and Solver Lab fixed camera views...
 "%PYTHON_EXE%" "%~dp0validate_editor_views.py" --session TestOutput\skarness\validation\editor-views
+if errorlevel 1 exit /b 1
+"%PYTHON_EXE%" "%~dp0validate_four_views.py" --session TestOutput\skarness\validation\four-views
 if errorlevel 1 goto fail
+"%PYTHON_EXE%" "%~dp0validate_scene_reset.py" --session "%REPO%\TestOutput\skarness\scene-reset-%RANDOM%"
+if errorlevel 1 exit /b 1
 
 echo [skarness] Snapshot, delta, eviction, reset, and Physics correlation state...
 "%PYTHON_EXE%" "%~dp0validate_skarness_state_stream.py" --session TestOutput\validation\skarness\state-stream

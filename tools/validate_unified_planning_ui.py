@@ -211,7 +211,7 @@ def run(session: Path, commit_fixture: bool = False) -> None:
                     before_blue = latest["replay.cause"]["blueOutlinesVisible"]
                     click(cx+20, cy+ch-66)
                     ui = sample("short-causes-blue")
-                    assert latest["replay.cause"]["blueOutlinesVisible"] != before_blue
+                    assert latest["replay.cause"]["blueOutlinesVisible"] == before_blue
                     capture("short-causes-bottom")
                     send("input.pointer_wheel", x=int(cx+2), y=int(cy+ch/2), wheelDelta=12000)
                     ui = sample("short-causes-top")

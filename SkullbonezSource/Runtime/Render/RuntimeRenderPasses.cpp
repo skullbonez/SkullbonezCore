@@ -1834,6 +1834,14 @@ bool VolumetricPass::Render( const RenderCameraLighting& camera,
         DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Draw" );
         m_volumetricResources.shader->Use();
         BindVolumetricPassParams( *m_volumetricResources.shader, camera.eye, camera.viewProjection, cinematic, m_config.camera.frustumNear, m_config.camera.frustumFar );
+        if ( camera.projection.m[15] == 1.0f )
+        {
+            m_volumetricResources.shader->SetVec4( "uDepthParams",
+                                                   m_config.camera.frustumNear,
+                                                   m_config.camera.frustumFar,
+                                                   -1.0f / camera.projection.m[10],
+                                                   camera.projection.m[14] / camera.projection.m[10] );
+        }
 
         // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
         // depth. The shader uses depth to tell sky pixels from solid geometry so
@@ -1882,7 +1890,8 @@ void TonemapPass::ReleaseGpuResources()
 }
 
 
-void TonemapPass::Render( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+void TonemapPass::Render( const RenderCameraLighting& camera,
+                          const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                           Rendering::Dx12GeometryOwner& renderGeometry,
                           Rendering::Dx12TextureOwner& renderTextures,
                           Rendering::Dx12FrameOwner& renderFrame,
@@ -1931,6 +1940,16 @@ void TonemapPass::Render( const SkullbonezCore::Core::CinematicRenderConfig& cin
                                m_sceneResources.hdrTarget->GetWidth(),
                                m_sceneResources.hdrTarget->GetHeight(),
                                volumetricReady );
+        // Orthographic hardware depth is affine; use the actual pane matrix.
+        // The perspective branch retains its established near/far calculation.
+        if ( camera.projection.m[15] == 1.0f )
+        {
+            m_tonemapResources.shader->SetVec4( "uDepthParams",
+                                                m_config.camera.frustumNear,
+                                                m_config.camera.frustumFar,
+                                                -1.0f / camera.projection.m[10],
+                                                camera.projection.m[14] / camera.projection.m[10] );
+        }
 
         const bool useGraphVolumetric = volumetricReady && graphVolumetric && graphVolumetric->IsValid() && graphVolumetric->shaderResource;
 

@@ -236,5 +236,13 @@ void SkullbonezCore::Runtime::Run::SelectEditorCameraView( int axis )
     const float radius = hasBody ? Math::Vector::Distance( minimum, maximum ) * 0.5f : Math::Vector::Distance( cameras.GetCameraTranslation(), center ) * 0.4f;
     const auto projection = ComparisonUiActive() ? m_comparisonPanel.BuildFrame( m_comparison, m_window.ClientWidth(), m_window.ClientHeight() ).projection : m_window.GetProjectionMatrix();
     const float lens = (std::max)( projection.m[0], projection.m[5] );
-    cameras.SelectEditorView( center, radius * std::sqrt( 1.0f + lens * lens ) * 1.15f, axis );
+    const float distance = radius * std::sqrt( 1.0f + lens * lens ) * 1.15f;
+    if ( axis == -1 )
+    {
+        cameras.ToggleFourViews( center, distance );
+    }
+    else
+    {
+        cameras.SelectEditorView( center, distance, axis );
+    }
 }

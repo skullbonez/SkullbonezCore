@@ -49,9 +49,12 @@ using namespace SkullbonezCore::Rendering;
 
 namespace
 {
-void CheckTransition( const RenderGraphTransitionDesc& transition, uint32_t expectedPassIndex,
-                      RenderGraphResourceHandle expectedResource, RenderGraphNativeResourceToken expectedNativeResource,
-                      RenderGraphResourceAccess expectedBefore, RenderGraphResourceAccess expectedAfter,
+void CheckTransition( const RenderGraphTransitionDesc& transition,
+                      uint32_t expectedPassIndex,
+                      RenderGraphResourceHandle expectedResource,
+                      RenderGraphNativeResourceToken expectedNativeResource,
+                      RenderGraphResourceAccess expectedBefore,
+                      RenderGraphResourceAccess expectedAfter,
                       uint32_t expectedSubresource = RENDER_GRAPH_ALL_SUBRESOURCES )
 {
     CHECK( transition.passIndex == expectedPassIndex );
@@ -62,16 +65,14 @@ void CheckTransition( const RenderGraphTransitionDesc& transition, uint32_t expe
     CHECK( transition.subresource == expectedSubresource );
 }
 
-void CheckUavBarrier( const RenderGraphUavBarrierDesc& barrier, uint32_t expectedPassIndex,
-                      RenderGraphResourceHandle expectedResource, RenderGraphNativeResourceToken expectedNativeResource )
+void CheckUavBarrier( const RenderGraphUavBarrierDesc& barrier, uint32_t expectedPassIndex, RenderGraphResourceHandle expectedResource, RenderGraphNativeResourceToken expectedNativeResource )
 {
     CHECK( barrier.passIndex == expectedPassIndex );
     CHECK( barrier.resource.index == expectedResource.index );
     CHECK( barrier.nativeResource.value == expectedNativeResource.value );
 }
 
-void CheckLifetime( const RenderGraphResourceLifetimeDesc& lifetime, RenderGraphResourceHandle expectedResource,
-                    uint32_t expectedFirstPass, uint32_t expectedLastPass, bool expectedUsed )
+void CheckLifetime( const RenderGraphResourceLifetimeDesc& lifetime, RenderGraphResourceHandle expectedResource, uint32_t expectedFirstPass, uint32_t expectedLastPass, bool expectedUsed )
 {
     CHECK( lifetime.resource.index == expectedResource.index );
     CHECK( lifetime.firstPass == expectedFirstPass );
@@ -80,8 +81,11 @@ void CheckLifetime( const RenderGraphResourceLifetimeDesc& lifetime, RenderGraph
 }
 
 void CheckTransientAllocation( const RenderGraphTransientAllocationDesc& allocation,
-                               RenderGraphResourceHandle expectedResource, uint32_t expectedPoolSlot,
-                               uint32_t expectedFirstPass, uint32_t expectedLastPass, uint32_t expectedDescriptorCount,
+                               RenderGraphResourceHandle expectedResource,
+                               uint32_t expectedPoolSlot,
+                               uint32_t expectedFirstPass,
+                               uint32_t expectedLastPass,
+                               uint32_t expectedDescriptorCount,
                                bool expectedReused )
 {
     CHECK( allocation.resource.index == expectedResource.index );
@@ -126,16 +130,19 @@ void IgnoreRenderGraphCallback( const RenderGraphPassContext& /*context*/ )
 
 void AddContractCallbackPass( RenderGraph& graph, bool enabled )
 {
-    const RenderGraphResourceHandle target = graph.AddExternalResource( "ContractTarget",
-                                                                        RenderGraphResourceAccess::RenderTarget );
+    const RenderGraphResourceHandle target = graph.AddExternalResource( "ContractTarget", RenderGraphResourceAccess::RenderTarget );
     const uint32_t pass = graph.AddPass( "ContractCallback" );
     graph.AddWrite( pass, target, RenderGraphResourceAccess::RenderTarget );
     graph.SetPassCallback<IgnoreRenderGraphCallback>( pass, enabled, "contract" );
 }
 
-void CheckExecutionContract( const RenderGraphExecutionContractResult& result, size_t expectedCallbackPasses,
-                             size_t expectedDeclarationOnlyPasses, size_t expectedNamedEdges, bool expectedNameMatch,
-                             bool expectedCallbacksEnabled, bool expectedValid )
+void CheckExecutionContract( const RenderGraphExecutionContractResult& result,
+                             size_t expectedCallbackPasses,
+                             size_t expectedDeclarationOnlyPasses,
+                             size_t expectedNamedEdges,
+                             bool expectedNameMatch,
+                             bool expectedCallbacksEnabled,
+                             bool expectedValid )
 {
     CHECK( result.callbackPassCount == expectedCallbackPasses );
     CHECK( result.declarationOnlyPassCount == expectedDeclarationOnlyPasses );
@@ -151,8 +158,7 @@ bool RunRenderGraphFatalCase( const char* caseName )
     if ( std::strcmp( caseName, "render-graph-incompatible-same-pass-use" ) == 0 )
     {
         RenderGraph graph;
-        const RenderGraphResourceHandle
-            texture = graph.AddExternalResource( "SamePassTexture", RenderGraphResourceAccess::PixelShaderResource );
+        const RenderGraphResourceHandle texture = graph.AddExternalResource( "SamePassTexture", RenderGraphResourceAccess::PixelShaderResource );
         const uint32_t pass = graph.AddPass( "ImpossiblePass" );
         graph.AddRead( pass, texture, RenderGraphResourceAccess::PixelShaderResource );
         graph.AddWrite( pass, texture, RenderGraphResourceAccess::RenderTarget );
@@ -163,11 +169,8 @@ bool RunRenderGraphFatalCase( const char* caseName )
     if ( std::strcmp( caseName, "render-graph-subresource-state-capacity" ) == 0 )
     {
         RenderGraph graph;
-        const RenderGraphResourceHandle
-            texture = graph.AddExternalResource( "CapacityTexture", RenderGraphResourceAccess::PixelShaderResource );
-        constexpr std::array<uint32_t, RENDER_GRAPH_MAX_SUBRESOURCE_STATES_PER_RESOURCE> SUBRESOURCE_ORDER = { 7u, 0u, 6u,
-                                                                                                               1u, 5u, 2u,
-                                                                                                               4u, 3u };
+        const RenderGraphResourceHandle texture = graph.AddExternalResource( "CapacityTexture", RenderGraphResourceAccess::PixelShaderResource );
+        constexpr std::array<uint32_t, RENDER_GRAPH_MAX_SUBRESOURCE_STATES_PER_RESOURCE> SUBRESOURCE_ORDER = { 7u, 0u, 6u, 1u, 5u, 2u, 4u, 3u };
 
         for ( const uint32_t subresource : SUBRESOURCE_ORDER )
         {
@@ -215,8 +218,7 @@ bool RunRenderGraphFatalCase( const char* caseName )
         return true;
     }
 
-    if ( std::strcmp( caseName, "render-graph-read-capacity" ) == 0 ||
-         std::strcmp( caseName, "render-graph-write-capacity" ) == 0 )
+    if ( std::strcmp( caseName, "render-graph-read-capacity" ) == 0 || std::strcmp( caseName, "render-graph-write-capacity" ) == 0 )
     {
         RenderGraph graph;
         const bool readCapacity = std::strcmp( caseName, "render-graph-read-capacity" ) == 0;
@@ -226,8 +228,7 @@ bool RunRenderGraphFatalCase( const char* caseName )
         for ( size_t index = 0; index < names.size(); ++index )
         {
             std::snprintf( names[index].data(), names[index].size(), "Use%zu", index );
-            const RenderGraphResourceAccess access = readCapacity ? RenderGraphResourceAccess::CopySource
-                                                                  : RenderGraphResourceAccess::CopyDest;
+            const RenderGraphResourceAccess access = readCapacity ? RenderGraphResourceAccess::CopySource : RenderGraphResourceAccess::CopyDest;
             const RenderGraphResourceHandle resource = graph.AddExternalResource( names[index].data(), access );
 
             if ( readCapacity )
@@ -246,9 +247,7 @@ bool RunRenderGraphFatalCase( const char* caseName )
     if ( std::strcmp( caseName, "render-graph-transition-capacity" ) == 0 )
     {
         RenderGraph graph;
-        constexpr std::array<const char*, 9> RESOURCE_NAMES = { "Transition0", "Transition1", "Transition2",
-                                                                "Transition3", "Transition4", "Transition5",
-                                                                "Transition6", "Transition7", "Transition8" };
+        constexpr std::array<const char*, 9> RESOURCE_NAMES = { "Transition0", "Transition1", "Transition2", "Transition3", "Transition4", "Transition5", "Transition6", "Transition7", "Transition8" };
         std::array<RenderGraphResourceHandle, 9> resources;
 
         for ( size_t index = 0; index < resources.size(); ++index )
@@ -316,8 +315,7 @@ TEST_CASE( "Render graph ordinary transitions follow read-before-write declarati
     const RenderGraphNativeResourceToken bNative { 0xB001u };
     const RenderGraphNativeResourceToken cNative { 0xC001u };
     const RenderGraphResourceHandle a = graph.AddExternalResource( "A", RenderGraphResourceAccess::Unknown, aNative );
-    const RenderGraphResourceHandle b = graph.AddExternalResource( "B", RenderGraphResourceAccess::PixelShaderResource,
-                                                                   bNative );
+    const RenderGraphResourceHandle b = graph.AddExternalResource( "B", RenderGraphResourceAccess::PixelShaderResource, bNative );
     const RenderGraphResourceHandle c = graph.AddExternalResource( "C", RenderGraphResourceAccess::Unknown, cNative );
 
     const uint32_t pass0 = graph.AddPass( "P0" );
@@ -332,20 +330,16 @@ TEST_CASE( "Render graph ordinary transitions follow read-before-write declarati
 
     const RenderGraphCompileResult compiled = graph.Compile();
     REQUIRE( compiled.transitions.size() == 3u );
-    CheckTransition( compiled.transitions[0], pass1, a, aNative, RenderGraphResourceAccess::RenderTarget,
-                     RenderGraphResourceAccess::PixelShaderResource );
-    CheckTransition( compiled.transitions[1], pass1, b, bNative, RenderGraphResourceAccess::PixelShaderResource,
-                     RenderGraphResourceAccess::RenderTarget );
-    CheckTransition( compiled.transitions[2], pass1, c, cNative, RenderGraphResourceAccess::RenderTarget,
-                     RenderGraphResourceAccess::CopyDest );
+    CheckTransition( compiled.transitions[0], pass1, a, aNative, RenderGraphResourceAccess::RenderTarget, RenderGraphResourceAccess::PixelShaderResource );
+    CheckTransition( compiled.transitions[1], pass1, b, bNative, RenderGraphResourceAccess::PixelShaderResource, RenderGraphResourceAccess::RenderTarget );
+    CheckTransition( compiled.transitions[2], pass1, c, cNative, RenderGraphResourceAccess::RenderTarget, RenderGraphResourceAccess::CopyDest );
 }
 
 TEST_CASE( "Render graph repeated identical read emits only the first concrete transition" )
 {
     RenderGraph graph;
     const RenderGraphNativeResourceToken nativeResource { 0xD001u };
-    const RenderGraphResourceHandle resource = graph.AddExternalResource( "D", RenderGraphResourceAccess::CopyDest,
-                                                                          nativeResource );
+    const RenderGraphResourceHandle resource = graph.AddExternalResource( "D", RenderGraphResourceAccess::CopyDest, nativeResource );
 
     const uint32_t pass0 = graph.AddPass( "P0" );
     graph.AddRead( pass0, resource, RenderGraphResourceAccess::PixelShaderResource );
@@ -354,8 +348,7 @@ TEST_CASE( "Render graph repeated identical read emits only the first concrete t
 
     const RenderGraphCompileResult compiled = graph.Compile();
     REQUIRE( compiled.transitions.size() == 1u );
-    CheckTransition( compiled.transitions[0], pass0, resource, nativeResource, RenderGraphResourceAccess::CopyDest,
-                     RenderGraphResourceAccess::PixelShaderResource );
+    CheckTransition( compiled.transitions[0], pass0, resource, nativeResource, RenderGraphResourceAccess::CopyDest, RenderGraphResourceAccess::PixelShaderResource );
 }
 
 TEST_CASE( "Render graph untouched external resource emits no transition" )
@@ -363,10 +356,8 @@ TEST_CASE( "Render graph untouched external resource emits no transition" )
     RenderGraph graph;
     const RenderGraphNativeResourceToken unusedNative { 0xE001u };
     const RenderGraphNativeResourceToken depthNative { 0xE002u };
-    const RenderGraphResourceHandle unused = graph.AddExternalResource( "U", RenderGraphResourceAccess::CopySource,
-                                                                        unusedNative );
-    const RenderGraphResourceHandle depth = graph.AddExternalResource( "V", RenderGraphResourceAccess::DepthWrite,
-                                                                       depthNative );
+    const RenderGraphResourceHandle unused = graph.AddExternalResource( "U", RenderGraphResourceAccess::CopySource, unusedNative );
+    const RenderGraphResourceHandle depth = graph.AddExternalResource( "V", RenderGraphResourceAccess::DepthWrite, depthNative );
     CHECK( unused.IsValid() );
 
     const uint32_t pass0 = graph.AddPass( "P0" );
@@ -374,16 +365,14 @@ TEST_CASE( "Render graph untouched external resource emits no transition" )
 
     const RenderGraphCompileResult compiled = graph.Compile();
     REQUIRE( compiled.transitions.size() == 1u );
-    CheckTransition( compiled.transitions[0], pass0, depth, depthNative, RenderGraphResourceAccess::DepthWrite,
-                     RenderGraphResourceAccess::DepthRead );
+    CheckTransition( compiled.transitions[0], pass0, depth, depthNative, RenderGraphResourceAccess::DepthWrite, RenderGraphResourceAccess::DepthRead );
 }
 
 TEST_CASE( "Render graph backbuffer returns to Present after repeated render-target writes" )
 {
     RenderGraph graph;
     const RenderGraphNativeResourceToken nativeResource { 0xF001u };
-    const RenderGraphResourceHandle backbuffer = graph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::Present,
-                                                                            nativeResource );
+    const RenderGraphResourceHandle backbuffer = graph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::Present, nativeResource );
 
     const uint32_t pass0 = graph.AddPass( "P0" );
     graph.AddWrite( pass0, backbuffer, RenderGraphResourceAccess::RenderTarget );
@@ -394,18 +383,15 @@ TEST_CASE( "Render graph backbuffer returns to Present after repeated render-tar
 
     const RenderGraphCompileResult compiled = graph.Compile();
     REQUIRE( compiled.transitions.size() == 2u );
-    CheckTransition( compiled.transitions[0], pass0, backbuffer, nativeResource, RenderGraphResourceAccess::Present,
-                     RenderGraphResourceAccess::RenderTarget );
-    CheckTransition( compiled.transitions[1], pass2, backbuffer, nativeResource, RenderGraphResourceAccess::RenderTarget,
-                     RenderGraphResourceAccess::Present );
+    CheckTransition( compiled.transitions[0], pass0, backbuffer, nativeResource, RenderGraphResourceAccess::Present, RenderGraphResourceAccess::RenderTarget );
+    CheckTransition( compiled.transitions[1], pass2, backbuffer, nativeResource, RenderGraphResourceAccess::RenderTarget, RenderGraphResourceAccess::Present );
 }
 
 TEST_CASE( "Render graph emits one UAV ordering edge per later pass without inventing state changes" )
 {
     RenderGraph graph;
     const RenderGraphNativeResourceToken nativeResource { 0xFA01u };
-    const RenderGraphResourceHandle texture = graph.AddExternalResource( "UavTexture", RenderGraphResourceAccess::Unknown,
-                                                                         nativeResource );
+    const RenderGraphResourceHandle texture = graph.AddExternalResource( "UavTexture", RenderGraphResourceAccess::Unknown, nativeResource );
 
     const uint32_t produce = graph.AddPass( "Produce" );
     graph.AddWrite( produce, texture, RenderGraphResourceAccess::UnorderedAccess );
@@ -424,10 +410,8 @@ TEST_CASE( "Render graph emits one UAV ordering edge per later pass without inve
     CheckUavBarrier( compiled.uavBarriers[0], update, texture, nativeResource );
     CheckUavBarrier( compiled.uavBarriers[1], continueWrite, texture, nativeResource );
     REQUIRE( compiled.transitions.size() == 2u );
-    CheckTransition( compiled.transitions[0], sample, texture, nativeResource, RenderGraphResourceAccess::UnorderedAccess,
-                     RenderGraphResourceAccess::PixelShaderResource );
-    CheckTransition( compiled.transitions[1], writeAgain, texture, nativeResource,
-                     RenderGraphResourceAccess::PixelShaderResource, RenderGraphResourceAccess::UnorderedAccess );
+    CheckTransition( compiled.transitions[0], sample, texture, nativeResource, RenderGraphResourceAccess::UnorderedAccess, RenderGraphResourceAccess::PixelShaderResource );
+    CheckTransition( compiled.transitions[1], writeAgain, texture, nativeResource, RenderGraphResourceAccess::PixelShaderResource, RenderGraphResourceAccess::UnorderedAccess );
     CHECK( graph.DumpText().find( "UavBarriers:" ) != std::string::npos );
     CHECK( graph.DumpText().find( "before pass [1] Update: UavTexture UAV order" ) != std::string::npos );
 }
@@ -436,13 +420,11 @@ TEST_CASE( "Compiled UAV dispatch routes external and transient ordering to thei
 {
     RenderGraph graph;
     const RenderGraphNativeResourceToken nativeResource { 0xFB01u };
-    const RenderGraphResourceHandle external = graph.AddExternalResource( "ExternalUav", RenderGraphResourceAccess::Unknown,
-                                                                          nativeResource );
+    const RenderGraphResourceHandle external = graph.AddExternalResource( "ExternalUav", RenderGraphResourceAccess::Unknown, nativeResource );
     RenderGraphTransientResourceDesc transientDesc = MakeSingleDescriptorTransient();
     transientDesc.descriptors.renderTarget = false;
     transientDesc.descriptors.unorderedAccess = true;
-    const RenderGraphResourceHandle transient = graph.AddTransientResource( "TransientUav", transientDesc,
-                                                                            RenderGraphResourceAccess::Unknown );
+    const RenderGraphResourceHandle transient = graph.AddTransientResource( "TransientUav", transientDesc, RenderGraphResourceAccess::Unknown );
 
     const uint32_t produce = graph.AddPass( "ProduceBoth" );
     graph.AddWrite( produce, external, RenderGraphResourceAccess::UnorderedAccess );
@@ -453,26 +435,27 @@ TEST_CASE( "Compiled UAV dispatch routes external and transient ordering to thei
     const RenderGraphCompileResult compiled = graph.Compile();
 
     size_t externalCallbacks = 0;
-    const size_t externalDispatches = DispatchCompiledUavBarriersForPass( graph, compiled, continueBoth, true,
-                                                                          [&]( const RenderGraphUavBarrierDesc& barrier,
-                                                                               const RenderGraphResourceDesc& resource )
+    const size_t externalDispatches = DispatchCompiledUavBarriersForPass( graph,
+                                                                          compiled,
+                                                                          continueBoth,
+                                                                          true,
+                                                                          [&]( const RenderGraphUavBarrierDesc& barrier, const RenderGraphResourceDesc& resource )
                                                                           {
                                                                               ++externalCallbacks;
-                                                                              CHECK( barrier.resource.index ==
-                                                                                     external.index );
+                                                                              CHECK( barrier.resource.index == external.index );
                                                                               CHECK( resource.external );
-                                                                              CHECK( barrier.nativeResource.value ==
-                                                                                     nativeResource.value );
+                                                                              CHECK( barrier.nativeResource.value == nativeResource.value );
                                                                               return true;
                                                                           } );
     size_t transientCallbacks = 0;
-    const size_t transientDispatches = DispatchCompiledUavBarriersForPass( graph, compiled, continueBoth, false,
-                                                                           [&]( const RenderGraphUavBarrierDesc& barrier,
-                                                                                const RenderGraphResourceDesc& resource )
+    const size_t transientDispatches = DispatchCompiledUavBarriersForPass( graph,
+                                                                           compiled,
+                                                                           continueBoth,
+                                                                           false,
+                                                                           [&]( const RenderGraphUavBarrierDesc& barrier, const RenderGraphResourceDesc& resource )
                                                                            {
                                                                                ++transientCallbacks;
-                                                                               CHECK( barrier.resource.index ==
-                                                                                      transient.index );
+                                                                               CHECK( barrier.resource.index == transient.index );
                                                                                CHECK_FALSE( resource.external );
                                                                                return true;
                                                                            } );
@@ -481,18 +464,14 @@ TEST_CASE( "Compiled UAV dispatch routes external and transient ordering to thei
     CHECK( externalCallbacks == 1u );
     CHECK( transientDispatches == 1u );
     CHECK( transientCallbacks == 1u );
-    CHECK( DispatchCompiledUavBarriersForPass( graph, compiled, produce, true,
-                                               []( const RenderGraphUavBarrierDesc&, const RenderGraphResourceDesc& )
-                                               { return true; } ) == 0u );
+    CHECK( DispatchCompiledUavBarriersForPass( graph, compiled, produce, true, []( const RenderGraphUavBarrierDesc&, const RenderGraphResourceDesc& ) { return true; } ) == 0u );
 }
 
 TEST_CASE( "Render graph divergent numeric states converge in deterministic stored order" )
 {
     RenderGraph graph;
     const RenderGraphNativeResourceToken nativeResource { 0xF101u };
-    const RenderGraphResourceHandle texture = graph.AddExternalResource( "DivergentTexture",
-                                                                         RenderGraphResourceAccess::PixelShaderResource,
-                                                                         nativeResource );
+    const RenderGraphResourceHandle texture = graph.AddExternalResource( "DivergentTexture", RenderGraphResourceAccess::PixelShaderResource, nativeResource );
 
     const uint32_t writeMipFive = graph.AddPass( "WriteMipFive" );
     graph.AddWrite( writeMipFive, texture, RenderGraphResourceAccess::RenderTarget, 5u );
@@ -505,27 +484,19 @@ TEST_CASE( "Render graph divergent numeric states converge in deterministic stor
 
     const RenderGraphCompileResult compiled = graph.Compile();
     REQUIRE( compiled.transitions.size() == 5u );
-    CheckTransition( compiled.transitions[0], writeMipFive, texture, nativeResource,
-                     RenderGraphResourceAccess::PixelShaderResource, RenderGraphResourceAccess::RenderTarget, 5u );
-    CheckTransition( compiled.transitions[1], writeMipTwo, texture, nativeResource,
-                     RenderGraphResourceAccess::PixelShaderResource, RenderGraphResourceAccess::CopyDest, 2u );
-    CheckTransition( compiled.transitions[2], convergeAll, texture, nativeResource, RenderGraphResourceAccess::RenderTarget,
-                     RenderGraphResourceAccess::PixelShaderResource, 5u );
-    CheckTransition( compiled.transitions[3], convergeAll, texture, nativeResource, RenderGraphResourceAccess::CopyDest,
-                     RenderGraphResourceAccess::PixelShaderResource, 2u );
-    CheckTransition( compiled.transitions[4], copyAll, texture, nativeResource,
-                     RenderGraphResourceAccess::PixelShaderResource, RenderGraphResourceAccess::CopySource );
+    CheckTransition( compiled.transitions[0], writeMipFive, texture, nativeResource, RenderGraphResourceAccess::PixelShaderResource, RenderGraphResourceAccess::RenderTarget, 5u );
+    CheckTransition( compiled.transitions[1], writeMipTwo, texture, nativeResource, RenderGraphResourceAccess::PixelShaderResource, RenderGraphResourceAccess::CopyDest, 2u );
+    CheckTransition( compiled.transitions[2], convergeAll, texture, nativeResource, RenderGraphResourceAccess::RenderTarget, RenderGraphResourceAccess::PixelShaderResource, 5u );
+    CheckTransition( compiled.transitions[3], convergeAll, texture, nativeResource, RenderGraphResourceAccess::CopyDest, RenderGraphResourceAccess::PixelShaderResource, 2u );
+    CheckTransition( compiled.transitions[4], copyAll, texture, nativeResource, RenderGraphResourceAccess::PixelShaderResource, RenderGraphResourceAccess::CopySource );
 }
 
 TEST_CASE( "Render graph supports eight active numeric states and rejects the ninth" )
 {
     RenderGraph graph;
     const RenderGraphNativeResourceToken nativeResource { 0xF201u };
-    const RenderGraphResourceHandle texture = graph.AddExternalResource( "CapacityTexture",
-                                                                         RenderGraphResourceAccess::PixelShaderResource,
-                                                                         nativeResource );
-    constexpr std::array<uint32_t, RENDER_GRAPH_MAX_SUBRESOURCE_STATES_PER_RESOURCE> SUBRESOURCE_ORDER = { 7u, 0u, 6u, 1u,
-                                                                                                           5u, 2u, 4u, 3u };
+    const RenderGraphResourceHandle texture = graph.AddExternalResource( "CapacityTexture", RenderGraphResourceAccess::PixelShaderResource, nativeResource );
+    constexpr std::array<uint32_t, RENDER_GRAPH_MAX_SUBRESOURCE_STATES_PER_RESOURCE> SUBRESOURCE_ORDER = { 7u, 0u, 6u, 1u, 5u, 2u, 4u, 3u };
 
     for ( const uint32_t subresource : SUBRESOURCE_ORDER )
     {
@@ -540,30 +511,33 @@ TEST_CASE( "Render graph supports eight active numeric states and rejects the ni
 
     for ( size_t index = 0; index < SUBRESOURCE_ORDER.size(); ++index )
     {
-        CheckTransition( compiled.transitions[index], static_cast<uint32_t>( index ), texture, nativeResource,
-                         RenderGraphResourceAccess::PixelShaderResource, RenderGraphResourceAccess::RenderTarget,
+        CheckTransition( compiled.transitions[index],
+                         static_cast<uint32_t>( index ),
+                         texture,
+                         nativeResource,
+                         RenderGraphResourceAccess::PixelShaderResource,
+                         RenderGraphResourceAccess::RenderTarget,
                          SUBRESOURCE_ORDER[index] );
-        CheckTransition( compiled.transitions[index + SUBRESOURCE_ORDER.size()], convergeAll, texture, nativeResource,
-                         RenderGraphResourceAccess::RenderTarget, RenderGraphResourceAccess::PixelShaderResource,
+        CheckTransition( compiled.transitions[index + SUBRESOURCE_ORDER.size()],
+                         convergeAll,
+                         texture,
+                         nativeResource,
+                         RenderGraphResourceAccess::RenderTarget,
+                         RenderGraphResourceAccess::PixelShaderResource,
                          SUBRESOURCE_ORDER[index] );
     }
 
-    ExpectRuntimeFatalCase( "render-graph-subresource-state-capacity",
-                            { "FATAL[RenderGraph]", "Subresource state capacity exceeded. count=8 capacity=8" } );
+    ExpectRuntimeFatalCase( "render-graph-subresource-state-capacity", { "FATAL[RenderGraph]", "Subresource state capacity exceeded. count=8 capacity=8" } );
 }
 
 TEST_CASE( "Render graph transient lifetimes require non-overlap before compatible aliasing" )
 {
     RenderGraph graph;
-    const RenderGraphResourceHandle unusedExternal = graph.AddExternalResource( "UnusedExternal",
-                                                                                RenderGraphResourceAccess::CopySource );
+    const RenderGraphResourceHandle unusedExternal = graph.AddExternalResource( "UnusedExternal", RenderGraphResourceAccess::CopySource );
     const RenderGraphTransientResourceDesc desc = MakeFullyDescribedTransient();
-    const RenderGraphResourceHandle spanning = graph.AddTransientResource( "Spanning", desc,
-                                                                           RenderGraphResourceAccess::Unknown );
-    const RenderGraphResourceHandle nested = graph.AddTransientResource( "Nested", desc,
-                                                                         RenderGraphResourceAccess::Unknown );
-    const RenderGraphResourceHandle disjoint = graph.AddTransientResource( "Disjoint", desc,
-                                                                           RenderGraphResourceAccess::Unknown );
+    const RenderGraphResourceHandle spanning = graph.AddTransientResource( "Spanning", desc, RenderGraphResourceAccess::Unknown );
+    const RenderGraphResourceHandle nested = graph.AddTransientResource( "Nested", desc, RenderGraphResourceAccess::Unknown );
+    const RenderGraphResourceHandle disjoint = graph.AddTransientResource( "Disjoint", desc, RenderGraphResourceAccess::Unknown );
 
     const uint32_t spanningBegin = graph.AddPass( "SpanningBegin" );
     graph.AddWrite( spanningBegin, spanning, RenderGraphResourceAccess::CopyDest );
@@ -597,10 +571,8 @@ TEST_CASE( "Render graph transient alias compatibility compares every compatibil
 {
     RenderGraph graph;
     const RenderGraphTransientResourceDesc baseDesc = MakeFullyDescribedTransient();
-    const RenderGraphResourceHandle base = graph.AddTransientResource( "Base", baseDesc,
-                                                                       RenderGraphResourceAccess::Unknown );
-    const RenderGraphResourceHandle compatible = graph.AddTransientResource( "Compatible", baseDesc,
-                                                                             RenderGraphResourceAccess::Unknown );
+    const RenderGraphResourceHandle base = graph.AddTransientResource( "Base", baseDesc, RenderGraphResourceAccess::Unknown );
+    const RenderGraphResourceHandle compatible = graph.AddTransientResource( "Compatible", baseDesc, RenderGraphResourceAccess::Unknown );
 
     std::array<RenderGraphTransientResourceDesc, 9> variants;
     variants.fill( baseDesc );
@@ -619,8 +591,7 @@ TEST_CASE( "Render graph transient alias compatibility compares every compatibil
 
     for ( size_t index = 0; index < variants.size(); ++index )
     {
-        variantResources[index] = graph.AddTransientResource( "IncompatibleVariant", variants[index],
-                                                              RenderGraphResourceAccess::Unknown );
+        variantResources[index] = graph.AddTransientResource( "IncompatibleVariant", variants[index], RenderGraphResourceAccess::Unknown );
     }
 
     const uint32_t basePass = graph.AddPass( "Base" );
@@ -646,11 +617,14 @@ TEST_CASE( "Render graph transient alias compatibility compares every compatibil
     for ( size_t index = 0; index < variantResources.size(); ++index )
     {
         const size_t resultIndex = index + 2u;
-        CheckLifetime( compiled.resourceLifetimes[resultIndex], variantResources[index], variantPasses[index],
-                       variantPasses[index], true );
-        CheckTransientAllocation( compiled.transientAllocations[resultIndex], variantResources[index],
-                                  static_cast<uint32_t>( index + 1u ), variantPasses[index], variantPasses[index],
-                                  EXPECTED_DESCRIPTOR_COUNTS[index], false );
+        CheckLifetime( compiled.resourceLifetimes[resultIndex], variantResources[index], variantPasses[index], variantPasses[index], true );
+        CheckTransientAllocation( compiled.transientAllocations[resultIndex],
+                                  variantResources[index],
+                                  static_cast<uint32_t>( index + 1u ),
+                                  variantPasses[index],
+                                  variantPasses[index],
+                                  EXPECTED_DESCRIPTOR_COUNTS[index],
+                                  false );
     }
 
     CHECK( compiled.transientDiagnostics.allocationCount == 11u );
@@ -659,9 +633,7 @@ TEST_CASE( "Render graph transient alias compatibility compares every compatibil
     CHECK( compiled.transientDiagnostics.highWaterResources == 1u );
     CHECK( compiled.transientDiagnostics.highWaterDescriptors == 3u );
 
-    ExpectRuntimeFatalCase( "render-graph-unused-transient",
-                            { "FATAL[RenderGraph]",
-                              "Transient resource must be read or written by at least one pass. resourceIndex=0" } );
+    ExpectRuntimeFatalCase( "render-graph-unused-transient", { "FATAL[RenderGraph]", "Transient resource must be read or written by at least one pass. resourceIndex=0" } );
 }
 
 TEST_CASE( "Render graph fixed stores accept every exact public boundary" )
@@ -695,9 +667,7 @@ TEST_CASE( "Render graph fixed stores accept every exact public boundary" )
     for ( size_t index = 0; index < useResources.size(); ++index )
     {
         std::snprintf( useNames[index].data(), useNames[index].size(), "BoundaryUse%zu", index );
-        const RenderGraphResourceAccess initialAccess = index < RENDER_GRAPH_MAX_PASS_RESOURCE_USES
-                                                            ? RenderGraphResourceAccess::CopySource
-                                                            : RenderGraphResourceAccess::CopyDest;
+        const RenderGraphResourceAccess initialAccess = index < RENDER_GRAPH_MAX_PASS_RESOURCE_USES ? RenderGraphResourceAccess::CopySource : RenderGraphResourceAccess::CopyDest;
         useResources[index] = useGraph.AddExternalResource( useNames[index].data(), initialAccess );
     }
 
@@ -706,8 +676,7 @@ TEST_CASE( "Render graph fixed stores accept every exact public boundary" )
     for ( size_t index = 0; index < RENDER_GRAPH_MAX_PASS_RESOURCE_USES; ++index )
     {
         useGraph.AddRead( usePass, useResources[index], RenderGraphResourceAccess::CopySource );
-        useGraph.AddWrite( usePass, useResources[index + RENDER_GRAPH_MAX_PASS_RESOURCE_USES],
-                           RenderGraphResourceAccess::CopyDest );
+        useGraph.AddWrite( usePass, useResources[index + RENDER_GRAPH_MAX_PASS_RESOURCE_USES], RenderGraphResourceAccess::CopyDest );
     }
 
     CHECK( useGraph.Passes()[usePass].reads.size() == RENDER_GRAPH_MAX_PASS_RESOURCE_USES );
@@ -718,8 +687,7 @@ TEST_CASE( "Render graph fixed stores accept every exact public boundary" )
 TEST_CASE( "Render graph transition output accepts exactly ninety-six rows" )
 {
     RenderGraph graph;
-    constexpr std::array<const char*, 8> RESOURCE_NAMES = { "Transition0", "Transition1", "Transition2", "Transition3",
-                                                            "Transition4", "Transition5", "Transition6", "Transition7" };
+    constexpr std::array<const char*, 8> RESOURCE_NAMES = { "Transition0", "Transition1", "Transition2", "Transition3", "Transition4", "Transition5", "Transition6", "Transition7" };
     std::array<RenderGraphResourceHandle, 8> resources;
 
     for ( size_t index = 0; index < resources.size(); ++index )
@@ -747,10 +715,8 @@ TEST_CASE( "Render graph transition output accepts exactly ninety-six rows" )
 
     const RenderGraphCompileResult compiled = graph.Compile();
     REQUIRE( compiled.transitions.size() == RENDER_GRAPH_MAX_TRANSITIONS );
-    CheckTransition( compiled.transitions[0], 0u, resources[0], {}, RenderGraphResourceAccess::CopySource,
-                     RenderGraphResourceAccess::CopyDest );
-    CheckTransition( compiled.transitions[RENDER_GRAPH_MAX_TRANSITIONS - 1u], 11u, resources[7], {},
-                     RenderGraphResourceAccess::CopyDest, RenderGraphResourceAccess::CopySource );
+    CheckTransition( compiled.transitions[0], 0u, resources[0], {}, RenderGraphResourceAccess::CopySource, RenderGraphResourceAccess::CopyDest );
+    CheckTransition( compiled.transitions[RENDER_GRAPH_MAX_TRANSITIONS - 1u], 11u, resources[7], {}, RenderGraphResourceAccess::CopyDest, RenderGraphResourceAccess::CopySource );
 }
 
 TEST_CASE( "Render graph transient output accepts exactly sixteen allocations" )
@@ -789,22 +755,16 @@ TEST_CASE( "Render graph transient output accepts exactly sixteen allocations" )
 
 TEST_CASE( "Render graph fixed stores reject every first excess row with fatal invariant" )
 {
-    ExpectRuntimeFatalCase( "render-graph-incompatible-same-pass-use",
-                            { "FATAL[RenderGraph]", "Pass declares incompatible overlapping read/write access",
-                              "pass=ImpossiblePass", "resource=SamePassTexture" } );
-    ExpectRuntimeFatalCase( "render-graph-resource-capacity",
-                            { "FATAL[RenderGraph]",
-                              "Resource capacity exceeded while adding external resource. count=24 capacity=24" } );
-    ExpectRuntimeFatalCase( "render-graph-pass-capacity",
-                            { "FATAL[RenderGraph]", "Pass capacity exceeded. count=24 capacity=24" } );
-    ExpectRuntimeFatalCase( "render-graph-read-capacity",
-                            { "FATAL[RenderGraph]", "Pass resource-use capacity exceeded. count=8 capacity=8" } );
-    ExpectRuntimeFatalCase( "render-graph-write-capacity",
-                            { "FATAL[RenderGraph]", "Pass resource-use capacity exceeded. count=8 capacity=8" } );
-    ExpectRuntimeFatalCase( "render-graph-transition-capacity",
-                            { "FATAL[RenderGraph]", "Transition capacity exceeded. count=96 capacity=96" } );
-    ExpectRuntimeFatalCase( "render-graph-transient-allocation-capacity",
-                            { "FATAL[RenderGraph]", "Transient allocation capacity exceeded. count=16 capacity=16" } );
+    ExpectRuntimeFatalCase( "render-graph-incompatible-same-pass-use", { "FATAL[RenderGraph]",
+                                                                         "Pass declares incompatible overlapping read/write access",
+                                                                         "pass=ImpossiblePass",
+                                                                         "resource=SamePassTexture" } );
+    ExpectRuntimeFatalCase( "render-graph-resource-capacity", { "FATAL[RenderGraph]", "Resource capacity exceeded while adding external resource. count=24 capacity=24" } );
+    ExpectRuntimeFatalCase( "render-graph-pass-capacity", { "FATAL[RenderGraph]", "Pass capacity exceeded. count=96 capacity=96" } );
+    ExpectRuntimeFatalCase( "render-graph-read-capacity", { "FATAL[RenderGraph]", "Pass resource-use capacity exceeded. count=8 capacity=8" } );
+    ExpectRuntimeFatalCase( "render-graph-write-capacity", { "FATAL[RenderGraph]", "Pass resource-use capacity exceeded. count=8 capacity=8" } );
+    ExpectRuntimeFatalCase( "render-graph-transition-capacity", { "FATAL[RenderGraph]", "Transition capacity exceeded. count=96 capacity=96" } );
+    ExpectRuntimeFatalCase( "render-graph-transient-allocation-capacity", { "FATAL[RenderGraph]", "Transient allocation capacity exceeded. count=16 capacity=16" } );
 }
 
 TEST_CASE( "Render graph frame execution contract reports every count and validity input" )
@@ -816,8 +776,7 @@ TEST_CASE( "Render graph frame execution contract reports every count and validi
 
     RenderGraph validGraph;
     AddContractCallbackPass( validGraph, true );
-    const RenderGraphResourceHandle validTarget = validGraph.AddExternalResource( "ContractTarget",
-                                                                                  RenderGraphResourceAccess::RenderTarget );
+    const RenderGraphResourceHandle validTarget = validGraph.AddExternalResource( "ContractTarget", RenderGraphResourceAccess::RenderTarget );
     const uint32_t validPresent = validGraph.AddPass( "Present" );
     validGraph.AddWrite( validPresent, validTarget, RenderGraphResourceAccess::Present );
     CheckExecutionContract( validGraph.ValidateFrameExecutionContract( "Present" ), 1u, 1u, 1u, true, true, true );

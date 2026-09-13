@@ -2195,7 +2195,7 @@ bool UIWindowInteractionOwner::HandleMemoryOverlayInput( const InputControl::UII
 bool UIWindowInteractionOwner::HandleEditorViewGizmo( const InputControl::UIInputSnapshot& input, bool editorMode, InGameUIInputResult& result )
 {
     if ( !m_presentationEnabled || HasOpenPopup() || m_interaction.isDragging || m_interaction.isResizing || m_editorMiniPalettePressActive || m_activeSlider != 0 ||
-         !( editorMode || m_presentation.preferences.layout == LayoutMode::Editor || m_presentation.workspace == Workspace::SolverLab ) )
+         !( m_presentedFourViews || editorMode || m_presentation.preferences.layout == LayoutMode::Editor || m_presentation.workspace == Workspace::SolverLab ) )
     {
         return false;
     }
@@ -2361,6 +2361,14 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
     if ( m_presentationEnabled && !popupWasOpen && m_presentationRects.header.Contains( m_mouseX, m_mouseY ) && m_activeSlider == 0 && !m_interaction.isDragging && !m_interaction.isResizing &&
          !ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab ) )
     {
+        if ( input.leftPressed && ComputeHeaderRects( m_presentationRects.header, m_presentation.workspace ).fourViews.Contains( m_mouseX, m_mouseY ) )
+        {
+            result.commands.run.toggleFourViews = true;
+            if ( m_presentation.workspace == Workspace::Scene && !editorModeEnabled )
+            {
+                result.commands.run.requestedCameraMode = 2;
+            }
+        }
         // Presentation clicks do not enter the interactive scene or mutate
         // simulation state. The router still observes mouse capture below.
         result.unhandledWheelDelta = 0;

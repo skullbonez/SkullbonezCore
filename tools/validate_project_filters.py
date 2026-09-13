@@ -69,7 +69,6 @@ JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
         "Runtime/Planning/PhysicsComparison.Persistence.cpp",
         "Runtime/Planning/PhysicsComparison.Diagnostics.cpp",
         "Runtime/Scene/SceneController.Load.cpp",
-        "Runtime/Scene/SceneController.Creation.cpp",
         "Runtime/App/StartupLaunchApplication.cpp",
         "Scene/AuthoredSceneParser.cpp",
         "Scene/AuthoredSceneParserAssets.cpp",

@@ -255,6 +255,7 @@ struct RuntimeMouseEdges
     bool rightDown = false;
     bool rightPressed = false;
     bool rightReleased = false;
+    bool middlePressed = false;
 };
 
 struct RuntimeCameraInputFrameResult
@@ -308,8 +309,7 @@ class InputController
         return supportingSurface + clearance;
     }
 
-    static float ResolvePassiveCameraY( float currentY, float terrainHeight, float fluidSurfaceHeight, float clearance,
-                                        float maximumY ) noexcept
+    static float ResolvePassiveCameraY( float currentY, float terrainHeight, float fluidSurfaceHeight, float clearance, float maximumY ) noexcept
     {
         const float minimumY = ResolvePassiveCameraMinimumY( terrainHeight, fluidSurfaceHeight, clearance );
         float resolvedY = currentY < minimumY ? minimumY : currentY;
@@ -322,10 +322,8 @@ class InputController
         return resolvedY;
     }
 
-    static void BeginFrame( RuntimeInputContext& context, const RuntimeInputModeState& modeState, bool appFocused,
-                            bool uiBlocksKeyboard, bool uiBlocksMouse );
-    static void ApplyModeAction( RuntimeInputContext& context, RuntimeInputMode mode, RuntimeInputAction action,
-                                 RuntimeInputActionSource source );
+    static void BeginFrame( RuntimeInputContext& context, const RuntimeInputModeState& modeState, bool appFocused, bool uiBlocksKeyboard, bool uiBlocksMouse );
+    static void ApplyModeAction( RuntimeInputContext& context, RuntimeInputMode mode, RuntimeInputAction action, RuntimeInputActionSource source );
     static RuntimeInputMode ResolveMode( const RuntimeInputModeState& state );
     static void ResetUnfocusedInput( CameraControlState& camera );
     static void ResetMouseLook( CameraControlState& camera );
@@ -334,10 +332,8 @@ class InputController
     {
         return -static_cast<float>( screenDeltaPixels ) * radiansPerPixel;
     }
-    static RuntimeCameraInputFrameResult ApplyCameraInputFrame( CameraControlState& camera, bool appFocused,
-                                                                bool cameraMouseLookActive, bool mouseLookOwnsCursor,
-                                                                bool cameraKeyboardControlsActive,
-                                                                const DeviceInputFrame& deviceFrame );
+    static RuntimeCameraInputFrameResult
+    ApplyCameraInputFrame( CameraControlState& camera, bool appFocused, bool cameraMouseLookActive, bool mouseLookOwnsCursor, bool cameraKeyboardControlsActive, const DeviceInputFrame& deviceFrame );
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

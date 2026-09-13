@@ -59,6 +59,7 @@ enum class SkarnessCommandType : uint8_t
     PhysicsSpeculativeValidation,
     EditorSetTerrainBrush,
     SceneSave,
+    SceneCreate,
     SceneLoad,
     SceneReset,
     SceneLoadDemo,
@@ -244,6 +245,7 @@ struct SkarnessCapability
 // parsers, and mechanical coverage tests join on these stable command names.
 inline constexpr std::array SKARNESS_CAPABILITIES = { SkarnessCapability { "editor.set_terrain_brush", "Editor", "{enabled:bool}" },
                                                       SkarnessCapability { "scene.save", "Scene", "{}" },
+                                                      SkarnessCapability { "scene.create", "Scene", "{name:string}" },
                                                       SkarnessCapability { "input.file_dialog_response",
                          "Automation",
                          "{purpose:comparison.open|comparison.save|replay.load|terrain.import,accepted:bool,path?:string}",
@@ -409,6 +411,15 @@ struct SkarnessFrameState
         int cameraMode = 0;
         uint32_t cameraModeEnabledMask = 0;
         int editorView = 0;
+        bool fourViews = false;
+        int activeEditorPane = 3;
+        std::array<float, 4> headerFourViewsBounds {};
+        std::array<float, 4> editorCanvasBounds {};
+        std::array<std::array<float, 4>, 4> editorPaneBounds {};
+        std::array<std::array<float, 3>, 4> editorPaneEyes {};
+        std::array<std::array<float, 3>, 4> editorPaneFocus {};
+        std::array<std::array<float, 3>, 3> editorAxes {};
+        std::array<bool, 4> editorPaneOverlayRendered {};
         std::array<float, 4> cameraPopupBounds = {};
         bool cameraPopupOpen = false;
         std::array<float, 4> toolsPopupBounds = {};

@@ -104,6 +104,8 @@ class RuntimeRenderer
         bool replayFocusFadeActive = false;
         const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
         bool cinematicRequested = false;
+        RECT viewport {};
+        bool clearBackbuffer = true;
     };
 
     struct OverlayFrameSubmission

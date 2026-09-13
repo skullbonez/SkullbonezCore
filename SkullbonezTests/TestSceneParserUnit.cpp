@@ -1041,3 +1041,18 @@ TEST_CASE( "AuthoredSceneParser: joint softness has an explicit version boundary
         CHECK_FALSE( TryLoadAuthoredScene( diagnostics, file.path, scene ) );
     }
 }
+
+TEST_CASE( "Editable starter definitions are constructed without scene files" )
+{
+    const auto flat = AuthoredScene::CreateEditableStarter();
+    CHECK( flat.IsEditableScene() );
+    CHECK( flat.IsPhysicsEnabled() );
+    CHECK( flat.IsFixedStep() );
+    CHECK( flat.GetFrameCount() == -1 );
+    CHECK( flat.GetFlatBaseY() == 30.0f );
+    CHECK( flat.HeightMapPath().empty() );
+    REQUIRE( flat.GetCameraCount() == 1 );
+    CHECK( flat.GetCamera( 0 ).m_position.y == 120.0f );
+    const auto imported = AuthoredScene::CreateEditableStarter( "not-written/height-map.png" );
+    CHECK( imported.HeightMapPath() == "not-written/height-map.png" );
+}

@@ -2,7 +2,93 @@
 
 Date: 2026-09-13
 Branch: `codex/prediction-speed-editor-views`
-Status: Prediction speed parity and editor axis views complete; focused, native, renderer and replay gates pass. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
+Status: Four-view editor, camera clipping, Replay controls, Finite Element branding and authored reset/explicit-save fixes implemented; terminal validation complete; branch publication and PR preparation in progress. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
+
+## Authored reset and explicit scene saves - 2026-09-13
+
+R now restores the current Physics-authored descriptors in place, retaining
+newly placed objects, IDs, selection, terrain edits and camera panes. It resets
+simulation/replay clocks and clears transient prediction interactions without
+reloading the scene file or advancing its generation. Reset Defaults retains
+its separate reload behavior. Entering Edit shares the same authored restore.
+
+New creates an in-memory editable draft; no starter scene file is written.
+Explicit Save publishes it. Switching scenes or exiting discards later unsaved
+changes without writing them. Draft queue slots retain stable indices; inactive
+paths are retired after successful replacement. Skarness create/reset/save
+receipts complete after the actual operation, including exact rejection of
+requests displaced by queue arbitration or a failed earlier transition.
+
+The adversarial review checked draft failure paths, receipt ordering, ownership,
+camera/selection preservation and replay dependencies. No remaining material
+blocker was found after retaining a failed draft's queue identity until it can
+be retired. Only cold SceneLoad and Diagnostics allocation entries changed;
+no Replay growth privilege was added. JSON boundary metadata no longer names
+scene creation, since it constructs a definition without serialization.
+
+Native evidence: TestOutput/skarness/reset-compass-final verifies placed poses,
+IDs/count, unchanged scene generation, selection/four-view preservation, explicit
+Save, reload discard and no write on exit. terrain-reset-final covers flat/import
+creation, sculpting, retained terrain on reset and unchanged height-map reuse.
+reset-final3 state-stream and editor-velocity checks pass; reset-commands-final
+passes the complete capability catalog and command routes. All 1,054 C++ cases /
+3,737,430 assertions pass (one skipped). Source design passes 54 sources / 448
+contexts; final compass winding changes receive an additional focused check.
+
+## Four editor views and follow-up fixes - 2026-09-13
+
+The top-right 4 Views toggle presents Top, X Side, Z Side and Perspective
+in Scene and Solver Lab. The original full-screen pose is restored when it is
+disabled. Each workspace retains its own pane poses. No additional scene
+cameras are registered. The bottom-left compass tracks the actual rendered
+orientation, including the existing 200 ms eased single-view transition.
+Right-drag pans axis views within their plane; the wheel zooms along the view
+normal. Perspective controls retain their existing behavior. Captured drags
+stay with their starting pane across dividers.
+
+App prepares simulation, model data and prediction publication once, then
+submits the same overlay packet to all panes. Orthographic post-processing
+uses linear depth. The fitted depth envelope stays centered on the scene
+while zoom moves the camera, so elevated objects do not disappear when the
+Top eye passes them. Lab picking uses that near plane, and vertical terrain
+picking intersects the height field directly.
+
+Blue prediction outlines and Grey resting outlines now live in the scrollable
+Replay pane, with clipped matching input and tooltips. Cause retains evidence
+inspection and no longer handles those visibility clicks. Finite Element skull
+geometry is shared by native logo drawing and the nine embedded Windows ICO
+sizes through tools/generate_app_icon.py; the PNG is an export of that mesh.
+
+Terminal adversarial review found no remaining material blockers after fixes
+for workspace restoration, Canvas gizmo input, same-mode Inspect clearing a
+prediction, orthographic fog depth and camera picking. Its five ownership
+answers are clear; no downward Replay dependency or growth privilege was added.
+Runtime allocation checks exposed transient metadata vector growth and Skarness
+comparison reply strings. The former now uses fixed arrays bounded by graph
+allocation capacity; the latter has a Diagnostics scope after the actual action.
+The allocation allowlist removes the vector entries and describes only the
+fixed-list lexical false positives.
+
+Native evidence: reset-final-validate_four_views has 20 passing native checks including
+close Top visibility/picking, Original and Modified pixels in all four panes,
+shared target identity, Lab picking, drag capture, workspace restoration,
+odd-size resizing and cinematic rendering, with the allocation guard passing.
+editor-views-final-pan passes 12 original camera-view cases. causal-outline-final
+passes the moved outline controls with unchanged prediction identity/data and
+inspected pixels. Profile and Automation embed all nine exact ICO resolutions.
+All 1,054 unit cases / 3,737,430 assertions pass; source design passes 54 sources /
+448 contexts plus the final compass check, and allocation/dependency/plain-language checks pass. All 17 required native UI cases and the DX12 renderer gate pass. Performance and final DX12 closure pass. The canonical perf gate now isolates
+its fresh default Canvas preferences; the old gate used the user's open Editor
+panels. A matched pre-feature/current Editor comparison independently passes
+all existing relative and absolute budgets (Frame +4.2%, UI +11.0%, UI/Draw
++18.7%). The original thresholds and baselines are unchanged. One-minute
+graphics stress passes 131/131 descriptor changes with baseline/current 20;
+PID timeout shutdown produces no final memory JSON. The mandatory physics
+worker matrix 0/0-repeat/1/4 matches the unchanged 44,401-line reference exactly.
+Final logs: four-views-perf-pinned-final, four-views-dx12-final,
+four-views-physics-gate-final, scene-reset-tests-final-2 and scene-reset-design-final.
+The isolated commit checkout has the same staged tree and omits user files.
+No golden baselines changed. simon.scene.json is user-owned and excluded.
 
 ## Editor view transitions — 2026-09-13
 

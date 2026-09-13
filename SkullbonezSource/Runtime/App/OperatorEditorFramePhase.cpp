@@ -540,6 +540,15 @@ void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData,
                                                    editor.terrainBrushRadius,
                                                    editor.viewportLookActive };
     uiData.surface.editorView = m_sceneController.Scene().Cameras().EditorView();
+    uiData.surface.fourViews = m_sceneController.Scene().Cameras().FourViews();
+    uiData.surface.activeEditorPane = m_sceneController.Scene().Cameras().ActiveEditorPane();
+    const auto& editorViewMatrix = m_sceneController.Scene().Cameras().GetViewMatrix();
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        // The compass uses the rendered basis, including intermediate tween
+        // samples and roll, rather than the selected destination's orientation.
+        uiData.surface.editorAxes[axis] = { editorViewMatrix.m[axis * 4], -editorViewMatrix.m[axis * 4 + 1], editorViewMatrix.m[axis * 4 + 2] };
+    }
     uiData.surface.transportAlpha = projection.replayHud.scrubberAlpha;
     ProjectOperatorUiInteraction( uiData, interaction );
     ProjectOperatorUiPresentation( uiData, projection.scene, operatorEditorView );

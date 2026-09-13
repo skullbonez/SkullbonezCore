@@ -442,7 +442,6 @@ struct ReplayCauseInspectorLayout
     UI::UIRect drawerToggle;
     std::array<UI::UIRect, 3> tabs;
     UI::UIRect content;
-    std::array<UI::UIRect, 2> outlineToggles;
     UI::UIRect rawTable;
     UI::UIRect rawCopy;
     UI::UIRect iterationsTable;
@@ -530,6 +529,7 @@ class ReplayCauseInspection
     void SetDrawerOpen( bool open, double nowSeconds ) noexcept;
     void SetShellPresentation( bool enabled, const UI::UIRect& bounds, const UI::UIRect& viewport = {} ) noexcept;
     void SetActiveTab( ReplayCauseInspectorTab tab ) noexcept;
+    void ToggleOutlineVisibility( bool resting ) noexcept;
     void SetSummaryExpandedSections( int section ) noexcept;
     bool CopySelectedRecord( char* destination, std::size_t destinationCapacity ) const noexcept;
     bool TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree,

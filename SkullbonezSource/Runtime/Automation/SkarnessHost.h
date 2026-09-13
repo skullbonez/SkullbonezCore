@@ -30,6 +30,8 @@ class SkarnessHost
     void CompleteCommand( const std::string& requestId, bool applied, const char* reason = nullptr );
     void CompleteCommand( const std::string& requestId, bool applied, const SkarnessCommandResult& result, const char* reason = nullptr );
     bool BeginSceneTransition( const std::string& requestId, uint64_t sourceGeneration, const char* expectedScenePath, bool expectDemo );
+    uint64_t BeginSceneRequest( const std::string& requestId );
+    void CompleteSceneRequest( uint64_t token, bool applied );
     uint64_t BeginCapture( const std::string& requestId );
     void CompleteCapture( uint64_t token, bool applied, const char* reason = nullptr );
     bool TakePointerInputFrame( SkarnessPointerInputFrame& outFrame );
@@ -148,6 +150,8 @@ class SkarnessHost
     std::deque<std::string> m_recentRequestIds;
     std::deque<CompletedRequest> m_completedRequests;
     PendingSceneTransition m_pendingSceneTransition;
+    std::string m_pendingSceneRequestId;
+    uint64_t m_sceneRequestToken = 0;
     PendingPointerDrag m_pendingPointerDrag;
     // Stationary synthetic position for hover testing; scripted gestures take
     // priority. InputRouter still owns all resulting focus and capture state.

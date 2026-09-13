@@ -188,21 +188,25 @@ class SceneController : public SceneSession
                              SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                              const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic );
 
-    SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveSnapshot& snapshot ) const;
+    SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveSnapshot& snapshot );
+    SkullbonezCore::Core::SbResult ReadCurrentDefinition( const Assets::AssetSystem& assets, AuthoredScene& scene ) const;
+    void CompleteDraftActivation();
+    bool CurrentSceneIsUnsaved() const;
 
     // Scene request submission and ordered batch execution stay owner-specific;
     // SceneRequestExecution.cpp consumes the fixed pending batch.
     void SubmitLoadBrowserIndex( int index );
     void SubmitLoadDemoScene();
-    void SubmitResetCurrentScene( bool preserveUIState = true, bool suppressExitOnComplete = true, bool preserveRuntimeState = true );
-    SkullbonezCore::Core::SbResult SubmitCreateScene( const char* requestedName, bool importHeightMap = false );
+    void SubmitResetCurrentScene( bool preserveUIState = true, bool suppressExitOnComplete = true, bool preserveRuntimeState = true, uint64_t completionToken = 0 );
+    SkullbonezCore::Core::SbResult SubmitCreateScene( const char* requestedName, bool importHeightMap = false, uint64_t completionToken = 0 );
     SceneLoadRequest CreateScene( const char* requestedName, const char* heightMap = nullptr );
-    void SubmitSaveCurrentDefaults();
+    void SubmitSaveCurrentDefaults( uint64_t completionToken = 0 );
     SceneUICommandSubmissionResult SubmitUIRequests( const UI::UISceneCommands& commands );
 
     // Reports whether the next checkpoint can replace the scene so App can
     // clear its sibling owners before entering the load transaction.
     bool HasPendingTransition() const;
+    bool HasPendingReplacement() const;
     SceneRequestBatch TakePendingRequests();
 
   private:
@@ -210,7 +214,14 @@ class SceneController : public SceneSession
     SceneRequestQueue m_requests;         // Fixed scene-only deferred intent ring.
     int m_perfPass = 0;                   // Scene navigation pass index for two-pass performance captures.
     bool m_crossScenePauseLocked = false; // Operator scene-flow lock preserved across load transactions.
-    SceneWorld m_world;                   // Concrete active-scene domain owner; no lifecycle reach-back.
+    struct SceneDraft
+    {
+        int index = -1;
+        std::string heightMap;
+    };
+    SceneDraft m_activeDraft;
+    SceneDraft m_pendingDraft;
+    SceneWorld m_world; // Concrete active-scene domain owner; no lifecycle reach-back.
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

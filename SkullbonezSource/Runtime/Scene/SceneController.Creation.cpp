@@ -1,43 +1,13 @@
-/*
-File: SkullbonezSource/Runtime/Scene/SceneController.Creation.cpp
-Purpose:
-  Implements SceneController-owned authored-scene creation.
-
-Summary:
-  Creating a scene is SceneController policy: sanitize a user-facing name, create
-  a deterministic starter scene, append the path to the scene queue, and ask
-  the caller to load it interactively. UI refresh is a returned consumer effect.
-
-Glossary:
-  Starter scene: Minimal `.scene.json` written for a newly created editable
-    scene.
-  Sanitized filename: User-provided scene name reduced to a bounded safe file
-    stem.
-  Scene queue action: Control intent returned so Run loads the new file.
-
-Invariants:
-  - Starter scene JSON shape and field names are user-facing compatibility
-    surface.
-  - Generated filenames stay limited to the existing 48-character sanitized
-    base plus numeric suffix behavior.
-
-Related:
-  - SkullbonezSource/Runtime/Scene/SceneController.h
-  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
-*/
+// Scene creation reserves an in-memory draft. Only explicit Save writes its path.
 #include "SceneController.h"
+#include "../../Scene/AuthoredScene.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/WindowConstants.h"
 #include "../../Core/Common.h"
 #include "../../Core/Log.h"
 
-#pragma warning( push, 0 )
-#include "../../../ThirdPtySource/nlohmann/json.hpp"
-#pragma warning( pop )
-
 #include <cstdio>
 #include <filesystem>
-#include <fstream>
 #include <string>
 
 namespace SkullbonezCore
@@ -46,8 +16,6 @@ namespace Runtime
 {
 namespace
 {
-using Json = nlohmann::ordered_json;
-
 bool IsSceneNameChar( char value )
 {
     return ( value >= 'a' && value <= 'z' ) || ( value >= 'A' && value <= 'Z' ) || ( value >= '0' && value <= '9' ) || value == '-' || value == '_';
@@ -102,13 +70,13 @@ std::string NormalizeScenePathForCreate( const std::string& path )
     return normalized;
 }
 
-std::filesystem::path UniqueScenePath( const std::filesystem::path& sceneDir, const std::string& baseName, std::error_code& error )
+std::filesystem::path UniqueScenePath( const std::filesystem::path& sceneDir, const std::string& baseName, std::error_code& error, const SceneController& controller )
 {
     // Recoverable error: directory probing is editor-authored IO. Preserve filesystem
     // errors for the caller instead of invoking a throwing overload.
     std::filesystem::path candidate = sceneDir / ( baseName + ".scene.json" );
 
-    if ( !std::filesystem::exists( candidate, error ) )
+    if ( !std::filesystem::exists( candidate, error ) && controller.FindNormalizedPath( NormalizeScenePathForCreate( candidate.generic_string() ) ) < 0 )
     {
         return error ? std::filesystem::path() : candidate;
     }
@@ -119,53 +87,13 @@ std::filesystem::path UniqueScenePath( const std::filesystem::path& sceneDir, co
         std::snprintf( numberedName, sizeof( numberedName ), "%s_%02d.scene.json", baseName.c_str(), suffix );
         candidate = sceneDir / numberedName;
 
-        if ( !std::filesystem::exists( candidate, error ) )
+        if ( !std::filesystem::exists( candidate, error ) && controller.FindNormalizedPath( NormalizeScenePathForCreate( candidate.generic_string() ) ) < 0 )
         {
             return error ? std::filesystem::path() : candidate;
         }
     }
 
     return std::filesystem::path();
-}
-
-bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string& displayName, const char* heightMap )
-{
-    std::ofstream output( path, std::ios::trunc );
-
-    if ( !output )
-    {
-        return false;
-    }
-
-    // Invariant: Starter scene keys are the compatibility surface for newly
-    // editable scenes. Keep this shape aligned with AuthoredScene parsing.
-    Json scene;
-    scene["format"] = "skullbonez.scene.json";
-    scene["version"] = 1;
-    scene["name"] = displayName;
-    scene["simulation"] = { { "physics", true }, { "text", true }, { "world", { { "gravity", -9.81f }, { "fluidHeight", 0.0f }, { "fluidDensity", 0.0f }, } }, };
-
-    scene["editor"] = { { "editableScene", true }, };
-
-    scene["playback"] = { { "frames", "unlimited" }, { "fixedStep", true }, };
-
-    scene["debug"] = { { "waterHidden", true }, };
-
-    scene["terrain"] = { { "flatSlope", { { "baseY", 30.0f }, { "slopeX", 0.0f }, { "slopeZ", 0.0f }, } }, };
-
-    if ( heightMap && *heightMap )
-    {
-        scene["terrain"] = { { "heightMap", std::filesystem::absolute( heightMap ).lexically_normal().generic_string() } };
-    }
-
-    scene["cameras"] = Json::array( { { { "name", "main" },
-                                        { "position", Json::array( { 500.0f, 120.0f, 760.0f } ) },
-                                        { "view", Json::array( { 500.0f, 45.0f, 500.0f } ) },
-                                        { "up", Json::array( { 0.0f, 1.0f, 0.0f } ) }, }, } );
-
-    scene["objects"] = Json::array();
-    output << scene.dump( 2 ) << '\n';
-    return output.good();
 }
 
 } // namespace
@@ -184,18 +112,9 @@ SceneLoadRequest SceneController::CreateScene( const char* requestedName, const 
 
     const std::filesystem::path sceneDir = std::filesystem::path( DATA_ROOT ) / "scenes";
     std::error_code ec;
-    std::filesystem::create_directories( sceneDir, ec );
+    const std::filesystem::path scenePath = UniqueScenePath( sceneDir, cleanName, ec, *this );
 
-    if ( ec )
-    {
-        SkullbonezCore::Core::Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"mkdir\" message=\"%s\"", cleanName.c_str(), ec.message().c_str() );
-
-        return SceneLoadRequest::None();
-    }
-
-    const std::filesystem::path scenePath = UniqueScenePath( sceneDir, cleanName, ec );
-
-    if ( scenePath.empty() || !WriteStarterSceneFile( scenePath, cleanName, heightMap ) )
+    if ( scenePath.empty() || ec )
     {
         SkullbonezCore::Core::Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"write\"", cleanName.c_str() );
 
@@ -203,7 +122,57 @@ SceneLoadRequest SceneController::CreateScene( const char* requestedName, const 
     }
 
     const std::string normalizedPath = NormalizeScenePathForCreate( scenePath.generic_string() );
-    return SceneLoadRequest::Load( Append( normalizedPath ), true, true, false, true );
+    // A failed activation can already own the current queue slot. Retain its
+    // metadata until a successful replacement can retire that inactive slot.
+    if ( m_pendingDraft.index == CurrentIndex() && HasCurrentEntry() )
+    {
+        RemoveInactiveEntry( m_activeDraft.index );
+        m_activeDraft = std::move( m_pendingDraft );
+    }
+    else
+    {
+        RemoveInactiveEntry( m_pendingDraft.index );
+    }
+    m_pendingDraft.index = Append( normalizedPath );
+    m_pendingDraft.heightMap = heightMap && *heightMap ? std::filesystem::absolute( heightMap ).lexically_normal().generic_string() : "";
+    return SceneLoadRequest::Load( m_pendingDraft.index, true, true, false, true );
+}
+
+bool SceneController::CurrentSceneIsUnsaved() const
+{
+    return HasCurrentEntry() && ( CurrentIndex() == m_activeDraft.index || CurrentIndex() == m_pendingDraft.index );
+}
+
+Core::SbResult SceneController::ReadCurrentDefinition( const Assets::AssetSystem& assets, AuthoredScene& scene ) const
+{
+    if ( CurrentSceneIsUnsaved() )
+    {
+        const SceneDraft& draft = CurrentIndex() == m_pendingDraft.index ? m_pendingDraft : m_activeDraft;
+        scene = AuthoredScene::CreateEditableStarter( draft.heightMap.c_str() );
+        return Core::SbResult::Success();
+    }
+    return AuthoredScene::TryLoadFromFile( m_resultDiagnostics, CurrentPath()->c_str(), assets, scene );
+}
+
+void SceneController::CompleteDraftActivation()
+{
+    // Abandonment discards only in-memory draft metadata and its inactive queue
+    // slot. Stable indices and every user-authored disk file remain unchanged.
+    if ( m_activeDraft.index != CurrentIndex() )
+    {
+        RemoveInactiveEntry( m_activeDraft.index );
+        m_activeDraft = {};
+    }
+    if ( m_pendingDraft.index == CurrentIndex() )
+    {
+        m_activeDraft = std::move( m_pendingDraft );
+        m_pendingDraft = {};
+    }
+    else
+    {
+        RemoveInactiveEntry( m_pendingDraft.index );
+        m_pendingDraft = {};
+    }
 }
 
 } // namespace Runtime

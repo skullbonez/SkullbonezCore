@@ -499,6 +499,7 @@ class InputRouter
     bool m_mouseCaptured = false;
     bool m_leftWasDown = false;
     bool m_rightWasDown = false;
+    bool m_middleWasDown = false;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

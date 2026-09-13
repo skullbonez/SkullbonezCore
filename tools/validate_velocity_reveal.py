@@ -65,7 +65,10 @@ def run(session: Path, executable: Path) -> None:
         send("replay.set_reveal_speed", rate=1000)
         send("prediction.select_target", name="prediction_striker_ball")
         send("replay.set_prediction_enabled", enabled=True)
-        stock, normal = ready(lambda state, packet: state["predictionComplete"] and not state["causeLoading"] and packet["header"]["revealFrame"] >= 2400)
+        # Completion can precede publication of the last worker prefix. Compare
+        # the fully published path that the user will actually freeze on edit.
+        stock, normal = ready(lambda state, packet: state["predictionComplete"] and not state["causeLoading"]
+                              and packet["header"]["revealFrame"] >= 2400 and packet["header"]["publishedFrameCount"] >= 2401)
         target = stock["pathTargetId"]
         assert target == stock["publishedPredictionTargetId"] == stock["submittedPredictionTargetId"] == 1
         original = normal["activePath"]

@@ -1229,7 +1229,7 @@ void Run::ApplyDeferredInputOwnerRequests( RuntimeOverlayPresentationEdit& prese
     (void)DrainInputCaptureRequests();
     presentationEdit.Commit();
     const SceneLoadNavigationState navigation = CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() );
-    if ( m_sceneController.HasPendingTransition() )
+    if ( m_sceneController.HasPendingReplacement() )
     {
         PrepareSceneScopedOwnersForTransition();
     }
@@ -1254,6 +1254,42 @@ void Run::ApplyDeferredInputOwnerRequests( RuntimeOverlayPresentationEdit& prese
     presentationEdit.Refresh();
 }
 
+
+void Run::ConfigureEditorViewport()
+{
+    auto& ui = *m_operatorUi;
+    const auto sceneViewport = ui.PresentationBounds().viewport;
+    const auto presentationInput = BuildUIInputSnapshot( m_inputRouter.DeviceFrame(), m_inputRouter.UiSnapshot().mouse, ui.InputOverride() );
+    SyncComparisonWorkspace();
+    auto& paneCameras = m_sceneController.Scene().Cameras();
+    UI::UIRect inputViewport = sceneViewport;
+    if ( paneCameras.FourViews() )
+    {
+        const auto panes = UI::GameLayout::EditorPaneRects( sceneViewport );
+        const UI::UIRect cameraControls { sceneViewport.x, sceneViewport.y + sceneViewport.h - 185, 132, 185 };
+        // A held drag keeps its camera even when the pointer crosses a divider.
+        if ( !ui.HasOpenPopup() && !m_comparisonPanel.HasOpenPopup() && !ui.PresentationBounds().header.Contains( presentationInput.mouseX, presentationInput.mouseY ) &&
+             !cameraControls.Contains( presentationInput.mouseX, presentationInput.mouseY ) &&
+             ( presentationInput.leftPressed || m_inputRouter.UiSnapshot().mouse.rightPressed || m_inputRouter.UiSnapshot().mouse.middlePressed ||
+               ( !presentationInput.leftDown && !presentationInput.rightDown && !presentationInput.middleDown ) ) )
+        {
+            for ( int pane = 0; pane < 4; ++pane )
+            {
+                if ( panes[pane].Contains( presentationInput.mouseX, presentationInput.mouseY ) )
+                {
+                    paneCameras.SelectEditorPane( pane );
+                }
+            }
+        }
+        inputViewport = panes[paneCameras.ActiveEditorPane()];
+    }
+    m_window.SetPresentationViewport( { static_cast<LONG>( inputViewport.x ),
+                                        static_cast<LONG>( inputViewport.y ),
+                                        static_cast<LONG>( inputViewport.x + inputViewport.w ),
+                                        static_cast<LONG>( inputViewport.y + inputViewport.h ) } );
+    m_window.UpdateProjectionForCurrentClient();
+    m_window.SetPresentationProjection( paneCameras.EditorPaneProjection( paneCameras.ActiveEditorPane(), m_window.GetProjectionMatrix() ) );
+}
 
 SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput, bool& gameUiActive )
 {
@@ -1408,10 +1444,7 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
     }
     ui.UpdatePresentationInput( presentationInput, m_window.ClientWidth(), m_window.ClientHeight(), gameUiActive );
     const UI::UIRect sceneViewport = ui.PresentationBounds().viewport;
-    m_window.SetPresentationViewport( { static_cast<LONG>( sceneViewport.x ),
-                                        static_cast<LONG>( sceneViewport.y ),
-                                        static_cast<LONG>( sceneViewport.x + sceneViewport.w ),
-                                        static_cast<LONG>( sceneViewport.y + sceneViewport.h ) } );
+    ConfigureEditorViewport();
 
     m_comparisonPanel.SetPresentationLayout( { sceneViewport,
                                                ui.PresentationBounds().replayControls,

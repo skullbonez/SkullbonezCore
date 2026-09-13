@@ -48,7 +48,9 @@ namespace Rendering
 
 inline constexpr uint32_t RENDER_GRAPH_ALL_SUBRESOURCES = 0xFFFFFFFFu;
 inline constexpr size_t RENDER_GRAPH_MAX_RESOURCES = 24;
-inline constexpr size_t RENDER_GRAPH_MAX_PASSES = 24;
+// Four scene views share one graph; retain the per-view pass allowance plus
+// late UI/presentation work without growing storage during frame submission.
+inline constexpr size_t RENDER_GRAPH_MAX_PASSES = 96;
 inline constexpr size_t RENDER_GRAPH_MAX_PASS_RESOURCE_USES = 8;
 inline constexpr size_t RENDER_GRAPH_MAX_SUBRESOURCE_STATES_PER_RESOURCE = 8;
 inline constexpr size_t RENDER_GRAPH_MAX_TRANSITIONS = 96;
@@ -436,8 +438,7 @@ template <typename T, size_t Capacity> struct RenderGraphFixedList
     {
         if ( requested > Capacity )
         {
-            SB_FATAL( "RenderGraph", "Fixed-list reserve capacity exceeded. requested=%zu capacity=%zu", requested,
-                      Capacity );
+            SB_FATAL( "RenderGraph", "Fixed-list reserve capacity exceeded. requested=%zu capacity=%zu", requested, Capacity );
         }
     }
 
@@ -568,8 +569,7 @@ struct RenderGraphExecutionContractResult
 
     bool IsValid() const
     {
-        return declarationOnlyPassCount == expectedDeclarationOnlyPassCount && declarationOnlyNameMatches &&
-               allCallbacksEnabled;
+        return declarationOnlyPassCount == expectedDeclarationOnlyPassCount && declarationOnlyNameMatches && allCallbacksEnabled;
     }
 };
 
@@ -594,29 +594,21 @@ class RenderGraph
     void Clear();
     void ReserveForRuntimePassGraph();
 
-    RenderGraphResourceHandle AddExternalResource( const char* name, RenderGraphResourceAccess initialAccess,
-                                                   RenderGraphNativeResourceToken nativeResource = {} );
-    RenderGraphResourceHandle
-    AddTransientResource( const char* name, const RenderGraphTransientResourceDesc& desc,
-                          RenderGraphResourceAccess initialAccess = RenderGraphResourceAccess::Unknown );
+    RenderGraphResourceHandle AddExternalResource( const char* name, RenderGraphResourceAccess initialAccess, RenderGraphNativeResourceToken nativeResource = {} );
+    RenderGraphResourceHandle AddTransientResource( const char* name, const RenderGraphTransientResourceDesc& desc, RenderGraphResourceAccess initialAccess = RenderGraphResourceAccess::Unknown );
     uint32_t AddPass( const char* name, RenderGraphQueueType queue = RenderGraphQueueType::Graphics );
 
-    void AddRead( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access,
-                  uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES );
-    void AddWrite( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access,
-                   uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES );
-    template <auto Callback, typename Payload>
-    void SetPassCallback( uint32_t passIndex, Payload& payload, bool enabled = true, const char* debugLabel = nullptr )
+    void AddRead( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access, uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES );
+    void AddWrite( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access, uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES );
+    template <auto Callback, typename Payload> void SetPassCallback( uint32_t passIndex, Payload& payload, bool enabled = true, const char* debugLabel = nullptr )
     {
         CallbackRecord record;
-        record.invoke = []( const RenderGraphPassContext& context, const CallbackRecord& erased )
-        { Callback( context, *static_cast<Payload*>( erased.payload ) ); };
+        record.invoke = []( const RenderGraphPassContext& context, const CallbackRecord& erased ) { Callback( context, *static_cast<Payload*>( erased.payload ) ); };
         record.payload = std::addressof( payload );
         SetPassCallbackRecord( passIndex, record, enabled, debugLabel );
     }
 
-    template <auto Callback>
-    void SetPassCallback( uint32_t passIndex, bool enabled = true, const char* debugLabel = nullptr )
+    template <auto Callback> void SetPassCallback( uint32_t passIndex, bool enabled = true, const char* debugLabel = nullptr )
     {
         CallbackRecord record;
         record.invoke = []( const RenderGraphPassContext& context, const CallbackRecord& ) { Callback( context ); };
@@ -639,8 +631,7 @@ class RenderGraph
 
     // Executes callback-owned passes in declaration order. The range overload
     // is the production path for newly appended one-shot callback payloads.
-    RenderGraphCallbackExecutionResult ExecuteCallbacks( RenderGraphCallbackExecutionMode mode, uint32_t firstPass,
-                                                         uint32_t passCount ) const;
+    RenderGraphCallbackExecutionResult ExecuteCallbacks( RenderGraphCallbackExecutionMode mode, uint32_t firstPass, uint32_t passCount ) const;
 
     // Passing a null/empty declaration name validates a capture-only graph with
     // no declaration-only edge; ordinary submitted frames pass "Present".
@@ -664,8 +655,7 @@ class RenderGraph
 // class. The injected emitter makes the CPU contract testable while DX12 keeps
 // ownership of native-resource validation and command recording.
 template <typename EmitOperation>
-size_t DispatchCompiledUavBarriersForPass( const RenderGraph& graph, const RenderGraphCompileResult& compiled,
-                                           uint32_t passIndex, bool externalResources, EmitOperation&& emitOperation )
+size_t DispatchCompiledUavBarriersForPass( const RenderGraph& graph, const RenderGraphCompileResult& compiled, uint32_t passIndex, bool externalResources, EmitOperation&& emitOperation )
 {
     size_t emittedCount = 0;
 
@@ -678,8 +668,7 @@ size_t DispatchCompiledUavBarriersForPass( const RenderGraph& graph, const Rende
 
         if ( barrier.resource.index >= graph.Resources().size() )
         {
-            SB_FATAL( "RenderGraph", "Compiled UAV barrier references an invalid resource. resource=%u resourceCount=%zu",
-                      barrier.resource.index, graph.Resources().size() );
+            SB_FATAL( "RenderGraph", "Compiled UAV barrier references an invalid resource. resource=%u resourceCount=%zu", barrier.resource.index, graph.Resources().size() );
         }
 
         const RenderGraphResourceDesc& resource = graph.Resources()[barrier.resource.index];

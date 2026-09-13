@@ -71,6 +71,11 @@ if errorlevel 1 exit /b 9
 if errorlevel 1 exit /b 9
 
 echo [3/5] Cleaning old perf artifacts...
+REM Pin the shipped default layout, as the renderer gate does. Persisted user
+REM panels otherwise change both the viewport and UI workload between runs.
+set "SKULLBONEZ_UI_LAYOUT_FILE=%REPO%\TestOutput\validation\perf\layout.preferences"
+if not exist "%REPO%\TestOutput\validation\perf" mkdir "%REPO%\TestOutput\validation\perf"
+if exist "%SKULLBONEZ_UI_LAYOUT_FILE%" del /q "%SKULLBONEZ_UI_LAYOUT_FILE%"
 del /q "%REPO%\Profile\perf_log.csv" 2>nul
 del /q "%REPO%\Profile\*_perf_log.csv" 2>nul
 del /q "%REPO%\Profile\*_perf.json" 2>nul

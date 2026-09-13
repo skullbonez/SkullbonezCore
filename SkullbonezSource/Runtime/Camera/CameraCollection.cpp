@@ -187,6 +187,11 @@ void CameraCollection::SelectEditorView( const Vector3& focus, float distance, i
     {
         return;
     }
+    if ( FourViews() )
+    {
+        SelectEditorPane( ( axis + 3 ) % 4 );
+        return;
+    }
     auto& state = m_editorViews[m_editorViewWorkspace ? 1 : 0];
     if ( state.axis == axis )
     {
@@ -231,6 +236,16 @@ void CameraCollection::SelectEditorView( const Vector3& focus, float distance, i
 
 void CameraCollection::ApplyEditorView()
 {
+    if ( FourViews() )
+    {
+        const auto& state = m_fourViews[m_editorViewWorkspace ? 1 : 0];
+        if ( state.active != 3 )
+        {
+            m_cameraArray[m_selectedCamera] = state.panes[state.active];
+            CancelTween();
+        }
+        return;
+    }
     const auto& state = m_editorViews[m_editorViewWorkspace ? 1 : 0];
     if ( state.axis == 0 )
     {
@@ -252,6 +267,18 @@ void CameraCollection::ZoomEditorView( float logarithmicDelta )
     {
         return;
     }
+    if ( FourViews() )
+    {
+        auto& state = m_fourViews[m_editorViewWorkspace ? 1 : 0];
+        Camera& pane = state.panes[state.active];
+        Vector3 offset = pane.m_position - pane.m_view;
+        const float distance = std::clamp( std::sqrt( Dot( offset, offset ) ) * std::exp( std::clamp( logarithmicDelta, -4.0f, 4.0f ) ), 0.1f, 1000000.0f );
+        offset.TryNormalise();
+        pane.SetAll( pane.m_view + offset * distance, pane.m_view, pane.m_upVector );
+        ApplyEditorView();
+        SetCamera();
+        return;
+    }
     auto& state = m_editorViews[m_editorViewWorkspace ? 1 : 0];
     state.distance = std::clamp( state.distance * std::exp( std::clamp( logarithmicDelta, -4.0f, 4.0f ) ), 0.1f, 1000000.0f );
     ApplyEditorView();
@@ -260,11 +287,23 @@ void CameraCollection::ZoomEditorView( float logarithmicDelta )
 
 void CameraCollection::SetEditorViewWorkspace( bool secondWorkspace )
 {
+    if ( m_editorViewWorkspace != secondWorkspace && FourViews() )
+    {
+        auto& previous = m_fourViews[m_editorViewWorkspace ? 1 : 0];
+        previous.panes[previous.active] = m_cameraArray[m_selectedCamera];
+    }
     if ( m_editorViewWorkspace != secondWorkspace && m_editorViewTween )
     {
         CancelTween();
     }
+    const bool changed = m_editorViewWorkspace != secondWorkspace;
     m_editorViewWorkspace = secondWorkspace;
+    if ( changed && FourViews() )
+    {
+        auto& state = m_fourViews[m_editorViewWorkspace ? 1 : 0];
+        m_cameraArray[m_selectedCamera] = state.panes[state.active];
+        CancelTween();
+    }
     ApplyEditorView();
 }
 
@@ -277,6 +316,8 @@ void CameraCollection::ApplyMovementSettings( const CameraMovementSettings& sett
 
 void CameraCollection::Reset()
 {
+    m_fourViews[0] = {};
+    m_fourViews[1] = {};
     m_editorViews[0] = {};
     m_editorViews[1] = {};
     m_editorViewWorkspace = false;
@@ -747,4 +788,103 @@ void CameraCollection::SetCameraXZBounds( uint32_t hash, const XZBounds bounds )
 void CameraCollection::SetTerrain( Terrain* terrain )
 {
     m_terrain = terrain;
+}
+
+void CameraCollection::ToggleFourViews( const Vector3& focus, float distance )
+{
+    if ( m_arrayPosition == 0 )
+    {
+        return;
+    }
+    auto& state = m_fourViews[m_editorViewWorkspace ? 1 : 0];
+    if ( state.enabled )
+    {
+        state.enabled = false;
+        m_cameraArray[m_selectedCamera] = state.single;
+    }
+    else
+    {
+        // Lifetime: these are four value snapshots, never registered scene
+        // cameras. Editing a pane cannot overwrite the saved full-screen pose.
+        state.single = GetTweenSourcePose();
+        state.halfDepth = (std::max)( 100.0f, distance * 2.0f );
+        const auto& single = m_editorViews[m_editorViewWorkspace ? 1 : 0];
+        state.panes[3] = single.axis == 0 ? state.single : single.perspective;
+        const Vector3 directions[] = { { 0, 1, 0 }, { 1, 0, 0 }, { 0, 0, 1 } };
+        for ( int pane = 0; pane < 3; ++pane )
+        {
+            state.panes[pane].SetAll( focus + directions[pane] * (std::max)( 100.0f, distance ), focus, pane == 0 ? Vector3( 0, 0, -1 ) : Vector3( 0, 1, 0 ) );
+        }
+        state.active = 3;
+        state.enabled = true;
+        m_cameraArray[m_selectedCamera] = state.panes[3];
+    }
+    CancelTween();
+    SetCamera();
+}
+
+void CameraCollection::SelectEditorPane( int pane )
+{
+    if ( !FourViews() || pane < 0 || pane >= 4 )
+    {
+        return;
+    }
+    auto& state = m_fourViews[m_editorViewWorkspace ? 1 : 0];
+    if ( pane == state.active )
+    {
+        return;
+    }
+    state.panes[state.active] = m_cameraArray[m_selectedCamera];
+    state.active = pane;
+    m_cameraArray[m_selectedCamera] = state.panes[pane];
+    CancelTween();
+    SetCamera();
+}
+
+CameraCollection::EditorPanePose CameraCollection::EditorPane( int pane ) const
+{
+    const auto& state = m_fourViews[m_editorViewWorkspace ? 1 : 0];
+    const Camera& camera = !state.enabled || pane == state.active || pane < 0 || pane >= 4 ? m_renderCamera : state.panes[pane];
+    return { camera.m_position, camera.m_view, camera.m_upVector };
+}
+
+Matrix4 CameraCollection::EditorPaneProjection( int pane, const Matrix4& perspective ) const
+{
+    if ( !FourViews() || pane < 0 || pane >= 3 )
+    {
+        return perspective;
+    }
+    const auto pose = EditorPane( pane );
+    const float distance = Distance( pose.eye, pose.focus );
+    const float halfWidth = distance / perspective.m[0];
+    const float halfHeight = distance / perspective.m[5];
+    // Orthographic zoom moves the eye, but must not slice elevated objects as
+    // it passes them. Keep the fitted depth volume centered on the focus.
+    const float halfDepth = m_fourViews[m_editorViewWorkspace ? 1 : 0].halfDepth;
+    return Matrix4::OrthoZeroToOne( -halfWidth, halfWidth, -halfHeight, halfHeight, distance - halfDepth, distance + halfDepth );
+}
+
+void CameraCollection::PanEditorView( float horizontal, float vertical )
+{
+    if ( EditorView() == 0 || !std::isfinite( horizontal ) || !std::isfinite( vertical ) )
+    {
+        return;
+    }
+    const Vector3 forward = NormalizeOr( GetCameraView() - GetCameraTranslation(), Vector3( 0, 0, -1 ) );
+    const Vector3 right = NormalizeOr( CrossProduct( forward, GetCameraUp() ), Vector3( 1, 0, 0 ) );
+    const Vector3 up = CrossProduct( right, forward );
+    const Vector3 delta = right * horizontal + up * vertical;
+    if ( FourViews() )
+    {
+        auto& state = m_fourViews[m_editorViewWorkspace ? 1 : 0];
+        auto& pane = state.panes[state.active];
+        pane.SetAll( pane.m_position + delta, pane.m_view + delta, pane.m_upVector );
+    }
+    else
+    {
+        m_editorViews[m_editorViewWorkspace ? 1 : 0].focus += delta;
+    }
+    CancelTween();
+    ApplyEditorView();
+    SetCamera();
 }

@@ -123,10 +123,10 @@ def run(session: Path, executable: Path) -> None:
         assert saved_map.stat().st_mtime_ns == saved_time
         assert len(list(session.glob("*.heightmap"))) == 1
         send("scene.reset")
-        restored = observe("reloaded")
+        restored = observe("reset")
         for key in ("terrainMinimumHeight", "terrainMaximumHeight", "terrainCenterHeight"):
             assert restored[key] == lowered[key], (key, restored[key], lowered[key])
-        assert restored["terrainRevision"] == 0
+        assert restored["terrainRevision"] == lowered["terrainRevision"]
         send("scene.save")
         observe("import-reused")
         assert map_path() == saved_map
@@ -199,8 +199,10 @@ def validate_creation(root: Path, executable: Path) -> None:
                  deltaX=0, deltaY=0, holdMilliseconds=60)
             send("run.step_frames", count=5)
             send("capture.screenshot", path=str(session / "result.png"))
-            assert created.exists() == (mode != "cancel")
-            if created.exists():
+            assert not created.exists()
+            if mode != "cancel":
+                send("scene.save")
+                assert created.exists()
                 saved = json.loads(created.read_text(encoding="utf-8"))
                 if mode == "flat":
                     assert saved["terrain"]["flatSlope"] == {"baseY": 30, "slopeX": 0, "slopeZ": 0}

@@ -943,7 +943,8 @@ class TonemapPass
 
     void EnsureGpuResources( bool cinematicEnabled, Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources );
     void ReleaseGpuResources();
-    void Render( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+    void Render( const RenderCameraLighting& camera,
+                 const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                  Rendering::Dx12GeometryOwner& renderGeometry,
                  Rendering::Dx12TextureOwner& renderTextures,
                  Rendering::Dx12FrameOwner& renderFrame,

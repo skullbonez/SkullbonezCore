@@ -1,4 +1,4 @@
-"""Verify native camera gizmo views, locked movement, zoom and workspace retention."""
+"""Verify native camera gizmo views, plane panning, zoom and workspace retention."""
 from __future__ import annotations
 import argparse
 import json
@@ -101,6 +101,10 @@ def run(session: Path) -> None:
             fixed = pose()
             x,y,w,h = ui['viewport']
             send('input.pointer_drag', button='right', x=round(x+w*.7), y=round(y+h*.4), deltaX=80, deltaY=45)
+            sample(label+'-panned-'+str(axis))
+            assert_axis(axis)
+            assert pose()['renderEye'] != fixed['renderEye']
+            fixed = pose()
             send('input.pointer_drag', button='middle', x=round(x+w*.7), y=round(y+h*.4), deltaX=50, deltaY=35)
             send('input.set_movement', w=True, a=True, s=False, d=False)
             send('run.step_frames', count=20)
@@ -196,7 +200,7 @@ def run(session: Path) -> None:
         assert any(0 < state['tweenProgress'] < 1 for state in tween_samples), 'No intermediate camera pose was rendered'
         (session/'tweens.json').write_text(json.dumps(tween_samples,indent=2))
         (session/'result.json').write_text(json.dumps({'passed':True,'checks':checks,'tweenSamples':len(tween_samples)},indent=2))
-        print('PASS: native axis selection, zoom-only poses, perspective restore, workspace retention: '+str(len(checks))+' views')
+        print('PASS: native axis selection, plane pan, zoom, perspective restore, workspace retention: '+str(len(checks))+' views')
     finally:
         try:
             send('session.stop')

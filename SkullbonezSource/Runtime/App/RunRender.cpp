@@ -135,6 +135,7 @@ void Run::Render( const RuntimeRenderFrameViews& renderFrame, float presentation
     m_sceneController.Scene().Cameras().SetCamera();
 
     RenderCameraLighting renderCamera;
+    m_window.UpdateProjectionForCurrentClient();
     renderCamera.baseView = m_sceneController.Scene().Cameras().GetViewMatrix();
     renderCamera.projection = m_window.GetProjectionMatrix();
     renderCamera.viewProjection = renderCamera.projection * renderCamera.baseView;
@@ -252,25 +253,55 @@ void Run::Render( const RuntimeRenderFrameViews& renderFrame, float presentation
     // Runtime allocation policy: Gameplay preallocates its bounded visual
     // maximum during owner construction. Steady rendering receives no
     // allocation-phase exemption.
-    worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
-    const RuntimeRenderer::WorldFrameSubmission worldSubmission { renderFrame.modelPresentation,
-                                                                  renderFrame.debug.collision,
-                                                                  renderCamera,
-                                                                  m_sceneController.Scene().Terrain().Get(),
-                                                                  framePolicy,
-                                                                  worldExtension,
-                                                                  *replayFrame.render.visualPacket,
-                                                                  replayFrame.render.focusModelMask,
-                                                                  replayFrame.render.focusFadeActive,
-                                                                  activeCinematic,
-                                                                  cinematicRequested };
+    RuntimeRenderer::WorldFrameSubmission worldSubmission { renderFrame.modelPresentation,
+                                                            renderFrame.debug.collision,
+                                                            renderCamera,
+                                                            m_sceneController.Scene().Terrain().Get(),
+                                                            framePolicy,
+                                                            worldExtension,
+                                                            *replayFrame.render.visualPacket,
+                                                            replayFrame.render.focusModelMask,
+                                                            replayFrame.render.focusFadeActive,
+                                                            activeCinematic,
+                                                            cinematicRequested };
     const RuntimeRenderer::OverlayFrameSubmission overlaySubmission { renderFrame.debug.physics,
                                                                       renderFrame.worldExtensionDebug,
                                                                       replayFrame.render.contactPresentation,
                                                                       continuousOverlay,
                                                                       toolOverlay };
-    RuntimeRenderer::WorldOverlayTransaction worldOverlay = renderer.BeginWorldFrame( worldSubmission );
-    const bool replaySubmissionRendered = worldOverlay.SubmitOverlays( overlaySubmission );
+    const auto& cameras = m_sceneController.Scene().Cameras();
+    const auto panes = SkullbonezCore::UI::GameLayout::EditorPaneRects( m_operatorUi->PresentationBounds().viewport );
+    const auto perspective = renderCamera.projection;
+    bool replaySubmissionRendered = true;
+    const int paneCount = cameras.FourViews() ? 4 : 1;
+    m_editorPaneOverlayRendered = {};
+    // Invariant: model preparation, future simulation and packet publication
+    // occur once above. Each view consumes that same immutable overlay packet.
+    for ( int pane = 0; pane < paneCount; ++pane )
+    {
+        // The extension releases its borrowed configuration after each draw;
+        // renew that borrow using the same simulation time for every pane.
+        worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
+        if ( cameras.FourViews() )
+        {
+            const auto pose = cameras.EditorPane( pane );
+            renderCamera.eye = pose.eye;
+            renderCamera.viewCenter = pose.focus;
+            renderCamera.up = pose.up;
+            renderCamera.baseView = SkullbonezCore::Math::Transformation::Matrix4::LookAt( pose.eye, pose.focus, pose.up );
+            auto lens = perspective;
+            lens.m[0] = lens.m[5] * panes[pane].h / panes[pane].w;
+            renderCamera.projection = cameras.EditorPaneProjection( pane, lens );
+            renderCamera.viewProjection = renderCamera.projection * renderCamera.baseView;
+            const auto& rect = panes[pane];
+            worldSubmission.viewport = { static_cast<LONG>( rect.x ), static_cast<LONG>( rect.y ), static_cast<LONG>( rect.x + rect.w ), static_cast<LONG>( rect.y + rect.h ) };
+            worldSubmission.clearBackbuffer = pane == 0;
+        }
+        RuntimeRenderer::WorldOverlayTransaction worldOverlay = renderer.BeginWorldFrame( worldSubmission );
+        m_editorPaneOverlayRendered[pane] = worldOverlay.SubmitOverlays( overlaySubmission );
+        replaySubmissionRendered = m_editorPaneOverlayRendered[pane] && replaySubmissionRendered;
+    }
+    m_window.SetPresentationProjection( cameras.EditorPaneProjection( cameras.ActiveEditorPane(), perspective ) );
 
     m_replayRuntime.CompleteRenderFrame( replaySubmissionRendered, m_sceneController.State().currentFrame, replayGrowthEventCount, m_runtimeTools );
 }

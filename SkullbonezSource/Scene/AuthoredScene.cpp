@@ -36,6 +36,26 @@ Related:
 
 using namespace SkullbonezCore::Runtime;
 
+AuthoredScene AuthoredScene::CreateEditableStarter( const char* heightMap )
+{
+    AuthoredScene scene;
+    scene.m_sceneOptions.editableScene = true;
+    scene.m_sceneOptions.isFixedStep = true;
+    scene.m_sceneOptions.waterHidden = true;
+    scene.m_worldOverride.hasWorldOverride = true;
+    scene.m_worldOverride.worldGravity = -9.81f;
+    scene.m_terrainOverride.hasFlatSlope = !heightMap || !*heightMap;
+    scene.m_terrainOverride.flatBaseY = 30.0f;
+    scene.m_terrainOverride.heightMap = heightMap ? heightMap : "";
+    SceneCamera camera {};
+    camera.m_position = Math::Vector::Vector3( 500.0f, 120.0f, 760.0f );
+    camera.view = Math::Vector::Vector3( 500.0f, 45.0f, 500.0f );
+    camera.up = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+    strcpy_s( camera.name, "main" );
+    scene.m_cameras.push_back( camera );
+    return scene;
+}
+
 namespace
 {
 [[noreturn]] void FatalSceneIndexOutOfRange( const char* collectionName, const char* functionName, int index, int count )
@@ -46,17 +66,14 @@ namespace
     // internal caller asking for an index outside the paired count is a scene
     // setup invariant failure. Fatal diagnostics keep the owner and collection
     // visible without unwinding through runtime setup.
-    SB_FATAL( "AuthoredScene", "%s index out of range in %s. index=%d count=%d", collectionName, functionName, index,
-              count );
+    SB_FATAL( "AuthoredScene", "%s index out of range in %s. index=%d count=%d", collectionName, functionName, index, count );
 }
 
 
-SkullbonezCore::Core::SbResult TryLoadSceneFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path,
-                                                 const SkullbonezCore::Assets::AssetSystem* assets, bool styleOnly,
-                                                 AuthoredScene& outScene )
+SkullbonezCore::Core::SbResult
+TryLoadSceneFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, const SkullbonezCore::Assets::AssetSystem* assets, bool styleOnly, AuthoredScene& outScene )
 {
-    return styleOnly ? TryLoadStyleSceneFromFileImpl( diagnostics, path, assets, outScene )
-                     : TryLoadAuthoredSceneFromFileImpl( diagnostics, path, assets, outScene );
+    return styleOnly ? TryLoadStyleSceneFromFileImpl( diagnostics, path, assets, outScene ) : TryLoadAuthoredSceneFromFileImpl( diagnostics, path, assets, outScene );
 }
 } // namespace
 
@@ -66,31 +83,25 @@ AuthoredScene::AuthoredScene()
 }
 
 
-SkullbonezCore::Core::SbResult AuthoredScene::TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                               const char* path, AuthoredScene& outScene )
+SkullbonezCore::Core::SbResult AuthoredScene::TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, AuthoredScene& outScene )
 {
     return TryLoadSceneFile( diagnostics, path, nullptr, false, outScene );
 }
 
 
-SkullbonezCore::Core::SbResult AuthoredScene::TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                               const char* path, const Assets::AssetSystem& assets,
-                                                               AuthoredScene& outScene )
+SkullbonezCore::Core::SbResult AuthoredScene::TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, const Assets::AssetSystem& assets, AuthoredScene& outScene )
 {
     return TryLoadSceneFile( diagnostics, path, &assets, false, outScene );
 }
 
 
-SkullbonezCore::Core::SbResult AuthoredScene::TryLoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                                    const char* path, AuthoredScene& outScene )
+SkullbonezCore::Core::SbResult AuthoredScene::TryLoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, AuthoredScene& outScene )
 {
     return TryLoadSceneFile( diagnostics, path, nullptr, true, outScene );
 }
 
 
-SkullbonezCore::Core::SbResult AuthoredScene::TryLoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                                    const char* path, const Assets::AssetSystem& assets,
-                                                                    AuthoredScene& outScene )
+SkullbonezCore::Core::SbResult AuthoredScene::TryLoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, const Assets::AssetSystem& assets, AuthoredScene& outScene )
 {
     return TryLoadSceneFile( diagnostics, path, &assets, true, outScene );
 }
@@ -475,8 +486,7 @@ const SceneBallState& AuthoredScene::GetBallState( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_ballStates.size() ) )
     {
-        FatalSceneIndexOutOfRange( "BallState", "AuthoredScene::GetBallState", index,
-                                   static_cast<int>( m_ballStates.size() ) );
+        FatalSceneIndexOutOfRange( "BallState", "AuthoredScene::GetBallState", index, static_cast<int>( m_ballStates.size() ) );
     }
 
     return m_ballStates[index];
@@ -527,8 +537,7 @@ const SceneConvexHull& AuthoredScene::GetConvexHull( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_convexHulls.size() ) )
     {
-        FatalSceneIndexOutOfRange( "ConvexHull", "AuthoredScene::GetConvexHull", index,
-                                   static_cast<int>( m_convexHulls.size() ) );
+        FatalSceneIndexOutOfRange( "ConvexHull", "AuthoredScene::GetConvexHull", index, static_cast<int>( m_convexHulls.size() ) );
     }
 
     return m_convexHulls[index];
@@ -545,8 +554,7 @@ const SceneConvexHullState& AuthoredScene::GetConvexHullState( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_convexHullStates.size() ) )
     {
-        FatalSceneIndexOutOfRange( "ConvexHullState", "AuthoredScene::GetConvexHullState", index,
-                                   static_cast<int>( m_convexHullStates.size() ) );
+        FatalSceneIndexOutOfRange( "ConvexHullState", "AuthoredScene::GetConvexHullState", index, static_cast<int>( m_convexHullStates.size() ) );
     }
 
     return m_convexHullStates[index];
@@ -556,8 +564,8 @@ const SceneConvexHullState& AuthoredScene::GetConvexHullState( int index ) const
 bool AuthoredScene::HasOrderedPrimitiveSnapshot() const
 {
     const std::size_t primitiveStateCount = m_ballStates.size() + m_boxStates.size();
-    return primitiveStateCount > 0u && m_snapshotPrimitiveOrder.size() == primitiveStateCount && m_balls.empty() &&
-           m_boxes.empty() && m_convexHulls.empty() && m_convexHullStates.empty() && m_ragdolls.empty();
+    return primitiveStateCount > 0u && m_snapshotPrimitiveOrder.size() == primitiveStateCount && m_balls.empty() && m_boxes.empty() && m_convexHulls.empty() && m_convexHullStates.empty() &&
+           m_ragdolls.empty();
 }
 
 
@@ -571,8 +579,7 @@ const SceneSnapshotPrimitiveOrderEntry& AuthoredScene::GetSnapshotPrimitiveOrder
 {
     if ( index < 0 || index >= static_cast<int>( m_snapshotPrimitiveOrder.size() ) )
     {
-        FatalSceneIndexOutOfRange( "SnapshotPrimitiveOrder", "AuthoredScene::GetSnapshotPrimitiveOrder", index,
-                                   static_cast<int>( m_snapshotPrimitiveOrder.size() ) );
+        FatalSceneIndexOutOfRange( "SnapshotPrimitiveOrder", "AuthoredScene::GetSnapshotPrimitiveOrder", index, static_cast<int>( m_snapshotPrimitiveOrder.size() ) );
     }
 
     return m_snapshotPrimitiveOrder[index];
@@ -606,8 +613,7 @@ const ScenePointJointConstraint& AuthoredScene::GetPointJointConstraint( int ind
 {
     if ( index < 0 || index >= static_cast<int>( m_pointJointConstraints.size() ) )
     {
-        FatalSceneIndexOutOfRange( "PointJointConstraint", "AuthoredScene::GetPointJointConstraint", index,
-                                   static_cast<int>( m_pointJointConstraints.size() ) );
+        FatalSceneIndexOutOfRange( "PointJointConstraint", "AuthoredScene::GetPointJointConstraint", index, static_cast<int>( m_pointJointConstraints.size() ) );
     }
 
     return m_pointJointConstraints[index];
@@ -624,8 +630,7 @@ const SceneRequiredContact& AuthoredScene::GetRequiredContact( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_requiredContacts.size() ) )
     {
-        FatalSceneIndexOutOfRange( "RequiredContact", "AuthoredScene::GetRequiredContact", index,
-                                   static_cast<int>( m_requiredContacts.size() ) );
+        FatalSceneIndexOutOfRange( "RequiredContact", "AuthoredScene::GetRequiredContact", index, static_cast<int>( m_requiredContacts.size() ) );
     }
 
     return m_requiredContacts[index];
@@ -642,8 +647,7 @@ const SceneRequiredSleepingDynamicBody& AuthoredScene::GetRequiredSleepingDynami
 {
     if ( index < 0 || index >= static_cast<int>( m_requiredSleepingDynamicBodies.size() ) )
     {
-        FatalSceneIndexOutOfRange( "RequiredSleepingDynamicBody", "AuthoredScene::GetRequiredSleepingDynamicBody", index,
-                                   static_cast<int>( m_requiredSleepingDynamicBodies.size() ) );
+        FatalSceneIndexOutOfRange( "RequiredSleepingDynamicBody", "AuthoredScene::GetRequiredSleepingDynamicBody", index, static_cast<int>( m_requiredSleepingDynamicBodies.size() ) );
     }
 
     return m_requiredSleepingDynamicBodies[index];
@@ -660,8 +664,7 @@ const SceneRequiredBroadphaseXCells& AuthoredScene::GetRequiredBroadphaseXCell( 
 {
     if ( index < 0 || index >= static_cast<int>( m_requiredBroadphaseXCells.size() ) )
     {
-        FatalSceneIndexOutOfRange( "RequiredBroadphaseXCell", "AuthoredScene::GetRequiredBroadphaseXCell", index,
-                                   static_cast<int>( m_requiredBroadphaseXCells.size() ) );
+        FatalSceneIndexOutOfRange( "RequiredBroadphaseXCell", "AuthoredScene::GetRequiredBroadphaseXCell", index, static_cast<int>( m_requiredBroadphaseXCells.size() ) );
     }
 
     return m_requiredBroadphaseXCells[index];
@@ -678,8 +681,7 @@ const SceneAssetLibraryRef& AuthoredScene::GetAssetLibrary( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_assetLibraries.size() ) )
     {
-        FatalSceneIndexOutOfRange( "AssetLibrary", "AuthoredScene::GetAssetLibrary", index,
-                                   static_cast<int>( m_assetLibraries.size() ) );
+        FatalSceneIndexOutOfRange( "AssetLibrary", "AuthoredScene::GetAssetLibrary", index, static_cast<int>( m_assetLibraries.size() ) );
     }
 
     return m_assetLibraries[index];
@@ -696,8 +698,7 @@ const SceneAssetInstanceRecord& AuthoredScene::GetAssetInstance( int index ) con
 {
     if ( index < 0 || index >= static_cast<int>( m_assetInstances.size() ) )
     {
-        FatalSceneIndexOutOfRange( "AssetInstance", "AuthoredScene::GetAssetInstance", index,
-                                   static_cast<int>( m_assetInstances.size() ) );
+        FatalSceneIndexOutOfRange( "AssetInstance", "AuthoredScene::GetAssetInstance", index, static_cast<int>( m_assetInstances.size() ) );
     }
 
     return m_assetInstances[index];
@@ -714,8 +715,7 @@ const SceneAssetPartRef& AuthoredScene::GetAssetPart( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_assetParts.size() ) )
     {
-        FatalSceneIndexOutOfRange( "AssetPart", "AuthoredScene::GetAssetPart", index,
-                                   static_cast<int>( m_assetParts.size() ) );
+        FatalSceneIndexOutOfRange( "AssetPart", "AuthoredScene::GetAssetPart", index, static_cast<int>( m_assetParts.size() ) );
     }
 
     return m_assetParts[index];
@@ -732,8 +732,7 @@ const SceneObjectMaterialOverride& AuthoredScene::GetObjectMaterialOverride( int
 {
     if ( index < 0 || index >= static_cast<int>( m_objectMaterials.size() ) )
     {
-        FatalSceneIndexOutOfRange( "ObjectMaterialOverride", "AuthoredScene::GetObjectMaterialOverride", index,
-                                   static_cast<int>( m_objectMaterials.size() ) );
+        FatalSceneIndexOutOfRange( "ObjectMaterialOverride", "AuthoredScene::GetObjectMaterialOverride", index, static_cast<int>( m_objectMaterials.size() ) );
     }
 
     return m_objectMaterials[index];

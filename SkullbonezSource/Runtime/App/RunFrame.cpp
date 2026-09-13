@@ -1264,6 +1264,29 @@ static std::array<SkarnessFrameState::PositionGate, 2> BuildSkarnessPositionGate
     return result;
 }
 
+void Run::ProjectEditorPaneState( SkarnessFrameState& state )
+{
+    const auto canvas = m_operatorUi->PresentationBounds().viewport;
+    state.presentation.editorCanvasBounds = { canvas.x, canvas.y, canvas.w, canvas.h };
+    const auto& paneCameras = m_sceneController.Scene().Cameras();
+    state.presentation.fourViews = paneCameras.FourViews();
+    state.presentation.activeEditorPane = paneCameras.ActiveEditorPane();
+    const auto panes = UI::GameLayout::EditorPaneRects( m_operatorUi->PresentationBounds().viewport );
+    for ( int pane = 0; pane < 4; ++pane )
+    {
+        const auto pose = paneCameras.EditorPane( pane );
+        state.presentation.editorPaneBounds[pane] = { panes[pane].x, panes[pane].y, panes[pane].w, panes[pane].h };
+        state.presentation.editorPaneEyes[pane] = { pose.eye.x, pose.eye.y, pose.eye.z };
+        state.presentation.editorPaneFocus[pane] = { pose.focus.x, pose.focus.y, pose.focus.z };
+    }
+    state.presentation.editorPaneOverlayRendered = m_editorPaneOverlayRendered;
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        const auto& view = paneCameras.GetViewMatrix();
+        state.presentation.editorAxes[axis] = { view.m[axis * 4], -view.m[axis * 4 + 1], view.m[axis * 4 + 2] };
+    }
+}
+
 void Run::PublishSkarnessFrameState()
 {
     if ( !m_skarness.Enabled() )
@@ -1378,6 +1401,7 @@ void Run::PublishSkarnessFrameState()
     }
     state.presentation.cameraMode = static_cast<int>( m_camera.mode );
     state.presentation.editorView = m_sceneController.Scene().Cameras().EditorView();
+    ProjectEditorPaneState( state );
     state.presentation.cameraModeEnabledMask = RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode, m_sceneController.Scene().SceneEntityCount() );
     const auto cameraPopup = m_operatorUi->CameraPopup();
     state.presentation.cameraPopupBounds = { cameraPopup.bounds.x, cameraPopup.bounds.y, cameraPopup.bounds.w, cameraPopup.bounds.h };
@@ -1450,6 +1474,7 @@ void Run::PublishSkarnessFrameState()
     state.presentation.memoryWaterlineBounds = { diagnostics.memoryBounds.x, diagnostics.memoryBounds.y, diagnostics.memoryBounds.w, diagnostics.memoryBounds.h };
     const auto header = UI::GameLayout::ComputeHeaderRects( layout.header, m_operatorUi->PresentationWorkspace() );
     state.presentation.headerLayoutBounds = { header.layout.x, header.layout.y, header.layout.w, header.layout.h };
+    state.presentation.headerFourViewsBounds = { header.fourViews.x, header.fourViews.y, header.fourViews.w, header.fourViews.h };
     state.presentation.headerWorkspaceBounds = { header.workspace.x, header.workspace.y, header.workspace.w, header.workspace.h };
     state.presentation.headerCloseBounds = { header.close.x, header.close.y, header.close.w, header.close.h };
     state.presentation.drawerBounds = { layout.drawer.x, layout.drawer.y, layout.drawer.w, layout.drawer.h };

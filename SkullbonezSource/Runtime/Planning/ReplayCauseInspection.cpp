@@ -753,11 +753,6 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSol
                        layout.drawer.y + headerHeight + REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT + REPLAY_CAUSE_INSPECTOR_PADDING,
                        (std::max)( 0.0f, targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ),
                        (std::max)( 0.0f, layout.drawer.h - headerHeight - REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ) };
-    // Visibility belongs to the hierarchy footer, independent of the open detail tab.
-    for ( std::size_t index = 0; index < layout.outlineToggles.size(); ++index )
-    {
-        layout.outlineToggles[index] = { layout.hierarchy.x + 12.0f, layout.hierarchy.y + layout.hierarchy.h - 78.0f + index * 26.0f, layout.hierarchy.w - 24.0f, 24.0f };
-    }
     layout.drawerScrollbar = { layout.content.x + layout.content.w - REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH, layout.content.y, REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH, layout.content.h };
 
     const float rawCopyGap = 8.0f;
@@ -1698,18 +1693,6 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
         return true;
     }
 
-    if ( leftPressed && PointInside( layout.hierarchy, mouseX, mouseY ) )
-    {
-        for ( std::size_t index = 0; index < layout.outlineToggles.size(); ++index )
-        {
-            if ( PointInside( layout.outlineToggles[index], mouseX, mouseY ) )
-            {
-                bool& visible = index == 0 ? m_state.blueOutlinesVisible : m_state.greyOutlinesVisible;
-                visible = !visible;
-                return true;
-            }
-        }
-    }
 
     if ( !m_state.detailVisible || !ReplayCauseInspectorContainsPoint( layout, mouseX, mouseY ) || !PointInside( layout.visibleDrawer, mouseX, mouseY ) )
     {
@@ -1722,15 +1705,6 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
 
     if ( leftPressed )
     {
-        for ( std::size_t index = 0; index < layout.outlineToggles.size(); ++index )
-        {
-            if ( PointInside( layout.outlineToggles[index], mouseX, mouseY ) )
-            {
-                bool& visible = index == 0 ? m_state.blueOutlinesVisible : m_state.greyOutlinesVisible;
-                visible = !visible;
-                return true;
-            }
-        }
         for ( std::size_t tab = 0; tab < layout.tabs.size(); ++tab )
         {
             if ( PointInside( layout.tabs[tab], mouseX, mouseY ) )
@@ -1856,6 +1830,12 @@ void ReplayCauseInspection::SetActiveTab( ReplayCauseInspectorTab tab ) noexcept
     m_state.solverDetailFirstRow = 0;
     m_state.rawRecordFirstRow = 0;
     m_state.iterationsFirstRow = 0;
+}
+
+void ReplayCauseInspection::ToggleOutlineVisibility( bool resting ) noexcept
+{
+    bool& visible = resting ? m_state.greyOutlinesVisible : m_state.blueOutlinesVisible;
+    visible = !visible;
 }
 
 bool ReplayCauseInspection::CopySelectedRecord( char* destination, std::size_t destinationCapacity ) const noexcept

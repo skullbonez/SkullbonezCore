@@ -796,7 +796,7 @@ InputCaptureActionResult InputRouter::DispatchCaptureActions( InputActions& acti
             break;
         case RuntimeInputAction::ResetScene:
 
-            // R reloads after capture actions have had their persistence slot.
+            // R restarts authored poses after explicit capture actions have completed.
             sceneController.SubmitResetCurrentScene();
             break;
         case RuntimeInputAction::ResetSceneFromBackspace:

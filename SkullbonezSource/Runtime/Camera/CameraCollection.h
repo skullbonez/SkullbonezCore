@@ -56,6 +56,15 @@ class CameraCollection
         int axis = 0;
     };
     EditorViewState m_editorViews[2];
+    struct FourViewState
+    {
+        Camera single;
+        Camera panes[4];
+        int active = 3;
+        float halfDepth = 100.0f;
+        bool enabled = false;
+    };
+    FourViewState m_fourViews[2];
     bool m_editorViewWorkspace = false;
     bool m_editorViewTween = false;
     void ApplyEditorView();
@@ -89,12 +98,35 @@ class CameraCollection
     void SetTweenStart( int fromIndex ); // fromIndex=-1 starts from the current visible tween pose.
 
   public:
+    struct EditorPanePose
+    {
+        Math::Vector::Vector3 eye;
+        Math::Vector::Vector3 focus;
+        Math::Vector::Vector3 up;
+    };
+    void ToggleFourViews( const Math::Vector::Vector3& focus, float distance );
+    void SelectEditorPane( int pane );
+    EditorPanePose EditorPane( int pane ) const;
+    Math::Transformation::Matrix4 EditorPaneProjection( int pane, const Math::Transformation::Matrix4& perspective ) const;
+    void PanEditorView( float horizontal, float vertical );
+    bool FourViews() const noexcept
+    {
+        return m_fourViews[m_editorViewWorkspace ? 1 : 0].enabled;
+    }
+    int ActiveEditorPane() const noexcept
+    {
+        return m_fourViews[m_editorViewWorkspace ? 1 : 0].active;
+    }
     // 0: Perspective, 1: Top (+Y), 2: X Side (+X), 3: Z Side (+Z).
     void SelectEditorView( const Math::Vector::Vector3& focus, float distance, int axis );
     void ZoomEditorView( float logarithmicDelta );
     void SetEditorViewWorkspace( bool secondWorkspace );
     int EditorView() const noexcept
     {
+        if ( FourViews() )
+        {
+            return ( ActiveEditorPane() + 1 ) % 4;
+        }
         return m_editorViews[m_editorViewWorkspace ? 1 : 0].axis;
     }
     CameraCollection();

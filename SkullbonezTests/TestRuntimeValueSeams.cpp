@@ -69,40 +69,38 @@ using namespace SkullbonezCore::Runtime::ReplayOverlay;
 
 TEST_CASE( "Graphics stress routes every authored action to one concrete owner" )
 {
-    const std::array<GraphicsStressActionOwner, 32> expected = {
-        GraphicsStressActionOwner::Cinematic,
-        GraphicsStressActionOwner::Cinematic,
-        GraphicsStressActionOwner::Cinematic,
-        GraphicsStressActionOwner::SceneBrowser,
-        GraphicsStressActionOwner::Renderer,
-        GraphicsStressActionOwner::Renderer,
-        GraphicsStressActionOwner::PresentationOverlay,
-        GraphicsStressActionOwner::PresentationOverlay,
-        GraphicsStressActionOwner::PresentationOverlay,
-        GraphicsStressActionOwner::PresentationOverlay,
-        GraphicsStressActionOwner::PresentationOverlay,
-        GraphicsStressActionOwner::PresentationOverlay,
-        GraphicsStressActionOwner::PresentationOverlay,
-        GraphicsStressActionOwner::PresentationOverlay,
-        GraphicsStressActionOwner::PresentationOverlay,
-        GraphicsStressActionOwner::TimeScale,
-        GraphicsStressActionOwner::World,
-        GraphicsStressActionOwner::OperatorUi,
-        GraphicsStressActionOwner::GeneratedScene,
-        GraphicsStressActionOwner::Tornado,
-        GraphicsStressActionOwner::Tornado,
-        GraphicsStressActionOwner::OperatorUi,
-        GraphicsStressActionOwner::ScenePhysics,
-        GraphicsStressActionOwner::ScenePhysics,
-        GraphicsStressActionOwner::RuntimeOverlay,
-        GraphicsStressActionOwner::RuntimeOverlay,
-        GraphicsStressActionOwner::RuntimeTool,
-        GraphicsStressActionOwner::Camera,
-        GraphicsStressActionOwner::GeneratedScene,
-        GraphicsStressActionOwner::OperatorUi,
-        GraphicsStressActionOwner::OperatorUi,
-        GraphicsStressActionOwner::RuntimeOverlay,
-    };
+    const std::array<GraphicsStressActionOwner, 32> expected = { GraphicsStressActionOwner::Cinematic,
+                                                                 GraphicsStressActionOwner::Cinematic,
+                                                                 GraphicsStressActionOwner::Cinematic,
+                                                                 GraphicsStressActionOwner::SceneBrowser,
+                                                                 GraphicsStressActionOwner::Renderer,
+                                                                 GraphicsStressActionOwner::Renderer,
+                                                                 GraphicsStressActionOwner::PresentationOverlay,
+                                                                 GraphicsStressActionOwner::PresentationOverlay,
+                                                                 GraphicsStressActionOwner::PresentationOverlay,
+                                                                 GraphicsStressActionOwner::PresentationOverlay,
+                                                                 GraphicsStressActionOwner::PresentationOverlay,
+                                                                 GraphicsStressActionOwner::PresentationOverlay,
+                                                                 GraphicsStressActionOwner::PresentationOverlay,
+                                                                 GraphicsStressActionOwner::PresentationOverlay,
+                                                                 GraphicsStressActionOwner::PresentationOverlay,
+                                                                 GraphicsStressActionOwner::TimeScale,
+                                                                 GraphicsStressActionOwner::World,
+                                                                 GraphicsStressActionOwner::OperatorUi,
+                                                                 GraphicsStressActionOwner::GeneratedScene,
+                                                                 GraphicsStressActionOwner::Tornado,
+                                                                 GraphicsStressActionOwner::Tornado,
+                                                                 GraphicsStressActionOwner::OperatorUi,
+                                                                 GraphicsStressActionOwner::ScenePhysics,
+                                                                 GraphicsStressActionOwner::ScenePhysics,
+                                                                 GraphicsStressActionOwner::RuntimeOverlay,
+                                                                 GraphicsStressActionOwner::RuntimeOverlay,
+                                                                 GraphicsStressActionOwner::RuntimeTool,
+                                                                 GraphicsStressActionOwner::Camera,
+                                                                 GraphicsStressActionOwner::GeneratedScene,
+                                                                 GraphicsStressActionOwner::OperatorUi,
+                                                                 GraphicsStressActionOwner::OperatorUi,
+                                                                 GraphicsStressActionOwner::RuntimeOverlay, };
 
     for ( int action = 0; action < static_cast<int>( expected.size() ); ++action )
     {
@@ -122,10 +120,8 @@ TEST_CASE( "Passive camera floor follows the live fluid surface without inventin
     const float missingTerrain = -( std::numeric_limits<float>::max )();
     CHECK( InputController::ResolvePassiveCameraMinimumY( missingTerrain, 20.0f, 1.5f ) == missingTerrain );
     CHECK( InputController::ResolvePassiveCameraY( 5.0f, 4.0f, 120.0f, 1.5f, 110.0f ) == doctest::Approx( 110.0f ) );
-    CHECK( InputController::ResolvePassiveCameraY( 140.0f, missingTerrain, 20.0f, 1.5f, 110.0f ) ==
-           doctest::Approx( 110.0f ) );
-    CHECK( InputController::ResolvePassiveCameraY( 50.0f, missingTerrain, 20.0f, 1.5f, 110.0f ) ==
-           doctest::Approx( 50.0f ) );
+    CHECK( InputController::ResolvePassiveCameraY( 140.0f, missingTerrain, 20.0f, 1.5f, 110.0f ) == doctest::Approx( 110.0f ) );
+    CHECK( InputController::ResolvePassiveCameraY( 50.0f, missingTerrain, 20.0f, 1.5f, 110.0f ) == doctest::Approx( 50.0f ) );
 }
 
 TEST_CASE( "Replay scrub camera policy ignores an ordinary historical cursor" )
@@ -156,8 +152,7 @@ TEST_CASE( "Replay coordination commands retain only their action payload" )
 
     const ReplayStartupRequest startup { ReplayStartupLoadRequest { "capture.sbrv2", true },
 #ifdef _DEBUG
-                                         ReplayStartupRestoreFileProbeRequests { "checkpoint.sbrv2", "target.sbrv2",
-                                                                                 "branch.sbrv2", "failure.sbrv2" },
+                                         ReplayStartupRestoreFileProbeRequests { "checkpoint.sbrv2", "target.sbrv2", "branch.sbrv2", "failure.sbrv2" },
                                          ReplayStartupNormalizedProbeRequest { true, 0.25f },
                                          ReplayStartupNormalizedProbeRequest { true, 0.75f },
                                          ReplayStartupSaveProbeRequest { true, "saved.sbrv2" }
@@ -180,8 +175,7 @@ TEST_CASE( "Scene defaults save snapshot detaches every borrowed owner section" 
     presentation.textOnly = true;
     presentation.waterFreeze = true;
     presentation.terrainHidden = true;
-    presentation.physicsDebugFlags = SkullbonezCore::Physics::PHYSICS_DEBUG_AXES |
-                                     SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS;
+    presentation.physicsDebugFlags = SkullbonezCore::Physics::PHYSICS_DEBUG_AXES | SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS;
     presentation.physicsDebugTransparent = true;
     presentation.physicsDebugAlpha = 0.625f;
 
@@ -196,8 +190,7 @@ TEST_CASE( "Scene defaults save snapshot detaches every borrowed owner section" 
 
     SkullbonezCore::UI::RunSceneUIOverrideState uiOverrides;
     uiOverrides.modelCountOverride = 9;
-    const SceneDefaultsSaveSnapshot snapshot = ProjectSceneDefaultsSaveSnapshot( presentation, renderPolicy, camera,
-                                                                                 uiOverrides );
+    const SceneDefaultsSaveSnapshot snapshot = ProjectSceneDefaultsSaveSnapshot( presentation, renderPolicy, camera, uiOverrides );
     presentation.textOnly = false;
     renderPolicy.vsyncEnabled = true;
     camera.trackHeight = 900.0f;
@@ -206,8 +199,7 @@ TEST_CASE( "Scene defaults save snapshot detaches every borrowed owner section" 
     CHECK( snapshot.presentation.textOnly );
     CHECK( snapshot.presentation.waterFreeze );
     CHECK( snapshot.presentation.terrainHidden );
-    CHECK( snapshot.presentation.physicsDebugFlags ==
-           ( SkullbonezCore::Physics::PHYSICS_DEBUG_AXES | SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS ) );
+    CHECK( snapshot.presentation.physicsDebugFlags == ( SkullbonezCore::Physics::PHYSICS_DEBUG_AXES | SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS ) );
     CHECK( snapshot.presentation.physicsDebugTransparent );
     CHECK( snapshot.presentation.physicsDebugAlpha == doctest::Approx( 0.625f ) );
     CHECK_FALSE( snapshot.renderPolicy.vsyncEnabled );
@@ -250,8 +242,7 @@ TEST_CASE( "Runtime composition maps camera modes into interaction-owned workspa
     CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Inspect ).workspace == RuntimeWorkspace::Inspect );
     CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Attach ).workspace == RuntimeWorkspace::Inspect );
     CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Launcher ).owner == WorldInteractionOwner::Launcher );
-    CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Manipulator ).owner ==
-           WorldInteractionOwner::Manipulator );
+    CHECK( EnterInteractionForCameraMode( controller, RunCameraMode::Manipulator ).owner == WorldInteractionOwner::Manipulator );
 }
 
 TEST_CASE( "Operator UI phase: detached facts and GPU submission cross one ordered frame" )
@@ -420,11 +411,9 @@ TEST_CASE( "Scene advance exit policy preserves queued load failure" )
 
     SkullbonezCore::Core::SbDiagnosticStore diagnostics;
     ApplicationExitState exitState( diagnostics );
-    const SkullbonezCore::Core::SbResult loadFailure = diagnostics.Failure( "Runtime/SceneLoad",
-                                                                            "queued scene could not be loaded" );
+    const SkullbonezCore::Core::SbResult loadFailure = diagnostics.Failure( "Runtime/SceneLoad", "queued scene could not be loaded" );
     const SceneAdvanceExitDisposition failureDisposition = ResolveSceneAdvanceExitDisposition( false, false, true );
-    const SceneAdvanceExitAction failureAction = ApplySceneAdvanceExitDisposition( failureDisposition, loadFailure,
-                                                                                   exitState );
+    const SceneAdvanceExitAction failureAction = ApplySceneAdvanceExitDisposition( failureDisposition, loadFailure, exitState );
     const SkullbonezCore::Core::SbResult processResult = exitState.Resolve( failureAction.messageExitCode );
 
     CHECK( failureAction.postQuit );
@@ -568,24 +557,39 @@ TEST_CASE( "Runtime interaction: every gesture preserves owner and capture consi
         bool requiresBody = false;
     };
 
-    constexpr GestureCase cases[] = {
-        { RuntimeInteractionGestureKind::ObjectPick, RuntimeWorkspace::Live, WorldInteractionOwner::Launcher },
-        { RuntimeInteractionGestureKind::EditorPlacementScaleDrag, RuntimeWorkspace::Edit,
-          WorldInteractionOwner::EditorPlacement },
-        { RuntimeInteractionGestureKind::GizmoDrag, RuntimeWorkspace::Edit, WorldInteractionOwner::EditorGizmo,
-          RuntimeGizmoDragKind::Translate, 0, true },
-        { RuntimeInteractionGestureKind::GizmoDrag, RuntimeWorkspace::Inspect, WorldInteractionOwner::InspectGizmo,
-          RuntimeGizmoDragKind::Rotate, 1, true },
-        { RuntimeInteractionGestureKind::MousePickupDrag, RuntimeWorkspace::Live, WorldInteractionOwner::Manipulator,
-          RuntimeGizmoDragKind::None, -1, true },
-        { RuntimeInteractionGestureKind::ReplayScrubDrag, RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayScrub },
-        { RuntimeInteractionGestureKind::ReplayVelocityDrag, RuntimeWorkspace::Replay,
-          WorldInteractionOwner::ReplayVelocityEdit, RuntimeGizmoDragKind::None, 2, true },
-        { RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag, RuntimeWorkspace::Replay,
-          WorldInteractionOwner::ReplayPrediction },
-        { RuntimeInteractionGestureKind::ReplayCauseTreeDrag, RuntimeWorkspace::Replay,
-          WorldInteractionOwner::ReplayCauseTree, RuntimeGizmoDragKind::None, 0 },
-    };
+    constexpr GestureCase cases[] = { { RuntimeInteractionGestureKind::ObjectPick, RuntimeWorkspace::Live, WorldInteractionOwner::Launcher },
+                                      { RuntimeInteractionGestureKind::EditorPlacementScaleDrag, RuntimeWorkspace::Edit, WorldInteractionOwner::EditorPlacement },
+                                      { RuntimeInteractionGestureKind::GizmoDrag,
+                                                                                                                                                                                                                                                                             RuntimeWorkspace::Edit,
+                                                                                                                                                                                                                                                                             WorldInteractionOwner::EditorGizmo,
+                                                                                                                                                                                                                                                                             RuntimeGizmoDragKind::Translate,
+                                                                                                                                                                                                                                                                             0,
+                                                                                                                                                                                                                                                                             true },
+                                      { RuntimeInteractionGestureKind::GizmoDrag,
+                                                                                                                                                                                                                                                                                       RuntimeWorkspace::Inspect,
+                                                                                                                                                                                                                                                                                       WorldInteractionOwner::InspectGizmo,
+                                                                                                                                                                                                                                                                                       RuntimeGizmoDragKind::Rotate,
+                                                                                                                                                                                                                                                                                       1,
+                                                                                                                                                                                                                                                                                       true },
+                                      { RuntimeInteractionGestureKind::MousePickupDrag,
+                                                                                                                                                                                                                                                                                                 RuntimeWorkspace::Live,
+                                                                                                                                                                                                                                                                                                 WorldInteractionOwner::Manipulator,
+                                                                                                                                                                                                                                                                                                 RuntimeGizmoDragKind::None,
+                                                                                                                                                                                                                                                                                                 -1,
+                                                                                                                                                                                                                                                                                                 true },
+                                      { RuntimeInteractionGestureKind::ReplayScrubDrag, RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayScrub },
+                                      { RuntimeInteractionGestureKind::ReplayVelocityDrag,
+                                                                                                                                                                                                                                                                                                                                                                                                                             RuntimeWorkspace::Replay,
+                                                                                                                                                                                                                                                                                                                                                                                                                             WorldInteractionOwner::ReplayVelocityEdit,
+                                                                                                                                                                                                                                                                                                                                                                                                                             RuntimeGizmoDragKind::None,
+                                                                                                                                                                                                                                                                                                                                                                                                                             2,
+                                                                                                                                                                                                                                                                                                                                                                                                                             true },
+                                      { RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag, RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayPrediction },
+                                      { RuntimeInteractionGestureKind::ReplayCauseTreeDrag,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          RuntimeWorkspace::Replay,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          WorldInteractionOwner::ReplayCauseTree,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          RuntimeGizmoDragKind::None,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          0 }, };
 
     for ( const GestureCase& gestureCase : cases )
     {
@@ -625,12 +629,10 @@ TEST_CASE( "Runtime interaction: every gesture preserves owner and capture consi
     CHECK( cameraController.Gesture().kind == RuntimeInteractionGestureKind::None );
     CHECK( cameraController.PointerCapture() == RuntimePointerCaptureOwner::None );
 
-    const auto expectRejected =
-        []( RuntimeWorkspace workspace, WorldInteractionOwner owner, const RuntimeInteractionGesture& gesture )
+    const auto expectRejected = []( RuntimeWorkspace workspace, WorldInteractionOwner owner, const RuntimeInteractionGesture& gesture )
     {
         RuntimeInteractionController controller;
-        controller.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Live, WorldInteractionOwner::Launcher,
-                                                        InteractionExitReason::EnterLauncher );
+        controller.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Live, WorldInteractionOwner::Launcher, InteractionExitReason::EnterLauncher );
         const RuntimeWorkspace previousWorkspace = controller.Workspace();
         const WorldInteractionOwner previousOwner = controller.Owner();
         CHECK_FALSE( controller.BeginOwnedToolGesture( workspace, owner, gesture ) );
@@ -706,8 +708,7 @@ TEST_CASE( "Runtime interaction: every gesture preserves owner and capture consi
     expectRejected( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayCauseTree, invalid );
 
     RuntimeInteractionController commandController;
-    commandController.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Live, WorldInteractionOwner::Launcher,
-                                                           InteractionExitReason::EnterLauncher );
+    commandController.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Live, WorldInteractionOwner::Launcher, InteractionExitReason::EnterLauncher );
     RuntimeGestureCommand captureMismatch;
     captureMismatch.gesture.kind = RuntimeInteractionGestureKind::ObjectPick;
     captureMismatch.captureOwner = RuntimePointerCaptureOwner::CameraLook;
@@ -792,7 +793,8 @@ TEST_CASE( "Unified Replay uses one thin track hit area and retains control acti
     CHECK_FALSE( docked.Find( ReplayScrubberControlId( ReplayScrubberControl::Load ) )->visible );
 
     input.controlsBounds = { 0.0f, 72.0f, 280.0f, 140.0f };
-    input.controlsScroll = 1.0f;
+    // Replay now has outline rows below Load; scroll Load into the middle.
+    input.controlsScroll = 0.8f;
     BuildReplayScrubberSurface( input, docked );
     CHECK_FALSE( docked.Find( ReplayScrubberControlId( ReplayScrubberControl::Branch ) )->visible );
     const ReplayOverlayControl* load = docked.Find( ReplayScrubberControlId( ReplayScrubberControl::Load ) );
@@ -855,23 +857,22 @@ TEST_CASE( "Planning UI components render detached trip controls in owner order"
 
     constexpr ReplayTripPlannerControl order[] = { ReplayTripPlannerControl::TimeOfFlightDecrease,
                                                    ReplayTripPlannerControl::TimeOfFlightIncrease,
-                                                   ReplayTripPlannerControl::Plan, ReplayTripPlannerControl::Commit,
+                                                   ReplayTripPlannerControl::Plan,
+                                                   ReplayTripPlannerControl::Commit,
                                                    ReplayTripPlannerControl::Cancel };
     constexpr const char* labels[] = { "-", "+", "PLAN", "COMMIT", "CANCEL" };
     SkullbonezCore::UI::UIDrawList drawList;
     const SkullbonezCore::UI::UIDrawContext draw( 1280, 720, drawList );
-    SkullbonezCore::UI::Widgets::DrawPanel( draw, layout.Trip(),
-                                            SkullbonezCore::UI::UIVisualState::Visible |
-                                                SkullbonezCore::UI::UIVisualState::Enabled,
+    SkullbonezCore::UI::Widgets::DrawPanel( draw,
+                                            layout.Trip(),
+                                            SkullbonezCore::UI::UIVisualState::Visible | SkullbonezCore::UI::UIVisualState::Enabled,
                                             SkullbonezCore::UI::Widgets::ComponentAppearance::Compact );
 
     for ( std::size_t index = 0; index < std::size( order ); ++index )
     {
         const ReplayTripPlannerControlRow* row = surface.Find( order[index] );
         REQUIRE( row != nullptr );
-        SkullbonezCore::UI::Widgets::DrawButton( draw, row->drawRect, labels[index],
-                                                 ReplayTripPlannerControlVisualState( *row ),
-                                                 SkullbonezCore::UI::Widgets::ComponentAppearance::Compact );
+        SkullbonezCore::UI::Widgets::DrawButton( draw, row->drawRect, labels[index], ReplayTripPlannerControlVisualState( *row ), SkullbonezCore::UI::Widgets::ComponentAppearance::Compact );
     }
 
     const std::span<const SkullbonezCore::UI::UIDrawList::Command> commands = drawList.Commands();
@@ -903,8 +904,7 @@ TEST_CASE( "Replay overlay: surface description publishes owner availability as 
     stats.enabled = true;
     stats.sampleCount = 2u;
 
-    ReplayScrubberSurfaceInput input = DescribeReplayScrubberAvailability( scrubber, stats,
-                                                                           { false, true, true, false, true, true } );
+    ReplayScrubberSurfaceInput input = DescribeReplayScrubberAvailability( scrubber, stats, { false, true, true, false, true, true } );
     input.screenW = 1920;
     input.screenH = 1080;
     input.gesture = ReplayToolGestureKind::ScrubDrag;
@@ -937,8 +937,7 @@ TEST_CASE( "Replay overlay: surface description publishes owner availability as 
     CHECK( surface.hasPointerControl );
     CHECK( surface.hasHotControl );
     CHECK( surface.hotControl == highDetail->id );
-    CHECK( surface.Find( surface.hotControl )->action ==
-           static_cast<uint32_t>( ReplayScrubberAction::SetPredictionDetailMode ) );
+    CHECK( surface.Find( surface.hotControl )->action == static_cast<uint32_t>( ReplayScrubberAction::SetPredictionDetailMode ) );
 
     input.predictionHighDetail = false;
     input.predictionEnabled = true;
@@ -972,8 +971,7 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
     stats.enabled = true;
     stats.sampleCount = 1u;
 
-    ReplayScrubberSurfaceInput loaded = DescribeReplayScrubberAvailability( scrubber, stats,
-                                                                            { true, false, false, true, false, false } );
+    ReplayScrubberSurfaceInput loaded = DescribeReplayScrubberAvailability( scrubber, stats, { true, false, false, true, false, false } );
     loaded.hotZoneEnabled = false;
     CHECK( loaded.track == RunReplayTrack::Presentation );
     CHECK_FALSE( loaded.solverToolsEnabled );
@@ -982,20 +980,16 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
     CHECK( loaded.branchTargetAvailable );
     CHECK_FALSE( loaded.hotZoneEnabled );
 
-    ReplayScrubberSurfaceInput livePast = DescribeReplayScrubberAvailability( scrubber, stats,
-                                                                              { false, false, false, false, false, false } );
+    ReplayScrubberSurfaceInput livePast = DescribeReplayScrubberAvailability( scrubber, stats, { false, false, false, false, false, false } );
     CHECK( livePast.track == RunReplayTrack::Presentation );
 
     ReplayScrubberSurface loadedSurface;
     BuildReplayScrubberSurface( loaded, loadedSurface );
-    const ReplayOverlayControl* highDetail = loadedSurface.Find(
-        ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
+    const ReplayOverlayControl* highDetail = loadedSurface.Find( ReplayScrubberControlId( ReplayScrubberControl::HighDetail ) );
     REQUIRE( highDetail != nullptr );
     CHECK_FALSE( highDetail->visible );
 
-    ReplayScrubberSurfaceInput unavailable = DescribeReplayScrubberAvailability( scrubber, stats,
-                                                                                 { false, false, false, false, false,
-                                                                                   false } );
+    ReplayScrubberSurfaceInput unavailable = DescribeReplayScrubberAvailability( scrubber, stats, { false, false, false, false, false, false } );
     unavailable.screenW = 1280;
     unavailable.screenH = 720;
     CHECK_FALSE( unavailable.solverToolsEnabled );
@@ -1018,8 +1012,7 @@ TEST_CASE( "Replay event commands: domain values encode bounded deterministic pa
     using SkullbonezCore::Math::Orientation::Quaternion;
     using SkullbonezCore::Math::Vector::Vector3;
 
-    const ReplayEventCommand direct = BuildCommand( ReplayEventKind::OwnerAction, 17u, false, 3u, 1, 2, 3, 4, 99u,
-                                                    "owner-action" );
+    const ReplayEventCommand direct = BuildCommand( ReplayEventKind::OwnerAction, 17u, false, 3u, 1, 2, 3, 4, 99u, "owner-action" );
     CHECK( direct.kind == ReplayEventKind::OwnerAction );
     CHECK( direct.frameIndex == 17u );
     CHECK_FALSE( direct.useNextFrame );
@@ -1049,16 +1042,14 @@ TEST_CASE( "Replay event commands: domain values encode bounded deterministic pa
     CHECK( launcher.flags == 3u );
     CHECK( std::strcmp( launcher.text, "launcher_config" ) == 0 );
 
-    const ReplayEventCommand fire = BuildLauncherFire( Vector3( 1.0f, 2.0f, 3.0f ), Vector3( 0.0f, 0.0f, 1.0f ),
-                                                       Vector3( 0.0f, 1.0f, 0.0f ), true, 50.0f, 80.0f, 12 );
+    const ReplayEventCommand fire = BuildLauncherFire( Vector3( 1.0f, 2.0f, 3.0f ), Vector3( 0.0f, 0.0f, 1.0f ), Vector3( 0.0f, 1.0f, 0.0f ), true, 50.0f, 80.0f, 12 );
     CHECK( fire.kind == ReplayEventKind::LauncherFire );
     CHECK( fire.flags == 1u );
     CHECK( fire.value0 == 1 );
     CHECK( fire.value3 == 12 );
     CHECK( std::strncmp( fire.text, "ray9:", 5u ) == 0 );
 
-    const ReplayEventCommand place = BuildEditorPlace( 4, true, true, 12, Vector3( 10.0f, 20.0f, 30.0f ),
-                                                       Vector3( 1.0f, 2.0f, 3.0f ), 0.25f );
+    const ReplayEventCommand place = BuildEditorPlace( 4, true, true, 12, Vector3( 10.0f, 20.0f, 30.0f ), Vector3( 1.0f, 2.0f, 3.0f ), 0.25f );
     CHECK( place.kind == ReplayEventKind::EditorPlace );
     CHECK( place.flags == 3u );
     CHECK( place.value0 == 4 );
@@ -1066,18 +1057,14 @@ TEST_CASE( "Replay event commands: domain values encode bounded deterministic pa
 
     const Quaternion orientation;
     const SkullbonezCore::Physics::PhysicsSceneObjectId sceneObjectId { 77u };
-    CHECK( BuildEditorTransform( 2, 0u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, -1, 1.0f ).kind ==
-           ReplayEventKind::Unknown );
-    CHECK( BuildEditorTransform( 2, 4u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 4, 2.0f ).kind ==
-           ReplayEventKind::Unknown );
-    const ReplayEventCommand translate = BuildEditorTransform( 2, 1u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ),
-                                                               orientation, 8, 2, 5.0f );
+    CHECK( BuildEditorTransform( 2, 0u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, -1, 1.0f ).kind == ReplayEventKind::Unknown );
+    CHECK( BuildEditorTransform( 2, 4u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 4, 2.0f ).kind == ReplayEventKind::Unknown );
+    const ReplayEventCommand translate = BuildEditorTransform( 2, 1u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 2, 5.0f );
     CHECK( translate.kind == ReplayEventKind::EditorTransform );
     CHECK( translate.flags == 1u );
     CHECK( translate.value3 == -1 );
     CHECK( std::strncmp( translate.text, "xform7:", 7u ) == 0 );
-    const ReplayEventCommand scale = BuildEditorTransform( 2, 7u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8,
-                                                           1, 1.25f );
+    const ReplayEventCommand scale = BuildEditorTransform( 2, 7u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 1, 1.25f );
     CHECK( scale.kind == ReplayEventKind::EditorTransform );
     CHECK( scale.flags == 7u );
     CHECK( scale.value3 == 1 );
@@ -1148,9 +1135,7 @@ TEST_CASE( "Replay event recorder: chronological cursor survives bounded ring wr
 TEST_CASE( "Replay memory: one Low-detail snapshot reconciles released evidence" )
 {
     SkullbonezCore::Core::MainMemoryReplayStats stats;
-    SkullbonezCore::Core::
-        MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                          SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner, 4096u );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( stats.categoryBytes, SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner, 4096u );
     stats.totalBytes = SkullbonezCore::Core::MainMemoryReplayCategoryTotalBytes( stats.categoryBytes );
     stats.predictionEvidence.releaseCheckpointCount = 1u;
     stats.predictionEvidence.lastReleaseBeforeCapacityBytes = 1536u;

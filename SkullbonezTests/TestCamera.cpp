@@ -531,6 +531,80 @@ TEST_CASE( "Editor camera views: workspace axis and zoom are independent and res
     CHECK( cameras.EditorView() == 0 );
 }
 
+TEST_CASE( "Editor camera panes preserve full-screen pose and independent plane pan and zoom" )
+{
+    CameraCollection cameras;
+    const Vector3 eye( 10, 40, 70 ), focus( 1, 2, 3 ), up( 0, 1, 0 );
+    cameras.AddCamera( eye, focus, up, CAMERA_FREE );
+    cameras.SetCamera();
+    cameras.ToggleFourViews( focus, 200 );
+    REQUIRE( cameras.FourViews() );
+    CHECK( cameras.GetSelectedCameraName() == CAMERA_FREE );
+    const auto perspective = SkullbonezCore::Math::Transformation::Matrix4::PerspectiveZeroToOne( 45, 1.5f, 0.1f, 10000 );
+    for ( int pane = 0; pane < 3; ++pane )
+    {
+        cameras.SelectEditorPane( pane );
+        const auto before = cameras.EditorPane( pane );
+        cameras.RotatePrimary( 0.2f, 0.1f );
+        cameras.MovePrimary( Camera::TravelDirection::Forward, 20 );
+        cameras.SetCamera();
+        CHECK( cameras.EditorPane( pane ).eye == before.eye );
+        cameras.PanEditorView( 12, -8 );
+        const auto panned = cameras.EditorPane( pane );
+        CHECK( panned.eye - before.eye == panned.focus - before.focus );
+        CHECK( panned.up == before.up );
+        CHECK( panned.eye != before.eye );
+        const Vector3 normal = pane == 0 ? Vector3( 0, 1, 0 ) : pane == 1 ? Vector3( 1, 0, 0 ) : Vector3( 0, 0, 1 );
+        CHECK( SkullbonezCore::Math::Vector::Dot( panned.eye - before.eye, normal ) == 0 );
+        cameras.ZoomEditorView( -0.3f );
+        const auto zoomed = cameras.EditorPane( pane );
+        CHECK( zoomed.focus == panned.focus );
+        CHECK( SkullbonezCore::Math::Vector::Distance( zoomed.eye, zoomed.focus ) < 200 );
+        const auto projection = cameras.EditorPaneProjection( pane, perspective );
+        CHECK( projection.m[15] == 1 );
+        CHECK( projection.m[11] == 0 );
+        // An elevated object can be behind the zoomed eye and still belongs
+        // to the editor's fitted scene volume. Zoom must preserve its depth.
+        const auto view = SkullbonezCore::Math::Transformation::Matrix4::LookAt( zoomed.eye, zoomed.focus, zoomed.up );
+        const auto clip = projection * view;
+        const auto elevated = zoomed.focus + normal * 190;
+        const float depth = clip.m[2] * elevated.x + clip.m[6] * elevated.y + clip.m[10] * elevated.z + clip.m[14];
+        CHECK( depth > 0 );
+        CHECK( depth < 1 );
+        cameras.ZoomEditorView( -2 );
+        const auto close = cameras.EditorPane( pane );
+        const auto closeClip = cameras.EditorPaneProjection( pane, perspective ) * SkullbonezCore::Math::Transformation::Matrix4::LookAt( close.eye, close.focus, close.up );
+        CHECK( closeClip.m[2] * elevated.x + closeClip.m[6] * elevated.y + closeClip.m[10] * elevated.z + closeClip.m[14] == doctest::Approx( depth ) );
+        cameras.SelectEditorPane( 3 );
+        CHECK( cameras.GetCameraTranslation() == eye );
+        cameras.SelectEditorPane( pane );
+        CHECK( cameras.GetCameraTranslation() == close.eye );
+    }
+    cameras.SelectEditorPane( 3 );
+    cameras.SetPrimaryPose( Vector3( 40, 50, 60 ), focus, up );
+    cameras.SetCamera();
+    cameras.ToggleFourViews( focus, 200 );
+    CHECK_FALSE( cameras.FourViews() );
+    CHECK( cameras.GetRenderCameraTranslation() == eye );
+    CHECK( cameras.GetRenderCameraView() == focus );
+    cameras.SelectEditorView( focus, 200, 1 );
+    cameras.SetTweenDeltaSeconds( 0.2f );
+    cameras.SetCamera();
+    const auto fixed = cameras.GetRenderCameraTranslation();
+    cameras.ToggleFourViews( focus, 200 );
+    cameras.SelectEditorPane( 2 );
+    cameras.ZoomEditorView( -1 );
+    cameras.ToggleFourViews( focus, 200 );
+    CHECK( cameras.EditorView() == 1 );
+    CHECK( cameras.GetRenderCameraTranslation() == fixed );
+    cameras.SelectEditorView( focus, 200, 0 );
+    cameras.SetCamera();
+    CHECK( cameras.GetRenderCameraTranslation() == eye );
+    cameras.ToggleFourViews( focus, 200 );
+    cameras.Reset();
+    CHECK_FALSE( cameras.FourViews() );
+}
+
 TEST_CASE( "Editor camera views: eased transitions finish in 200ms and retarget from the visible pose" )
 {
     CameraCollection cameras;
