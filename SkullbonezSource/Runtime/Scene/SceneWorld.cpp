@@ -40,6 +40,7 @@ Related:
 #include "../../Core/SbDiagnosticStore.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Config.h"
+#include "../../Core/SceneCapacity.h"
 
 #include "../../Core/FatalError.h"
 #include "../../Physics/ColliderStore.h"
@@ -48,6 +49,7 @@ Related:
 #include "../../Rendering/RenderInstanceStore.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cmath>
@@ -106,9 +108,7 @@ ShadowCasterStream ResolveRegisteredShadowCasterStream( const ColliderRecord& co
         // Why: this scene-owner instance-build boundary confines legacy pine
         // content knowledge to the scene package. Frame
         // submission consumes only the resulting opaque stream id.
-        if ( material.kind == RenderMaterialKind::Pine ||
-             ( material.textureMode > 1.25f &&
-               static_cast<int>( material.textureMode + 0.5f ) == PINE_VISUAL_MATERIAL_MODE ) )
+        if ( material.kind == RenderMaterialKind::Pine || ( material.textureMode > 1.25f && static_cast<int>( material.textureMode + 0.5f ) == PINE_VISUAL_MATERIAL_MODE ) )
         {
             return ShadowCasterStream::Pine;
         }
@@ -122,8 +122,7 @@ ShadowCasterStream ResolveRegisteredShadowCasterStream( const ColliderRecord& co
 } // namespace
 
 
-SceneWorld::SceneWorld( SkullbonezCore::Core::SbDiagnosticStore& diagnostics )
-    : m_diagnostics( diagnostics ), m_entities( diagnostics )
+SceneWorld::SceneWorld( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) : m_diagnostics( diagnostics ), m_entities( diagnostics )
 {
     ReserveForActiveSceneObjectCapacity();
 }
@@ -173,15 +172,23 @@ std::vector<const char*> SceneWorld::BuildDiagnosticNamesForReload() const
 
 void SceneWorld::RegisterPhysicsDiagnosticNames()
 {
-    const std::vector<const char*> diagnosticNames = BuildDiagnosticNamesForReload();
-    m_physics.SetDiagnosticNames( diagnosticNames );
+    // Lifetime: Physics copies these pointers synchronously; names remain owned
+    // by SceneEntityStore. Fixed stack scratch avoids a heap allocation per part
+    // when editor placement refreshes the diagnostic table during gameplay.
+    std::array<const char*, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> diagnosticNames;
+    const std::size_t count = static_cast<std::size_t>( Entities().Count() );
+    assert( count <= diagnosticNames.size() );
+    for ( std::size_t index = 0; index < count; ++index )
+    {
+        diagnosticNames[index] = Entities().At( static_cast<int>( index ) ).displayName;
+    }
+    m_physics.SetDiagnosticNames( std::span<const char* const>( diagnosticNames.data(), count ) );
 }
 
 
 bool SceneWorld::RefreshPhysicsBodyStoreFromAuthoredDescriptors()
 {
-    const std::vector<PhysicsSceneObjectId> sceneObjectIds = Physics::PhysicsEngine::ReadBodies( m_physics )
-                                                                 .BuildSceneObjectIdsForReload( SceneEntityCount() );
+    const std::vector<PhysicsSceneObjectId> sceneObjectIds = Physics::PhysicsEngine::ReadBodies( m_physics ).BuildSceneObjectIdsForReload( SceneEntityCount() );
 
     const std::vector<ModelRowHint> fixedTreeReleaseRoots = BuildFixedTreeReleaseRootsForReload();
     const std::vector<const char*> diagnosticNames = BuildDiagnosticNamesForReload();
@@ -213,8 +220,7 @@ bool SceneWorld::RefreshPhysicsBodyStoreFromAuthoredDescriptors()
 int SceneWorld::FixedTreeReleaseRootForModelIndex( int modelIndex ) const
 {
     const SceneBehaviorGroup& group = Entities().BehaviorGroupAt( modelIndex );
-    return group.kind == SceneBehaviorGroupKind::ReleasableTree ? Entities().ResolveBehaviorGroupRootModelIndex( group )
-                                                                : -1;
+    return group.kind == SceneBehaviorGroupKind::ReleasableTree ? Entities().ResolveBehaviorGroupRootModelIndex( group ) : -1;
 }
 
 
@@ -334,35 +340,34 @@ int SceneWorld::ActiveSceneObjectCapacity() const
 }
 
 
-SkullbonezCore::Core::SbResult SceneWorld::CommitPhysicsSceneCapacity( int bodyCount, int sphereCount, int boxCount,
-                                                                       int hullColliderCount, int hullVariantCapacity,
-                                                                       int pointJointCount )
+SkullbonezCore::Core::SbResult SceneWorld::CommitPhysicsSceneCapacity( int bodyCount, int sphereCount, int boxCount, int hullColliderCount, int hullVariantCapacity, int pointJointCount )
 {
     constexpr int ceiling = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS;
 
-    if ( bodyCount > ceiling || sphereCount > ceiling || boxCount > ceiling || hullColliderCount > ceiling ||
-         hullVariantCapacity > ceiling || pointJointCount > ceiling )
+    if ( bodyCount > ceiling || sphereCount > ceiling || boxCount > ceiling || hullColliderCount > ceiling || hullVariantCapacity > ceiling || pointJointCount > ceiling )
     {
         SB_FATAL( "Scene/SceneWorld",
-                  "Scene physics capacity exceeds the hard ceiling: owner=Scene/SceneWorld requested_bodies=%d "
-                  "requested_spheres=%d requested_boxes=%d requested_hull_colliders=%d "
-                  "requested_hull_variants=%d requested_point_joints=%d ceiling=%d.",
-                  bodyCount, sphereCount, boxCount, hullColliderCount, hullVariantCapacity, pointJointCount, ceiling );
+                  "Scene physics capacity exceeds the hard ceiling: owner=Scene/SceneWorld requested_bodies=%d " "requested_spheres=%d requested_boxes=%d requested_hull_colliders=%d " "requested_hull_variants=%d requested_point_joints=%d ceiling=%d.",
+                  bodyCount,
+                  sphereCount,
+                  boxCount,
+                  hullColliderCount,
+                  hullVariantCapacity,
+                  pointJointCount,
+                  ceiling );
     }
 
-    if ( bodyCount < 0 || sphereCount < 0 || boxCount < 0 || hullColliderCount < 0 || hullVariantCapacity < 0 ||
-         pointJointCount < 0 )
+    if ( bodyCount < 0 || sphereCount < 0 || boxCount < 0 || hullColliderCount < 0 || hullVariantCapacity < 0 || pointJointCount < 0 )
     {
         return m_diagnostics.Failure( "Scene/SceneWorld", "Scene physics capacity cannot be negative." );
     }
 
     if ( bodyCount > m_activeSceneObjectCapacity )
     {
-        return m_diagnostics
-            .Failure( "Scene/SceneWorld",
-                      "Scene requires %d bodies but the active scene object capacity is %d; raise --model-capacity or "
-                      "game_model_capacity.",
-                      bodyCount, m_activeSceneObjectCapacity );
+        return m_diagnostics.Failure( "Scene/SceneWorld",
+                                      "Scene requires %d bodies but the active scene object capacity is %d; raise --model-capacity or " "game_model_capacity.",
+                                      bodyCount,
+                                      m_activeSceneObjectCapacity );
     }
 
     // Invariant: hullColliderCount participates in body topology, while hullVariantCapacity counts retained immutable
@@ -370,23 +375,19 @@ SkullbonezCore::Core::SbResult SceneWorld::CommitPhysicsSceneCapacity( int bodyC
     if ( sphereCount + boxCount + hullColliderCount != bodyCount )
     {
         return m_diagnostics
-            .Failure( "Scene/SceneWorld",
-                      "Shape topology does not exactly match body count: bodies=%d spheres=%d boxes=%d hulls=%d.", bodyCount,
-                      sphereCount, boxCount, hullColliderCount );
+            .Failure( "Scene/SceneWorld", "Shape topology does not exactly match body count: bodies=%d spheres=%d boxes=%d hulls=%d.", bodyCount, sphereCount, boxCount, hullColliderCount );
     }
 
     if ( hullVariantCapacity > hullColliderCount )
     {
-        return m_diagnostics.Failure( "Scene/SceneWorld",
-                                      "Hull variant capacity %d exceeds authored hull collider count %d.",
-                                      hullVariantCapacity, hullColliderCount );
+        return m_diagnostics.Failure( "Scene/SceneWorld", "Hull variant capacity %d exceeds authored hull collider count %d.", hullVariantCapacity, hullColliderCount );
     }
 
     // Lifetime: SceneWorld coordinates one ordered commit while each concrete
     // Physics owner remains the authority for its own monotonic backing.
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
-    m_physics.ReserveAuthoredBodyCapacity( static_cast<std::size_t>( bodyCount ), static_cast<std::size_t>( sphereCount ),
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+    m_physics.ReserveAuthoredBodyCapacity( static_cast<std::size_t>( bodyCount ),
+                                           static_cast<std::size_t>( sphereCount ),
                                            static_cast<std::size_t>( boxCount ),
                                            static_cast<std::size_t>( hullVariantCapacity ),
                                            static_cast<std::size_t>( pointJointCount ) );
@@ -395,8 +396,7 @@ SkullbonezCore::Core::SbResult SceneWorld::CommitPhysicsSceneCapacity( int bodyC
 }
 
 
-SkullbonezCore::Core::SbResult SceneWorld::ReserveAdditionalPhysicsSceneCapacity( int sphereCount, int boxCount,
-                                                                                  int hullCount, int pointJointCount )
+SkullbonezCore::Core::SbResult SceneWorld::ReserveAdditionalPhysicsSceneCapacity( int sphereCount, int boxCount, int hullCount, int pointJointCount )
 {
     if ( sphereCount < 0 || boxCount < 0 || hullCount < 0 || pointJointCount < 0 )
     {
@@ -407,24 +407,24 @@ SkullbonezCore::Core::SbResult SceneWorld::ReserveAdditionalPhysicsSceneCapacity
 
     if ( SceneEntityCount() + additionalBodies > m_activeSceneObjectCapacity )
     {
-        return m_diagnostics
-            .Failure( "Scene/SceneWorld",
-                      "Additional scene physics capacity exceeds active admission: current=%d additional=%d capacity=%d.",
-                      SceneEntityCount(), additionalBodies, m_activeSceneObjectCapacity );
+        return m_diagnostics.Failure( "Scene/SceneWorld",
+                                      "Additional scene physics capacity exceeds active admission: current=%d additional=%d capacity=%d.",
+                                      SceneEntityCount(),
+                                      additionalBodies,
+                                      m_activeSceneObjectCapacity );
     }
 
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
     m_physics.ReserveAdditionalAuthoredCapacity( static_cast<std::size_t>( sphereCount ),
-                                                 static_cast<std::size_t>( boxCount ), static_cast<std::size_t>( hullCount ),
+                                                 static_cast<std::size_t>( boxCount ),
+                                                 static_cast<std::size_t>( hullCount ),
                                                  static_cast<std::size_t>( pointJointCount ) );
 
     return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-ScenePhysicsPostStepOutput SceneWorld::StepPhysics( float fixedDt, const Physics::PhysicsWorldForces& worldForces,
-                                                    Threading::WorkerPool& workerPool )
+ScenePhysicsPostStepOutput SceneWorld::StepPhysics( float fixedDt, const Physics::PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool )
 {
     // Invariant: PhysicsBodyStore is the per-tick body authority. Descriptor
     // sidecars are imported only when topology changes; same-count editor or
@@ -432,9 +432,7 @@ ScenePhysicsPostStepOutput SceneWorld::StepPhysics( float fixedDt, const Physics
     RepairPhysicsBodyAndColliderTopology();
 
     Physics::PhysicsDiagnosticsCsvWriter diagnosticsCsvWriter;
-    const Physics::ExternalForceFrameInput
-        externalForces = m_tornadoGameplay.BuildForceFrame( fixedDt,
-                                                            Physics::PhysicsEngine::ReadBodies( m_physics ).Count() );
+    const Physics::ExternalForceFrameInput externalForces = m_tornadoGameplay.BuildForceFrame( fixedDt, Physics::PhysicsEngine::ReadBodies( m_physics ).Count() );
 
     m_physics.Step( fixedDt, worldForces, externalForces, workerPool, diagnosticsCsvWriter );
 
@@ -450,24 +448,27 @@ void SceneWorld::AssertSceneCreationTopology( int expectedCount ) const
     const int buoyancyCount = static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() );
     const int renderPresentationCount = m_renderInstanceStore.PresentationCount();
     const int renderCount = m_renderInstanceStore.Count();
-    const bool reservationsReady = m_renderInstanceStore.PresentationCapacity() >=
-                                   static_cast<std::size_t>( m_activeSceneObjectCapacity );
+    const bool reservationsReady = m_renderInstanceStore.PresentationCapacity() >= static_cast<std::size_t>( m_activeSceneObjectCapacity );
 
-    if ( expectedCount < 0 || Entities().Count() != expectedCount || descriptorCount != expectedCount ||
-         bodyCount != expectedCount || colliderCount != expectedCount || buoyancyCount != expectedCount ||
-         renderPresentationCount != expectedCount || renderCount != expectedCount || !reservationsReady )
+    if ( expectedCount < 0 || Entities().Count() != expectedCount || descriptorCount != expectedCount || bodyCount != expectedCount || colliderCount != expectedCount ||
+         buoyancyCount != expectedCount || renderPresentationCount != expectedCount || renderCount != expectedCount || !reservationsReady )
     {
         SB_FATAL( "Scene/SceneWorld",
-                  "Scene creation topology diverged. expected=%d entities=%d descriptors=%d "
-                  "bodies=%d colliders=%d buoyancy=%d render_presentation=%d render=%d reservations_ready=%d",
-                  expectedCount, Entities().Count(), descriptorCount, bodyCount, colliderCount, buoyancyCount,
-                  renderPresentationCount, renderCount, reservationsReady ? 1 : 0 );
+                  "Scene creation topology diverged. expected=%d entities=%d descriptors=%d " "bodies=%d colliders=%d buoyancy=%d render_presentation=%d render=%d reservations_ready=%d",
+                  expectedCount,
+                  Entities().Count(),
+                  descriptorCount,
+                  bodyCount,
+                  colliderCount,
+                  buoyancyCount,
+                  renderPresentationCount,
+                  renderCount,
+                  reservationsReady ? 1 : 0 );
     }
 }
 
 
-SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc entity, PhysicsBodyCreateDesc bodyDesc,
-                                                          PhysicsColliderCreateDesc colliderDesc )
+SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc entity, PhysicsBodyCreateDesc bodyDesc, PhysicsColliderCreateDesc colliderDesc )
 {
     const int activeCapacity = m_activeSceneObjectCapacity;
     const int modelIndex = SceneEntityCount();
@@ -475,10 +476,7 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
 
     if ( SceneEntityCount() >= activeCapacity )
     {
-        return { m_diagnostics
-                     .Failure( SCENE_ENTITY_CREATION_OWNER,
-                               "Exceeded active scene object capacity; raise --model-capacity or game_model_capacity." ),
-                 PhysicsBodyHandle {} };
+        return { m_diagnostics.Failure( SCENE_ENTITY_CREATION_OWNER, "Exceeded active scene object capacity; raise --model-capacity or game_model_capacity." ), PhysicsBodyHandle {} };
     }
 
     const SkullbonezCore::Core::SbResult entityResult = Entities().PreflightAppend( entity );
@@ -490,32 +488,33 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
 
     if ( bodyDesc.sceneObjectId.IsValid() && bodyDesc.sceneObjectId.value != entity.sceneObjectId.value )
     {
-        return { m_diagnostics.Failure( SCENE_ENTITY_CREATION_OWNER, "Body scene object id %u does not match entity id %u.",
-                                        bodyDesc.sceneObjectId.value, entity.sceneObjectId.value ),
-                 PhysicsBodyHandle {} };
+        return { m_diagnostics.Failure( SCENE_ENTITY_CREATION_OWNER, "Body scene object id %u does not match entity id %u.", bodyDesc.sceneObjectId.value, entity.sceneObjectId.value ), PhysicsBodyHandle {} };
     }
 
     {
         // Cold editor and tool mutations may append beyond the load-time
         // topology. The initial scene commit makes this a no-op during loading;
         // later additions grow only the concrete body and shape owners needed.
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneMutationScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneMutationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         m_physics.ReserveAdditionalAuthoredBodyCapacity( colliderDesc );
     }
 
     if ( !m_physics.CanRegisterAuthoredBody( MakePhysicsAuthoredBodyCountFromNonNegativeInt( modelIndex ) ) )
     {
         SB_FATAL( "Scene/SceneWorld",
-                  "Physics creation storage is not preflight-ready. expected=%d descriptors=%u bodies=%d", modelIndex,
-                  m_physics.AuthoredBodyDescriptorCount().value, BodyStore().Count() );
+                  "Physics creation storage is not preflight-ready. expected=%d descriptors=%u bodies=%d",
+                  modelIndex,
+                  m_physics.AuthoredBodyDescriptorCount().value,
+                  BodyStore().Count() );
     }
 
     if ( !m_renderInstanceStore.CanAppendCreationRow( modelIndex ) )
     {
         SB_FATAL( "Scene/SceneWorld",
-                  "Render creation storage is not preflight-ready. expected=%d presentation=%d render=%d", modelIndex,
-                  m_renderInstanceStore.PresentationCount(), m_renderInstanceStore.Count() );
+                  "Render creation storage is not preflight-ready. expected=%d presentation=%d render=%d",
+                  modelIndex,
+                  m_renderInstanceStore.PresentationCount(),
+                  m_renderInstanceStore.Count() );
     }
 
     Rendering::RenderInstancePresentationRecord renderPresentation;
@@ -531,10 +530,8 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
     bodyDesc.sceneObjectId = entity.sceneObjectId;
     bodyDesc.fixedTreeReleaseRootIndex = entity.behaviorGroup.kind != SceneBehaviorGroupKind::ReleasableTree
                                              ? -1
-                                             : ( entity.behaviorGroup.rootObjectId.value == entity.sceneObjectId.value
-                                                     ? modelIndex
-                                                     : Entities().ResolveBehaviorGroupRootModelIndex(
-                                                           entity.behaviorGroup ) );
+                                             : ( entity.behaviorGroup.rootObjectId.value == entity.sceneObjectId.value ? modelIndex
+                                                                                                                       : Entities().ResolveBehaviorGroupRootModelIndex( entity.behaviorGroup ) );
 
     // Lifetime: authored descriptors outlive this value-local entity packet.
     // Diagnostics receive stable SceneEntityStore names after the entity row
@@ -545,8 +542,7 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
         // Shape payload backing is scene topology, even when an editor command
         // appends it after startup. Attribute that cold mutation to scene load
         // so a newly introduced concrete shape kind can reserve its own store.
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneMutationScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneMutationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         registration = m_physics.RegisterAuthoredBody( bodyDesc, std::move( colliderDesc ) );
     }
 
@@ -571,14 +567,10 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
         SB_FATAL( "Scene/SceneWorld", "Failed to register newly authored physics collider record." );
     }
 
-    renderPresentation.shadowCasterStream = ResolveRegisteredShadowCasterStream( *colliderRecord,
-                                                                                 renderPresentation.material );
+    renderPresentation.shadowCasterStream = ResolveRegisteredShadowCasterStream( *colliderRecord, renderPresentation.material );
 
     Entities().CommitAppend( entity, bodyHandle );
-    m_renderInstanceStore.CommitCreationRow( renderPresentation, *bodyRecord,
-                                             LoadPhysicsBodyHotState( BodyStore().HotFields(),
-                                                                      static_cast<std::size_t>( modelIndex ) ),
-                                             *colliderRecord, modelIndex );
+    m_renderInstanceStore.CommitCreationRow( renderPresentation, *bodyRecord, LoadPhysicsBodyHotState( BodyStore().HotFields(), static_cast<std::size_t>( modelIndex ) ), *colliderRecord, modelIndex );
 
     RegisterPhysicsDiagnosticNames();
     AssertSceneCreationTopology( modelIndex + 1 );
@@ -592,10 +584,9 @@ bool SceneWorld::DestroySceneEntity( PhysicsBodyHandle body )
     const int modelIndex = bodyStore.ModelIndexForHandle( body );
     const int modelCount = SceneEntityCount();
 
-    if ( modelIndex < 0 || modelIndex >= modelCount || bodyStore.Count() != modelCount ||
-         Colliders().Count() != modelCount ||
-         static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) != modelCount ||
-         m_renderInstanceStore.PresentationCount() != modelCount || m_renderInstanceStore.Count() != modelCount )
+    if ( modelIndex < 0 || modelIndex >= modelCount || bodyStore.Count() != modelCount || Colliders().Count() != modelCount ||
+         static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) != modelCount || m_renderInstanceStore.PresentationCount() != modelCount ||
+         m_renderInstanceStore.Count() != modelCount )
     {
         return false;
     }
@@ -620,8 +611,7 @@ bool SceneWorld::DestroySceneEntity( PhysicsBodyHandle body )
 
         const SceneEntityRecord& candidate = Entities().At( index );
 
-        if ( candidate.behaviorGroup.rootObjectId.value == entity.sceneObjectId.value ||
-             candidate.asset.rootObjectId.value == entity.sceneObjectId.value )
+        if ( candidate.behaviorGroup.rootObjectId.value == entity.sceneObjectId.value || candidate.asset.rootObjectId.value == entity.sceneObjectId.value )
         {
             return false;
         }
@@ -642,8 +632,7 @@ bool SceneWorld::DestroySceneEntity( PhysicsBodyHandle body )
 
     if ( !entityRemoved || !renderRemoved )
     {
-        SB_FATAL( "Scene/SceneWorld", "Paired scene deletion diverged after physics commit. row=%d entity=%d render=%d",
-                  modelIndex, entityRemoved ? 1 : 0, renderRemoved ? 1 : 0 );
+        SB_FATAL( "Scene/SceneWorld", "Paired scene deletion diverged after physics commit. row=%d entity=%d render=%d", modelIndex, entityRemoved ? 1 : 0, renderRemoved ? 1 : 0 );
     }
 
     // Invariant: PhysicsEngine already compacted the live body, collider, and
@@ -718,9 +707,8 @@ bool SceneWorld::TrimForReplayRestore( int bodyCount )
     const int liveBuoyancyCount = static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() );
     const uint32_t authoredBodyCount = m_physics.AuthoredBodyDescriptorCount().value;
 
-    if ( bodyCount < 0 || bodyCount > liveBodyCount || bodyCount > liveBuoyancyCount ||
-         static_cast<uint32_t>( bodyCount ) > authoredBodyCount || !CanTrimPresentationRowsForSceneRestore( bodyCount ) ||
-         bodyCount > m_entities.Count() )
+    if ( bodyCount < 0 || bodyCount > liveBodyCount || bodyCount > liveBuoyancyCount || static_cast<uint32_t>( bodyCount ) > authoredBodyCount ||
+         !CanTrimPresentationRowsForSceneRestore( bodyCount ) || bodyCount > m_entities.Count() )
     {
         return false;
     }
@@ -737,13 +725,10 @@ bool SceneWorld::TrimForReplayRestore( int bodyCount )
     // Invariant: physics rows shrink before presentation and metadata rows.
     // Every surviving handle was validated by scene object id before this command,
     // and PhysicsBodyStore retires removed handles.
-    if ( !m_physics.TrimBodiesToCount( bodies ) ||
-         ( liveColliderCount > bodyCount && !m_physics.TrimCollidersToCount( colliders ) ) ||
-         !m_physics.TrimAuthoredBodyDescriptorsToCount( authored ) || !TrimPresentationRowsForSceneRestore( bodyCount ) ||
-         !m_entities.TrimToCount( bodyCount ) )
+    if ( !m_physics.TrimBodiesToCount( bodies ) || ( liveColliderCount > bodyCount && !m_physics.TrimCollidersToCount( colliders ) ) || !m_physics.TrimAuthoredBodyDescriptorsToCount( authored ) ||
+         !TrimPresentationRowsForSceneRestore( bodyCount ) || !m_entities.TrimToCount( bodyCount ) )
     {
-        SB_FATAL( "Runtime/SceneWorld",
-                  "Replay topology commit failed after a successful preflight; live owners may be partially trimmed" );
+        SB_FATAL( "Runtime/SceneWorld", "Replay topology commit failed after a successful preflight; live owners may be partially trimmed" );
     }
 
     RegisterPhysicsDiagnosticNames();
@@ -759,9 +744,10 @@ void SceneWorld::BeginPhysicsStepPresentationCapture()
     if ( !RepairPhysicsBodyAndColliderTopology() )
     {
         SB_FATAL( "Scene/SceneWorld",
-                  "Presentation capture could not repair scene/physics topology. "
-                  "entities=%d bodies=%d colliders=%d buoyancy=%zu",
-                  SceneEntityCount(), BodyStore().Count(), Colliders().Count(),
+                  "Presentation capture could not repair scene/physics topology. " "entities=%d bodies=%d colliders=%d buoyancy=%zu",
+                  SceneEntityCount(),
+                  BodyStore().Count(),
+                  Colliders().Count(),
                   Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() );
     }
 
@@ -784,8 +770,7 @@ void SceneWorld::PrepareRenderInstances( float presentationAlpha )
 }
 
 
-bool SceneWorld::TryGetPresentationPose( int index, float presentationAlpha, Vector3& outPosition,
-                                         Quaternion& outOrientation ) const
+bool SceneWorld::TryGetPresentationPose( int index, float presentationAlpha, Vector3& outPosition, Quaternion& outOrientation ) const
 {
     return m_renderInstanceStore.TryGetPresentationPose( index, presentationAlpha, outPosition, outOrientation );
 }
@@ -812,7 +797,8 @@ SkullbonezCore::GameObjects::SceneWorldSaveState SceneWorld::GetSaveState() cons
              Cameras().GetCameraTranslation(),
              Cameras().GetCameraView(),
              Cameras().GetCameraUp(),
-             m_orbitalStability };
+             m_orbitalStability,
+             Terrain().Get() };
 }
 
 
@@ -835,8 +821,7 @@ bool SceneWorld::TrimPresentationRowsForSceneRestore( int modelCount )
 
 bool SceneWorld::RepairPhysicsBodyTopology()
 {
-    if ( BodyStore().Count() != SceneEntityCount() ||
-         static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) != SceneEntityCount() )
+    if ( BodyStore().Count() != SceneEntityCount() || static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) != SceneEntityCount() )
     {
         // Invariant: topology repair imports construction rows only. Same-count
         // state edits are physics-store authority and must not be overwritten by
@@ -844,8 +829,7 @@ bool SceneWorld::RepairPhysicsBodyTopology()
         (void)RefreshPhysicsBodyStoreFromAuthoredDescriptors();
     }
 
-    return BodyStore().Count() == SceneEntityCount() &&
-           static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) == SceneEntityCount();
+    return BodyStore().Count() == SceneEntityCount() && static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) == SceneEntityCount();
 }
 
 
@@ -854,8 +838,7 @@ bool SceneWorld::RepairPhysicsBodyAndColliderTopology()
     const int modelCount = SceneEntityCount();
     const bool bodyTopologyChanged = BodyStore().Count() != modelCount;
     const bool colliderTopologyChanged = Colliders().Count() != modelCount;
-    const bool buoyancyTopologyChanged = static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) !=
-                                         modelCount;
+    const bool buoyancyTopologyChanged = static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) != modelCount;
 
     if ( bodyTopologyChanged || colliderTopologyChanged || buoyancyTopologyChanged )
     {
@@ -869,13 +852,11 @@ bool SceneWorld::RepairPhysicsBodyAndColliderTopology()
         }
 
         const bool colliderBindingsReady = m_physics.RefreshColliderSnapshot();
-        return BodyStore().Count() == modelCount && Colliders().Count() == modelCount &&
-               static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) == modelCount &&
+        return BodyStore().Count() == modelCount && Colliders().Count() == modelCount && static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) == modelCount &&
                colliderBindingsReady;
     }
 
-    return BodyStore().Count() == modelCount && Colliders().Count() == modelCount &&
-           static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) == modelCount;
+    return BodyStore().Count() == modelCount && Colliders().Count() == modelCount && static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) == modelCount;
 }
 
 
@@ -930,11 +911,9 @@ double SceneWorld::GetSceneKineticEnergy()
 
         const Vector3 vel = PhysicsBodyLinearVelocity( hotFields, bodyIndex );
         const Vector3 omega = PhysicsBodyAngularVelocity( hotFields, bodyIndex );
-        const double speedSq = static_cast<double>( vel.x ) * vel.x + static_cast<double>( vel.y ) * vel.y +
-                               static_cast<double>( vel.z ) * vel.z;
+        const double speedSq = static_cast<double>( vel.x ) * vel.x + static_cast<double>( vel.y ) * vel.y + static_cast<double>( vel.z ) * vel.z;
 
-        const double omegaSq = static_cast<double>( omega.x ) * omega.x + static_cast<double>( omega.y ) * omega.y +
-                               static_cast<double>( omega.z ) * omega.z;
+        const double omegaSq = static_cast<double>( omega.x ) * omega.x + static_cast<double>( omega.y ) * omega.y + static_cast<double>( omega.z ) * omega.z;
 
         if ( speedSq < REST_LINEAR_SPEED_SQ && omegaSq < REST_ANGULAR_SPEED_SQ )
         {
@@ -942,8 +921,7 @@ double SceneWorld::GetSceneKineticEnergy()
         }
 
         const Vector3& inertia = body.rotationalInertia;
-        const double angularEnergy = 0.5 * ( static_cast<double>( inertia.x ) * omega.x * omega.x +
-                                             static_cast<double>( inertia.y ) * omega.y * omega.y +
+        const double angularEnergy = 0.5 * ( static_cast<double>( inertia.x ) * omega.x * omega.x + static_cast<double>( inertia.y ) * omega.y * omega.y +
                                              static_cast<double>( inertia.z ) * omega.z * omega.z );
 
         totalEnergy += 0.5 * static_cast<double>( body.mass ) * speedSq + angularEnergy;
@@ -997,8 +975,7 @@ void SceneWorld::RefreshRenderInstances( float presentationAlpha )
 
     for ( int i = 0; i < modelCount; ++i )
     {
-        Rendering::RenderInstancePresentationRecord* presentation = m_renderInstanceStore
-                                                                        .MutablePresentationRecordForModelIndex( i );
+        Rendering::RenderInstancePresentationRecord* presentation = m_renderInstanceStore.MutablePresentationRecordForModelIndex( i );
 
         if ( !presentation )
         {
@@ -1009,9 +986,7 @@ void SceneWorld::RefreshRenderInstances( float presentationAlpha )
         const SceneEntityRecord& entity = Entities().At( i );
         presentation->material = entity.renderMaterial;
         presentation->editorVisible = entity.editorVisible;
-        presentation
-            ->shadowCasterStream = ResolveRegisteredShadowCasterStream( colliderRecords[static_cast<std::size_t>( i )],
-                                                                        presentation->material );
+        presentation->shadowCasterStream = ResolveRegisteredShadowCasterStream( colliderRecords[static_cast<std::size_t>( i )], presentation->material );
 
         strncpy_s( presentation->displayName, sizeof( presentation->displayName ), entity.displayName, _TRUNCATE );
         presentation->simpleRagdollPart = Entities().IsSimpleRagdollPart( i );

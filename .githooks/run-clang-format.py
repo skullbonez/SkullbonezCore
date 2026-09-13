@@ -6,7 +6,7 @@
 #
 # Summary:
 #   The hook is a thin launcher. It resolves the formatter from PATH or common
-#   Visual Studio LLVM locations, then delegates formatting to clang-format.
+#   Visual Studio LLVM locations, then delegates to tools/format_cpp.py.
 #
 # Glossary:
 #   clang-format: LLVM formatter that rewrites C++ whitespace according to the
@@ -32,6 +32,10 @@ from pathlib import Path
 
 def find_clang_format():
     """Find clang-format binary."""
+    for variable in ('CLANG_FMT', 'SKULLBONEZ_CLANG_FORMAT'):
+        override = os.environ.get(variable)
+        if override and os.path.isfile(override):
+            return override
     # Try PATH first
     result = subprocess.run(['where', 'clang-format'], capture_output=True, text=True)
     if result.returncode == 0:
@@ -54,8 +58,8 @@ if __name__ == '__main__':
     if not cf:
         sys.exit(1)
     
-    # Run clang-format -i (in-place) on all provided files
-    cmd = [cf, '-i', '--style=file'] + sys.argv[1:]
+    formatter = Path(__file__).resolve().parents[1] / 'tools' / 'format_cpp.py'
+    cmd = [sys.executable, str(formatter), '--write', '--clang-format', cf] + sys.argv[1:]
     result = subprocess.run(cmd, capture_output=True, text=True)
     
     if result.stdout:

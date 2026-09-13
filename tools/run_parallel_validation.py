@@ -202,6 +202,9 @@ def _run_lane(
             "SKULLBONEZ_VALIDATION_WORKDIR": str(workdir),
             "SKULLBONEZ_TEST_WORKDIR": str(workdir),
             "SKULLBONEZ_PSO_CACHE_DIR": str(workdir / "pso-cache"),
+            # Native UI smoke changes layout; sibling captures must keep their
+            # own defaults, and validation must not rewrite user preferences.
+            "SKULLBONEZ_UI_LAYOUT_FILE": str(workdir / "ui-layout.preferences"),
         }
     )
     for name, value in lane.get("env", {}).items():
@@ -312,6 +315,8 @@ def run_manifest(
 
 
 def _self_test() -> int:
+    from unittest.mock import patch
+
     manifest = {
         "schema": SCHEMA_VERSION,
         "name": "self-test",
@@ -332,7 +337,12 @@ def _self_test() -> int:
                         "argv": [
                             "${PYTHON}",
                             "-c",
-                            f"import time; time.sleep(0.35); raise SystemExit({actual})",
+                            "import os,time; from pathlib import Path; "
+                            "layout=Path(os.environ['SKULLBONEZ_UI_LAYOUT_FILE']); "
+                            "assert layout == Path(os.environ['SKULLBONEZ_VALIDATION_WORKDIR'])/'ui-layout.preferences'; "
+                            "assert not layout.exists(); "
+                            f"layout.write_text('{index}'); time.sleep(0.35); "
+                            f"assert layout.read_text() == '{index}'; raise SystemExit({actual})",
                         ],
                         "expected_exit": expected,
                     }
@@ -345,7 +355,16 @@ def _self_test() -> int:
         (repo / "tools").mkdir(parents=True)
         (repo / "TestOutput" / "baselines").mkdir(parents=True)
         artifact_root = Path(temp) / "evidence"
-        exit_code, summary = run_manifest(manifest, repo, artifact_root)
+        inherited_layout = Path(temp) / "parent-ui.preferences"
+        inherited_layout.write_text("layout 1\n", encoding="utf-8")
+        with patch.dict(os.environ, {"SKULLBONEZ_UI_LAYOUT_FILE": str(inherited_layout)}):
+            exit_code, summary = run_manifest(manifest, repo, artifact_root)
+            if os.environ["SKULLBONEZ_UI_LAYOUT_FILE"] != str(inherited_layout):
+                print("SELF_TEST_FAIL: child UI preferences changed the parent environment", file=sys.stderr)
+                return 1
+        if inherited_layout.read_text(encoding="utf-8") != "layout 1\n":
+            print("SELF_TEST_FAIL: child UI preferences changed the inherited file", file=sys.stderr)
+            return 1
         if exit_code != 0 or not summary["passed"]:
             print("SELF_TEST_FAIL: expected-exit aggregation failed", file=sys.stderr)
             return 1
@@ -355,6 +374,11 @@ def _self_test() -> int:
         if len(summary["lanes"]) != 3 or not (artifact_root / "summary.json").is_file():
             print("SELF_TEST_FAIL: structured evidence is incomplete", file=sys.stderr)
             return 1
+        for index in range(3):
+            layout = artifact_root / "work" / f"lane-{index}" / "ui-layout.preferences"
+            if not layout.is_file() or layout.read_text() != str(index):
+                print("SELF_TEST_FAIL: per-lane UI preferences were not isolated", file=sys.stderr)
+                return 1
 
         failure_manifest = {
             "schema": SCHEMA_VERSION,

@@ -49,12 +49,8 @@ namespace Runtime
 {
 class AuthoredScene;
 class AuthoredSceneParser;
-SkullbonezCore::Core::SbResult TryLoadAuthoredSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                                 const char* path, const Assets::AssetSystem* assets,
-                                                                 AuthoredScene& outScene );
-SkullbonezCore::Core::SbResult TryLoadStyleSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                              const char* path, const Assets::AssetSystem* assets,
-                                                              AuthoredScene& outScene );
+SkullbonezCore::Core::SbResult TryLoadAuthoredSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, const Assets::AssetSystem* assets, AuthoredScene& outScene );
+SkullbonezCore::Core::SbResult TryLoadStyleSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, const Assets::AssetSystem* assets, AuthoredScene& outScene );
 
 struct SceneCamera
 {
@@ -378,40 +374,39 @@ struct SceneOptions
     bool isPhysicsEnabled = true;
     bool isTextEnabled = true;
     bool isTextOnly = false;
-    bool predictionAllBodiesSpace = false; // Explicit all-body path policy; force settings do not select presentation.
-    int frameCount = -1;                   // -1 = unlimited
-    unsigned int seed = 0;                 // RNG seed (0 = use time-based default)
-    int solverBallCount = 0;               // exact impulse-solver balls to spawn (0 = not set)
-    int solverBoxCount = 0;                // exact impulse-solver boxes to spawn (0 = not set)
-    int modelCapacity = -1;                // active game-model capacity (-1 = use startup/config capacity)
-    int workerThreads = -2; // -2 = use startup/config worker count, -1 = auto, 0 = disabled, >0 = explicit workers
-    float timeScale = 1.0f; // Physics time multiplier (1.0 = realtime)
-    bool
-        isFixedStep = false; // Authored render-frame-lockstep request; Runtime admits it only for finite unattended capture.
-    bool pauseSnapshotState = true;                           // Start authored body-state scenes paused for inspection
-    uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Physics debug overlay mask.
-    bool physicsDebugTransparent = false;       // Translucent collision volumes while physics debug is visible.
-    float physicsDebugAlpha = 0.28f;            // Alpha for translucent debug collision volumes
-    float physicsDebugContactLinger = 0.45f;    // Seconds to keep contact manifold debug rows visible
-    float trackHeight = -1.0f;                  // Height above tracked ball for camera (-1 = no tracking)
-    float autoCycleInterval = -1.0f;            // Seconds between per-ball screenshots (-1 = disabled)
-    bool screenshotAndExit = false;             // Capture first frame as SCENENAME.bmp then exit
-    bool exitOnComplete = false;                // Exit automatically when targetFrameCount is reached
-    bool collisionVisualizer = false;           // Solid collision/sleep debug colours.
-    bool broadphaseOverlay = false;             // Spatial broadphase debug overlay.
-    bool waterFreezeDebug = false;              // Freeze water animation at load time
-    bool waterFlatDebug = false;                // Flat water mesh for debug captures.
-    int waterReflectionMode = 0;                // 0=FBO, 1=DXR, 2=None
-    bool waterHidden = false;                   // Suppress water rendering (for clean texture comparison)
-    bool terrainHidden = false;                 // Suppress terrain rendering
-    bool editableScene = false;                 // Scene-tab starter scene; Save Defaults persists live object state
-    bool hasCinematicRenderingOverride = false; // Scene explicitly toggles cinematic HDR/post rendering
-    bool cinematicRendering = false;            // Cinematic HDR/post rendering scene override
-    bool hasCinematicExposure = false;          // Scene explicitly sets tonemap exposure
-    float cinematicExposure = 1.0f;             // Scene tonemap exposure
-    bool hasCinematicGamma = false;             // Scene explicitly sets output gamma
-    float cinematicGamma = 2.2f;                // Scene output gamma
-    uint64_t cinematicOverrideMask = 0;         // Per-field overrides from cinematic JSON fields
+    bool predictionAllBodiesSpace = false;                       // Explicit all-body path policy; force settings do not select presentation.
+    int frameCount = -1;                                         // -1 = unlimited
+    unsigned int seed = 0;                                       // RNG seed (0 = use time-based default)
+    int solverBallCount = 0;                                     // exact impulse-solver balls to spawn (0 = not set)
+    int solverBoxCount = 0;                                      // exact impulse-solver boxes to spawn (0 = not set)
+    int modelCapacity = -1;                                      // active game-model capacity (-1 = use startup/config capacity)
+    int workerThreads = -2;                                      // -2 = use startup/config worker count, -1 = auto, 0 = disabled, >0 = explicit workers
+    float timeScale = 1.0f;                                      // Physics time multiplier (1.0 = realtime)
+    bool isFixedStep = false;                                    // Authored render-frame-lockstep request; Runtime admits it only for finite unattended capture.
+    bool pauseSnapshotState = true;                              // Start authored body-state scenes paused for inspection
+    uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;    // Physics debug overlay mask.
+    bool physicsDebugTransparent = false;                        // Translucent collision volumes while physics debug is visible.
+    float physicsDebugAlpha = 0.28f;                             // Alpha for translucent debug collision volumes
+    float physicsDebugContactLinger = 0.45f;                     // Seconds to keep contact manifold debug rows visible
+    float trackHeight = -1.0f;                                   // Height above tracked ball for camera (-1 = no tracking)
+    float autoCycleInterval = -1.0f;                             // Seconds between per-ball screenshots (-1 = disabled)
+    bool screenshotAndExit = false;                              // Capture first frame as SCENENAME.bmp then exit
+    bool exitOnComplete = false;                                 // Exit automatically when targetFrameCount is reached
+    bool collisionVisualizer = false;                            // Solid collision/sleep debug colours.
+    bool broadphaseOverlay = false;                              // Spatial broadphase debug overlay.
+    bool waterFreezeDebug = false;                               // Freeze water animation at load time
+    bool waterFlatDebug = false;                                 // Flat water mesh for debug captures.
+    int waterReflectionMode = 0;                                 // 0=FBO, 1=DXR, 2=None
+    bool waterHidden = false;                                    // Suppress water rendering (for clean texture comparison)
+    bool terrainHidden = false;                                  // Suppress terrain rendering
+    bool editableScene = false;                                  // Scene-tab starter scene; Save Defaults persists live object state
+    bool hasCinematicRenderingOverride = false;                  // Scene explicitly toggles cinematic HDR/post rendering
+    bool cinematicRendering = false;                             // Cinematic HDR/post rendering scene override
+    bool hasCinematicExposure = false;                           // Scene explicitly sets tonemap exposure
+    float cinematicExposure = 1.0f;                              // Scene tonemap exposure
+    bool hasCinematicGamma = false;                              // Scene explicitly sets output gamma
+    float cinematicGamma = 2.2f;                                 // Scene output gamma
+    uint64_t cinematicOverrideMask = 0;                          // Per-field overrides from cinematic JSON fields
     SkullbonezCore::Core::CinematicRenderConfig cinematicRender; // Scene-authored cinematic values for overridden fields
 };
 
@@ -441,6 +436,7 @@ struct SceneRuntimeOverrides
 
 struct SceneTerrainOverride
 {
+    std::string heightMap;
     bool hasFlatSlope = false; // True when scene overrides terrain with analytic flat slope
     float flatBaseY = 0.0f;    // y = flatBaseY + flatSlopeX*x + flatSlopeZ*z
     float flatSlopeX = 0.0f;
@@ -553,22 +549,16 @@ class AuthoredScene
 
     // Recoverable error: runtime scene/style callers use TryLoad* so malformed authored
     // JSON returns owner/message diagnostics at the load boundary.
-    static SkullbonezCore::Core::SbResult TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                           const char* path, AuthoredScene& outScene );
+    static SkullbonezCore::Core::SbResult TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, AuthoredScene& outScene );
 
     // Runtime callers pass the owned asset registry so scene asset-library
     // tokens resolve through an explicit parser dependency.
-    static SkullbonezCore::Core::SbResult TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                           const char* path, const Assets::AssetSystem& assets,
-                                                           AuthoredScene& outScene );
-    static SkullbonezCore::Core::SbResult TryLoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                                const char* path, AuthoredScene& outScene );
+    static SkullbonezCore::Core::SbResult TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, const Assets::AssetSystem& assets, AuthoredScene& outScene );
+    static SkullbonezCore::Core::SbResult TryLoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, AuthoredScene& outScene );
 
     // Style scenes use the same parser and may include asset-library references
     // through shared scene snippets, so they accept the explicit registry too.
-    static SkullbonezCore::Core::SbResult TryLoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                                const char* path, const Assets::AssetSystem& assets,
-                                                                AuthoredScene& outScene );
+    static SkullbonezCore::Core::SbResult TryLoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, const Assets::AssetSystem& assets, AuthoredScene& outScene );
 
     bool IsPhysicsEnabled() const;
     bool IsTextEnabled() const;
@@ -621,7 +611,11 @@ class AuthoredScene
     float GetCinematicGamma() const;
     uint64_t GetCinematicOverrideMask() const;
     const SkullbonezCore::Core::CinematicRenderConfig& GetCinematicRenderConfig() const;
-    bool HasFlatSlope() const; // True when scene specifies flat analytic slope terrain
+    bool HasFlatSlope() const;
+    const std::string& HeightMapPath() const
+    {
+        return m_terrainOverride.heightMap;
+    } // True when scene specifies flat analytic slope terrain
     float GetFlatBaseY() const;
     float GetFlatSlopeX() const;
     float GetFlatSlopeZ() const;

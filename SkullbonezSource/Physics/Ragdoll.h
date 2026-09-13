@@ -18,6 +18,13 @@ namespace Physics
 {
 class PhysicsBodyStore;
 
+enum class RagdollPose
+{
+    Standing,
+    OneArmRaised,
+    BothArmsRaised
+};
+
 struct RagdollPartDesc
 {
     const char* suffix;
@@ -41,12 +48,15 @@ struct RagdollJointDesc
 
 struct RagdollBuildOptions
 {
+    // Invariant: one pose selects matching part centers and joint anchors for
+    // every body in the caller-owned contiguous scene-object id range.
     const char* namePrefix = "ragdoll";
     Math::Vector::Vector3 terrainPoint = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     float scale = 1.0f;
     bool fixed = false;
     bool startsAsleep = false;
+    RagdollPose pose = RagdollPose::Standing;
     PhysicsSceneObjectId firstSceneObjectId; // First id in caller-owned contiguous body range.
 };
 
@@ -54,10 +64,16 @@ class Ragdoll
 {
   public:
     static constexpr int SIMPLE_PART_COUNT = 10;
-    static inline constexpr const char* SIMPLE_PART_SUFFIXES[SIMPLE_PART_COUNT] = {
-        "torso",       "head",        "upper_arm_l", "lower_arm_l", "upper_arm_r",
-        "lower_arm_r", "upper_leg_l", "lower_leg_l", "upper_leg_r", "lower_leg_r",
-    };
+    static inline constexpr const char* SIMPLE_PART_SUFFIXES[SIMPLE_PART_COUNT] = { "torso",
+                                                                                    "head",
+                                                                                    "upper_arm_l",
+                                                                                    "lower_arm_l",
+                                                                                    "upper_arm_r",
+                                                                                    "lower_arm_r",
+                                                                                    "upper_leg_l",
+                                                                                    "lower_leg_l",
+                                                                                    "upper_leg_r",
+                                                                                    "lower_leg_r", };
 
     static bool TryBuildSimplePartName( const char* prefix, int partIndex, char ( &outName )[64] )
     {
@@ -90,22 +106,29 @@ class Ragdoll
 
     static float ClampScale( float scale );
     static float SurfaceEpsilon();
-    static const RagdollPartDesc* SimpleParts();
-    static const RagdollJointDesc* SimpleJoints( int& outCount );
-    static Math::Vector::Vector3 DefaultPreviewCenter( const Math::Vector::Vector3& terrainPoint, float scale,
-                                                       const Math::Orientation::Quaternion& orientation );
-    static void AddPreviewLines( std::vector<float>& lineData, const Math::Vector::Vector3& terrainPoint, float scale,
-                                 const Math::Orientation::Quaternion& orientation, float r, float g, float b );
+    static const RagdollPartDesc* SimpleParts( RagdollPose pose = RagdollPose::Standing );
+    static const RagdollJointDesc* SimpleJoints( int& outCount, RagdollPose pose = RagdollPose::Standing );
+    static Math::Vector::Vector3
+    DefaultPreviewCenter( const Math::Vector::Vector3& terrainPoint, float scale, const Math::Orientation::Quaternion& orientation, RagdollPose pose = RagdollPose::Standing );
+    static void AddPreviewLines( std::vector<float>& lineData,
+                                 const Math::Vector::Vector3& terrainPoint,
+                                 float scale,
+                                 const Math::Orientation::Quaternion& orientation,
+                                 float r,
+                                 float g,
+                                 float b,
+                                 RagdollPose pose = RagdollPose::Standing );
 
     // correctionCross and rawDot must come from the same normalized vector pair;
     // false means the authored cone requires no orientation mutation.
-    static bool TryBuildNeckSwingCorrection( float rawDot, const Math::Vector::Vector3& correctionCross,
+    static bool TryBuildNeckSwingCorrection( float rawDot,
+                                             const Math::Vector::Vector3& correctionCross,
                                              const Math::Vector::Vector3& fallbackAxis,
-                                             Math::Vector::Vector3& outCorrectionAxis, float& outCorrectionAngle ) noexcept;
+                                             Math::Vector::Vector3& outCorrectionAxis,
+                                             float& outCorrectionAngle ) noexcept;
 
     // This separate angular cone policy runs once after the shared velocity solve.
-    static bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> constraints,
-                                      std::span<const uint8_t> sleepState );
+    static bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> constraints, std::span<const uint8_t> sleepState );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

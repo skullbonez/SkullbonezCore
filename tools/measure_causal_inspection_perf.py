@@ -35,8 +35,10 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import re
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -206,6 +208,11 @@ def run_measurement(repo: Path, output: Path, timeout_seconds: float) -> dict[st
         raise FileNotFoundError(f"Automation executable is missing: {executable}")
 
     output.mkdir(parents=True, exist_ok=True)
+    # The recording opens Evidence in Editor. Give every run fresh preferences
+    # so neither its starting route nor later benchmarks inherit that layout.
+    ui_layout = Path(tempfile.mkdtemp(prefix="ui-layout-", dir=output)) / "preferences.txt"
+    environment = os.environ.copy()
+    environment["SKULLBONEZ_UI_LAYOUT_FILE"] = str(ui_layout.resolve())
 
     for artifact in (perf_csv, interaction_report, run_log, report_path):
         artifact.unlink(missing_ok=True)
@@ -235,6 +242,7 @@ def run_measurement(repo: Path, output: Path, timeout_seconds: float) -> dict[st
             result = subprocess.run(
                 command,
                 cwd=repo,
+                env=environment,
                 stdout=log,
                 stderr=subprocess.STDOUT,
                 timeout=timeout_seconds,
@@ -253,6 +261,7 @@ def run_measurement(repo: Path, output: Path, timeout_seconds: float) -> dict[st
         "perfCsv": str(perf_csv),
         "interactionReport": str(interaction_report),
         "runLog": str(run_log),
+        "uiLayout": str(ui_layout),
     }
     report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report

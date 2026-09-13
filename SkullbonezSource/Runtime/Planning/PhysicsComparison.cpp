@@ -2,22 +2,21 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
 
 using namespace SkullbonezCore::Runtime;
 
 const ReplayPresentationSample* ComparisonRecording::Frame( int tick ) const noexcept
 {
     tick -= tickOffset;
-    const auto found = std::lower_bound( frames.begin(), frames.end(), tick,
-                                         []( const auto& frame, int value ) { return frame.sceneFrame < value; } );
+    const auto found = std::lower_bound( frames.begin(), frames.end(), tick, []( const auto& frame, int value ) { return frame.sceneFrame < value; } );
     return found != frames.end() && found->sceneFrame == tick ? &*found : nullptr;
 }
 
 const ReplaySolverFrameSample* ComparisonRecording::Evidence( int tick ) const noexcept
 {
     tick -= tickOffset;
-    const auto found = std::lower_bound( diagnostics.begin(), diagnostics.end(), tick,
-                                         []( const auto& frame, int value ) { return frame.sceneFrame < value; } );
+    const auto found = std::lower_bound( diagnostics.begin(), diagnostics.end(), tick, []( const auto& frame, int value ) { return frame.sceneFrame < value; } );
     return found != diagnostics.end() && found->sceneFrame == tick ? &*found : nullptr;
 }
 
@@ -28,13 +27,11 @@ const ReplayBodyPresentationSample* PhysicsComparison::Body( int side, uint64_t 
     {
         return nullptr;
     }
-    const auto found = std::lower_bound( frame->bodies.begin(), frame->bodies.end(), id,
-                                         []( const auto& body, uint64_t value ) { return body.id.value < value; } );
+    const auto found = std::lower_bound( frame->bodies.begin(), frame->bodies.end(), id, []( const auto& body, uint64_t value ) { return body.id.value < value; } );
     return found != frame->bodies.end() && found->id.value == id ? &*found : nullptr;
 }
 
-ComparisonBodyDifference PhysicsComparison::Compare( const ReplayBodyPresentationSample* a,
-                                                     const ReplayBodyPresentationSample* b ) noexcept
+ComparisonBodyDifference PhysicsComparison::Compare( const ReplayBodyPresentationSample* a, const ReplayBodyPresentationSample* b ) noexcept
 {
     ComparisonBodyDifference result;
     result.id = a ? a->id.value : b ? b->id.value : 0;
@@ -48,8 +45,7 @@ ComparisonBodyDifference PhysicsComparison::Compare( const ReplayBodyPresentatio
     result.heightDelta = delta.y;
     result.verticalVelocityDelta = b->linearVelocity.y - a->linearVelocity.y;
     const auto velocityDelta = b->linearVelocity - a->linearVelocity;
-    result.velocityDistance = std::sqrt( velocityDelta.x * velocityDelta.x + velocityDelta.y * velocityDelta.y +
-                                         velocityDelta.z * velocityDelta.z );
+    result.velocityDistance = std::sqrt( velocityDelta.x * velocityDelta.x + velocityDelta.y * velocityDelta.y + velocityDelta.z * velocityDelta.z );
     // q and -q describe the same rotation. Normalize the dot product so
     // binary32 normalization drift cannot invent a rotation difference.
     double dot = 0, aa = 0, bb = 0;
@@ -60,17 +56,11 @@ ComparisonBodyDifference PhysicsComparison::Compare( const ReplayBodyPresentatio
         bb += static_cast<double>( b->orientation[i] ) * b->orientation[i];
     }
     const double cosine = aa > 0 && bb > 0 ? std::clamp( std::abs( dot ) / std::sqrt( aa * bb ), 0.0, 1.0 ) : 0;
-    result.angleDegrees = cosine >= 1.0 - 1.0e-15 ? 0.0f
-                                                  : static_cast<float>( 2 * std::acos( cosine ) * 180 / 3.141592653589793 );
+    result.angleDegrees = cosine >= 1.0 - 1.0e-15 ? 0.0f : static_cast<float>( 2 * std::acos( cosine ) * 180 / 3.141592653589793 );
     result.sleepChanged = a->sleeping != b->sleeping;
-    const bool velocityChanged = a->linearVelocity.x != b->linearVelocity.x || a->linearVelocity.y != b->linearVelocity.y ||
-                                 a->linearVelocity.z != b->linearVelocity.z ||
-                                 a->angularVelocity.x != b->angularVelocity.x ||
-                                 a->angularVelocity.y != b->angularVelocity.y ||
-                                 a->angularVelocity.z != b->angularVelocity.z;
-    result.change = result.distance > 0 || result.angleDegrees > 0 || result.sleepChanged || velocityChanged
-                        ? ComparisonChange::Changed
-                        : ComparisonChange::Equal;
+    const bool velocityChanged = a->linearVelocity.x != b->linearVelocity.x || a->linearVelocity.y != b->linearVelocity.y || a->linearVelocity.z != b->linearVelocity.z ||
+                                 a->angularVelocity.x != b->angularVelocity.x || a->angularVelocity.y != b->angularVelocity.y || a->angularVelocity.z != b->angularVelocity.z;
+    result.change = result.distance > 0 || result.angleDegrees > 0 || result.sleepChanged || velocityChanged ? ComparisonChange::Changed : ComparisonChange::Equal;
     return result;
 }
 
@@ -160,8 +150,8 @@ bool PhysicsComparison::VisibleEvent( const ComparisonEvent& event ) const noexc
     if ( event.family == ComparisonFamily::Motion && event.change == ComparisonChange::Changed )
     {
         const auto difference = Difference( event.bodyA, event.tick );
-        return difference.distance >= m_settings.positionThreshold || difference.angleDegrees >= m_settings.angleThreshold ||
-               difference.sleepChanged || difference.velocityDistance >= m_settings.positionThreshold;
+        return difference.distance >= m_settings.positionThreshold || difference.angleDegrees >= m_settings.angleThreshold || difference.sleepChanged ||
+               difference.velocityDistance >= m_settings.positionThreshold;
     }
     return true;
 }
@@ -169,8 +159,7 @@ bool PhysicsComparison::NextDifference() noexcept
 {
     for ( std::size_t i = 0; i < m_events.size(); ++i )
     {
-        if ( m_events[i].tick > m_tick && m_events[i].change != ComparisonChange::Equal &&
-             m_events[i].change != ComparisonChange::NotRecorded && VisibleEvent( m_events[i] ) )
+        if ( m_events[i].tick > m_tick && m_events[i].change != ComparisonChange::Equal && m_events[i].change != ComparisonChange::NotRecorded && VisibleEvent( m_events[i] ) )
         {
             return SelectEvent( i );
         }
@@ -179,6 +168,7 @@ bool PhysicsComparison::NextDifference() noexcept
 }
 void PhysicsComparison::Close() noexcept
 {
+    m_velocityExperiment = false;
     m_recordings = {};
     m_events = std::vector<ComparisonEvent> {};
     m_memoryCharge = 0;
@@ -214,9 +204,8 @@ bool PhysicsComparison::SetSetting( const char* name, double value ) noexcept
         field = value != 0;
         return true;
     };
-    if ( boolean( "showA", m_settings.showA ) || boolean( "angularHeatmap", m_settings.angularHeatmap ) ||
-         boolean( "occludedOutline", m_settings.occludedOutline ) || boolean( "followA", m_settings.followA ) ||
-         boolean( "stackedViews", m_settings.stackedViews ) || boolean( "orbitSelected", m_settings.orbitSelected ) ||
+    if ( boolean( "showA", m_settings.showA ) || boolean( "angularHeatmap", m_settings.angularHeatmap ) || boolean( "occludedOutline", m_settings.occludedOutline ) ||
+         boolean( "followA", m_settings.followA ) || boolean( "stackedViews", m_settings.stackedViews ) || boolean( "orbitSelected", m_settings.orbitSelected ) ||
          boolean( "selectedOnly", m_settings.selectedOnly ) || boolean( "differencesOnly", m_settings.differencesOnly ) )
     {
         return true;
@@ -256,8 +245,82 @@ bool PhysicsComparison::SetSetting( const char* name, double value ) noexcept
     {
         return false;
     }
-    return number( "heatScale", m_settings.heatScale ) || number( "pixelGain", m_settings.pixelGain ) ||
-           number( "positionThreshold", m_settings.positionThreshold ) ||
-           number( "angleThreshold", m_settings.angleThreshold ) ||
-           number( "impulseThreshold", m_settings.impulseThreshold );
+    return number( "heatScale", m_settings.heatScale ) || number( "pixelGain", m_settings.pixelGain ) || number( "positionThreshold", m_settings.positionThreshold ) ||
+           number( "angleThreshold", m_settings.angleThreshold ) || number( "impulseThreshold", m_settings.impulseThreshold );
+}
+
+// Capture is an explicit cold import into Solver Lab's existing capped owner.
+// Only published motion is copied; missing contact/iteration evidence stays absent.
+bool PhysicsComparison::LoadPredictionFrames( std::span<const RunReplayPredictionFrame> blue, std::span<const RunReplayPredictionFrame> red )
+{
+    using namespace SkullbonezCore::Core::Allocation;
+    if ( blue.empty() || blue.size() != red.size() )
+    {
+        return false;
+    }
+    uint64_t bytes = sizeof( PhysicsComparison );
+    for ( std::size_t tick = 0; tick < blue.size(); ++tick )
+    {
+        if ( blue[tick].frameIndex != red[tick].frameIndex ||
+             std::abs( ( blue[tick].simulationSeconds - blue.front().simulationSeconds ) - ( red[tick].simulationSeconds - red.front().simulationSeconds ) ) > 1.0e-6 )
+        {
+            return false;
+        }
+        // Reserve the worst case of one difference per body on either side.
+        bytes += 2 * sizeof( ReplayPresentationSample ) + ( blue[tick].bodies.size() + red[tick].bodies.size() ) * ( sizeof( ReplayBodyPresentationSample ) + sizeof( ComparisonEvent ) );
+        if ( bytes > MEMORY_BUDGET )
+        {
+            return false;
+        }
+    }
+    RuntimeAllocationScope loading( RuntimeAllocationPhase::Capture );
+    Close();
+    m_error.clear();
+    m_scene.clear();
+    m_bundle.clear();
+    m_velocityExperiment = true;
+    m_note = "Original and modified velocity. Predicted poses, linear velocity and sleep; solver details and angular velocity samples were not captured.";
+    m_settings = {};
+    m_memoryCharge = bytes;
+    m_lastTick = static_cast<int>( blue.size() - 1 );
+    m_tick = 0;
+    m_loop = false;
+    m_loopStart = 0;
+    m_loopEnd = m_lastTick;
+    m_fraction = 0;
+    std::size_t eventCapacity = 0;
+    for ( int side = 0; side < 2; ++side )
+    {
+        const auto source = side == 0 ? blue : red;
+        auto& recording = m_recordings[side];
+        recording.tickOffset = 0;
+        recording.executable = side == 0 ? "Original" : "Modified";
+        recording.frames.reserve( source.size() );
+        for ( const auto& frame : source )
+        {
+            ReplayPresentationSample sample;
+            sample.frameIndex = static_cast<ReplayFrameIndex>( recording.frames.size() );
+            sample.sceneFrame = static_cast<int>( sample.frameIndex );
+            sample.simulationSeconds = frame.simulationSeconds - source.front().simulationSeconds;
+            sample.physicsDt = 1.0f / 120.0f;
+            sample.bodies.reserve( frame.bodies.size() );
+            for ( const auto& body : frame.bodies )
+            {
+                ReplayBodyPresentationSample value;
+                value.id = body.id;
+                value.modelRow = body.modelRow;
+                value.position = body.position;
+                value.linearVelocity = body.linearVelocity;
+                body.orientation.GetComponents( value.orientation[0], value.orientation[1], value.orientation[2], value.orientation[3] );
+                value.sleeping = body.sleeping;
+                sample.bodies.push_back( value );
+            }
+            std::sort( sample.bodies.begin(), sample.bodies.end(), []( const auto& a, const auto& b ) { return a.id.value < b.id.value; } );
+            eventCapacity += sample.bodies.size();
+            recording.frames.push_back( std::move( sample ) );
+        }
+    }
+    m_events.reserve( eventCapacity );
+    BuildEvents();
+    return true;
 }

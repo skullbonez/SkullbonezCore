@@ -39,8 +39,7 @@ namespace
 constexpr double SCENE_PERF_PASS_SECONDS = 2.0;
 } // namespace
 
-SceneController::SceneController( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
-    : m_resultDiagnostics( resultDiagnostics ), m_world( resultDiagnostics )
+SceneController::SceneController( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) : m_resultDiagnostics( resultDiagnostics ), m_world( resultDiagnostics )
 {
 }
 
@@ -85,8 +84,7 @@ SceneFrameProceedPolicy SceneController::BuildFrameProceedPolicy( bool stepReque
 }
 
 
-SceneController::SceneController( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-                                  std::vector<std::string> queue )
+SceneController::SceneController( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, std::vector<std::string> queue )
     : SceneSession( std::move( queue ) ), m_resultDiagnostics( resultDiagnostics ), m_world( resultDiagnostics )
 {
 }
@@ -108,21 +106,21 @@ void SceneController::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, Sc
     const int entityCount = m_world.Entities().Count();
     const int bodyCount = Physics::PhysicsEngine::ReadBodies( m_world.Physics() ).Count();
     const int colliderCount = Physics::PhysicsEngine::ReadColliders( m_world.Physics() ).Count();
-    const bool requiresEmptyTopology = event == SceneRuntimeLifecycleEvent::AfterSceneCleared ||
-                                       event == SceneRuntimeLifecycleEvent::BeforeScenePopulate;
+    const bool requiresEmptyTopology = event == SceneRuntimeLifecycleEvent::AfterSceneCleared || event == SceneRuntimeLifecycleEvent::BeforeScenePopulate;
 
-    const bool requiresMatchedTopology = event == SceneRuntimeLifecycleEvent::AfterScenePopulate ||
-                                         event == SceneRuntimeLifecycleEvent::AfterSceneActivated;
+    const bool requiresMatchedTopology = event == SceneRuntimeLifecycleEvent::AfterScenePopulate || event == SceneRuntimeLifecycleEvent::AfterSceneActivated;
 
     // Invariant: lifecycle publication is the commit edge observed by later
     // owners. Never publish a cleared or populated phase while scene metadata,
     // bodies, and colliders disagree about the live topology.
-    if ( ( requiresEmptyTopology && ( entityCount != 0 || bodyCount != 0 || colliderCount != 0 ) ) ||
-         ( requiresMatchedTopology && ( entityCount != bodyCount || entityCount != colliderCount ) ) )
+    if ( ( requiresEmptyTopology && ( entityCount != 0 || bodyCount != 0 || colliderCount != 0 ) ) || ( requiresMatchedTopology && ( entityCount != bodyCount || entityCount != colliderCount ) ) )
     {
         SB_FATAL( "Runtime/SceneController",
                   "Scene lifecycle topology mismatch. phase=%s entities=%d bodies=%d colliders=%d",
-                  SceneRuntimeLifecycleEventName( event ), entityCount, bodyCount, colliderCount );
+                  SceneRuntimeLifecycleEventName( event ),
+                  entityCount,
+                  bodyCount,
+                  colliderCount );
     }
 
     SceneSession::RecordLifecycleEvent( event, consumers );
@@ -171,19 +169,18 @@ void SceneController::SubmitResetCurrentScene( bool preserveUIState, bool suppre
 }
 
 
-SkullbonezCore::Core::SbResult SceneController::SubmitCreateScene( const char* requestedName )
+SkullbonezCore::Core::SbResult SceneController::SubmitCreateScene( const char* requestedName, bool importHeightMap )
 {
     const std::size_t nameLength = requestedName ? strnlen_s( requestedName, SCENE_REQUEST_TEXT_CAPACITY ) : 0;
 
     if ( requestedName && nameLength >= SCENE_REQUEST_TEXT_CAPACITY )
     {
-        return m_resultDiagnostics.Failure( "Runtime/SceneController",
-                                            "Scene name exceeds the fixed %d-byte request payload",
-                                            SCENE_REQUEST_TEXT_CAPACITY - 1 );
+        return m_resultDiagnostics.Failure( "Runtime/SceneController", "Scene name exceeds the fixed %d-byte request payload", SCENE_REQUEST_TEXT_CAPACITY - 1 );
     }
 
     SceneRequest request;
     request.type = SceneRequestType::CreateScene;
+    request.importHeightMap = importHeightMap;
 
     if ( requestedName )
     {
@@ -219,9 +216,8 @@ bool SceneController::HasPendingTransition() const
 }
 
 
-SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGateStatus& automationGates, bool proceedAllowed,
-                                                       bool perfTestActive, bool screenshotSaved, bool manualCameraActive,
-                                                       double elapsedSeconds )
+SceneFrameAdvanceResult
+SceneController::AdvanceFrame( const SceneAutomationGateStatus& automationGates, bool proceedAllowed, bool perfTestActive, bool screenshotSaved, bool manualCameraActive, double elapsedSeconds )
 {
     SceneFrameAdvanceResult result;
 
@@ -293,8 +289,7 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
 
     if ( !State().isSceneMode && !manualCameraActive && elapsedSeconds > 20.0 )
     {
-        result.loadRequest = SceneLoadRequest::Load( State().currentSceneIndex, State().isInteractiveRun,
-                                                     State().isInteractiveRun, State().isInteractiveRun );
+        result.loadRequest = SceneLoadRequest::Load( State().currentSceneIndex, State().isInteractiveRun, State().isInteractiveRun, State().isInteractiveRun );
 
         result.restartFrame = true;
         result.restartSimulationTimerAfterLoad = true;

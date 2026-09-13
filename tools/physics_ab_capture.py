@@ -151,10 +151,21 @@ class CaptureSide:
         self.directory = directory
         self.scene = scene
         self.connection: SkarnessConnection | None = None
+        self.process_handle = None
 
-    def start(self) -> set[str]:
-        launch(self.directory, self.executable, self.scene, hidden=True, fixed_step=True)
+    def start(self, *, worker_threads: int | None = None,
+              allocation_guard: str | None = None) -> set[str]:
+        launch(self.directory, self.executable, self.scene, hidden=True, fixed_step=True,
+               worker_threads=worker_threads, allocation_guard=allocation_guard)
         self.connection = SkarnessConnection(self.directory)
+        # Hold a query handle from launch through shutdown. Reopening only after
+        # session.stop can lose the exit code when Windows destroys the process.
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel.OpenProcess.restype = wintypes.HANDLE
+        self.process_handle = kernel.OpenProcess(0x1000, False, int(self.connection.manifest["processId"]))
+        if not self.process_handle:
+            raise OSError(ctypes.get_last_error(), "Cannot retain producer exit-code handle")
         request = self.connection.send("capabilities.get")
         while True:
             response = self.connection.read_event()
@@ -168,7 +179,8 @@ class CaptureSide:
         assert self.connection is not None
         result = self.connection.wait(self.connection.send(name, arguments))
         with (self.directory / "commands.jsonl").open("a", encoding="utf-8") as stream:
-            stream.write(json.dumps(result, separators=(",", ":")) + "\n")
+            stream.write(json.dumps(dict(result, commandName=name, arguments=arguments or {}),
+                                    separators=(",", ":")) + "\n")
         if result.get("status") != "applied":
             raise RuntimeError(f"{name}: {result.get('message', result)}")
         return result
@@ -182,7 +194,22 @@ class CaptureSide:
         finally:
             self.connection.close()
             self.connection = None
-            finish_producer(manifest, self.executable)
+            try:
+                finish_producer(manifest, self.executable)
+            finally:
+                if self.process_handle:
+                    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+                    kernel.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+                    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+                    code = wintypes.DWORD()
+                    try:
+                        if not kernel.GetExitCodeProcess(self.process_handle, ctypes.byref(code)):
+                            raise OSError(ctypes.get_last_error(), "Cannot read producer exit code")
+                        write_json(self.directory / "process-exit.json",
+                                   {"processId": manifest["processId"], "exitCode": code.value})
+                    finally:
+                        kernel.CloseHandle(self.process_handle)
+                        self.process_handle = None
 
 
 def run_side(side: CaptureSide, bundle: Path, label: str, ticks: int, actions: list[dict]) -> dict:

@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "physics_plan": "Agentic/Plans/TODO/physics-baseline-reconciliation.md",
+  "phase": "BR0",
+  "transition_id": "performance-20260913",
+  "source_commit": "39bd94d2602c47ac73b4b75cb0db49b3aec1e097",
+  "goldens": [
+    {
+      "path": "TestOutput/baselines/dx12_perf.json",
+      "old_sha256": "03cab7d929939fa36209f8549d3754c569150c7a8d2feafe8c96f394adfbb4ab",
+      "new_sha256": "abab738c2b3ce7b715c1b3d564fb28a9e0d978345934d5ed953d4ebbcccc16f7"
+    },
+    {
+      "path": "TestOutput/baselines/physics_bench_perf.json",
+      "old_sha256": "68e3c163f446c270a96a277e23e36d6314d5540864d8cb34507fff1beec6837c",
+      "new_sha256": "6751caea875955e539c56a0048b86b6a02180a5cf1e185149c7d0ecebefa2330"
+    }
+  ],
+  "old_behavior": {
+    "source_commit": "bf8bbcd9b310f07becdb6c5fbc17af0cb9e7d379",
+    "golden_sha256": {
+      "TestOutput/baselines/dx12_perf.json": "03cab7d929939fa36209f8549d3754c569150c7a8d2feafe8c96f394adfbb4ab",
+      "TestOutput/baselines/physics_bench_perf.json": "68e3c163f446c270a96a277e23e36d6314d5540864d8cb34507fff1beec6837c"
+    },
+    "executables": [
+      {
+        "configuration": "Profile|x64",
+        "path": "Agentic/Plans/Artifacts/physics-baseline-reconciliation/BR0/golden-transitions/performance-20260913/old/SKULLBONEZ_CORE-Profile.exe",
+        "size": 4594688,
+        "sha256": "8f40ec6ea98771486fcf0a30737fd0ed2a516689c5b9429816d528e10ca894fc",
+        "launch_command": "\"Agentic/Plans/Artifacts/physics-baseline-reconciliation/BR0/golden-transitions/performance-20260913/old/SKULLBONEZ_CORE-Profile.exe\" --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene.json\n\"Agentic/Plans/Artifacts/physics-baseline-reconciliation/BR0/golden-transitions/performance-20260913/old/SKULLBONEZ_CORE-Profile.exe\" --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/physics_bench_varied.scene.json",
+        "dependency_scan_command": "\"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\dumpbin.exe\" /DEPENDENTS \"Agentic/Plans/Artifacts/physics-baseline-reconciliation/BR0/golden-transitions/performance-20260913/old/SKULLBONEZ_CORE-Profile.exe\"",
+        "first_party_dlls": []
+      }
+    ]
+  },
+  "new_behavior": {
+    "source_commit": "39bd94d2602c47ac73b4b75cb0db49b3aec1e097",
+    "golden_sha256": {
+      "TestOutput/baselines/dx12_perf.json": "abab738c2b3ce7b715c1b3d564fb28a9e0d978345934d5ed953d4ebbcccc16f7",
+      "TestOutput/baselines/physics_bench_perf.json": "6751caea875955e539c56a0048b86b6a02180a5cf1e185149c7d0ecebefa2330"
+    },
+    "executables": [
+      {
+        "configuration": "Profile|x64",
+        "path": "Agentic/Plans/Artifacts/physics-baseline-reconciliation/BR0/golden-transitions/performance-20260913/new/SKULLBONEZ_CORE-Profile.exe",
+        "size": 4688384,
+        "sha256": "2e63f7b658665fc251a17b686d8228131d3707c00b2c72bda0efac22cb35e67b",
+        "launch_command": "\"Agentic/Plans/Artifacts/physics-baseline-reconciliation/BR0/golden-transitions/performance-20260913/new/SKULLBONEZ_CORE-Profile.exe\" --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene.json\n\"Agentic/Plans/Artifacts/physics-baseline-reconciliation/BR0/golden-transitions/performance-20260913/new/SKULLBONEZ_CORE-Profile.exe\" --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/physics_bench_varied.scene.json",
+        "dependency_scan_command": "\"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\dumpbin.exe\" /DEPENDENTS \"Agentic/Plans/Artifacts/physics-baseline-reconciliation/BR0/golden-transitions/performance-20260913/new/SKULLBONEZ_CORE-Profile.exe\"",
+        "first_party_dlls": []
+      }
+    ]
+  }
+}

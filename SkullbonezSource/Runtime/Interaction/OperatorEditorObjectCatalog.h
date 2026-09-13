@@ -59,47 +59,54 @@ constexpr int OBJECT_CUTE_HOUSE_HIGH_SLEEP = 33;
 constexpr int OBJECT_TRIPLE_DECKER_SLEEP = 34;
 constexpr int OBJECT_TRIPLE_DECKER_HIGH_SLEEP = 35;
 constexpr int OBJECT_BRICK_WALL_200_SLEEP = 36;
-constexpr int OBJECT_TYPE_COUNT = 37;
+constexpr int OBJECT_RAGDOLL_ONE_ARM_SLEEP = 37;
+constexpr int OBJECT_RAGDOLL_BOTH_ARMS_SLEEP = 38;
+constexpr int OBJECT_TYPE_COUNT = 39;
 
-inline constexpr const char* OBJECT_LABELS[OBJECT_TYPE_COUNT] = {
-    "Box",
-    "Ball",
-    "Sphere",
-    "Hull wedge",
-    "Hull tri prism",
-    "Hull tapered",
-    "Hull pyramid",
-    "Hull hex prism",
-    "Hull diamond",
-    "Rock slab",
-    "Rock lump",
-    "Rock shard",
-    "Rock chipped",
-    "Root small",
-    "Root large",
-    "Tree small",
-    "Tree pine",
-    "Tree cedar",
-    "Tree small slope",
-    "Tree pine slope",
-    "Tree cedar slope",
-    "Tree small sleep",
-    "Tree pine sleep",
-    "Tree cedar sleep",
-    "Tree small rooted",
-    "Tree pine rooted",
-    "Tree cedar rooted",
-    "Pine shedding",
-    "Ragdoll",
-    "Ragdoll sleep",
-    "Brick house low",
-    "Brick house high",
-    "Cute house low",
-    "Cute house high",
-    "Triple decker low",
-    "Triple decker high",
-    "Brick wall 200",
-};
+inline bool IsRagdollObjectType( int type )
+{
+    return type == OBJECT_RAGDOLL || type == OBJECT_RAGDOLL_SLEEP || type == OBJECT_RAGDOLL_ONE_ARM_SLEEP || type == OBJECT_RAGDOLL_BOTH_ARMS_SLEEP;
+}
+
+inline constexpr const char* OBJECT_LABELS[OBJECT_TYPE_COUNT] = { "Box",
+                                                                  "Ball",
+                                                                  "Sphere",
+                                                                  "Hull wedge",
+                                                                  "Hull tri prism",
+                                                                  "Hull tapered",
+                                                                  "Hull pyramid",
+                                                                  "Hull hex prism",
+                                                                  "Hull diamond",
+                                                                  "Rock slab",
+                                                                  "Rock lump",
+                                                                  "Rock shard",
+                                                                  "Rock chipped",
+                                                                  "Root small",
+                                                                  "Root large",
+                                                                  "Tree small",
+                                                                  "Tree pine",
+                                                                  "Tree cedar",
+                                                                  "Tree small slope",
+                                                                  "Tree pine slope",
+                                                                  "Tree cedar slope",
+                                                                  "Tree small sleep",
+                                                                  "Tree pine sleep",
+                                                                  "Tree cedar sleep",
+                                                                  "Tree small rooted",
+                                                                  "Tree pine rooted",
+                                                                  "Tree cedar rooted",
+                                                                  "Pine shedding",
+                                                                  "Ragdoll",
+                                                                  "Ragdoll standing sleep",
+                                                                  "Brick house low",
+                                                                  "Brick house high",
+                                                                  "Cute house low",
+                                                                  "Cute house high",
+                                                                  "Triple decker low",
+                                                                  "Triple decker high",
+                                                                  "Brick wall 200",
+                                                                  "Ragdoll one arm up sleep",
+                                                                  "Ragdoll both arms up sleep", };
 
 inline const char* ObjectLabel( int objectType )
 {

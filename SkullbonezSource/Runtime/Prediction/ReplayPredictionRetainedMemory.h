@@ -33,12 +33,32 @@ inline constexpr const char* REPLAY_PREDICTION_RESERVE_OWNER = "replay_predictio
 // A representative dense 120-second run measured a 317,157,376-byte evidence
 // bank. Two such banks plus the prior 18,701,760-byte working-set high-water
 // total 653,016,512 bytes. The 960 MiB cap preserves 1.542x headroom over that
-// coexistence peak.
+// coexistence peak. Velocity divergence retains a second complete Prediction
+// owner under this same cap; both owners' frames, engines, trajectories, and
+// evidence are counted together. Creating an additional owner reclaims only
+// the original's spare evidence bank. Each additional-owner generation releases
+// its superseded diagnostics and reserves both path banks before optional
+// evidence capture. Original committed evidence stays intact; neither the cap
+// nor the Replay-only growth privilege expands. App's optional Original path
+// snapshot shares this registration and cap; its at-most 27,000 compact records
+// are allocated on the first changed vector and released on accept/cancel.
 inline constexpr int REPLAY_PREDICTION_RESERVE_HARD_BYTES = 960 * 1024 * 1024;
 
-inline constexpr ReplayGrowthOwnerPolicy
-    REPLAY_PREDICTION_GROWTH_OWNER_POLICY { REPLAY_PREDICTION_RESERVE_OWNER,
-                                            SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-                                            REPLAY_PREDICTION_RESERVE_HARD_BYTES, 653016512u,
-                                            ReplayGrowthExhaustionRule::CancelPredictionBuild };
+inline constexpr ReplayGrowthOwnerPolicy REPLAY_PREDICTION_GROWTH_OWNER_POLICY { REPLAY_PREDICTION_RESERVE_OWNER,
+                                                                                 SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
+                                                                                 REPLAY_PREDICTION_RESERVE_HARD_BYTES,
+                                                                                 653016512u,
+                                                                                 ReplayGrowthExhaustionRule::CancelPredictionBuild };
+namespace ReplayPredictionReserveOperations
+{
+SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() noexcept;
+bool RequestReplayPredictionReserveGrowth( const char* targetName,
+                                           int frameNumber,
+                                           int oldCapacityBytes,
+                                           int requestedCapacityBytes,
+                                           int elementSizeBytes,
+                                           SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult& outResult,
+                                           uint64_t allocationBytes = 0u ) noexcept;
+
+} // namespace ReplayPredictionReserveOperations
 } // namespace SkullbonezCore::Runtime

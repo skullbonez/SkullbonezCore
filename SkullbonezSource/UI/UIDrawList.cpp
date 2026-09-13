@@ -37,6 +37,8 @@ void UIDrawList::Clear()
     m_clipDepth = 0;
     m_suppressedClipDepth = 0;
     m_maxClipDepth = 0;
+    m_foregroundDepth = 0;
+    m_panel = UIPanel::None;
 
     m_text[0] = '\0';
 }
@@ -108,7 +110,7 @@ void UIDrawList::AddTriangle( const UITriangle& triangle, const Style::UIColor& 
 }
 
 
-void UIDrawList::AddText( UIPoint position, float pxSize, const Style::UIColor& color, const char* value )
+void UIDrawList::AddText( UIPoint position, float pxSize, const Style::UIColor& color, const char* value, bool vertical )
 {
     Command* cmd = PushCommand();
 
@@ -117,17 +119,80 @@ void UIDrawList::AddText( UIPoint position, float pxSize, const Style::UIColor& 
         return;
     }
 
-    cmd->type = CommandType::Text;
+    cmd->type = vertical ? CommandType::VerticalText : CommandType::Text;
     cmd->x0 = position.x;
     cmd->y0 = position.y;
     cmd->pxSize = pxSize;
     cmd->r = color.r;
     cmd->g = color.g;
     cmd->b = color.b;
-    cmd->a = 1.0f;
+    cmd->a = color.a;
     cmd->textOffset = StoreText( value );
 }
 
+
+void UIDrawList::BeginLayer()
+{
+    Command* command = PushCommand();
+    if ( command )
+    {
+        command->type = CommandType::LayerBreak;
+    }
+}
+
+void UIDrawList::BeginForeground()
+{
+    ++m_foregroundDepth;
+    BeginLayer();
+}
+
+void UIDrawList::EndForeground()
+{
+    m_foregroundDepth = (std::max)( 0, m_foregroundDepth - 1 );
+    BeginLayer();
+}
+
+void UIDrawList::ExtractForeground( UIDrawList& destination )
+{
+    if ( this == &destination )
+    {
+        return;
+    }
+    destination.Clear();
+    int retained = 0;
+    for ( const Command& command : Commands() )
+    {
+        if ( !command.foreground )
+        {
+            m_commands[retained++] = command;
+            continue;
+        }
+        Command* copy = destination.PushCommand();
+        if ( !copy )
+        {
+            continue;
+        }
+        *copy = command;
+        copy->foreground = false;
+        if ( command.type == CommandType::Text || command.type == CommandType::VerticalText || command.type == CommandType::PreviewImage )
+        {
+            copy->textOffset = destination.StoreText( TextAt( command.textOffset ) );
+        }
+        if ( command.type == CommandType::PushClip )
+        {
+            ++destination.m_clipDepth;
+            destination.m_maxClipDepth = (std::max)( destination.m_maxClipDepth, destination.m_clipDepth );
+        }
+        else if ( command.type == CommandType::PopClip )
+        {
+            --destination.m_clipDepth;
+        }
+    }
+    m_commandCount = retained;
+    destination.m_commandOverflow = destination.m_commandOverflow || m_commandOverflow;
+    destination.m_textOverflow = destination.m_textOverflow || m_textOverflow;
+    destination.m_clipOverflow = m_clipOverflow;
+}
 
 void UIDrawList::PushClip( const UIRect& bounds )
 {
@@ -184,8 +249,7 @@ void UIDrawList::PopClip()
 }
 
 
-void UIDrawList::AddPreviewImage( PreviewTargetId target, const UIRect& bounds, const Style::UIColor& fallbackColor,
-                                  const char* fallbackLabel )
+void UIDrawList::AddPreviewImage( PreviewTargetId target, const UIRect& bounds, const Style::UIColor& fallbackColor, const char* fallbackLabel )
 {
     Command* command = PushCommand();
 
@@ -212,28 +276,33 @@ void UIDrawList::Append( const UIDrawList& source, float offsetX, float offsetY 
 {
     for ( const Command& command : source.Commands() )
     {
+        const UIPanelScope panel( *this, m_panel == UIPanel::None ? command.panel : m_panel );
+        const int enclosingForegroundDepth = m_foregroundDepth;
+        m_foregroundDepth += command.foreground ? 1 : 0;
         switch ( command.type )
         {
         case CommandType::Rect:
-            AddRect( { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h },
-                     { command.r, command.g, command.b, command.a } );
+            AddRect( { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h }, { command.r, command.g, command.b, command.a } );
 
             break;
         case CommandType::RoundedRect:
-            AddRoundedRect( { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h }, command.radius,
-                            { command.r, command.g, command.b, command.a } );
+            AddRoundedRect( { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h }, command.radius, { command.r, command.g, command.b, command.a } );
 
             break;
         case CommandType::Triangle:
-            AddTriangle( { { command.x0 + offsetX, command.y0 + offsetY },
-                           { command.x1 + offsetX, command.y1 + offsetY },
-                           { command.x2 + offsetX, command.y2 + offsetY } },
-                         { command.r, command.g, command.b, command.a } );
+            AddTriangle( { { command.x0 + offsetX, command.y0 + offsetY }, { command.x1 + offsetX, command.y1 + offsetY }, { command.x2 + offsetX, command.y2 + offsetY } }, { command.r,
+                                                                                                                                                                               command.g,
+                                                                                                                                                                               command.b,
+                                                                                                                                                                               command.a } );
 
             break;
         case CommandType::Text:
-            AddText( { command.x0 + offsetX, command.y0 + offsetY }, command.pxSize,
-                     { command.r, command.g, command.b, command.a }, source.TextAt( command.textOffset ) );
+        case CommandType::VerticalText:
+            AddText( { command.x0 + offsetX, command.y0 + offsetY },
+                     command.pxSize,
+                     { command.r, command.g, command.b, command.a },
+                     source.TextAt( command.textOffset ),
+                     command.type == CommandType::VerticalText );
 
             break;
         case CommandType::PushClip:
@@ -242,12 +311,18 @@ void UIDrawList::Append( const UIDrawList& source, float offsetX, float offsetY 
         case CommandType::PopClip:
             PopClip();
             break;
+        case CommandType::LayerBreak:
+            BeginLayer();
+            break;
         case CommandType::PreviewImage:
-            AddPreviewImage( command.preview, { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h },
-                             { command.r, command.g, command.b, command.a }, source.TextAt( command.textOffset ) );
+            AddPreviewImage( command.preview,
+                             { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h },
+                             { command.r, command.g, command.b, command.a },
+                             source.TextAt( command.textOffset ) );
 
             break;
         }
+        m_foregroundDepth = enclosingForegroundDepth;
     }
 
     const Stats sourceStats = source.GetStats();
@@ -325,6 +400,10 @@ uint64_t UIDrawList::Fingerprint() const
 
     for ( const Command& command : Commands() )
     {
+        if ( command.foreground )
+        {
+            addByte( 0xff );
+        }
         addByte( static_cast<uint8_t>( command.type ) );
         addFloat( command.x0 );
         addFloat( command.y0 );
@@ -343,7 +422,7 @@ uint64_t UIDrawList::Fingerprint() const
         addUint32( command.preview.catalogIndex );
         addByte( command.preview.valid ? 1u : 0u );
 
-        if ( command.type == CommandType::Text || command.type == CommandType::PreviewImage )
+        if ( command.type == CommandType::Text || command.type == CommandType::VerticalText || command.type == CommandType::PreviewImage )
         {
             addText( TextAt( command.textOffset ) );
         }
@@ -363,6 +442,8 @@ UIDrawList::Command* UIDrawList::PushCommand()
 
     Command& command = m_commands[m_commandCount++];
     command = {};
+    command.foreground = m_foregroundDepth > 0;
+    command.panel = command.foreground ? UIPanel::Popup : m_panel;
 
     return &command;
 }
@@ -406,3 +487,74 @@ int UIDrawList::StoreText( const char* value )
 
 } // namespace UI
 } // namespace SkullbonezCore
+
+namespace SkullbonezCore::UI
+{
+UIPanel UIDrawList::SetPanel( UIPanel panel )
+{
+    const UIPanel previous = m_panel;
+    m_panel = panel;
+    return previous;
+}
+
+bool UIDrawList::HasPanel( UIPanel panel ) const
+{
+    for ( const Command& command : Commands() )
+    {
+        if ( command.panel == panel && command.type != CommandType::PushClip && command.type != CommandType::PopClip && command.type != CommandType::LayerBreak )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+void UIDrawList::CopyPanel( const UIDrawList& source, UIPanel panel )
+{
+    Clear();
+    // Invariant: retain all clip boundaries, including parents authored outside
+    // this panel. Filtering geometry must never leave a cached exit unclipped.
+    for ( const Command& command : source.Commands() )
+    {
+        if ( command.panel != panel && command.type != CommandType::PushClip && command.type != CommandType::PopClip && command.type != CommandType::LayerBreak )
+        {
+            continue;
+        }
+        Command* copy = PushCommand();
+        if ( !copy )
+        {
+            break;
+        }
+        *copy = command;
+        if ( command.type == CommandType::Text || command.type == CommandType::VerticalText || command.type == CommandType::PreviewImage )
+        {
+            copy->textOffset = StoreText( source.TextAt( command.textOffset ) );
+        }
+    }
+    m_commandOverflow = m_commandOverflow || source.m_commandOverflow;
+    m_textOverflow = m_textOverflow || source.m_textOverflow;
+    m_clipOverflow = source.GetStats().clipOverflow;
+    m_maxClipDepth = source.m_maxClipDepth;
+}
+
+void UIDrawList::ApplyPresentation( UIPoint offset, float opacity )
+{
+    for ( Command& command : std::span( m_commands, m_commandCount ) )
+    {
+        if ( command.type == CommandType::PopClip || command.type == CommandType::LayerBreak )
+        {
+            continue;
+        }
+        command.x0 += offset.x;
+        command.y0 += offset.y;
+        if ( command.type == CommandType::Triangle )
+        {
+            command.x1 += offset.x;
+            command.y1 += offset.y;
+            command.x2 += offset.x;
+            command.y2 += offset.y;
+        }
+        command.a *= std::clamp( opacity, 0.0f, 1.0f );
+    }
+}
+} // namespace SkullbonezCore::UI

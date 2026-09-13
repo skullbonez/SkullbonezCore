@@ -42,11 +42,11 @@ using namespace SkullbonezCore::UI::Widgets;
 
 namespace
 {
-constexpr int UI_SCENE_CONTENT_HEIGHT = 502;
+constexpr int UI_SCENE_CONTENT_HEIGHT = 548;
+constexpr float UI_SCENE_PLAYBACK_BUTTON_Y = 516.0f;
 constexpr float UI_SCENE_RECORDING_COMBO_Y = 74.0f;
 constexpr float UI_SCENE_SOLVER_LAB_COMBO_Y = 106.0f;
-constexpr const char* SOLVER_LAB_OPTIONS[] = { "Ragdoll & Wall: FP6 vs FP7",
-                                               "Wall Only - Post-Ragdoll Velocity: FP6 vs FP7" };
+constexpr const char* SOLVER_LAB_OPTIONS[] = { "Ragdoll & Wall: FP6 vs FP7", "Wall Only - Post-Ragdoll Velocity: FP6 vs FP7" };
 constexpr float UI_SCENE_TIME_SCALE_SLIDER_Y = 228.0f;
 constexpr float UI_SCENE_PREDICTION_REVEAL_SLIDER_Y = 268.0f;
 constexpr float UI_SCENE_FORECAST_TITLE_Y = 318.0f;
@@ -63,15 +63,13 @@ constexpr float REPLAY_PREDICTION_REVEAL_RATE_MAX = 1000.0f;
 float PredictionRevealRateFromNormalized( float normalized )
 {
     const float clamped = std::clamp( normalized, 0.0f, 1.0f );
-    return REPLAY_PREDICTION_REVEAL_RATE_MIN *
-           std::pow( REPLAY_PREDICTION_REVEAL_RATE_MAX / REPLAY_PREDICTION_REVEAL_RATE_MIN, clamped );
+    return REPLAY_PREDICTION_REVEAL_RATE_MIN * std::pow( REPLAY_PREDICTION_REVEAL_RATE_MAX / REPLAY_PREDICTION_REVEAL_RATE_MIN, clamped );
 }
 
 float NormalizedFromPredictionRevealRate( float rate )
 {
     const float clamped = std::clamp( rate, REPLAY_PREDICTION_REVEAL_RATE_MIN, REPLAY_PREDICTION_REVEAL_RATE_MAX );
-    return std::log( clamped / REPLAY_PREDICTION_REVEAL_RATE_MIN ) /
-           std::log( REPLAY_PREDICTION_REVEAL_RATE_MAX / REPLAY_PREDICTION_REVEAL_RATE_MIN );
+    return std::log( clamped / REPLAY_PREDICTION_REVEAL_RATE_MIN ) / std::log( REPLAY_PREDICTION_REVEAL_RATE_MAX / REPLAY_PREDICTION_REVEAL_RATE_MIN );
 }
 
 char LowerAscii( char value )
@@ -79,8 +77,7 @@ char LowerAscii( char value )
     return value >= 'A' && value <= 'Z' ? static_cast<char>( value + ( 'a' - 'A' ) ) : value;
 }
 
-bool ConsumeFilterKeyPress( SkullbonezCore::UI::SceneTab::UISceneTabState& state,
-                            const SkullbonezCore::UI::InputControl::UIInputSnapshot& input, int virtualKey )
+bool ConsumeFilterKeyPress( SkullbonezCore::UI::SceneTab::UISceneTabState& state, const SkullbonezCore::UI::InputControl::UIInputSnapshot& input, int virtualKey )
 {
     return SkullbonezCore::UI::InputControl::ConsumeKeyPress( state.filterKeyWasDown, input, virtualKey );
 }
@@ -114,7 +111,7 @@ void BackspaceFilter( SkullbonezCore::UI::SceneTab::UISceneTabState& state )
     state.comboScroll = 0;
 }
 
-void RequestNewScene( SkullbonezCore::UI::SceneTab::UISceneTabState& state, SkullbonezCore::UI::InGameUIInputResult& result )
+void RequestNewScene( SkullbonezCore::UI::SceneTab::UISceneTabState& state, SkullbonezCore::UI::InGameUIInputResult& result, bool importHeightMap = false )
 {
     // Concept: The UI requests creation by name; scene runtime owns sanitizing,
     // writing the starter file, refreshing the browser, and loading it.
@@ -124,15 +121,19 @@ void RequestNewScene( SkullbonezCore::UI::SceneTab::UISceneTabState& state, Skul
     }
 
     result.commands.scene.createScene = true;
-    strncpy_s( result.commands.scene.requestedSceneName, sizeof( result.commands.scene.requestedSceneName ), state.filter,
-               _TRUNCATE );
+    result.commands.scene.importHeightMap = importHeightMap;
+    strncpy_s( result.commands.scene.requestedSceneName, sizeof( result.commands.scene.requestedSceneName ), state.filter, _TRUNCATE );
 
     result.commands.ui.userInteracted = true;
 }
 
-void SetSceneHeaderBounds( SkullbonezCore::UI::UIComboBox& combo, SkullbonezCore::UI::UIButton& resetSceneButton,
+void SetSceneHeaderBounds( SkullbonezCore::UI::UIComboBox& combo,
+                           SkullbonezCore::UI::UIButton& resetSceneButton,
                            SkullbonezCore::UI::UIButton& resetDefaultsButton,
-                           SkullbonezCore::UI::UIButton& saveDefaultsButton, float contentX, float rowBase, float contentW )
+                           SkullbonezCore::UI::UIButton& saveDefaultsButton,
+                           float contentX,
+                           float rowBase,
+                           float contentW )
 {
     const SceneHeaderWidths widths = ResolveSceneHeaderWidths( contentW );
     combo.SetBounds( contentX, rowBase, widths.combo, 24.0f );
@@ -149,6 +150,14 @@ void SetRecordingComboBounds( SkullbonezCore::UI::UIComboBox& combo, float conte
 {
     combo.SetBounds( contentX, rowBase + ( UI_SCENE_RECORDING_COMBO_Y - 42.0f ), SceneTabComboWidth( contentW ), 24.0f );
     combo.SetDropUp( false );
+}
+
+void SetPlaybackBounds( SkullbonezCore::UI::SceneTab::UISceneTabState& state, float contentX, float rowBase, float contentW )
+{
+    const float width = ( contentW - 6.0f ) * 0.5f;
+    const float y = rowBase + UI_SCENE_PLAYBACK_BUTTON_Y - 42.0f;
+    state.pauseLockToggle.SetBounds( contentX, y, width, 24.0f );
+    state.singleStepButton.SetBounds( contentX + width + 6.0f, y, width, 24.0f );
 }
 
 void SetForecastBounds( SkullbonezCore::UI::SceneTab::UISceneTabState& state, float contentX, float rowBase, float contentW )
@@ -194,8 +203,7 @@ bool FilterMatches( const char* option, const char* filter )
     {
         int optionOffset = 0;
 
-        while ( filter[optionOffset] != '\0' && option[optionStart + optionOffset] != '\0' &&
-                LowerAscii( option[optionStart + optionOffset] ) == LowerAscii( filter[optionOffset] ) )
+        while ( filter[optionOffset] != '\0' && option[optionStart + optionOffset] != '\0' && LowerAscii( option[optionStart + optionOffset] ) == LowerAscii( filter[optionOffset] ) )
         {
             ++optionOffset;
         }
@@ -263,7 +271,7 @@ int FindExactOptionIndex( const char* const* options, int optionCount, const cha
 
 int CountFilteredOptions( const char* const* options, int optionCount, const char* filter )
 {
-    int count = filter && filter[0] != '\0' ? 1 : 0;
+    int count = filter && filter[0] != '\0' ? 2 : 0;
     count += FilterMatches( DEMO_SCENE_OPTION, filter ) ? 1 : 0;
 
     if ( !options || optionCount <= 0 )
@@ -299,6 +307,11 @@ int FindFilteredOptionIndex( const char* const* options, int optionCount, const 
             return NEW_SCENE_BROWSER_INDEX;
         }
 
+        ++filteredPosition;
+        if ( filteredPosition == filteredIndex )
+        {
+            return HEIGHT_MAP_SCENE_BROWSER_INDEX;
+        }
         ++filteredPosition;
     }
 
@@ -345,6 +358,11 @@ int FilteredPositionForIndex( const char* const* options, int optionCount, const
             return filteredPosition;
         }
 
+        ++filteredPosition;
+        if ( optionIndex == HEIGHT_MAP_SCENE_BROWSER_INDEX )
+        {
+            return filteredPosition;
+        }
         ++filteredPosition;
     }
 
@@ -421,8 +439,7 @@ void ResetPreviewState( UISceneTabState& state )
 }
 
 
-void UpdateFilterTyping( UISceneTabState& state, InGameUIInputResult& result, const InputControl::UIInputSnapshot& input,
-                         const char* const* sceneOptions, int sceneOptionCount )
+void UpdateFilterTyping( UISceneTabState& state, InGameUIInputResult& result, const InputControl::UIInputSnapshot& input, const char* const* sceneOptions, int sceneOptionCount )
 {
     UIComboBox& combo = state.combo;
 
@@ -511,9 +528,9 @@ void UpdateFilterTyping( UISceneTabState& state, InGameUIInputResult& result, co
             sceneIndex = FindFilteredOptionIndex( sceneOptions, sceneOptionCount, state.filter, 0 );
         }
 
-        if ( sceneIndex == NEW_SCENE_BROWSER_INDEX )
+        if ( sceneIndex == NEW_SCENE_BROWSER_INDEX || sceneIndex == HEIGHT_MAP_SCENE_BROWSER_INDEX )
         {
-            RequestNewScene( state, result );
+            RequestNewScene( state, result, sceneIndex == HEIGHT_MAP_SCENE_BROWSER_INDEX );
             CloseCombo( state );
         }
         else if ( sceneIndex == DEMO_SCENE_BROWSER_INDEX )
@@ -537,8 +554,7 @@ void UpdateFilterTyping( UISceneTabState& state, InGameUIInputResult& result, co
 }
 
 
-bool HandleComboWheel( UISceneTabState& state, const char* const* sceneOptions, int sceneOptionCount, int mouseX, int mouseY,
-                       int wheelDelta, float contentX, float rowBase, float contentW )
+bool HandleComboWheel( UISceneTabState& state, const char* const* sceneOptions, int sceneOptionCount, int mouseX, int mouseY, int wheelDelta, float contentX, float rowBase, float contentW )
 {
     UIComboBox& combo = state.combo;
 
@@ -565,8 +581,15 @@ bool HandleComboWheel( UISceneTabState& state, const char* const* sceneOptions, 
 }
 
 
-bool HandleOpenComboClick( UISceneTabState& state, InGameUIInputResult& result, const char* const* sceneOptions,
-                           int sceneOptionCount, int mouseX, int mouseY, float contentX, float rowBase, float contentW )
+bool HandleOpenComboClick( UISceneTabState& state,
+                           InGameUIInputResult& result,
+                           const char* const* sceneOptions,
+                           int sceneOptionCount,
+                           int mouseX,
+                           int mouseY,
+                           float contentX,
+                           float rowBase,
+                           float contentW )
 {
     if ( !state.combo.IsOpen() )
     {
@@ -577,8 +600,7 @@ bool HandleOpenComboClick( UISceneTabState& state, InGameUIInputResult& result, 
     const int visibleSceneOptions = SceneComboVisibleCount( filteredSceneCount );
     const int sceneDrawOptions = filteredSceneCount > 0 ? visibleSceneOptions : ( state.filter[0] != '\0' ? 1 : 0 );
     state.comboScroll = ClampSceneComboScroll( state.comboScroll, filteredSceneCount );
-    SetSceneHeaderBounds( state.combo, state.resetSceneButton, state.resetDefaultsButton, state.saveDefaultsButton, contentX,
-                          rowBase, contentW );
+    SetSceneHeaderBounds( state.combo, state.resetSceneButton, state.resetDefaultsButton, state.saveDefaultsButton, contentX, rowBase, contentW );
 
     const int option = state.combo.HitOption( mouseX, mouseY, sceneDrawOptions );
 
@@ -599,12 +621,11 @@ bool HandleOpenComboClick( UISceneTabState& state, InGameUIInputResult& result, 
     }
     else if ( filteredSceneCount > 0 && option >= 0 && option < visibleSceneOptions )
     {
-        const int sceneIndex = FindFilteredOptionIndex( sceneOptions, sceneOptionCount, state.filter,
-                                                        state.comboScroll + option );
+        const int sceneIndex = FindFilteredOptionIndex( sceneOptions, sceneOptionCount, state.filter, state.comboScroll + option );
 
-        if ( sceneIndex == NEW_SCENE_BROWSER_INDEX )
+        if ( sceneIndex == NEW_SCENE_BROWSER_INDEX || sceneIndex == HEIGHT_MAP_SCENE_BROWSER_INDEX )
         {
-            RequestNewScene( state, result );
+            RequestNewScene( state, result, sceneIndex == HEIGHT_MAP_SCENE_BROWSER_INDEX );
         }
         else if ( sceneIndex == DEMO_SCENE_BROWSER_INDEX )
         {
@@ -626,13 +647,11 @@ bool HandleOpenComboClick( UISceneTabState& state, InGameUIInputResult& result, 
 }
 
 
-bool HandleHeaderClick( UISceneTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX,
-                        float rowBase, float contentW )
+bool HandleHeaderClick( UISceneTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX, float rowBase, float contentW )
 {
     // Invariant: Scene selection, reset, and save buttons return command
     // intents. Scene load/reset side effects stay outside UI.
-    SetSceneHeaderBounds( state.combo, state.resetSceneButton, state.resetDefaultsButton, state.saveDefaultsButton, contentX,
-                          rowBase, contentW );
+    SetSceneHeaderBounds( state.combo, state.resetSceneButton, state.resetDefaultsButton, state.saveDefaultsButton, contentX, rowBase, contentW );
 
     if ( state.resetSceneButton.HitTest( mouseX, mouseY ) )
     {
@@ -659,8 +678,12 @@ bool HandleHeaderClick( UISceneTabState& state, InGameUIInputResult& result, int
 }
 
 
-bool HandleClosedComboClick( UISceneTabState& state, const InputControl::UIInputSnapshot& input,
-                             const char* const* sceneOptions, int sceneOptionCount, int selectedSceneOption, int mouseX,
+bool HandleClosedComboClick( UISceneTabState& state,
+                             const InputControl::UIInputSnapshot& input,
+                             const char* const* sceneOptions,
+                             int sceneOptionCount,
+                             int selectedSceneOption,
+                             int mouseX,
                              int mouseY )
 {
     UIComboBox& combo = state.combo;
@@ -673,9 +696,7 @@ bool HandleClosedComboClick( UISceneTabState& state, const InputControl::UIInput
         InputControl::CaptureKeyStates( state.filterKeyWasDown, input );
         state.filterKeySyncPending = false;
         const int filteredSceneCount = CountFilteredOptions( sceneOptions, sceneOptionCount, state.filter );
-        state.comboScroll = SceneComboScrollForSelection( FilteredPositionForIndex( sceneOptions, sceneOptionCount,
-                                                                                    state.filter, selectedSceneOption ),
-                                                          filteredSceneCount );
+        state.comboScroll = SceneComboScrollForSelection( FilteredPositionForIndex( sceneOptions, sceneOptionCount, state.filter, selectedSceneOption ), filteredSceneCount );
 
         combo.SetOpen( true );
         return true;
@@ -684,8 +705,7 @@ bool HandleClosedComboClick( UISceneTabState& state, const InputControl::UIInput
     return false;
 }
 
-bool HandleRecordingComboWheel( UISceneTabState& state, int recordingOptionCount, int mouseX, int mouseY, int wheelDelta,
-                                float contentX, float rowBase, float contentW )
+bool HandleRecordingComboWheel( UISceneTabState& state, int recordingOptionCount, int mouseX, int mouseY, int wheelDelta, float contentX, float rowBase, float contentW )
 {
     if ( wheelDelta == 0 || !state.recordingCombo.IsOpen() )
     {
@@ -695,19 +715,16 @@ bool HandleRecordingComboWheel( UISceneTabState& state, int recordingOptionCount
     const int visibleOptions = SceneComboVisibleCount( recordingOptionCount );
     SetRecordingComboBounds( state.recordingCombo, contentX, rowBase, contentW );
 
-    if ( state.recordingCombo.HitBox( mouseX, mouseY ) ||
-         state.recordingCombo.HitOption( mouseX, mouseY, visibleOptions ) >= 0 )
+    if ( state.recordingCombo.HitBox( mouseX, mouseY ) || state.recordingCombo.HitOption( mouseX, mouseY, visibleOptions ) >= 0 )
     {
-        state.recordingComboScroll = ClampSceneComboScroll( state.recordingComboScroll - wheelDelta / WHEEL_DELTA,
-                                                            recordingOptionCount );
+        state.recordingComboScroll = ClampSceneComboScroll( state.recordingComboScroll - wheelDelta / WHEEL_DELTA, recordingOptionCount );
         return true;
     }
 
     return false;
 }
 
-bool HandleOpenRecordingComboClick( UISceneTabState& state, InGameUIInputResult& result, int recordingOptionCount,
-                                    int mouseX, int mouseY, float contentX, float rowBase, float contentW )
+bool HandleOpenRecordingComboClick( UISceneTabState& state, InGameUIInputResult& result, int recordingOptionCount, int mouseX, int mouseY, float contentX, float rowBase, float contentW )
 {
     if ( !state.recordingCombo.IsOpen() )
     {
@@ -729,8 +746,7 @@ bool HandleOpenRecordingComboClick( UISceneTabState& state, InGameUIInputResult&
     return true;
 }
 
-bool HandleClosedRecordingComboClick( UISceneTabState& state, int recordingOptionCount, int selectedRecordingOption,
-                                      int mouseX, int mouseY, float contentX, float rowBase, float contentW )
+bool HandleClosedRecordingComboClick( UISceneTabState& state, int recordingOptionCount, int selectedRecordingOption, int mouseX, int mouseY, float contentX, float rowBase, float contentW )
 {
     SetRecordingComboBounds( state.recordingCombo, contentX, rowBase, contentW );
 
@@ -770,23 +786,20 @@ bool HandleSolverLabClick( UISceneTabState& state, InGameUIInputResult& result, 
     return true;
 }
 
-bool HandleTimeScaleClick( UISceneTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
-                           float contentX, float rowBase, float contentW )
+bool HandleTimeScaleClick( UISceneTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY, float contentX, float rowBase, float contentW )
 {
     state.timeScaleSlider.SetBounds( contentX, rowBase + ( UI_SCENE_TIME_SCALE_SLIDER_Y - 42.0f ), contentW, 34.0f );
 
     if ( state.timeScaleSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_TIME_SCALE;
-        state.previewTimeScale = state.timeScaleSlider.ValueFromMouse( mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX,
-                                                                       UI_TIME_SCALE_STEP );
+        state.previewTimeScale = state.timeScaleSlider.ValueFromMouse( mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
 
         result.commands.sceneOptions.requestedTimeScale = state.previewTimeScale;
         return true;
     }
 
-    state.predictionRevealSlider.SetBounds( contentX, rowBase + ( UI_SCENE_PREDICTION_REVEAL_SLIDER_Y - 42.0f ), contentW,
-                                            34.0f );
+    state.predictionRevealSlider.SetBounds( contentX, rowBase + ( UI_SCENE_PREDICTION_REVEAL_SLIDER_Y - 42.0f ), contentW, 34.0f );
 
     if ( state.predictionRevealSlider.HitTest( mouseX, mouseY ) )
     {
@@ -794,8 +807,7 @@ bool HandleTimeScaleClick( UISceneTabState& state, InGameUIInputResult& result, 
         state.previewPredictionReveal = state.predictionRevealSlider.ValueFromMouse( mouseX, 0.0f, 1.0f, 0.0f );
         result.commands.physics.requestPredictionRevealRate = true;
 
-        result.commands.physics.requestedPredictionRevealRate = PredictionRevealRateFromNormalized(
-            state.previewPredictionReveal );
+        result.commands.physics.requestedPredictionRevealRate = PredictionRevealRateFromNormalized( state.previewPredictionReveal );
 
         return true;
     }
@@ -803,8 +815,26 @@ bool HandleTimeScaleClick( UISceneTabState& state, InGameUIInputResult& result, 
     return false;
 }
 
-bool HandleForecastClick( UISceneTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX,
-                          float rowBase, float contentW )
+bool HandlePlaybackClick( UISceneTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX, float rowBase, float contentW )
+{
+    SetPlaybackBounds( state, contentX, rowBase, contentW );
+    if ( state.pauseLockToggle.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.scene.toggleCrossScenePause = true;
+    }
+    else if ( state.singleStepButton.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.scene.requestSingleStep = state.lastPauseLocked;
+    }
+    else
+    {
+        return false;
+    }
+    result.commands.ui.userInteracted = true;
+    return true;
+}
+
+bool HandleForecastClick( UISceneTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX, float rowBase, float contentW )
 {
     SetForecastBounds( state, contentX, rowBase, contentW );
 
@@ -833,8 +863,7 @@ bool UpdateActiveSlider( UISceneTabState& state, int activeSlider, int mouseX, I
         state.previewPredictionReveal = state.predictionRevealSlider.ValueFromMouse( mouseX, 0.0f, 1.0f, 0.0f );
         result.commands.physics.requestPredictionRevealRate = true;
 
-        result.commands.physics.requestedPredictionRevealRate = PredictionRevealRateFromNormalized(
-            state.previewPredictionReveal );
+        result.commands.physics.requestedPredictionRevealRate = PredictionRevealRateFromNormalized( state.previewPredictionReveal );
 
         return true;
     }
@@ -844,8 +873,7 @@ bool UpdateActiveSlider( UISceneTabState& state, int activeSlider, int mouseX, I
         return false;
     }
 
-    state.previewTimeScale = state.timeScaleSlider.ValueFromMouse( mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX,
-                                                                   UI_TIME_SCALE_STEP );
+    state.previewTimeScale = state.timeScaleSlider.ValueFromMouse( mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
 
     result.commands.sceneOptions.requestedTimeScale = state.previewTimeScale;
     return true;
@@ -864,8 +892,7 @@ bool CommitActiveSlider( UISceneTabState& state, int activeSlider, InGameUIInput
     {
         result.commands.physics.requestPredictionRevealRate = true;
 
-        result.commands.physics.requestedPredictionRevealRate = PredictionRevealRateFromNormalized(
-            state.previewPredictionReveal );
+        result.commands.physics.requestedPredictionRevealRate = PredictionRevealRateFromNormalized( state.previewPredictionReveal );
 
         return true;
     }
@@ -874,8 +901,7 @@ bool CommitActiveSlider( UISceneTabState& state, int activeSlider, InGameUIInput
 }
 
 
-void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFrameView& data, float contentX,
-           float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
+void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFrameView& data, float contentX, float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
 {
     char buf[160];
     char filterDisplay[80] = {};
@@ -885,30 +911,25 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
     const int sceneVisibleCount = SceneComboVisibleCount( filteredSceneCount );
     state.comboScroll = ClampSceneComboScroll( state.comboScroll, filteredSceneCount );
     const int sceneFirstOption = state.comboScroll;
-    const int selectedFilteredPosition = FilteredPositionForIndex( data.sceneOptions, data.sceneOptionCount, state.filter,
-                                                                   data.selectedSceneOption );
+    const int selectedFilteredPosition = data.authoredSceneActive && data.selectedSceneOption < 0
+                                             ? -1
+                                             : FilteredPositionForIndex( data.sceneOptions, data.sceneOptionCount, state.filter, data.selectedSceneOption );
 
-    const int sceneSelectedInSlice = selectedFilteredPosition >= sceneFirstOption &&
-                                             selectedFilteredPosition < sceneFirstOption + sceneVisibleCount
-                                         ? selectedFilteredPosition - sceneFirstOption
-                                         : -1;
+    const int sceneSelectedInSlice = selectedFilteredPosition >= sceneFirstOption && selectedFilteredPosition < sceneFirstOption + sceneVisibleCount ? selectedFilteredPosition - sceneFirstOption : -1;
 
     const char* visibleSceneOptions[UI_SCENE_COMBO_VISIBLE_OPTIONS] = {};
 
     for ( int i = 0; i < sceneVisibleCount; ++i )
     {
-        const int sceneIndex = FindFilteredOptionIndex( data.sceneOptions, data.sceneOptionCount, state.filter,
-                                                        sceneFirstOption + i );
+        const int sceneIndex = FindFilteredOptionIndex( data.sceneOptions, data.sceneOptionCount, state.filter, sceneFirstOption + i );
 
-        if ( sceneIndex == NEW_SCENE_BROWSER_INDEX )
+        if ( sceneIndex == NEW_SCENE_BROWSER_INDEX || sceneIndex == HEIGHT_MAP_SCENE_BROWSER_INDEX )
         {
-            visibleSceneOptions[i] = NEW_SCENE_OPTION;
+            visibleSceneOptions[i] = sceneIndex == HEIGHT_MAP_SCENE_BROWSER_INDEX ? HEIGHT_MAP_SCENE_OPTION : NEW_SCENE_OPTION;
         }
         else
         {
-            visibleSceneOptions[i] = sceneIndex == DEMO_SCENE_BROWSER_INDEX
-                                         ? DEMO_SCENE_OPTION
-                                         : ( sceneIndex >= 0 ? data.sceneOptions[sceneIndex] : "" );
+            visibleSceneOptions[i] = sceneIndex == DEMO_SCENE_BROWSER_INDEX ? DEMO_SCENE_OPTION : ( sceneIndex >= 0 ? data.sceneOptions[sceneIndex] : "" );
         }
     }
 
@@ -918,6 +939,22 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
     if ( data.sceneOptions && data.selectedSceneOption >= 0 && data.selectedSceneOption < data.sceneOptionCount )
     {
         selectedSceneName = data.sceneOptions[data.selectedSceneOption];
+    }
+    if ( data.authoredSceneActive && data.activatedSceneName && data.activatedSceneName[0] )
+    {
+        // Activation can come from the command line or recording, outside the
+        // discovered catalog. A missing browser index does not mean Demo.
+        selectedSceneName = data.activatedSceneName;
+        const char* slash = std::strrchr( selectedSceneName, '/' );
+        const char* backslash = std::strrchr( selectedSceneName, '\\' );
+        if ( slash )
+        {
+            selectedSceneName = slash + 1;
+        }
+        if ( backslash && backslash >= selectedSceneName )
+        {
+            selectedSceneName = backslash + 1;
+        }
     }
 
     if ( state.combo.IsOpen() && sceneFilterActive )
@@ -937,23 +974,20 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
 
     const char* selectedRecordingName = "No recordings";
 
-    if ( data.interactionRecordingOptions && data.selectedInteractionRecordingOption >= 0 &&
-         data.selectedInteractionRecordingOption < data.interactionRecordingOptionCount )
+    if ( data.interactionRecordingOptions && data.selectedInteractionRecordingOption >= 0 && data.selectedInteractionRecordingOption < data.interactionRecordingOptionCount )
     {
         selectedRecordingName = data.interactionRecordingOptions[data.selectedInteractionRecordingOption];
     }
 
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Scene" );
-    SetSceneHeaderBounds( state.combo, state.resetSceneButton, state.resetDefaultsButton, state.saveDefaultsButton, contentX,
-                          scrolledY + 42.0f, contentW );
+    SetSceneHeaderBounds( state.combo, state.resetSceneButton, state.resetDefaultsButton, state.saveDefaultsButton, contentX, scrolledY + 42.0f, contentW );
     SetRecordingComboBounds( state.recordingCombo, contentX, scrolledY + 42.0f, contentW );
     state.solverLabCombo.SetBounds( contentX, scrolledY + UI_SCENE_SOLVER_LAB_COMBO_Y, contentW, 24.0f );
     state.solverLabCombo.SetDropUp( false );
 
     if ( data.targetFrameCount > 0 )
     {
-        const int displayedFrame = ( data.testComplete && data.currentFrame > data.targetFrameCount ) ? data.targetFrameCount
-                                                                                                      : data.currentFrame;
+        const int displayedFrame = ( data.testComplete && data.currentFrame > data.targetFrameCount ) ? data.targetFrameCount : data.currentFrame;
 
         snprintf( buf, sizeof( buf ), "%d / %d", displayedFrame, data.targetFrameCount );
     }
@@ -969,49 +1003,38 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
         const float displayTimeScale = state.previewTimeScale > 0.0f ? state.previewTimeScale : data.timeScale;
         char statusBuf[64] = {};
 
-        snprintf( statusBuf, sizeof( statusBuf ), "%s / capture lockstep %s", data.testComplete ? "complete" : "running",
-                  data.fixedStep ? "on" : "off" );
+        snprintf( statusBuf, sizeof( statusBuf ), "%s / capture lockstep %s", data.testComplete ? "complete" : "running", data.fixedStep ? "on" : "off" );
 
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 136.0f, "Renderer", data.rendererName,
-                          palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 136.0f, "Renderer", data.rendererName, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
 
-        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 136.0f, "Status", statusBuf, palette.accent.r,
-                          palette.accent.g, palette.accent.b );
+        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 136.0f, "Status", statusBuf, palette.accent.r, palette.accent.g, palette.accent.b );
 
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 160.0f, "Frame", buf, palette.textPrimary.r,
-                          palette.textPrimary.g, palette.textPrimary.b );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 160.0f, "Frame", buf, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
 
         snprintf( buf, sizeof( buf ), "%.1f FPS", data.fps );
-        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 160.0f, "Frame rate", buf, palette.accentStrong.r,
-                          palette.accentStrong.g, palette.accentStrong.b );
+        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 160.0f, "Frame rate", buf, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
 
         snprintf( buf, sizeof( buf ), "%d / %d", data.currentSceneIndex + 1, data.sceneCount );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 184.0f, "Scene index", buf, palette.textPrimary.r,
-                          palette.textPrimary.g, palette.textPrimary.b );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 184.0f, "Scene index", buf, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
 
         snprintf( buf, sizeof( buf ), "%.6f", data.sceneEnergy );
-        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 184.0f, "Kinetic energy", buf,
-                          palette.warningAccent.r, palette.warningAccent.g, palette.warningAccent.b );
+        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 184.0f, "Kinetic energy", buf, palette.warningAccent.r, palette.warningAccent.g, palette.warningAccent.b );
 
         snprintf( buf, sizeof( buf ), "%d", data.modelCount );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 208.0f, "Model count", buf, palette.textPrimary.r,
-                          palette.textPrimary.g, palette.textPrimary.b );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 208.0f, "Model count", buf, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
 
         snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
         state.timeScaleSlider.SetBounds( contentX, scrolledY + UI_SCENE_TIME_SCALE_SLIDER_Y, contentW, 34.0f );
 
         if ( IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_TIME_SCALE_SLIDER_Y, 34.0f ) )
         {
-            state.timeScaleSlider.Draw( draw, "Simulation speed", buf, displayTimeScale, UI_TIME_SCALE_MIN,
-                                        UI_TIME_SCALE_MAX );
+            state.timeScaleSlider.Draw( draw, "Simulation speed", buf, displayTimeScale, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX );
         }
 
         // Why: the row reads in rate units an operator can reason about, while
         // the track position stays normalized so the exponential mapping is what
         // moves under the handle.
-        const float displayRevealRate = ( state.previewPredictionReveal >= 0.0f )
-                                            ? PredictionRevealRateFromNormalized( state.previewPredictionReveal )
-                                            : data.predictionRevealRate;
+        const float displayRevealRate = ( state.previewPredictionReveal >= 0.0f ) ? PredictionRevealRateFromNormalized( state.previewPredictionReveal ) : data.predictionRevealRate;
 
         if ( displayRevealRate >= REPLAY_PREDICTION_REVEAL_RATE_MAX )
         {
@@ -1026,53 +1049,73 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
 
         if ( IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_PREDICTION_REVEAL_SLIDER_Y, 34.0f ) )
         {
-            state.predictionRevealSlider.Draw( draw, "Reveal speed", buf,
-                                               NormalizedFromPredictionRevealRate( displayRevealRate ), 0.0f, 1.0f );
+            state.predictionRevealSlider.Draw( draw, "Reveal speed", buf, NormalizedFromPredictionRevealRate( displayRevealRate ), 0.0f, 1.0f );
+        }
+
+        state.lastPauseLocked = data.crossScenePauseLocked;
+        SetPlaybackBounds( state, contentX, scrolledY + 42.0f, contentW );
+        if ( IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_PLAYBACK_BUTTON_Y, 24.0f ) )
+        {
+            const auto& accent = Style::Accent();
+            state.pauseLockToggle.DrawToggle( draw, "Pause lock", data.crossScenePauseLocked, accent.r, accent.g, accent.b );
+            UIVisualState buttonState = UIVisualState::Visible;
+            if ( data.crossScenePauseLocked )
+            {
+                buttonState |= UIVisualState::Enabled;
+            }
+            if ( state.singleStepButton.HitTest( mouseX, mouseY ) )
+            {
+                buttonState |= UIVisualState::Hovered;
+            }
+            DrawButton( draw, state.singleStepButton.Bounds(), "Single step", buttonState, ComponentAppearance::Established );
         }
 
         const UISceneForecastFrameView& forecast = data.forecast;
-        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + UI_SCENE_FORECAST_TITLE_Y, 12.0f,
-                          "Continuous orbital forecast" );
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + UI_SCENE_FORECAST_TITLE_Y, 12.0f, "Continuous orbital forecast" );
         SetForecastBounds( state, contentX, scrolledY + 42.0f, contentW );
 
         if ( IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_FORECAST_BUTTON_Y, 24.0f ) )
         {
             const Style::UIColor& accent = Style::Accent();
-            state.continuousForecastToggle.DrawToggle( draw, "Rolling prediction", forecast.active, accent.r, accent.g,
-                                                       accent.b );
+            state.continuousForecastToggle.DrawToggle( draw, "Rolling prediction", forecast.active, accent.r, accent.g, accent.b );
             state.resetForecastButton.Draw( draw, "Reset forecast", mouseX, mouseY );
         }
 
         const float forecastCol2 = contentX + (std::max)( 208.0f, contentW * 0.48f );
         snprintf( buf, sizeof( buf ), "%.2fs", forecast.simulatedSeconds );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 378.0f, "Simulated", buf, palette.accentStrong.r,
-                          palette.accentStrong.g, palette.accentStrong.b );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 378.0f, "Simulated", buf, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
         snprintf( buf, sizeof( buf ), "%.1fx", forecast.simulatedSecondsPerRealSecond );
-        DrawLabelValueAt( draw, contentY, contentH, forecastCol2, scrolledY + 378.0f, "Sim / real", buf, palette.accent.r,
-                          palette.accent.g, palette.accent.b );
+        DrawLabelValueAt( draw, contentY, contentH, forecastCol2, scrolledY + 378.0f, "Sim / real", buf, palette.accent.r, palette.accent.g, palette.accent.b );
 
         snprintf( buf, sizeof( buf ), "%.2fs", forecast.rollingWindowAgeSeconds );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 404.0f, "Window age", buf, palette.textPrimary.r,
-                          palette.textPrimary.g, palette.textPrimary.b );
-        snprintf( buf, sizeof( buf ), "%s / %s", forecast.available ? "available" : "unavailable",
-                  forecast.failed ? "failed" : ( forecast.workerInFlight ? "running" : "idle" ) );
-        DrawLabelValueAt( draw, contentY, contentH, forecastCol2, scrolledY + 404.0f, "Producer", buf,
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 404.0f, "Window age", buf, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
+        snprintf( buf, sizeof( buf ), "%s / %s", forecast.available ? "available" : "unavailable", forecast.failed ? "failed" : ( forecast.workerInFlight ? "running" : "idle" ) );
+        DrawLabelValueAt( draw,
+                          contentY,
+                          contentH,
+                          forecastCol2,
+                          scrolledY + 404.0f,
+                          "Producer",
+                          buf,
                           forecast.failed ? palette.warningAccent.r : palette.textPrimary.r,
                           forecast.failed ? palette.warningAccent.g : palette.textPrimary.g,
                           forecast.failed ? palette.warningAccent.b : palette.textPrimary.b );
 
         if ( forecast.configured )
         {
-            snprintf( buf, sizeof( buf ), "numeric %s / system %s / auxiliary %s", forecast.numericalHealthy ? "ok" : "fail",
-                      forecast.systemOrbitalHealthy ? "ok" : "fail", forecast.auxiliaryOrbitalHealthy ? "ok" : "fail" );
+            snprintf( buf,
+                      sizeof( buf ),
+                      "numeric %s / system %s / auxiliary %s",
+                      forecast.numericalHealthy ? "ok" : "fail",
+                      forecast.systemOrbitalHealthy ? "ok" : "fail",
+                      forecast.auxiliaryOrbitalHealthy ? "ok" : "fail" );
         }
         else
         {
             snprintf( buf, sizeof( buf ), "not started" );
         }
 
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 430.0f, "Stability", buf, palette.textPrimary.r,
-                          palette.textPrimary.g, palette.textPrimary.b );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 430.0f, "Stability", buf, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
 
         if ( forecast.firstFailureCause == OperatorEditorForecastCause::None )
         {
@@ -1080,38 +1123,38 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
         }
         else
         {
-            snprintf( buf, sizeof( buf ), "%s @ %.2fs (%u/%u)",
-                      OperatorEditorForecastCauseName( forecast.firstFailureCause ), forecast.firstFailureSeconds,
-                      forecast.firstFailureSubject, forecast.firstFailureOther );
+            snprintf( buf,
+                      sizeof( buf ),
+                      "%s @ %.2fs (%u/%u)",
+                      OperatorEditorForecastCauseName( forecast.firstFailureCause ),
+                      forecast.firstFailureSeconds,
+                      forecast.firstFailureSubject,
+                      forecast.firstFailureOther );
         }
 
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 456.0f, "First cause", buf,
-                          palette.warningAccent.r, palette.warningAccent.g, palette.warningAccent.b );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 456.0f, "First cause", buf, palette.warningAccent.r, palette.warningAccent.g, palette.warningAccent.b );
         char energyBuf[48] = "unavailable";
         char angularBuf[48] = "unavailable";
 
         if ( forecast.energyDriftAvailable )
         {
-            snprintf( energyBuf, sizeof( energyBuf ), "%.3e (max %.3e)", forecast.energyDrift,
-                      forecast.maximumAbsoluteEnergyDrift );
+            snprintf( energyBuf, sizeof( energyBuf ), "%.3e (max %.3e)", forecast.energyDrift, forecast.maximumAbsoluteEnergyDrift );
         }
 
         if ( forecast.angularMomentumDriftAvailable )
         {
-            snprintf( angularBuf, sizeof( angularBuf ), "%.3e (max %.3e)", forecast.angularMomentumDrift,
-                      forecast.maximumAngularMomentumDrift );
+            snprintf( angularBuf, sizeof( angularBuf ), "%.3e (max %.3e)", forecast.angularMomentumDrift, forecast.maximumAngularMomentumDrift );
         }
 
         snprintf( buf, sizeof( buf ), "E %s / L %s", energyBuf, angularBuf );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 482.0f, "Conservation", buf, palette.textPrimary.r,
-                          palette.textPrimary.g, palette.textPrimary.b );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 482.0f, "Conservation", buf, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
     }
 
     if ( IsRowVisible( contentY, contentH, scrolledY + 42.0f, 24.0f ) )
     {
-        state.combo.Draw( draw, "Load scene",
-                          { std::span<const char* const>( visibleSceneOptions, static_cast<std::size_t>( sceneDrawCount ) ),
-                            sceneSelectedInSlice, 0u, selectedSceneName },
+        state.combo.Draw( draw,
+                          "Load scene",
+                          { std::span<const char* const>( visibleSceneOptions, static_cast<std::size_t>( sceneDrawCount ) ), sceneSelectedInSlice, 0u, selectedSceneName },
                           { mouseX, mouseY } );
     }
 
@@ -1119,24 +1162,23 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
     if ( !state.combo.IsOpen() && IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_RECORDING_COMBO_Y, 24.0f ) )
     {
         const int selectedInSlice = data.selectedInteractionRecordingOption >= state.recordingComboScroll &&
-                                            data.selectedInteractionRecordingOption <
-                                                state.recordingComboScroll + recordingVisibleCount
+                                            data.selectedInteractionRecordingOption < state.recordingComboScroll + recordingVisibleCount
                                         ? data.selectedInteractionRecordingOption - state.recordingComboScroll
                                         : -1;
-        state.recordingCombo.Draw( draw, "Replay",
-                                   { std::span<const char* const>( visibleRecordingOptions,
-                                                                   static_cast<std::size_t>( recordingVisibleCount ) ),
-                                     selectedInSlice, 0u, selectedRecordingName },
+        state.recordingCombo.Draw( draw,
+                                   "Replay",
+                                   { std::span<const char* const>( visibleRecordingOptions, static_cast<std::size_t>( recordingVisibleCount ) ), selectedInSlice, 0u, selectedRecordingName },
                                    { mouseX, mouseY } );
     }
 
-    if ( !state.combo.IsOpen() && !state.recordingCombo.IsOpen() &&
-         IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_SOLVER_LAB_COMBO_Y, 24.0f ) )
+    if ( !state.combo.IsOpen() && !state.recordingCombo.IsOpen() && IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_SOLVER_LAB_COMBO_Y, 24.0f ) )
     {
-        state.solverLabCombo.Draw( draw, "Solver Lab",
-                                   { std::span<const char* const>( SOLVER_LAB_OPTIONS ), state.selectedSolverLab, 0u,
-                                     state.selectedSolverLab >= 0 ? SOLVER_LAB_OPTIONS[state.selectedSolverLab]
-                                                                  : "Choose a comparison" },
+        state.solverLabCombo.Draw( draw,
+                                   "Solver Lab",
+                                   { std::span<const char* const>( SOLVER_LAB_OPTIONS ),
+                                                   state.selectedSolverLab,
+                                                   0u,
+                                                   state.selectedSolverLab >= 0 ? SOLVER_LAB_OPTIONS[state.selectedSolverLab] : "Choose a comparison" },
                                    { mouseX, mouseY } );
     }
 

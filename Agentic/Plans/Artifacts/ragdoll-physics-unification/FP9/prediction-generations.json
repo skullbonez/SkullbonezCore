@@ -1,0 +1,40 @@
+{
+  "passed": true,
+  "executableSha256": "d5f932bf48ca03ade1e987f54319d6d0aee9dca98be7eafc8e655e1ab473fc87",
+  "scope": "Exact published body frames and solver evidence; full solver state has a separate worker oracle",
+  "generations": [
+    {
+      "label": "first",
+      "target": 6,
+      "generation": 1,
+      "sourceFrame": 0,
+      "sha256": "20025c6e93183076e164f35f042fb44d808e1e1e645af42eff6e2f6fcac87f7a",
+      "bytes": 30389782
+    },
+    {
+      "label": "after-cancellation",
+      "target": 6,
+      "generation": 4,
+      "sourceFrame": 0,
+      "sha256": "20025c6e93183076e164f35f042fb44d808e1e1e645af42eff6e2f6fcac87f7a",
+      "bytes": 30389782
+    },
+    {
+      "label": "other-target",
+      "target": 16,
+      "generation": 5,
+      "sourceFrame": 0,
+      "sha256": "fdb5c78de0618f65c3981881b7c46bc5269a61d111f74123949d40e73aa96722",
+      "bytes": 30389782
+    },
+    {
+      "label": "reselected",
+      "target": 6,
+      "generation": 6,
+      "sourceFrame": 0,
+      "sha256": "20025c6e93183076e164f35f042fb44d808e1e1e645af42eff6e2f6fcac87f7a",
+      "bytes": 30389782
+    }
+  ],
+  "cancelledGeneration": 3
+}

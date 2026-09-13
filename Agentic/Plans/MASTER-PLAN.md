@@ -1,9 +1,23 @@
 # MASTER PLAN
 
-Date: 2026-09-07
-Status: 146/154 tasks complete; PHYSICS_AB active at 0/6; RAGDOLL_PHYSICS retained at 8/10; bug ledger 126/126 fixed
+Date: 2026-09-13
+Status: 138/144 tasks complete; BASELINE_REPAIR complete at 1/1; PHYSICS_SCALE complete at 7/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
 
 ## Owner Direction
+
+- On 2026-09-13 the owner approved the six exact baseline replacements in
+  `TestOutput/gate-repair-2026-09-13/approval-manifest.json` and requested a
+  clean PR. Complete BASELINE_REPAIR BR0 on `codex/unified-ui` before any
+  PHYSICS_AB work. This approval supersedes the prior no-baseline-change
+  restriction for these six files only.
+
+- On 2026-09-12 the owner activated Physics Scale Optimization for complete
+  execution on `codex/unified-ui`, ahead of PHYSICS_AB. Report measured
+  performance benefit. No baseline modification is allowed.
+
+- On 2026-09-10 the owner directed FP8 and FP9 implementation now on the
+  current `codex/unified-ui` branch, ahead of the remaining PHYSICS_AB work.
+  Preserve old executables and the governed evidence for changed baselines.
 
 - On 2026-09-07 the owner requested one PR containing both branches and the
   local A/B viewer, after replacing the README with the original skull and
@@ -377,12 +391,145 @@ capture remains pixel-exact. No golden was refreshed. Exact commands, counts,
 hash comparisons, disclosures, and the deferred scrubber ruling are recorded in
 `Artifacts/engine-signature-and-context-cohesion/sc7-closure-evidence.md`.
 
+## Unified UI Closure - 2026-09-09
+
+`UNIFIED_UI` UU0-UU7 is complete at 8/8 on `codex/unified-ui`. Canvas/Editor
+layout and Scene/Solver Lab workspace are independent. The shared header,
+viewport, transport, Tools, pinned diagnostics, editor, Causes/evidence and
+comparison controls preserve their state owners and typed command routes.
+Native coverage includes all eleven Tools tabs, 128 render sliders, editor and
+recording catalogs, dialogs and isolated persistence, narrow panes down to
+320x240, retained Lab lifetime, offset picking and planning cancellation before
+the first physics tick. The unchanged solar planner recording passes all eight
+assertions. Independent implementation review and UI-reference review are clean.
+
+The terminal `agent_validate.bat --plan-completion` invocation stopped at
+preflight format/project-filter failures. Those failures were repaired and the
+remaining mapped gates were completed individually; the failed umbrella log is
+preserved and is not reported as a successful invocation. Final evidence passes:
+988 unit cases / 2,731,966 assertions; Debug coverage floors; runtime interaction,
+scene parser, renderer-free UI and DX12 architecture suites; byte-exact Physics;
+unchanged Replay visual fidelity; all fifteen Skarness prediction scenes; DX12
+with zero validation errors; and a 61.736-second bounded graphics stress run.
+Source design passes 93 sources / 803 contexts, with final focused checks for
+two test sources / 17 contexts and five new UI sources / 42 contexts. Final
+formatting, dependency ownership and plain-language checks pass. Logs are under
+`TestOutput/unified-terminal-*`; native evidence is under `TestOutput/skarness`.
+The informational frame-spike diagnostic failed its fixed-frame full-horizon
+completion assertions. A follow-up trace confirms the first click starts a
+prediction job; worker steps continue at frame 900. This is not a proven UI input
+defect, and no diagnostic deadline or assertion was changed. The fifteen-scene
+state-based prediction matrix passes. No frame-time conclusion is claimed.
+
+Approved UI component/frame fingerprints and three DX12 UI regions were updated
+only after independent review. Every world-reference pixel is unchanged;
+Physics, Replay and evidence goldens remain unchanged. The renderer comparison
+retains its original thresholds and full-image checks. Solver Smoke's fourteen
+world-channel differences of one are evaluated against the original pixels.
+
+The completed plan and control checklist are removed from the live inventory;
+the approved contract and inventory are archived in commit `7d0b347fe`.
+Accepting eight phases gives 154/162 before removing the completed eight-phase
+plan, leaving 146/154. `PHYSICS_AB` remains 0/6 and Ragdoll remains 8/10.
+The live ledger could not start because the model has no configured verified
+pricing. Its unrelated active task is preserved; no usage/cost totals or
+completion-ledger artifacts are invented.
+
+## Ragdoll Physics Closure — 2026-09-11
+
+FP8 implementation and exact retained baseline bundles are committed in
+`69e5a609288af9a039084920a0a98a1c47b9863b`. FP9 closes the measured decision:
+retain predictive contacts for the demonstrated fast-limb collision benefit.
+Same-executable predictive overhead is 13.73-35.41% across the three measured
+workloads. Reliable pile sleep remains unresolved: both 100-second modes end
+with 10/46 bodies asleep and repeated wakes. The owner requested a separate
+playground sleep investigation immediately after these commits.
+
+Final required validation passes on 2026-09-11. Full05 exits 0 in 1317.204 s:
+unchanged Physics CSV, 134-source / 1188-context source design, all six CPU
+lanes, 1,027 Profile tests / 3,483,587 assertions, Automation in 438.419 s,
+and DX12 in 13.667 s against the accepted screenshots. Exclusive perf07 exits
+0 in 102.502 s on rebuilt Profile 2386e9e3, including relative and absolute
+budgets, native allocation checks and structural checks. Mapped replay passes
+in 370.488 s on Automation 6dbb35b9. The final 4ec3be56 relink changes only COFF
+and debug timestamps plus CodeView PDB age; every other executable byte matches.
+automation-relink-equivalence.json records that proof. terminal-validation.json
+binds the final logs, producers and performance artifacts.
+
+The optional frame-spike diagnostic exits 1 because its recorded
+predictionFullHorizonComplete assertion is false. The full script explicitly
+classifies this diagnostic as informational; it produced no usable spike
+measurement. This failure is retained and is not reported as a diagnostic pass.
+
+Accepting FP8 and FP9 moves 146/154 to 148/154. Removing the completed ten-phase
+plan leaves 138/144 in the live inventory. The plan and its recorder reserve
+inventory remain in the FP8 commit; exact transition bundles remain tracked.
+The approved screenshot exception is recorded in FP9/ui-baseline-review.
+The foreign work ledger remains untouched and no model/cost telemetry or
+completion-ledger artifacts are fabricated.
+
+## Physics Scale Optimization Closure — 2026-09-12
+
+PS0-PS6 completes at 7/7 on `codex/unified-ui`. Checkpoints b801544ec,
+f9aa698fd, 2689bbcde, 7be64f85c and b3b85701f retain implementation and phase
+evidence. Exact geometry caching, bounded pair membership, conservative sweep
+queries and current joint keys reduce broadphase work. Bounded gravity batches
+preserve original pair and force-addition order. The normal performance entry
+point checks all ten workloads with complete-window and negative controls.
+
+Thirty final matched runs pass. Median Physics CPU time improves 51.3% at
+2,000 bodies (2.8480 to 1.3858 ms), 92.4% for sleepy 5,000 (12.4594 to 0.9420),
+16.2% for gravity 1,024 (3.9263 to 3.2905), and 40.2% for joints 320 (2.1987
+to 1.3158). All ten measured workloads improve. Final p99/max, spread, counters,
+scratch bounds, rejected candidates and fallbacks are retained in
+`TestOutput/physics-scale-optimization/handoff.md` and `final-portable/`.
+
+Final Profile tests pass 1,047 active cases and 3,735,830 assertions, with one
+existing skip. All ten coverage floors pass. Four worker configurations match
+the unchanged 44,401-line core Physics baseline exactly; original-algorithm
+references and prediction seed/reseed checks pass. All 136 tracked baseline/
+golden hashes remain unchanged. DX12, all 15 native prediction transitions,
+remaining state/query/render/playback/shortcut constituents and source/
+dependency/allocation checks pass. Independent review findings are repaired.
+[Linux run 34690813794](https://github.com/skullbonez/SkullbonezCore/actions/runs/34690813794)
+passes GCC/Clang warning-clean, ASan, UBSan and TSan. The final Windows Profile
+machine-code section matches the measured producer byte-for-byte.
+
+The exactly-once umbrella failed on old memory-test expectations, subsequently
+repaired and covered by the full test rerun. Its result remains a failure.
+Inherited deep/query/replay golden mismatches, contact-energy input rejection,
+Automation velocity-comparison coverage failure and sixteen relative legacy
+perf failures remain explicitly failed. Pre-change producer/report comparisons
+or unchanged source establish attribution. No baseline or threshold changed.
+The optional informational frame-spike diagnostic was not run after the
+umbrella stopped. No material review issue remains in this implementation.
+
+Accepting PS6 takes 144/151 to 145/151; removing the completed seven-phase TODO
+plan leaves 138/144. Git history is the plan archive. PHYSICS_AB remains queued
+at 0/6. The foreign unfinished GOV1 work ledger and unrelated untracked scene
+remain untouched; no accounting or completion-ledger artifacts are fabricated.
+
+## Approved Baseline Reconciliation — 2026-09-13
+
+BASELINE_REPAIR BR0 is complete at 1/1. The owner approved the six exact
+reviewed replacements. New append-only Debug, Automation and Profile
+old/new producer bundles are retained under
+`Artifacts/physics-baseline-reconciliation/BR0/golden-transitions/`.
+Canonical deep Physics, replay fidelity and performance gates pass after
+replacement; core Physics and all 130 other protected files remain unchanged.
+The Automation gate now includes the stronger velocity-comparison regression.
+Independent review is clean after removing two obsolete per-run reports.
+
+This reconciles accepted FP7 solver and construction-wake output plus measured
+machine-local performance drift; it changes no runtime source or threshold.
+Accepting BR0 takes 138/145 to 139/145; deleting the completed one-task checklist
+returns the live inventory to 138/144. PHYSICS_AB remains queued at 0/6.
+
 ## Active Plans
 
 | Plan | Code | Total | Complete | Next task | File |
 |---|---|---|---|---|---|
 | Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
-| Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 8 | FP8: speculative ragdoll contacts | `TODO/ragdoll-physics-unification.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -399,8 +546,8 @@ an owner decision, not a run decision.
 
 | Plan | Status | Phases | File |
 |---|---|---|---|
-| Skarness Command And State Harness | Complete 2026-09-05 | 7/7 | `DONE/skarness-command-and-state-harness.md` |
-| Governance Simplification And Scar Removal | Complete 2026-08-28 | 5/5 | `DONE/governance-simplification-and-scar-removal.md` |
+| Skarness Command And State Harness | Complete 2026-09-05 | 7/7 | Git history |
+| Governance Simplification And Scar Removal | Complete 2026-08-28 | 5/5 | Git history |
 | Recorded Interaction Playback Cursor | Complete 2026-08-28 | 4/4 | `DONE/recorded-interaction-playback-cursor.md` |
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
 | Deterministic Trigonometry Adoption | Owner-parked 2026-08-18 | 0/8 | `WNF/deterministic-trigonometry-adoption.md` |
@@ -419,8 +566,20 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-`PHYSICS_AB` AB1-AB6 is the next binding work by owner direction.
-`RAGDOLL_PHYSICS` FP8 then FP9 remain pending.
+`BASELINE_REPAIR` BR0 is complete at 1/1 with all six owner-approved
+references applied and mapped gates passing. Its checklist is deleted; the
+live portfolio returns to 138/144. PR #169 is the review destination.
+
+`PHYSICS_SCALE` PS0-PS6 is complete at 7/7 on `codex/unified-ui`, with unchanged
+baselines and measured before/after performance. Current portfolio is 138/144.
+`PHYSICS_AB` remains queued; AB1 is the next selectable task.
+
+`UNIFIED_UI` UU0-UU7 is complete at 8/8.
+`RAGDOLL_PHYSICS` is complete at 10/10. The owner's requested ragdoll-playground
+sleep investigation is complete, with results in SessionState and
+`TestOutput/skarness/ragdoll-sleep-experiments-01/README.md`. No parked plan was
+reactivated. The owner requested the clean PR #169 handoff on 2026-09-13.
+`PHYSICS_AB` AB1-AB6 remains queued at 0/6.
 `SKARNESS` SK0-SK6 and `SIGNATURE_COHESION` SC0-SC7 are complete.
 
 `RESERVE_TRANSACTION` RAT0-RAT3 and `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 are
@@ -430,7 +589,7 @@ complete on `codex/replay-capture-bugfixes`.
 re-review. `RECORDED_CURSOR` RIC0-RIC3 is complete, and the bug ledger has no
 unresolved row.
 
-`RAGDOLL_PHYSICS` is active at 5/10, while `RUNTIME_BOUNDARIES` and
+`RAGDOLL_PHYSICS` is complete at 10/10, while `RUNTIME_BOUNDARIES` and
 `GAME_UI_COMPONENTS` and `RECORDED_CURSOR` are complete.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
@@ -505,9 +664,10 @@ completed TODO plan is deleted under repository convention. Five serial
 read-only review passes closed nine matcher, scope, fixture, and metadata
 findings; the final pass is clean. No scanner, fixture, build, test, or
 validation command ran by explicit owner direction.
-The two unfinished Ragdoll Physics phases are active; current portfolio
-progress is 146/148, with the completed five phases already counted historically. The nine completed Ragdoll and Recorded Cursor phases remain part
-of the historical completed count.
+Ragdoll Physics is complete at 10/10 and its completed plan is removed. Current
+portfolio progress is 138/144 after removing completed PHYSICS_SCALE;
+PHYSICS_AB remains queued at 0/6.
+Previously completed phases remain represented in the historical count.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
@@ -517,8 +677,8 @@ Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 
 Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Real-Time Physics Pacing SP0-SP2 is complete.
-Deterministic Collision Modes And Ragdoll Unification is active at 5/10;
-FP0-FP4 are complete and FP5-FP9 execute in order. FP4 makes its direction-valid radius
+Deterministic Collision Modes And Ragdoll Unification is complete at 10/10;
+FP0-FP9 are accepted. FP4 makes its direction-valid radius
 policy the sole shipping path and retains the SkullScope policy timeline,
 same-executable A/B artifacts, and exact historical/current performance producers. FP2's archived automated transition
 retains the prior and new producers, its core/deep Physics gates pass, and its

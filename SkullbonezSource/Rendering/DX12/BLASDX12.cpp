@@ -44,8 +44,7 @@ using namespace SkullbonezCore::Rendering;
 using SkullbonezCore::Core::SbResult;
 
 
-BLAS::BLAS( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
-    : m_resultDiagnostics( resultDiagnostics ), m_scratch( nullptr ), m_result( nullptr )
+BLAS::BLAS( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) : m_resultDiagnostics( resultDiagnostics ), m_scratch( nullptr ), m_result( nullptr )
 {
 }
 
@@ -56,9 +55,8 @@ BLAS::~BLAS()
 }
 
 
-SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList,
-                                            D3D12_GPU_VIRTUAL_ADDRESS vbVA, int vertexCount, int vertexStride,
-                                            DXGI_FORMAT vertexPosFormat, bool preferFastTrace )
+SkullbonezCore::Core::SbResult
+BLAS::Build( ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, D3D12_GPU_VIRTUAL_ADDRESS vbVA, int vertexCount, int vertexStride, DXGI_FORMAT vertexPosFormat, bool preferFastTrace )
 {
     // Geometry description tells DXR where the triangle vertices live. This
     // engine path uses non-indexed triangles, so each consecutive group of
@@ -79,8 +77,7 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device, ID3D12Graphic
     // faster ray traversal or faster rebuild time.
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
     inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
-    inputs.Flags = preferFastTrace ? D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE
-                                   : D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
+    inputs.Flags = preferFastTrace ? D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE : D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
 
     inputs.NumDescs = 1;
     inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
@@ -96,8 +93,7 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device, ID3D12Graphic
 
     if ( prebuild.ResultDataMaxSizeInBytes == 0 )
     {
-        return m_resultDiagnostics.Failure( "Rendering/DX12",
-                                            "BLAS: GetRaytracingAccelerationStructurePrebuildInfo returned zero" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "BLAS: GetRaytracingAccelerationStructurePrebuildInfo returned zero" );
     }
 
     // Scratch and result live in the default heap because the GPU builds and
@@ -120,14 +116,12 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device, ID3D12Graphic
     // freed afterwards. It must allow unordered access because the GPU reads
     // and writes to it during construction.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COMMON,
-                                                  nullptr, IID_PPV_ARGS( &m_scratch ) ) ) )
+    if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS( &m_scratch ) ) ) )
     {
         return m_resultDiagnostics.Failure( "Rendering/DX12", "BLAS: Failed to create scratch buffer" );
     }
 
-    NameDx12Object( m_scratch, preferFastTrace ? L"Skullbonez DX12 Terrain BLAS Scratch Buffer"
-                                               : L"Skullbonez DX12 Mesh BLAS Scratch Buffer" );
+    NameDx12Object( m_scratch, preferFastTrace ? L"Skullbonez DX12 Terrain BLAS Scratch Buffer" : L"Skullbonez DX12 Mesh BLAS Scratch Buffer" );
 
     // The result buffer is the BLAS itself. Unlike scratch memory, it must stay
     // alive for as long as rays can hit this mesh.
@@ -139,16 +133,13 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device, ID3D12Graphic
     // RAYTRACING_ACCELERATION_STRUCTURE because DXR TraceRay hardware reads it
     // directly.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc,
-                                                  D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, nullptr,
-                                                  IID_PPV_ARGS( &m_result ) ) ) )
+    if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, nullptr, IID_PPV_ARGS( &m_result ) ) ) )
     {
         ReleaseAfterBuild();
         return m_resultDiagnostics.Failure( "Rendering/DX12", "BLAS: Failed to create result buffer" );
     }
 
-    NameDx12Object( m_result, preferFastTrace ? L"Skullbonez DX12 Terrain BLAS Result Buffer"
-                                              : L"Skullbonez DX12 Mesh BLAS Result Buffer" );
+    NameDx12Object( m_result, preferFastTrace ? L"Skullbonez DX12 Terrain BLAS Result Buffer" : L"Skullbonez DX12 Mesh BLAS Result Buffer" );
 
     // Build command: connect the immutable build inputs with the temporary
     // scratch buffer and the persistent result buffer.
@@ -162,6 +153,8 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device, ID3D12Graphic
     // that enables fast ray-triangle intersection testing. This is an async GPU operation.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist4-buildraytracingaccelerationstructure
+    m_geometry = geomDesc;
+    m_buildFlags = inputs.Flags;
     cmdList->BuildRaytracingAccelerationStructure( &buildDesc, 0, nullptr );
 
     // Hazard: BuildRaytracingAccelerationStructure writes through UAV-style
@@ -177,6 +170,31 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device, ID3D12Graphic
     return SkullbonezCore::Core::SbResult::Success();
 }
 
+
+bool BLAS::Rebuild( ID3D12GraphicsCommandList4* commandList )
+{
+    if ( !commandList || !m_scratch || !m_result )
+    {
+        return false;
+    }
+    // Lifetime: deformable meshes retain the original bounded build workspace.
+    // The direct queue orders old ray reads, the rebuild, then new ray reads.
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+    barrier.UAV.pResource = m_result;
+    commandList->ResourceBarrier( 1, &barrier );
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC build = {};
+    build.Inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+    build.Inputs.Flags = m_buildFlags;
+    build.Inputs.NumDescs = 1;
+    build.Inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+    build.Inputs.pGeometryDescs = &m_geometry;
+    build.ScratchAccelerationStructureData = m_scratch->GetGPUVirtualAddress();
+    build.DestAccelerationStructureData = m_result->GetGPUVirtualAddress();
+    commandList->BuildRaytracingAccelerationStructure( &build, 0, nullptr );
+    commandList->ResourceBarrier( 1, &barrier );
+    return true;
+}
 
 D3D12_GPU_VIRTUAL_ADDRESS BLAS::GetResultVA() const
 {

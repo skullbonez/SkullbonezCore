@@ -87,6 +87,11 @@ del /q "%REPO%\Profile\dx12_stdout.txt" 2>nul
 del /q "%REPO%\Profile\dx12_stderr.txt" 2>nul
 del /q "%REPO%\dx12_validation.txt" 2>nul
 
+REM The persistent user layout must not change the renderer oracle's viewport.
+set "SKULLBONEZ_UI_LAYOUT_FILE=%REPO%\TestOutput\validation\dx12_renderer\layout.preferences"
+if not exist "%REPO%\TestOutput\validation\dx12_renderer" mkdir "%REPO%\TestOutput\validation\dx12_renderer"
+if exist "%SKULLBONEZ_UI_LAYOUT_FILE%" del /q "%SKULLBONEZ_UI_LAYOUT_FILE%"
+
 echo [5/8] Running DX12 render suite...
 call :run_renderer dx12 "--renderer dx12 --vsync off --suite SkullbonezData/scenes/render_tests.suite.json"
 if errorlevel 1 (

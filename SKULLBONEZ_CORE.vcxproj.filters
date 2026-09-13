@@ -367,8 +367,11 @@
       <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\App\ReplayValidation.cpp">
-      <Filter>Source Files\Runtime\App</Filter>
-    </ClCompile>
+        <Filter>Source Files\Runtime\App</Filter>
+      </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\App\ReplayVelocityDivergence.cpp">
+        <Filter>Source Files\Runtime\App</Filter>
+      </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\App\ReplayValidation.Probes.cpp">
       <Filter>Source Files\Runtime\App</Filter>
     </ClCompile>
@@ -437,6 +440,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\App\Run.cpp">
       <Filter>Source Files\Runtime\Lifecycle</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\App\TerrainEditor.cpp">
+      <Filter>Source Files\Runtime\App</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorInteractionTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
@@ -610,6 +616,8 @@
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\GameUILayout.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIPresentationPreferences.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIToolsTooltips.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UI.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPalette.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPaletteDraw.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
@@ -665,6 +673,9 @@
       <Filter>Source Files\World</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp">
+      <Filter>Source Files\World</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\World\TerrainEditing.cpp">
       <Filter>Source Files\World</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Assets\TextureCollection.cpp">
@@ -1044,6 +1055,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabProfiler.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabScene.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabSky.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UIRenderTooltipText.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UIWindowInteractionOwner.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.h">
       <Filter>Header Files\Runtime\Interaction</Filter>
@@ -2121,5 +2133,13 @@
     <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Diagnostics.cpp">
       <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="SkullbonezSource\Runtime\Startup\Skullbonez.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+    <Image Include="SkullbonezData\branding\Skullbonez.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

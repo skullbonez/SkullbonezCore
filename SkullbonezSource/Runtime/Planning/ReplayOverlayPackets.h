@@ -33,6 +33,7 @@ Related:
 #include "../Replay/ReplayPresentationPackets.h"
 #include "../Replay/ReplayTimelinePackets.h"
 #include "../../Maths/Matrix4.h"
+#include "../../UI/UIDraw.h"
 
 #include <algorithm>
 #include <cmath>
@@ -63,11 +64,25 @@ namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 struct ReplayOverlayViewport
 {
-    // Viewport dimensions and the active world projection jointly define
-    // screen placement for this presentation frame.
+    // UI uses window dimensions; world markers use the scene's raster bounds
+    // and projection. An omitted rectangle retains full-window callers.
     int width = 1;
     int height = 1;
     Math::Transformation::Matrix4 viewProjection;
+    UI::UIRect sceneBounds;
+    UI::UIRect transportBounds;
+    UI::UIRect controlsBounds;
+    float controlsScroll = 0.0f;
+    UI::UIRect planningBounds;
+
+    UI::UIRect SceneBounds() const
+    {
+        return sceneBounds.w > 0.0f && sceneBounds.h > 0.0f ? sceneBounds : UI::UIRect { 0.0f, 0.0f, static_cast<float>( width ), static_cast<float>( height ) };
+    }
+    UI::UIRect PlanningBounds() const
+    {
+        return planningBounds.w > 0.0f && planningBounds.h > 0.0f ? planningBounds : SceneBounds();
+    }
 };
 
 struct ReplayOverlayGestureView
@@ -135,11 +150,44 @@ struct ReplayOverlayTimelineView
     }
 };
 
+// Matches Prediction's precondition for preserving a comparison baseline before
+// the first velocity mutation. This is UI availability, not a second mutation gate.
+inline bool ReplayTripBaselineReady( const ReplayPredictionPresentationView& prediction ) noexcept
+{
+    return prediction.baseline.comparisonActive || ( prediction.timeline.complete && prediction.timeline.frames.size() >= 2 );
+}
+
+struct ReplayVelocityDivergenceView
+{
+    bool active = false;
+    bool redReady = false;
+    bool angular = false;
+    bool playing = false;
+    bool resumePredictionAfterDrag = false;
+    double playbackTime = 0.0;
+};
+
+// Both drawing and input use these viewport-contained choice rectangles.
+inline UI::UIRect ReplayDivergenceChoiceRect( const UI::UIRect& viewport, bool red ) noexcept
+{
+    const float width = (std::min)( 128.0f, (std::max)( 0.0f, ( viewport.w - 24.0f ) * 0.5f ) );
+    return { viewport.x + 8.0f + ( red ? 0.0f : width + 8.0f ), viewport.y + (std::max)( 0.0f, viewport.h - 40.0f ), width, (std::min)( 30.0f, viewport.h ) };
+}
+
+// Additional experiment controls wrap vertically inside the scene viewport.
+inline UI::UIRect ReplayDivergenceToolRect( const UI::UIRect& viewport, int index ) noexcept
+{
+    const auto choice = ReplayDivergenceChoiceRect( viewport, true );
+    return { choice.x, (std::max)( viewport.y, choice.y - 36.0f * ( index + 1 ) ), (std::min)( 264.0f, (std::max)( 0.0f, viewport.w - 16.0f ) ), choice.h };
+}
+
 struct ReplayOverlayPlanningSurfacesView
 {
     ReplayInterceptView intercept;
     const ReplayPorkchopPanelView& porkchop;
     const ReplayTripPlannerView& tripPlanner;
+    float scroll = 0.0f;
+    ReplayVelocityDivergenceView divergence;
 };
 
 struct ReplayCauseLoadingView
@@ -167,14 +215,12 @@ inline ReplayCauseLoadingView BuildReplayCauseLoadingView( const ReplayPredictio
     // Invariant: a completed prefix from another target must never advance this
     // request's bar or admit its rows. Collision resolution uses simulation time,
     // independently of the user's future-path reveal speed.
-    if ( matchingTarget && timeline.frames.size() >= 2 && controls.horizonSeconds > 0.0f &&
-         ( !controls.building || timeline.usingBuildFrames ) )
+    if ( matchingTarget && timeline.frames.size() >= 2 && controls.horizonSeconds > 0.0f && ( !controls.building || timeline.usingBuildFrames ) )
     {
         const double seconds = timeline.frames.back().simulationSeconds - timeline.frames.front().simulationSeconds;
         if ( std::isfinite( seconds ) )
         {
-            loading.progress = std::clamp( static_cast<float>( seconds / controls.horizonSeconds ), 0.0f,
-                                           loading.active ? 0.99f : 1.0f );
+            loading.progress = std::clamp( static_cast<float>( seconds / controls.horizonSeconds ), 0.0f, loading.active ? 0.99f : 1.0f );
         }
     }
 

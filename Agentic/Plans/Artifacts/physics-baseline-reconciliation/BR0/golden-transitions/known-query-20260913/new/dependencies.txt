@@ -1,0 +1,37 @@
+Microsoft (R) COFF/PE Dumper Version 14.51.36248.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+
+Dump of file Agentic\Plans\Artifacts\physics-baseline-reconciliation\BR0\golden-transitions\known-query-20260913\new\SKULLBONEZ_CORE-Debug.exe
+
+File Type: EXECUTABLE IMAGE
+
+  Image has the following dependencies:
+
+    WinPixEventRuntime.dll
+    KERNEL32.dll
+    USER32.dll
+    GDI32.dll
+    COMDLG32.dll
+    ADVAPI32.dll
+    ole32.dll
+    dbghelp.dll
+    bcrypt.dll
+    Cabinet.dll
+    d3d12.dll
+    dxgi.dll
+    D3DCOMPILER_47.dll
+    dxcompiler.dll
+
+  Summary
+
+        1000 .00cfg
+       5E000 .data
+        1000 .fptable
+        4000 .idata
+       7B000 .pdata
+      1A1000 .rdata
+        D000 .reloc
+        C000 .rsrc
+      B12000 .text
+        1000 .tls

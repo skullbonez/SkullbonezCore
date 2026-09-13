@@ -48,11 +48,17 @@ inline constexpr std::array SKARNESS_STATE_TOPICS = {
     // the owner-specific topics above.
     SkarnessStateTopic { "scene.state", "Automation" },
     SkarnessStateTopic { "replay.state", "Automation" },
+    SkarnessStateTopic { "ui.presentation", "UI" },
 };
 
 enum class SkarnessCommandType : uint8_t
 {
     CaptureScreenshot,
+    WindowResize,
+    UiAnimationClock,
+    PhysicsSpeculativeValidation,
+    EditorSetTerrainBrush,
+    SceneSave,
     SceneLoad,
     SceneReset,
     SceneLoadDemo,
@@ -172,9 +178,17 @@ struct SkarnessCommandResult
     bool comparisonActive = false;
     std::string comparisonBundle;
     std::string comparisonLoadPhase;
+    std::string comparisonLoadError;
     bool comparisonLoading = false;
+    bool comparisonLibraryOpen = false;
+    std::array<float, 4> comparisonLibraryPopup {};
     int comparisonLoadPercent = 0;
     bool comparisonStacked = false, comparisonOrbit = false, comparisonDragging = false;
+    bool comparisonFollowA = false, comparisonShowA = false, comparisonXray = false;
+    bool comparisonSelectedOnly = false, comparisonDifferencesOnly = false, comparisonLoop = false;
+    int comparisonLoopFirst = 0, comparisonLoopLast = 0;
+    float comparisonSpeed = 1.0f, comparisonPositionThreshold = 0.0f;
+    std::array<float, 4> comparisonViewport {}, comparisonTimeline {};
     std::array<float, 3> comparisonEye {}, comparisonView {};
     int comparisonTick = 0, comparisonLastTick = 0, comparisonDirection = 0, comparisonMode = 0;
     uint64_t comparisonSelected = 0;
@@ -228,104 +242,108 @@ struct SkarnessCapability
 
 // This catalog is the one discoverable protocol inventory. Player controls,
 // parsers, and mechanical coverage tests join on these stable command names.
-inline constexpr std::array SKARNESS_CAPABILITIES = {
-    SkarnessCapability { "comparison.load", "Planning", "{path:string}" },
-    SkarnessCapability { "comparison.close", "Planning", "{}" },
-    SkarnessCapability { "comparison.seek", "Planning", "{tick:int}" },
-    SkarnessCapability { "comparison.step", "Planning", "{direction:-1|1}" },
-    SkarnessCapability { "comparison.play", "Planning", "{direction:-1|0|1}" },
-    SkarnessCapability { "comparison.mode", "Planning", "{mode:split|overlay|toggle|heatmap|pixels}" },
-    SkarnessCapability { "comparison.select", "Planning", "{sceneObjectId:uint64}" },
-    SkarnessCapability { "comparison.event", "Planning", "{index:int}" },
-    SkarnessCapability { "comparison.focus", "Planning", "{}" },
-    SkarnessCapability { "comparison.next_difference", "Planning", "{}" },
-    SkarnessCapability { "comparison.finding.save", "Planning", "{path:string,note:string}" },
-    SkarnessCapability { "comparison.finding.load", "Planning", "{path:string}" },
-    SkarnessCapability { "comparison.setting", "Planning", "{name:string,value:number}" },
-    SkarnessCapability { "comparison.loop", "Planning", "{first:int,last:int,enabled:bool}" },
-    SkarnessCapability { "comparison.camera", "Planning", "{orbit:[yaw,pitch,zoom],pan:[x,y,0]}" },
-    SkarnessCapability { "comparison.state", "Planning", "{}" },
-    SkarnessCapability { "capabilities.get", "Automation", "{}" },
-    SkarnessCapability { "session.stop", "Automation", "{}" },
-    SkarnessCapability { "capture.screenshot", "Capture", "{path:string}" },
-    SkarnessCapability { "scene.load", "Scene", "{name:string}|{path:string}" },
-    SkarnessCapability { "scene.reset", "Scene", "{}" },
-    SkarnessCapability { "scene.load_demo", "Scene", "{}" },
-    SkarnessCapability { "scene.object.list", "Scene", "{}" },
-    SkarnessCapability { "scene.object.resolve", "Scene", "{name:string}|{sceneObjectId:uint64}" },
-    SkarnessCapability { "scene.object.select", "Interaction",
-                         "{scope:inspect|editor,name:string}|{scope:inspect|editor,sceneObjectId:uint64}" },
-    SkarnessCapability { "scene.object.clear_selection", "Interaction", "{scope:inspect|editor}" },
-    SkarnessCapability { "run.pause", "Automation", "{}" },
-    SkarnessCapability { "input.set_prediction_key", "Input", "{down:bool}" },
-    SkarnessCapability { "run.resume", "Automation", "{}" },
-    SkarnessCapability { "run.step", "Automation", "{count:int[1..100000]}" },
-    SkarnessCapability { "run.step_frames", "Automation", "{count:int[1..100000]}" },
-    SkarnessCapability { "run.until", "Automation", "{condition:enum,maxTicks:int}|{condition:enum,maxFrames:int}" },
-    SkarnessCapability { "replay.set_recording_enabled", "Replay", "{enabled:bool}" },
-    SkarnessCapability { "replay.set_retention_seconds", "Replay", "{seconds:int}" },
-    SkarnessCapability { "replay.set_memory_budget_mib", "Replay", "{mib:int}" },
-    SkarnessCapability { "replay.jump_to_start", "Replay", "{}" },
-    SkarnessCapability { "replay.jump_to_end", "Replay", "{}" },
-    SkarnessCapability { "replay.set_playback_paused", "Replay", "{paused:bool}" },
-    SkarnessCapability { "replay.step_backward", "Replay", "{}" },
-    SkarnessCapability { "replay.step_forward", "Replay", "{}" },
-    SkarnessCapability { "replay.set_reveal_speed", "Prediction", "{rate:number}" },
-    SkarnessCapability { "replay.scrub", "Replay", "{normalized:number[0..1]}" },
-    SkarnessCapability { "replay.seek_frame", "Replay", "{frame:uint64}" },
-    SkarnessCapability { "replay.set_prediction_enabled", "Prediction", "{enabled:bool}" },
-    SkarnessCapability { "replay.set_prediction_detail", "Prediction", "{highDetail:bool}" },
-    SkarnessCapability { "replay.set_prediction_horizon", "Prediction", "{seconds:number}" },
-    SkarnessCapability { "replay.set_velocity_edit_enabled", "Replay", "{enabled:bool}" },
-    SkarnessCapability { "replay.set_ragdoll_visuals_enabled", "Prediction", "{enabled:bool}" },
-    SkarnessCapability { "replay.set_past_path_visible", "Replay", "{visible:bool}" },
-    SkarnessCapability { "replay.set_guide_arcs_enabled", "Planning", "{enabled:bool}" },
-    SkarnessCapability { "replay.set_path_color_mode", "Replay", "{mode:lane|velocity|time|object|causal}" },
-    SkarnessCapability { "replay.set_intercept_target", "Planning", "{name:string}|{sceneObjectId:uint64}" },
-    SkarnessCapability { "replay.velocity_preview", "Replay",
-                         "{linear:[number,number,number],angular:[number,number,number]}" },
-    SkarnessCapability { "replay.velocity_commit", "Replay", "{}" },
-    SkarnessCapability { "replay.velocity_cancel", "Replay", "{}" },
-    SkarnessCapability { "prediction.reveal_reset", "Prediction", "{}" },
-    SkarnessCapability { "prediction.reveal_advance", "Prediction", "{frames:int}" },
-    SkarnessCapability { "replay.restore_branch", "Replay", "{}" },
-    SkarnessCapability { "replay.save", "Replay", "{path:string}" },
-    SkarnessCapability { "replay.load", "Replay", "{path:string}" },
-    SkarnessCapability { "replay.return_to_live", "Replay", "{}" },
-    SkarnessCapability { "replay.select_cause_row", "Replay", "{row:int}" },
-    SkarnessCapability { "replay.select_cause", "Planning",
-                         "{row:int,sceneObjectId:uint64,frame:uint64,generation:uint64,bankEpoch:uint64,topologyVersion:"
-                         "uint64,publicationVersion:uint64}" },
-    SkarnessCapability { "replay.set_cause_inspector_open", "Planning", "{open:bool}" },
-    SkarnessCapability { "replay.set_cause_filter_text", "Replay", "{text:string}" },
-    SkarnessCapability { "replay.set_cause_filter", "Replay", "{filter:all|prediction|contacts}" },
-    SkarnessCapability { "replay.set_cause_inspector_tab", "Planning", "{tab:summary|raw|iterations}" },
-    SkarnessCapability { "replay.close_cause_detail", "Planning", "{}" },
-    SkarnessCapability { "replay.return_from_cause", "Planning", "{}" },
-    SkarnessCapability { "replay.copy_cause_record", "Planning", "{}" },
-    SkarnessCapability { "replay.set_porkchop_visible", "Planning", "{visible:bool}" },
-    SkarnessCapability { "replay.select_porkchop_cell", "Planning", "{cell:int}" },
-    SkarnessCapability { "replay.set_trip_time_of_flight", "Planning", "{seconds:number}" },
-    SkarnessCapability { "replay.trip_plan", "Planning", "{}" },
-    SkarnessCapability { "replay.trip_commit", "Planning", "{}" },
-    SkarnessCapability { "replay.trip_cancel", "Planning", "{}" },
-    SkarnessCapability { "prediction.forecast_start", "Planning", "{}" },
-    SkarnessCapability { "prediction.forecast_reset", "Planning", "{}" },
-    SkarnessCapability { "prediction.forecast_stop", "Planning", "{}" },
-    SkarnessCapability { "prediction.select_target", "Replay", "{name:string}|{sceneObjectId:uint64}" },
-    SkarnessCapability { "replay.set_path_target", "Replay", "{name:string}|{sceneObjectId:uint64}" },
-    SkarnessCapability { "camera.orbit_inspection", "Camera", "{yawRadians:number,pitchRadians:number,wheelDelta?:int}" },
-    SkarnessCapability { "state.subscribe", "Automation", "{topics:[string],detail:summary|normal|full}" },
-    SkarnessCapability { "input.set_movement", "Input", "{w:bool,a:bool,s:bool,d:bool}",
+inline constexpr std::array SKARNESS_CAPABILITIES = { SkarnessCapability { "editor.set_terrain_brush", "Editor", "{enabled:bool}" },
+                                                      SkarnessCapability { "scene.save", "Scene", "{}" },
+                                                      SkarnessCapability { "input.file_dialog_response",
+                         "Automation",
+                         "{purpose:comparison.open|comparison.save|replay.load|terrain.import,accepted:bool,path?:string}",
                          SkarnessCapabilityAvailability::AutomatedInputOnly },
-    SkarnessCapability { "input.set_arrows", "Input", "{left:bool,right:bool}",
-                         SkarnessCapabilityAvailability::AutomatedInputOnly },
-    SkarnessCapability { "input.pointer_wheel", "Input", "{x:int,y:int,wheelDelta:int}",
-                         SkarnessCapabilityAvailability::AutomatedInputOnly },
-    SkarnessCapability { "input.pointer_drag", "Input",
-                         "{button:left|right|middle,x:int,y:int,deltaX:int,deltaY:int,moveClient?:bool}",
-                         SkarnessCapabilityAvailability::AutomatedInputOnly },
-};
+                                                      SkarnessCapability { "comparison.load", "Planning", "{path:string}" },
+                                                      SkarnessCapability { "comparison.close", "Planning", "{}" },
+                                                      SkarnessCapability { "comparison.seek", "Planning", "{tick:int}" },
+                                                      SkarnessCapability { "comparison.step", "Planning", "{direction:-1|1}" },
+                                                      SkarnessCapability { "comparison.play", "Planning", "{direction:-1|0|1}" },
+                                                      SkarnessCapability { "comparison.mode", "Planning", "{mode:split|overlay|toggle|heatmap|pixels}" },
+                                                      SkarnessCapability { "comparison.select", "Planning", "{sceneObjectId:uint64}" },
+                                                      SkarnessCapability { "comparison.event", "Planning", "{index:int}" },
+                                                      SkarnessCapability { "comparison.focus", "Planning", "{}" },
+                                                      SkarnessCapability { "comparison.next_difference", "Planning", "{}" },
+                                                      SkarnessCapability { "comparison.finding.save", "Planning", "{path:string,note:string}" },
+                                                      SkarnessCapability { "comparison.finding.load", "Planning", "{path:string}" },
+                                                      SkarnessCapability { "comparison.setting", "Planning", "{name:string,value:number}" },
+                                                      SkarnessCapability { "comparison.loop", "Planning", "{first:int,last:int,enabled:bool}" },
+                                                      SkarnessCapability { "comparison.camera", "Planning", "{orbit:[yaw,pitch,zoom],pan:[x,y,0]}" },
+                                                      SkarnessCapability { "comparison.state", "Planning", "{}" },
+                                                      SkarnessCapability { "capabilities.get", "Automation", "{}" },
+                                                      SkarnessCapability { "session.stop", "Automation", "{}" },
+                                                      SkarnessCapability { "capture.screenshot", "Capture", "{path:string}" },
+                                                      SkarnessCapability { "window.resize", "Startup", "{width:int[320..8192],height:int[240..8192]}" },
+                                                      SkarnessCapability { "scene.load", "Scene", "{name:string}|{path:string}" },
+                                                      SkarnessCapability { "scene.reset", "Scene", "{}" },
+                                                      SkarnessCapability { "scene.load_demo", "Scene", "{}" },
+                                                      SkarnessCapability { "scene.object.list", "Scene", "{}" },
+                                                      SkarnessCapability { "scene.object.resolve", "Scene", "{name:string}|{sceneObjectId:uint64}" },
+                                                      SkarnessCapability { "scene.object.select", "Interaction", "{scope:inspect|editor,name:string}|{scope:inspect|editor,sceneObjectId:uint64}" },
+                                                      SkarnessCapability { "scene.object.clear_selection", "Interaction", "{scope:inspect|editor}" },
+                                                      SkarnessCapability { "run.pause", "Automation", "{}" },
+                                                      SkarnessCapability { "input.set_prediction_key", "Input", "{down:bool}" },
+                                                      SkarnessCapability { "input.set_key", "Input", "{key:int[8..255],down:bool}", SkarnessCapabilityAvailability::AutomatedInputOnly },
+                                                      SkarnessCapability { "input.set_focus", "Input", "{focused:bool}", SkarnessCapabilityAvailability::AutomatedInputOnly },
+                                                      SkarnessCapability { "run.resume", "Automation", "{}" },
+                                                      SkarnessCapability { "run.step", "Automation", "{count:int[1..100000]}" },
+                                                      SkarnessCapability { "run.step_frames", "Automation", "{count:int[1..100000]}" },
+                                                      SkarnessCapability { "run.until", "Automation", "{condition:enum,maxTicks:int}|{condition:enum,maxFrames:int}" },
+                                                      SkarnessCapability { "replay.set_recording_enabled", "Replay", "{enabled:bool}" },
+                                                      SkarnessCapability { "replay.set_retention_seconds", "Replay", "{seconds:int}" },
+                                                      SkarnessCapability { "replay.set_memory_budget_mib", "Replay", "{mib:int}" },
+                                                      SkarnessCapability { "replay.jump_to_start", "Replay", "{}" },
+                                                      SkarnessCapability { "replay.jump_to_end", "Replay", "{}" },
+                                                      SkarnessCapability { "replay.set_playback_paused", "Replay", "{paused:bool}" },
+                                                      SkarnessCapability { "replay.step_backward", "Replay", "{}" },
+                                                      SkarnessCapability { "replay.step_forward", "Replay", "{}" },
+                                                      SkarnessCapability { "replay.set_reveal_speed", "Prediction", "{rate:number}" },
+                                                      SkarnessCapability { "replay.scrub", "Replay", "{normalized:number[0..1]}" },
+                                                      SkarnessCapability { "replay.seek_frame", "Replay", "{frame:uint64}" },
+                                                      SkarnessCapability { "replay.set_prediction_enabled", "Prediction", "{enabled:bool}" },
+                                                      SkarnessCapability { "replay.set_prediction_detail", "Prediction", "{highDetail:bool}" },
+                                                      SkarnessCapability { "replay.set_prediction_horizon", "Prediction", "{seconds:number}" },
+                                                      SkarnessCapability { "replay.set_velocity_edit_enabled", "Replay", "{enabled:bool}" },
+                                                      SkarnessCapability { "replay.set_ragdoll_visuals_enabled", "Prediction", "{enabled:bool}" },
+                                                      SkarnessCapability { "replay.set_past_path_visible", "Replay", "{visible:bool}" },
+                                                      SkarnessCapability { "replay.set_guide_arcs_enabled", "Planning", "{enabled:bool}" },
+                                                      SkarnessCapability { "replay.set_path_color_mode", "Replay", "{mode:lane|velocity|time|object|causal}" },
+                                                      SkarnessCapability { "replay.set_intercept_target", "Planning", "{name:string}|{sceneObjectId:uint64}" },
+                                                      SkarnessCapability { "replay.velocity_preview", "Replay", "{linear:[number,number,number],angular:[number,number,number]}" },
+                                                      SkarnessCapability { "replay.velocity_commit", "Replay", "{}" },
+                                                      SkarnessCapability { "replay.velocity_cancel", "Replay", "{}" },
+                                                      SkarnessCapability { "prediction.reveal_reset", "Prediction", "{}" },
+                                                      SkarnessCapability { "prediction.reveal_advance", "Prediction", "{frames:int}" },
+                                                      SkarnessCapability { "replay.restore_branch", "Replay", "{}" },
+                                                      SkarnessCapability { "replay.save", "Replay", "{path:string}" },
+                                                      SkarnessCapability { "replay.load", "Replay", "{path:string}" },
+                                                      SkarnessCapability { "replay.return_to_live", "Replay", "{}" },
+                                                      SkarnessCapability { "replay.select_cause_row", "Replay", "{row:int}" },
+                                                      SkarnessCapability { "replay.select_cause", "Planning", "{row:int,sceneObjectId:uint64,frame:uint64,generation:uint64,bankEpoch:uint64,topologyVersion:" "uint64,publicationVersion:uint64}" },
+                                                      SkarnessCapability { "replay.set_cause_inspector_open", "Planning", "{open:bool}" },
+                                                      SkarnessCapability { "replay.set_cause_filter_text", "Replay", "{text:string}" },
+                                                      SkarnessCapability { "replay.set_cause_filter", "Replay", "{filter:all|prediction|contacts}" },
+                                                      SkarnessCapability { "replay.set_cause_inspector_tab", "Planning", "{tab:summary|raw|iterations}" },
+                                                      SkarnessCapability { "replay.close_cause_detail", "Planning", "{}" },
+                                                      SkarnessCapability { "replay.return_from_cause", "Planning", "{}" },
+                                                      SkarnessCapability { "replay.copy_cause_record", "Planning", "{}" },
+                                                      SkarnessCapability { "replay.set_porkchop_visible", "Planning", "{visible:bool}" },
+                                                      SkarnessCapability { "replay.select_porkchop_cell", "Planning", "{cell:int}" },
+                                                      SkarnessCapability { "replay.set_trip_time_of_flight", "Planning", "{seconds:number}" },
+                                                      SkarnessCapability { "replay.trip_plan", "Planning", "{}" },
+                                                      SkarnessCapability { "replay.trip_commit", "Planning", "{}" },
+                                                      SkarnessCapability { "replay.trip_cancel", "Planning", "{}" },
+                                                      SkarnessCapability { "prediction.forecast_start", "Planning", "{}" },
+                                                      SkarnessCapability { "prediction.forecast_reset", "Planning", "{}" },
+                                                      SkarnessCapability { "prediction.forecast_stop", "Planning", "{}" },
+                                                      SkarnessCapability { "prediction.select_target", "Replay", "{name:string}|{sceneObjectId:uint64}" },
+                                                      SkarnessCapability { "replay.set_path_target", "Replay", "{name:string}|{sceneObjectId:uint64}" },
+                                                      SkarnessCapability { "camera.orbit_inspection", "Camera", "{yawRadians:number,pitchRadians:number,wheelDelta?:int}" },
+                                                      SkarnessCapability { "state.subscribe", "Automation", "{topics:[string],detail:summary|normal|full}" },
+                                                      SkarnessCapability { "input.set_movement", "Input", "{w:bool,a:bool,s:bool,d:bool}", SkarnessCapabilityAvailability::AutomatedInputOnly },
+                                                      SkarnessCapability { "input.set_arrows", "Input", "{left:bool,right:bool}", SkarnessCapabilityAvailability::AutomatedInputOnly },
+                                                      SkarnessCapability { "ui.animation_clock", "UI", "{seconds:number,enabled:bool}" },
+                                                      SkarnessCapability { "physics.speculative_validation", "Physics", "{enabled:bool}; paused validation sessions only" },
+                                                      SkarnessCapability { "input.pointer_position", "Input", "{x:int,y:int,enabled:bool}", SkarnessCapabilityAvailability::AutomatedInputOnly },
+                                                      SkarnessCapability { "input.pointer_wheel", "Input", "{x:int,y:int,wheelDelta:int}", SkarnessCapabilityAvailability::AutomatedInputOnly },
+                                                      SkarnessCapability { "input.pointer_drag",
+                         "Input",
+                         "{button:left|right|middle,x:int,y:int,deltaX:int,deltaY:int,moveClient?:bool,holdMilliseconds?:" "int,holdAfterMoveMilliseconds?:int}",
+                         SkarnessCapabilityAvailability::AutomatedInputOnly }, };
 
 struct SkarnessProceedPolicy
 {
@@ -357,6 +375,141 @@ struct SkarnessPointerInputFrame
 // cannot reach Replay, Scene, Prediction, or renderer owners.
 struct SkarnessFrameState
 {
+    struct PositionGate
+    {
+        uint64_t sceneObjectId = 0;
+        uint64_t frame = 0;
+        std::array<float, 2> center {};
+        bool visible = false;
+    };
+    struct Presentation
+    {
+        std::array<PositionGate, 2> positionGates {};
+        bool editorLayout = false;
+        bool solverLabWorkspace = false;
+        bool editorMode = false;
+        bool editorPlacement = false;
+        bool editorStaticObject = false;
+        bool editorTerrainAlign = false;
+        bool editorTerrainBrush = false;
+        bool editorVelocityEdit = false;
+        bool editorVelocityAngular = false;
+        uint64_t editorSelectedObjectId = 0;
+        int editorHotAxis = -1;
+        int editorGestureAxis = -1;
+        bool pointerWorldSuppressed = false;
+        int worldInteractionOwner = 0;
+        bool terrainBrushVisible = false;
+        float editorTerrainBrushRadius = 40.0f;
+        uint64_t terrainEditRevision = 0;
+        bool terrainFlat = false;
+        float terrainCenterHeight = 0.0f;
+        float terrainMinimumHeight = 0.0f;
+        float terrainMaximumHeight = 0.0f;
+        int cameraMode = 0;
+        uint32_t cameraModeEnabledMask = 0;
+        std::array<float, 4> cameraPopupBounds = {};
+        bool cameraPopupOpen = false;
+        std::array<float, 4> toolsPopupBounds = {};
+        int toolsPopupFirstOption = 0;
+        int toolsPopupVisibleOptions = 0;
+        int toolsPopupOptions = 0;
+        bool toolsPopupOpen = false;
+        int editorObjectType = 0;
+        std::array<float, 4> editorPopupBounds = {};
+        int editorPopupFirstOption = 0;
+        int editorPopupVisibleOptions = 0;
+        int editorObjectOptions = 0;
+        bool editorPopupOpen = false;
+        bool toolsVisible = false;
+        int activeTool = 1;
+        int theme = 0;
+        std::array<float, 15> panelVisibility {};
+        bool panelsAnimating = false;
+        bool panelDrawOverflow = false;
+        bool markerHistoryVisible = false;
+        bool memoryWaterlineVisible = false;
+        int markerSamples = 0;
+        int memorySamples = 0;
+        int focusedDiagnostic = 0;
+        uint32_t markerSelectionHash = 0;
+        bool profilerTimeline = false;
+        std::array<float, 4> targetPopupBounds {};
+        int targetFirstOption = 0;
+        int targetVisibleOptions = 0;
+        int targetOptions = 0;
+        int selectedTarget = -1;
+        uint32_t targetDisabledMask = 0;
+        std::array<float, 4> recordingPopupBounds {};
+        int recordingFirstOption = 0;
+        int recordingVisibleOptions = 0;
+        int recordingOptions = 0;
+        std::array<float, 4> profilerDrawExpanderBounds {};
+        std::array<float, 4> markerHistoryBounds {};
+        std::array<float, 4> workerToggleBounds {};
+        std::array<float, 4> workerSliderBounds {};
+        int profilerMarkerCount = 0;
+        int profilerDrawNodeCount = 0;
+        uint32_t profilerExpansionHash = 0;
+        uint32_t drawExpansionHash = 0;
+        int workerThreads = 0;
+        int maxWorkerThreads = 0;
+        int replayMemoryPreset = 0;
+        int replayRetentionSeconds = 0;
+        int replayBudgetMiB = 0;
+        std::array<bool, 6> optionsToggles = {};
+        std::array<float, 6> sceneControlValues = {};
+        int modelCapacity = 0;
+        uint64_t fileDialogResponsesConsumed = 0;
+        bool cinematicShadows = false;
+        std::array<float, 13> physicsParameters = {};
+        std::array<bool, 13> physicsToggles = {};
+        int physicsPipelineStage = 0;
+        int physicsPipelineStages = 0;
+        std::vector<float> ordinaryRenderParameters;
+        std::vector<float> cinematicParameters;
+        std::vector<bool> cinematicFeatures;
+        float toolsScroll = 0.0f;
+        std::array<float, 4> toolsContentBounds = {};
+        uint32_t tooltipId = 0;
+        char tooltipAction[192] {};
+        std::array<float, 4> tooltipTargetBounds {};
+
+        int windowWidth = 1;
+        int windowHeight = 1;
+        int viewportX = 0;
+        int viewportY = 0;
+        int viewportWidth = 1;
+        int viewportHeight = 1;
+        float projectionX = 0.0f;
+        float projectionY = 0.0f;
+        bool pointerHasWorldRay = false;
+        std::array<int, 2> pointerClientPosition {};
+        std::array<bool, 3> pointerLeftState {};
+        std::array<int, 3> pointerGesture {};
+        std::array<float, 3> pointerRayDirection = {};
+        std::array<float, 4> transportBounds = {};
+        std::array<float, 4> replayControlsBounds = {};
+        std::array<float, 4> causeControlsBounds = {};
+        std::array<float, 4> detailsCausesTabBounds = {};
+        std::array<float, 4> editorControlsBounds = {};
+        std::array<float, 4> editorReplayTabBounds = {};
+        std::array<float, 4> replayFoldBounds = {};
+        std::array<float, 4> replayResizeBounds = {};
+        std::array<float, 4> memoryWaterlineBounds = {};
+        std::array<float, 4> editorTabBounds = {};
+        std::array<float, 4> causeTabBounds = {};
+        std::array<float, 4> leftFoldBounds = {};
+        std::array<float, 4> headerLayoutBounds = {};
+        std::array<float, 4> headerWorkspaceBounds = {};
+        std::array<float, 4> headerCloseBounds = {};
+        std::array<float, 4> drawerBounds = {};
+        std::array<float, 4> leftResizeBounds = {};
+        std::array<float, 4> rightResizeBounds = {};
+        std::array<float, 4> rightFoldBounds = {};
+        std::array<float, 4> replayDetailsBounds = {};
+        float replayScroll = 0.0f;
+    } presentation;
     uint64_t sceneGeneration = 0;
     int sceneFrame = 0;
     char scenePath[512] = {};
@@ -365,6 +518,16 @@ struct SkarnessFrameState
     int sceneLifecycleEvent = 0;
     bool sceneReady = false;
     bool sceneMode = false;
+    float sceneTimeScale = 1.0f;
+    bool scenePauseLocked = false;
+    bool forecastActive = false;
+    bool forecastAvailable = false;
+    bool forecastFailed = false;
+    uint64_t forecastNewestTick = 0;
+    double forecastSimulatedSeconds = 0.0;
+    double predictionRevealRate = 1.0;
+    bool scenePhysicsEnabled = true;
+    int sceneManualResetCount = 0;
     double simulationSeconds = 0.0;
     bool paused = true;
     bool replayCaptureEnabled = false;

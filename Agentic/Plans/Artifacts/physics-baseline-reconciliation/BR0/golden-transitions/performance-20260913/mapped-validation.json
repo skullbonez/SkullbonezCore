@@ -1,0 +1,30 @@
+{
+  "owner_approval": {
+    "date": "2026-09-13",
+    "text": "All baselines approved",
+    "scope": "The six exact reviewed candidates; this manifest contains its owning subset."
+  },
+  "canonical_gate": {
+    "command": "tools/validate_perf.bat",
+    "completedUtc": "2026-09-12T23:37:31.2120312Z",
+    "durationSeconds": 108.2327553,
+    "exitCode": 0
+  },
+  "validation_source_commit": "39bd94d2602c47ac73b4b75cb0db49b3aec1e097",
+  "runtime_changed_during_reconciliation": false,
+  "other_protected_files_unchanged": 130,
+  "goldens": [
+    {
+      "path": "TestOutput/baselines/dx12_perf.json",
+      "old_sha256": "03cab7d929939fa36209f8549d3754c569150c7a8d2feafe8c96f394adfbb4ab",
+      "new_sha256": "abab738c2b3ce7b715c1b3d564fb28a9e0d978345934d5ed953d4ebbcccc16f7"
+    },
+    {
+      "path": "TestOutput/baselines/physics_bench_perf.json",
+      "old_sha256": "68e3c163f446c270a96a277e23e36d6314d5540864d8cb34507fff1beec6837c",
+      "new_sha256": "6751caea875955e539c56a0048b86b6a02180a5cf1e185149c7d0ecebefa2330"
+    }
+  ],
+  "review": "Independent read-only subagent found no correctness, assertion weakening or integrity defect. Two obsolete per-run reports were preserved locally and removed from the tree.",
+  "negative_controls": "Existing mapped gate controls remain unchanged and pass. Candidate-specific altered signature/velocity controls also rejected planted failures before approval."
+}

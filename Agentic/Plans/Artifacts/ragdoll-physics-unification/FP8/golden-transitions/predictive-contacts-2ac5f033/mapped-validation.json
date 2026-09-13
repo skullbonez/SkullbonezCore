@@ -1,0 +1,45 @@
+{
+  "command": "tools\\validate_replay_visual_fidelity.bat",
+  "exitCode": 0,
+  "elapsedSeconds": 384.5780000000086,
+  "log": "TestOutput\\fp9-terminal-replay-visual-approved-01.log",
+  "artifacts": [
+    {
+      "path": "TestOutput\\fp9-replay-visual-approved-01\\full_reveal_probe_profile.json",
+      "size": 7172398,
+      "sha256": "33c79761a659c52646a51718d81029e0b62bbe6ee7a5921ea2a42740448b0037"
+    },
+    {
+      "path": "TestOutput\\fp9-replay-visual-approved-01\\full_reveal_probe_profile.log",
+      "size": 3406208,
+      "sha256": "c5a5ad757cec9373af636c9bdb7a82467c798ef11f88eab3cfa69cb11ca85224"
+    },
+    {
+      "path": "TestOutput\\fp9-replay-visual-approved-01\\full_reveal_probe_profile.json.replay.skreplay",
+      "size": 47834776,
+      "sha256": "cb282ff21979513d3933c51912cfc5a8a85c45a35dc3dba394a2341d4648b50a"
+    },
+    {
+      "path": "TestOutput\\fp9-replay-visual-approved-01\\reveal_building.bmp",
+      "size": 5143326,
+      "sha256": "a3c885feff02fa545087a64d871814421c0c17e2912244ed5f9ce3c150e5180f"
+    },
+    {
+      "path": "TestOutput\\fp9-replay-visual-approved-01\\reveal_mid.bmp",
+      "size": 5143326,
+      "sha256": "8e99837a4b30f990c8745a9d51c2ce9b2f2c070782aed6471815a92d7c7dbc80"
+    },
+    {
+      "path": "TestOutput\\fp9-replay-visual-approved-01\\reveal_late.bmp",
+      "size": 5143326,
+      "sha256": "b87b77b3a7c5dc64128483d1b1e6482e85208d0a6c65a719298fa941ba814e4b"
+    },
+    {
+      "path": "TestOutput\\fp9-replay-visual-approved-01\\reveal_complete.bmp",
+      "size": 5143326,
+      "sha256": "a550c1c18a0631a8af81a9264a119fac0d9bca1b93ed2c1a4a094585fcdf77bb"
+    }
+  ],
+  "screenshotInspected": "reveal_complete.bmp",
+  "sourceChangeAfterProducer": "InputFrame.cpp CRLF-to-LF normalization only; C++ text unchanged."
+}

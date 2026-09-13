@@ -17,7 +17,7 @@ Glossary:
 
 Invariants:
   - A published terrain is never null.
-  - Terrain storage and flat-slope classification change in one operation.
+  - Terrain owns its classification, including the first sculpt of a flat grid.
   - Consumers borrow Terrain pointers only for synchronous work and never cache
     them across scene replacement.
 
@@ -53,7 +53,7 @@ class SceneTerrain
 
     bool IsFlatSlope() const
     {
-        return m_isFlatSlope;
+        return m_terrain && m_terrain->IsFlatSlope();
     }
 
     void Replace( std::unique_ptr<Geometry::Terrain> terrain, bool isFlatSlope )
@@ -65,13 +65,15 @@ class SceneTerrain
             SB_FATAL( "SceneTerrain", "Cannot publish a null scene terrain." );
         }
 
+        if ( terrain->IsFlatSlope() != isFlatSlope )
+        {
+            SB_FATAL( "SceneTerrain", "Terrain publication classification disagrees with its geometry." );
+        }
         m_terrain = std::move( terrain );
-        m_isFlatSlope = isFlatSlope;
     }
 
   private:
     std::unique_ptr<Geometry::Terrain> m_terrain;
-    bool m_isFlatSlope = false;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

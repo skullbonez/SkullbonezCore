@@ -1,0 +1,9 @@
+{
+  "filesChecked": 35,
+  "gitByteConversions": [],
+  "passed": true,
+  "baselineHashes": {
+    "TestOutput\\baselines\\dx12_perf.json": "03cab7d929939fa36209f8549d3754c569150c7a8d2feafe8c96f394adfbb4ab",
+    "TestOutput\\baselines\\physics_bench_perf.json": "68e3c163f446c270a96a277e23e36d6314d5540864d8cb34507fff1beec6837c"
+  }
+}

@@ -1,0 +1,33 @@
+Microsoft (R) COFF/PE Dumper Version 14.51.36248.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+
+Dump of file C:\SkullbonezCore\Agentic\Plans\Artifacts\ragdoll-physics-unification\FP8\golden-transitions\predictive-contacts-2ac5f033\old\SKULLBONEZ_CORE-Automation.exe
+
+File Type: EXECUTABLE IMAGE
+
+  Image has the following dependencies:
+
+    WinPixEventRuntime.dll
+    KERNEL32.dll
+    USER32.dll
+    GDI32.dll
+    COMDLG32.dll
+    ADVAPI32.dll
+    ole32.dll
+    bcrypt.dll
+    Cabinet.dll
+    d3d12.dll
+    dxgi.dll
+    D3DCOMPILER_47.dll
+    dxcompiler.dll
+
+  Summary
+
+       4A000 .data
+        1000 .fptable
+       27000 .pdata
+       BF000 .rdata
+        3000 .reloc
+        A000 .rsrc
+      3F4000 .text

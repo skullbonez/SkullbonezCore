@@ -35,20 +35,17 @@ SpaceBeforeParens: ControlStatements
 # Line endings — LF
 LineEnding: LF
 
-# Keep one-to-three short parameters together; wrap only near the readable
-# width or for genuinely wide parameter lists.
-ColumnLimit: 125
-BinPackParameters: true
-BinPackArguments: true
+# Base layout. tools/format_cpp.py then keeps lists of up to three arguments
+# together even beyond this width; only lists of four or more may expand.
+ColumnLimit: 200
+BinPackParameters: false
+BinPackArguments: false
 BinPackLongBracedList: false
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowAllArgumentsOnNextLine: false
-# Wrapped call arguments align beneath the first column after the opening
-# parenthesis. This keeps parameter ownership visible at the call site.
+# Keep the first item beside the opener; align each continuation beneath it.
 AlignAfterOpenBracket: Align
 BracedInitializerIndentWidth: 4
-# Never leave an opening parenthesis stranded at the end of a function/call
-# line. The source post-pass also enforces this for simple wrapped expressions.
 PenaltyBreakBeforeFirstCallParameter: 1000000
 # Keep the first expression token beside `=`. Wrapped calls continue from their
 # opening parenthesis instead of leaving an assignment operator stranded.

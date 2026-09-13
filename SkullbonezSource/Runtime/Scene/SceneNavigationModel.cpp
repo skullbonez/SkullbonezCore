@@ -40,8 +40,7 @@ namespace
 bool IsCineScenePath( const std::string& path )
 {
     const char* name = SceneFileNameFromPath( path.c_str() );
-    return strncmp( name, "concept_", 8 ) == 0 || strncmp( name, "cinematic_", 10 ) == 0 ||
-           strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
+    return strncmp( name, "concept_", 8 ) == 0 || strncmp( name, "cinematic_", 10 ) == 0 || strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
 }
 
 SceneLoadRequest LoadSceneFromBrowserPaths( const std::vector<std::string>& paths, int index, SceneSession& scene )
@@ -51,6 +50,9 @@ SceneLoadRequest LoadSceneFromBrowserPaths( const std::vector<std::string>& path
         return SceneLoadRequest::None();
     }
 
+    // Scene selection owns path normalization and queue growth before the
+    // lifecycle transaction begins loading the selected scene.
+    Core::Allocation::RuntimeAllocationScope allocationScope( Core::Allocation::RuntimeAllocationPhase::SceneLoad );
     const std::string selectedPath = NormalizeSceneQueuePath( paths[index] );
     const int queuedIndex = scene.FindNormalizedPath( selectedPath );
 
@@ -69,15 +71,13 @@ SceneLoadRequest LoadSceneFromBrowserPaths( const std::vector<std::string>& path
 } // namespace
 
 
-SceneLoadRequest LoadSceneFromBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation, int index,
-                                            SceneSession& scene )
+SceneLoadRequest LoadSceneFromBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation, int index, SceneSession& scene )
 {
     return LoadSceneFromBrowserPaths( navigation.browser.paths, index, scene );
 }
 
 
-int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation, int direction,
-                                       int currentSceneBrowserIndex, bool isCinematicTabActive )
+int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation, int direction, int currentSceneBrowserIndex, bool isCinematicTabActive )
 {
     if ( direction == 0 )
     {
@@ -119,16 +119,14 @@ int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigation
         currentPosition = currentScenePosition;
     }
 
-    const bool cineContext = currentPosition >= 0 || navigation.browser.selectedCineModeSceneIndex >= 0 ||
-                             isCinematicTabActive;
+    const bool cineContext = currentPosition >= 0 || navigation.browser.selectedCineModeSceneIndex >= 0 || isCinematicTabActive;
 
     if ( !cineContext )
     {
         return -1;
     }
 
-    const int nextPosition = currentPosition < 0 ? ( direction < 0 ? cineCount - 1 : 0 )
-                                                 : ( currentPosition + ( direction < 0 ? -1 : 1 ) + cineCount ) % cineCount;
+    const int nextPosition = currentPosition < 0 ? ( direction < 0 ? cineCount - 1 : 0 ) : ( currentPosition + ( direction < 0 ? -1 : 1 ) + cineCount ) % cineCount;
 
     int position = 0;
 
@@ -149,8 +147,7 @@ int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigation
 }
 
 
-SceneLoadRequest LoadAdjacentScene( const SkullbonezCore::UI::SceneNavigationModel& navigation, int direction,
-                                    int currentSceneBrowserIndex, SceneSession& scene )
+SceneLoadRequest LoadAdjacentScene( const SkullbonezCore::UI::SceneNavigationModel& navigation, int direction, int currentSceneBrowserIndex, SceneSession& scene )
 {
     if ( direction == 0 )
     {
@@ -196,22 +193,20 @@ SceneLoadRequest LoadAdjacentScene( const SkullbonezCore::UI::SceneNavigationMod
 
             for ( int i = 0; i < sceneCount; ++i )
             {
-                if ( IsCineScenePath( navigation.browser.paths[i] ) )
+                if ( !IsCineScenePath( navigation.browser.paths[i] ) )
                 {
-                    if ( position == nextCinePosition )
-                    {
-                        return LoadSceneFromBrowserIndex( navigation, i, scene );
-                    }
-
-                    ++position;
+                    continue;
                 }
+                if ( position == nextCinePosition )
+                {
+                    return LoadSceneFromBrowserIndex( navigation, i, scene );
+                }
+                ++position;
             }
         }
     }
 
-    const int nextIndex = currentSceneBrowserIndex < 0
-                              ? ( direction < 0 ? sceneCount - 1 : 0 )
-                              : ( currentSceneBrowserIndex + ( direction < 0 ? -1 : 1 ) + sceneCount ) % sceneCount;
+    const int nextIndex = currentSceneBrowserIndex < 0 ? ( direction < 0 ? sceneCount - 1 : 0 ) : ( currentSceneBrowserIndex + ( direction < 0 ? -1 : 1 ) + sceneCount ) % sceneCount;
 
     return LoadSceneFromBrowserIndex( navigation, nextIndex, scene );
 }
@@ -224,8 +219,7 @@ SceneLoadRequest SceneLoadNavigationState::LoadSceneFromBrowserIndex( int index,
 SceneLoadRequest SceneLoadNavigationState::LoadDemoScene( SceneSession& scene ) const
 {
     const int demoIndex = scene.FindGeneratedDemo();
-    return demoIndex >= 0 ? SceneLoadRequest::Load( demoIndex, true, true, false, true )
-                          : SceneLoadRequest::Load( scene.Append( "" ), true, true, false, true );
+    return demoIndex >= 0 ? SceneLoadRequest::Load( demoIndex, true, true, false, true ) : SceneLoadRequest::Load( scene.Append( "" ), true, true, false, true );
 }
 
 SceneLoadNavigationState CaptureSceneLoadNavigationState( const SkullbonezCore::UI::SceneNavigationModel& navigation )
@@ -238,8 +232,7 @@ SceneLoadNavigationState CaptureSceneLoadNavigationState( const SkullbonezCore::
     return state;
 }
 
-void ApplySceneLoadNavigationState( SkullbonezCore::UI::SceneNavigationModel& navigation,
-                                    const SceneLoadNavigationState& state )
+void ApplySceneLoadNavigationState( SkullbonezCore::UI::SceneNavigationModel& navigation, const SceneLoadNavigationState& state )
 {
     navigation.overrides = state.overrides;
     navigation.browser.selectedCineModeSceneIndex = state.selectedCineModeSceneIndex;

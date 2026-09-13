@@ -7,6 +7,7 @@
 #include "../Replay/ReplayVisualPacketFingerprint.h"
 
 #include <algorithm>
+#include <bit>
 #include <span>
 #include <vector>
 
@@ -35,12 +36,24 @@ enum TopicIndex : std::size_t
     VisualPacket,
     RenderSubmission,
     LegacyScene,
-    LegacyReplay
+    LegacyReplay,
+    Presentation
 };
 
 Json Vec3( const Math::Vector::Vector3& value )
 {
     return Json::array( { value.x, value.y, value.z } );
+}
+
+Json BuildPositionGates( const std::array<SkarnessFrameState::PositionGate, 2>& gates )
+{
+    Json rows = Json::array();
+
+    for ( const auto& gate : gates )
+    {
+        rows.push_back( { { "sceneObjectId", gate.sceneObjectId }, { "frame", gate.frame }, { "center", gate.center }, { "visible", gate.visible } } );
+    }
+    return rows;
 }
 
 Json Quaternion( const Math::Orientation::Quaternion& value )
@@ -53,8 +66,7 @@ Json Quaternion( const Math::Orientation::Quaternion& value )
     return Json::array( { x, y, z, w } );
 }
 
-void Store( SkarnessSerializedStateTopics& topics, TopicIndex index, Json payload, uint64_t ownerVersion = 0,
-            uint64_t appendCursor = 0, uint64_t evictCursor = 0 )
+void Store( SkarnessSerializedStateTopics& topics, TopicIndex index, Json payload, uint64_t ownerVersion = 0, uint64_t appendCursor = 0, uint64_t evictCursor = 0 )
 {
     SkarnessSerializedStateTopic& topic = topics[static_cast<std::size_t>( index )];
     topic.payload = payload.dump();
@@ -74,7 +86,11 @@ Json BuildScene( const SkarnessFrameState& state )
              { "objectCount", state.sceneObjectCount },
              { "physicsBodyCount", state.physicsBodyCount },
              { "lifecycleEvent", state.sceneLifecycleEvent },
-             { "sceneMode", state.sceneMode } };
+             { "sceneMode", state.sceneMode },
+             { "timeScale", state.sceneTimeScale },
+             { "pauseLocked", state.scenePauseLocked },
+             { "physicsEnabled", state.scenePhysicsEnabled },
+             { "manualResetCount", state.sceneManualResetCount } };
 }
 
 Json BuildSelection( const SkarnessFrameState& state )
@@ -89,9 +105,12 @@ Json BuildSelection( const SkarnessFrameState& state )
 
 Json BuildInput( const SkarnessFrameState& state )
 {
-    return { { "captureEnabled", state.replayCaptureEnabled },        { "scrubPaused", state.replayScrubPaused },
-             { "playbackPaused", state.replayPlaybackPaused },        { "predictionEnabled", state.predictionEnabled },
-             { "velocityEditEnabled", state.velocityEditEnabled },    { "pastPathVisible", state.pastPathVisible },
+    return { { "captureEnabled", state.replayCaptureEnabled },
+             { "scrubPaused", state.replayScrubPaused },
+             { "playbackPaused", state.replayPlaybackPaused },
+             { "predictionEnabled", state.predictionEnabled },
+             { "velocityEditEnabled", state.velocityEditEnabled },
+             { "pastPathVisible", state.pastPathVisible },
              { "ragdollVisualsEnabled", state.ragdollVisualsEnabled } };
 }
 
@@ -116,42 +135,42 @@ Json BuildTimeline( const ReplayAutomationView& replay, SkarnessStateDetail deta
     const ReplayRecorderStats presentation = replay.presentationRecorder.GetStats();
     const ReplayRecorderStats solver = replay.solverStats;
     const ReplayEventRecorderStats events = replay.eventRecorder.GetStats();
-    Json payload = { { "presentation",
-                       { { "enabled", presentation.enabled },
-                         { "sampleCount", presentation.sampleCount },
-                         { "sampleCapacity", presentation.sampleCapacity },
-                         { "totalCaptured", presentation.totalFramesCaptured },
-                         { "totalEvicted", presentation.totalFramesEvicted },
-                         { "nextFrame", presentation.nextFrameIndex },
-                         { "checkpointCount", presentation.checkpointCount } } },
-                     { "solver",
-                       { { "enabled", solver.enabled },
-                         { "sampleCount", solver.sampleCount },
-                         { "sampleCapacity", solver.sampleCapacity },
-                         { "totalCaptured", solver.totalFramesCaptured },
-                         { "totalEvicted", solver.totalFramesEvicted },
-                         { "nextFrame", solver.nextFrameIndex },
-                         { "checkpointCount", solver.checkpointCount },
-                         { "latestHash", solver.latestStateHash } } },
-                     { "events",
-                       { { "enabled", events.enabled },
-                         { "eventCount", events.eventCount },
-                         { "eventCapacity", events.eventCapacity },
-                         { "totalCaptured", events.totalEventsCaptured },
-                         { "totalEvicted", events.totalEventsEvicted },
-                         { "nextSequence", events.nextSequence } } },
-                     { "scrubber",
-                       { { "visible", replay.scrubber.visible },
-                         { "liveAdvanceHeld", replay.scrubber.liveAdvanceHeld },
-                         { "position", replay.scrubber.position },
-                         { "presentationPosition", replay.scrubber.presentationPosition },
-                         { "solverPosition", replay.scrubber.solverPosition } } } };
+    Json payload = { { "presentation", { { "enabled", presentation.enabled },
+                                         { "sampleCount", presentation.sampleCount },
+                                         { "sampleCapacity", presentation.sampleCapacity },
+                                         { "totalCaptured", presentation.totalFramesCaptured },
+                                         { "totalEvicted", presentation.totalFramesEvicted },
+                                         { "nextFrame", presentation.nextFrameIndex },
+                                         { "checkpointCount", presentation.checkpointCount } } },
+                     { "solver", { { "enabled", solver.enabled },
+                                   { "sampleCount", solver.sampleCount },
+                                   { "sampleCapacity", solver.sampleCapacity },
+                                   { "totalCaptured", solver.totalFramesCaptured },
+                                   { "totalEvicted", solver.totalFramesEvicted },
+                                   { "nextFrame", solver.nextFrameIndex },
+                                   { "checkpointCount", solver.checkpointCount },
+                                   { "latestHash", solver.latestStateHash } } },
+                     { "events", { { "enabled", events.enabled },
+                                   { "eventCount", events.eventCount },
+                                   { "eventCapacity", events.eventCapacity },
+                                   { "totalCaptured", events.totalEventsCaptured },
+                                   { "totalEvicted", events.totalEventsEvicted },
+                                   { "nextSequence", events.nextSequence } } },
+                     { "scrubber", { { "visible", replay.scrubber.visible },
+                                     { "liveAdvanceHeld", replay.scrubber.liveAdvanceHeld },
+                                     { "position", replay.scrubber.position },
+                                     { "presentationPosition", replay.scrubber.presentationPosition },
+                                     { "solverPosition", replay.scrubber.solverPosition },
+                                     { "feedback", replay.scrubber.saveMessage } } },
+                     { "loaded", { { "path", replay.loadedPresentationPath },
+                                   { "sampleCount", replay.loadedPresentationSamples },
+                                   { "firstFrame", replay.loadedPresentationFirstFrame },
+                                   { "lastFrame", replay.loadedPresentationLastFrame } } } };
 
     if ( detail != SkarnessStateDetail::Summary )
     {
         Json samples = Json::array();
-        replay.solverRecorder.ForEachSampleChronological(
-            [&]( const ReplaySolverFrameSample& sample )
+        replay.solverRecorder.ForEachSampleChronological( [&]( const ReplaySolverFrameSample& sample )
             {
                 Json row = { { "frame", sample.frameIndex },
                              { "sceneFrame", sample.sceneFrame },
@@ -197,6 +216,12 @@ Json BuildPredictionControls( const SkarnessFrameState& state )
              { "highDetail", state.predictionHighDetail },
              { "horizonSeconds", state.predictionHorizonSeconds },
              { "revealProgress", state.predictionRevealProgress },
+             { "revealRate", state.predictionRevealRate },
+             { "forecastActive", state.forecastActive },
+             { "forecastAvailable", state.forecastAvailable },
+             { "forecastFailed", state.forecastFailed },
+             { "forecastNewestTick", state.forecastNewestTick },
+             { "forecastSimulatedSeconds", state.forecastSimulatedSeconds },
              { "generation", state.predictionGeneration },
              { "sourceTargetId", state.predictionSourceTargetId },
              { "sourceFrame", state.predictionSourceFrame },
@@ -318,9 +343,7 @@ Json BuildPredictionEvidence( const ReplayAutomationView& replay, SkarnessStateD
 Json BuildTopology( const ReplayAutomationView& replay, SkarnessStateDetail detail )
 {
     const ReplayVisualPacket& packet = replay.visualPacket;
-    Json payload = { { "targetId", packet.header.targetId.value },
-                     { "topologyVersion", packet.header.topologyVersion },
-                     { "futureNodeCount", packet.futureNodes.size() } };
+    Json payload = { { "targetId", packet.header.targetId.value }, { "topologyVersion", packet.header.topologyVersion }, { "futureNodeCount", packet.futureNodes.size() } };
     if ( detail != SkarnessStateDetail::Summary )
     {
         Json nodes = Json::array();
@@ -363,8 +386,7 @@ Json BuildTrajectories( const ReplayAutomationView& replay, SkarnessStateDetail 
             const std::size_t count = (std::min)( record.publishedPointCount, record.points.size() );
             for ( std::size_t i = 0; i < count; ++i )
             {
-                points.push_back(
-                    { { "frame", record.points[i].frameIndex }, { "position", Vec3( record.points[i].position ) } } );
+                points.push_back( { { "frame", record.points[i].frameIndex }, { "position", Vec3( record.points[i].position ) } } );
             }
             row["points"] = std::move( points );
         }
@@ -391,25 +413,25 @@ Json BuildCauseObject( const ReplayCauseObjectDetails& object )
 
 ReplayOverlay::ReplayCauseLoadingView BuildCauseLoading( const ReplayAutomationView& replay )
 {
-    const ReplayPredictionPresentationView prediction = ReplayPrediction::PresentationViewFromState( replay.prediction,
-                                                                                                     true );
-    return ReplayOverlay::BuildReplayCauseLoadingView( prediction.timeline, prediction.topology, prediction.controls,
-                                                       replay.path, replay.predictionDetailMode );
+    const ReplayPredictionPresentationView prediction = ReplayPrediction::PresentationViewFromState( replay.prediction, true );
+    return ReplayOverlay::BuildReplayCauseLoadingView( prediction.timeline, prediction.topology, prediction.controls, replay.path, replay.predictionDetailMode );
 }
 
 Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail )
 {
     const auto loading = BuildCauseLoading( replay );
     Json payload = { { "rowCount", replay.causeTree.rows.size() },
-                     { "window",
-                       { replay.causeTree.x, replay.causeTree.y, replay.causeTree.width, replay.causeTree.height } },
+                     { "window", { replay.causeTree.x, replay.causeTree.y, replay.causeTree.width, replay.causeTree.height } },
                      { "loading", loading.active },
                      { "loadingProgress", loading.progress },
                      { "loadingTargetId", replay.path.targetId.value },
                      { "selectedRow", replay.causeTree.selectedRow },
                      { "focusedId", replay.causeTree.focusedId.value },
                      { "filterText", replay.causeTree.filterText },
+                     { "filterFocused", replay.causeTree.filterFocused },
                      { "filter", static_cast<int>( replay.causeTree.filter ) },
+                     { "scrollY", replay.causeTree.scrollY },
+                     { "activeTab", static_cast<int>( replay.causeInspection.activeTab ) },
                      { "mode", static_cast<int>( replay.causeInspection.mode ) },
                      { "generation", replay.causeInspection.generation },
                      { "sourceFrame", replay.causeInspection.sourceFrame },
@@ -420,13 +442,14 @@ Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail 
                      { "detailVisible", replay.causeInspection.detailVisible },
                      { "drawerOpen", replay.causeInspection.drawerOpen },
                      { "drawerProgress", replay.causeInspection.drawerProgress },
-                     { "summaryExpandedSection", replay.causeInspection.summaryExpandedSection },
+                     { "summaryExpandedSections", replay.causeInspection.summaryExpandedSections },
                      { "summaryScrollOffset", replay.causeInspection.summaryScrollOffset },
+                     { "shellScroll", replay.causeInspection.shellScroll },
+                     { "rawRecordFirstRow", replay.causeInspection.rawRecordFirstRow },
+                     { "iterationsFirstRow", replay.causeInspection.iterationsFirstRow },
                      { "blueOutlinesVisible", replay.causeInspection.blueOutlinesVisible },
                      { "greyOutlinesVisible", replay.causeInspection.greyOutlinesVisible },
-                     { "objects",
-                       { BuildCauseObject( replay.causeInspection.objects[0] ),
-                         BuildCauseObject( replay.causeInspection.objects[1] ) } },
+                     { "objects", { BuildCauseObject( replay.causeInspection.objects[0] ), BuildCauseObject( replay.causeInspection.objects[1] ) } },
                      { "contactFlashAlpha", replay.causeInspection.contactFlashAlpha },
                      { "contactFlashSequence", replay.causeInspection.contactFlashSequence },
                      { "contactPointCount", replay.causeInspection.contactPresentation.pointCount },
@@ -465,36 +488,35 @@ Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail 
 
 Json BuildPlanning( const ReplayAutomationView& replay, SkarnessStateDetail detail )
 {
-    Json payload = { { "intercept",
-                       { { "valid", replay.intercept.valid },
-                         { "intercept", replay.intercept.intercept },
-                         { "shipId", replay.intercept.shipId.value },
-                         { "targetId", replay.intercept.targetId.value },
-                         { "closestFrame", replay.intercept.closestFrame },
-                         { "missDistance", replay.intercept.missDistance },
-                         { "relativeSpeed", replay.intercept.relativeSpeed },
-                         { "etaSeconds", replay.intercept.etaSeconds },
-                         { "topologyVersion", replay.intercept.topologyVersion } } },
-                     { "porkchop",
-                       { { "visible", replay.porkchop.visible },
-                         { "available", replay.porkchop.available },
-                         { "building", replay.porkchop.building },
-                         { "complete", replay.porkchop.complete },
-                         { "targetId", replay.porkchop.targetId.value },
-                         { "completedCells", replay.porkchop.completedCells },
-                         { "selectedCell", replay.porkchop.selectedCell },
-                         { "minimumDeltaV", replay.porkchop.minimumDeltaV } } },
-                     { "trip",
-                       { { "state", static_cast<int>( replay.tripPlanner.state ) },
-                         { "shipId", replay.tripPlanner.shipId.value },
-                         { "targetId", replay.tripPlanner.targetId.value },
-                         { "timeOfFlightSeconds", replay.tripPlanner.timeOfFlightSeconds },
-                         { "missDistance", replay.tripPlanner.missDistance },
-                         { "iteration", replay.tripPlanner.iteration },
-                         { "ghostCount", replay.tripPlanner.ghostCount },
-                         { "visible", replay.tripPlanner.visible },
-                         { "available", replay.tripPlanner.available },
-                         { "noSolution", replay.tripPlanner.noSolution } } } };
+    Json payload = { { "intercept", { { "valid", replay.intercept.valid },
+                                      { "intercept", replay.intercept.intercept },
+                                      { "shipId", replay.intercept.shipId.value },
+                                      { "targetId", replay.intercept.targetId.value },
+                                      { "closestFrame", replay.intercept.closestFrame },
+                                      { "missDistance", replay.intercept.missDistance },
+                                      { "relativeSpeed", replay.intercept.relativeSpeed },
+                                      { "etaSeconds", replay.intercept.etaSeconds },
+                                      { "topologyVersion", replay.intercept.topologyVersion } } }, { "porkchop", { { "visible", replay.porkchop.visible },
+                                     { "available", replay.porkchop.available },
+                                     { "building", replay.porkchop.building },
+                                     { "complete", replay.porkchop.complete },
+                                     { "targetId", replay.porkchop.targetId.value },
+                                     { "completedCells", replay.porkchop.completedCells },
+                                     { "selectedCell", replay.porkchop.selectedCell },
+                                     { "minimumDeltaV", replay.porkchop.minimumDeltaV } } }, { "trip", { { "state", static_cast<int>( replay.tripPlanner.state ) },
+                                 { "shipId", replay.tripPlanner.shipId.value },
+                                 { "targetId", replay.tripPlanner.targetId.value },
+                                 { "timeOfFlightSeconds", replay.tripPlanner.timeOfFlightSeconds },
+                                 { "missDistance", replay.tripPlanner.missDistance },
+                                 { "iteration", replay.tripPlanner.iteration },
+                                 { "ghostCount", replay.tripPlanner.ghostCount },
+                                 { "visible", replay.tripPlanner.visible },
+                                 { "available", replay.tripPlanner.available },
+                                 { "noSolution", replay.tripPlanner.noSolution } } } };
+    payload["surfaceScroll"] = replay.planningSurfaceScroll;
+    payload["overlayCommands"] = replay.overlayCommands;
+    payload["overlayOverflow"] = replay.overlayOverflow;
+    payload["porkchop"]["hoveredCell"] = replay.porkchop.hoveredCell;
     if ( detail == SkarnessStateDetail::Full )
     {
         payload["porkchop"]["deltaV"] = Json::array();
@@ -508,9 +530,7 @@ Json BuildPlanning( const ReplayAutomationView& replay, SkarnessStateDetail deta
 
 void AddFloatBuffer( Json& payload, const char* name, std::span<const float> values, SkarnessStateDetail detail )
 {
-    Json buffer = { { "count", values.size() },
-                    { "bytes", values.size_bytes() },
-                    { "hash", ReplayVisualPacketOperations::HashReplayVisualFloatBuffer( values ) } };
+    Json buffer = { { "count", values.size() }, { "bytes", values.size_bytes() }, { "hash", ReplayVisualPacketOperations::HashReplayVisualFloatBuffer( values ) } };
     if ( detail == SkarnessStateDetail::Full )
     {
         buffer["values"] = Json::array();
@@ -524,37 +544,23 @@ void AddFloatBuffer( Json& payload, const char* name, std::span<const float> val
 
 Json BuildRenderGeometryEvidence( const ReplayVisualPacket& packet )
 {
-    const ReplayVisualPacketBufferFacts facts = ReplayVisualPacketFingerprintOperations::BuildReplayVisualPacketBufferFacts(
-        packet );
+    const ReplayVisualPacketBufferFacts facts = ReplayVisualPacketFingerprintOperations::BuildReplayVisualPacketBufferFacts( packet );
     const uint64_t lineBytes = facts.ordinaryLineBytes + facts.priorityLineBytes;
     const uint64_t ribbonBytes = facts.ordinaryRibbonBytes + facts.priorityRibbonBytes;
     const uint64_t geometryBytes = lineBytes + ribbonBytes + facts.expandedVertexBytes;
-    const uint64_t lineHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( facts.ordinaryLineHash,
-                                                                                                 facts.ordinaryLineBytes,
-                                                                                                 facts.priorityLineHash,
-                                                                                                 facts.priorityLineBytes );
-    const uint64_t
-        ribbonHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( facts.ordinaryRibbonHash,
-                                                                                        facts.ordinaryRibbonBytes,
-                                                                                        facts.priorityRibbonHash,
-                                                                                        facts.priorityRibbonBytes );
-    const uint64_t geometryHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( lineHash, lineBytes,
-                                                                                                     ribbonHash,
-                                                                                                     ribbonBytes );
+    const uint64_t lineHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( facts.ordinaryLineHash, facts.ordinaryLineBytes, facts.priorityLineHash, facts.priorityLineBytes );
+    const uint64_t ribbonHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( facts.ordinaryRibbonHash,
+                                                                                                   facts.ordinaryRibbonBytes,
+                                                                                                   facts.priorityRibbonHash,
+                                                                                                   facts.priorityRibbonBytes );
+    const uint64_t geometryHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( lineHash, lineBytes, ribbonHash, ribbonBytes );
 
     // Invariant: renderer telemetry permits zero as the hash for an empty vertex
     // lane. Preserve that sentinel while deriving every non-empty byte from the
     // packet spans themselves, so stale submission telemetry cannot self-agree.
-    const uint64_t vertexHash = facts.expandedVertexBytes == 0u && packet.submission.vertexHash == 0u
-                                    ? 0u
-                                    : facts.expandedVertexHash;
-    const uint64_t
-        submissionHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( geometryHash,
-                                                                                            lineBytes + ribbonBytes,
-                                                                                            vertexHash,
-                                                                                            facts.expandedVertexBytes );
-    const char* spanMismatch = ReplayVisualPacketFingerprintOperations::FindReplayVisualPacketSubmissionSpanMismatch(
-        packet );
+    const uint64_t vertexHash = facts.expandedVertexBytes == 0u && packet.submission.vertexHash == 0u ? 0u : facts.expandedVertexHash;
+    const uint64_t submissionHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( geometryHash, lineBytes + ribbonBytes, vertexHash, facts.expandedVertexBytes );
+    const char* spanMismatch = ReplayVisualPacketFingerprintOperations::FindReplayVisualPacketSubmissionSpanMismatch( packet );
 
     return { { "lineBytes", lineBytes },
              { "ribbonBytes", ribbonBytes },
@@ -565,23 +571,68 @@ Json BuildRenderGeometryEvidence( const ReplayVisualPacket& packet )
              { "spanMismatch", spanMismatch ? spanMismatch : "" } };
 }
 
+Json BuildPathGeometryEvidence( const ReplayVisualPacket& packet, bool secondary )
+{
+    uint64_t hash = 14695981039346656037ull;
+    uint64_t count = 0;
+    bool red = true;
+    bool blue = true;
+    const auto append = [&]( std::span<const float> records )
+    {
+        for ( std::size_t index = 0; index + 19u <= records.size(); index += 19u )
+        {
+            ++count;
+            red = red && records[index + 7u] == 1.0f && records[index + 8u] == 0.12f && records[index + 9u] == 0.12f;
+            blue = blue && records[index + 7u] == 0.12f && records[index + 8u] == 0.42f && records[index + 9u] == 1.0f;
+            for ( std::size_t component = 0; component < 19u; ++component )
+            {
+                // Colour and opacity may change; every geometric and style
+                // component, including neighbouring points, must stay exact.
+                if ( component < 7u || component > 10u )
+                {
+                    hash ^= std::bit_cast<uint32_t>( records[index + component] );
+                    hash *= 1099511628211ull;
+                }
+            }
+        }
+    };
+    if ( secondary )
+    {
+        append( packet.retainedSecondaryOrdinaryRecords );
+        append( packet.retainedSecondaryPriorityRecords );
+    }
+    else
+    {
+        for ( const auto lane : { Rendering::RetainedGeometryLane::Ordinary, Rendering::RetainedGeometryLane::Priority } )
+        {
+            for ( const auto& range : packet.retainedPredictionRibbonRanges )
+            {
+                if ( range.lane == lane )
+                {
+                    append( packet.retainedPredictionCompactRibbonRecords.subspan( range.firstRecord * 19u, range.recordCount * 19u ) );
+                }
+            }
+        }
+    }
+    return { { "records", count }, { "geometryHash", hash }, { "allRed", count > 0u && red }, { "allBlue", count > 0u && blue } };
+}
+
 Json BuildVisualPacket( const ReplayAutomationView& replay, SkarnessStateDetail detail )
 {
     const ReplayVisualPacket& packet = replay.visualPacket;
-    Json payload = { { "header",
-                       { { "schemaVersion", packet.header.schemaVersion },
-                         { "sourceFrame", packet.header.sourceFrame },
-                         { "revealFrame", packet.header.revealFrame },
-                         { "targetId", packet.header.targetId.value },
-                         { "branchId", packet.header.branchId },
-                         { "eventCursor", packet.header.eventCursor },
-                         { "topologyVersion", packet.header.topologyVersion },
-                         { "publishedFrameCount", packet.header.publishedFrameCount },
-                         { "futureNodeCount", packet.header.futureNodeCount },
-                         { "ghostRequestCount", packet.header.ghostRequestCount },
-                         { "predictionEnabled", packet.header.predictionEnabled },
-                         { "predictionBuilding", packet.header.predictionBuilding },
-                         { "predictionComplete", packet.header.predictionComplete } } },
+    Json payload = { { "header", { { "schemaVersion", packet.header.schemaVersion },
+                                   { "sourceFrame", packet.header.sourceFrame },
+                                   { "revealFrame", packet.header.revealFrame },
+                                   { "targetId", packet.header.targetId.value },
+                                   { "branchId", packet.header.branchId },
+                                   { "eventCursor", packet.header.eventCursor },
+                                   { "topologyVersion", packet.header.topologyVersion },
+                                   { "publishedFrameCount", packet.header.publishedFrameCount },
+                                   { "futureNodeCount", packet.header.futureNodeCount },
+                                   { "ghostRequestCount", packet.header.ghostRequestCount },
+                                   { "predictionEnabled", packet.header.predictionEnabled },
+                                   { "predictionBuilding", packet.header.predictionBuilding },
+                                   { "predictionComplete", packet.header.predictionComplete } } },
                      { "retainedStreamId", packet.retainedPredictionStreamId },
                      { "retainedRevision", packet.retainedPredictionRevision },
                      { "trajectoryRecordCount", packet.trajectoryRecords.size() },
@@ -602,8 +653,20 @@ Json BuildVisualPacket( const ReplayAutomationView& replay, SkarnessStateDetail 
     AddFloatBuffer( payload, "retainedPriorityRibbonSegments", packet.retainedPredictionPriorityRibbonSegments, detail );
     AddFloatBuffer( payload, "retainedRibbonVertices", packet.retainedPredictionRibbonVertices, detail );
     AddFloatBuffer( payload, "retainedPriorityRibbonVertices", packet.retainedPredictionPriorityRibbonVertices, detail );
+    AddFloatBuffer( payload, "retainedCompactRecords", packet.retainedPredictionCompactRibbonRecords, detail );
+    AddFloatBuffer( payload, "originalOrdinaryRecords", packet.retainedSecondaryOrdinaryRecords, detail );
+    AddFloatBuffer( payload, "originalPriorityRecords", packet.retainedSecondaryPriorityRecords, detail );
+    payload["originalStreamId"] = packet.retainedSecondaryStreamId;
+    payload["originalPath"] = BuildPathGeometryEvidence( packet, true );
+    payload["activePath"] = BuildPathGeometryEvidence( packet, false );
     if ( detail == SkarnessStateDetail::Full )
     {
+        Json ranges = Json::array();
+        for ( const auto& range : packet.retainedPredictionRibbonRanges )
+        {
+            ranges.push_back( { { "identity", range.identity }, { "firstRecord", range.firstRecord }, { "recordCount", range.recordCount } } );
+        }
+        payload["retainedRanges"] = std::move( ranges );
         Json markers = Json::array();
         for ( const ReplayPredictionRetainedMarker& marker : packet.retainedMarkers )
         {
@@ -654,10 +717,51 @@ Json BuildRenderSubmission( const SkarnessFrameState& state, const ReplayAutomat
              { "submittedGeometryBytes", state.submittedGeometryBytes } };
 }
 
+Json BuildDivergenceFrame( const RunReplayPredictionFrame* frame )
+{
+    Json bodies = Json::array();
+    if ( frame )
+    {
+        for ( const auto& body : frame->bodies )
+        {
+            bodies.push_back( { { "id", body.id.value }, { "modelRow", body.modelRow.value }, { "position", Vec3( body.position ) }, { "velocity", Vec3( body.linearVelocity ) } } );
+        }
+    }
+    return bodies;
+}
+
+Json BuildDivergence( const ReplayAutomationView& replay )
+{
+    const auto* red = replay.currentPredictionFrame;
+    const auto frame = red ? red->frameIndex : 0u;
+    const auto found = std::lower_bound( replay.divergenceBlueFrames.begin(),
+                                         replay.divergenceBlueFrames.end(),
+                                         frame,
+                                         []( const auto& sample, ReplayFrameIndex index ) { return sample.frameIndex < index; } );
+    const auto* blue = replay.divergenceBlueFrames.empty() ? nullptr : found == replay.divergenceBlueFrames.end() ? &replay.divergenceBlueFrames.back() : &*found;
+    Json ghosts = Json::array();
+    for ( const auto& ghost : replay.divergenceGhosts )
+    {
+        ghosts.push_back( { { "modelRow", ghost.modelRow.value }, { "position", Vec3( ghost.position ) }, { "tint", { ghost.tintR, ghost.tintG, ghost.tintB } }, { "alpha", ghost.alpha } } );
+    }
+    return { { "allocatedOwnerBytes", replay.divergenceAllocatedBytes },
+             { "playing", replay.divergencePlaying },
+             { "active", replay.divergenceActive },
+             { "redReady", replay.divergenceRedReady },
+             { "blueSourceHash", replay.divergenceBlueSourceHash },
+             { "blueFrameCount", replay.divergenceBlueFrames.size() },
+             { "blueFrame", blue ? blue->frameIndex : 0u },
+             { "redFrame", frame },
+             { "blueBodies", BuildDivergenceFrame( blue ) },
+             { "redBodies", BuildDivergenceFrame( red ) },
+             { "ghosts", ghosts } };
+}
+
 Json BuildLegacyReplay( const SkarnessFrameState& state, const ReplayAutomationView& replay )
 {
     const auto loading = BuildCauseLoading( replay );
-    return { { "predictionEnabled", state.predictionEnabled },
+    return { { "divergence", BuildDivergence( replay ) },
+             { "predictionEnabled", state.predictionEnabled },
              { "predictionBuilding", state.predictionBuilding },
              { "predictionComplete", state.predictionComplete },
              { "predictionDirty", state.predictionDirty },
@@ -735,8 +839,7 @@ Json BuildLegacyReplay( const SkarnessFrameState& state, const ReplayAutomationV
 }
 } // namespace
 
-void BuildSkarnessStateTopics( const SkarnessFrameState& state, const ReplayAutomationView& replay,
-                               SkarnessStateDetail detail, SkarnessSerializedStateTopics& outTopics )
+void BuildSkarnessStateTopics( const SkarnessFrameState& state, const ReplayAutomationView& replay, SkarnessStateDetail detail, SkarnessSerializedStateTopics& outTopics )
 {
     const ReplayRecorderStats solver = replay.solverStats;
     const ReplayEventRecorderStats events = replay.eventRecorder.GetStats();
@@ -745,25 +848,138 @@ void BuildSkarnessStateTopics( const SkarnessFrameState& state, const ReplayAuto
     Store( outTopics, Selection, BuildSelection( state ), state.sceneGeneration );
     Store( outTopics, Input, BuildInput( state ) );
     Store( outTopics, Camera, BuildCamera( state ) );
-    Store( outTopics, FrameClocks,
-           { { "sceneFrame", state.sceneFrame }, { "simulationSeconds", state.simulationSeconds } } );
-    Store( outTopics, Timeline, BuildTimeline( replay, detail ), 0, solver.totalFramesCaptured,
-           solver.totalFramesEvicted + events.totalEventsEvicted );
+    Store( outTopics, FrameClocks, { { "sceneFrame", state.sceneFrame }, { "simulationSeconds", state.simulationSeconds } } );
+    Store( outTopics, Timeline, BuildTimeline( replay, detail ), 0, solver.totalFramesCaptured, solver.totalFramesEvicted + events.totalEventsEvicted );
     Store( outTopics, PredictionControls, BuildPredictionControls( state ), state.predictionGeneration );
-    Store( outTopics, PredictionFrames, BuildPredictionFrames( replay, detail ), state.predictionGeneration,
-           replay.activePredictionFrames.size() );
-    Store( outTopics, PredictionEvidence, BuildPredictionEvidence( replay, detail ), replay.predictionEvidence.BankEpoch(),
-           replay.predictionEvidence.PublishedFrameCount() );
+    Store( outTopics, PredictionFrames, BuildPredictionFrames( replay, detail ), state.predictionGeneration, replay.activePredictionFrames.size() );
+    Store( outTopics, PredictionEvidence, BuildPredictionEvidence( replay, detail ), replay.predictionEvidence.BankEpoch(), replay.predictionEvidence.PublishedFrameCount() );
     Store( outTopics, PredictionTopology, BuildTopology( replay, detail ), replay.visualPacket.header.topologyVersion );
-    Store( outTopics, PredictionTrajectories, BuildTrajectories( replay, detail ),
-           replay.visualPacket.retainedPredictionRevision );
+    Store( outTopics, PredictionTrajectories, BuildTrajectories( replay, detail ), replay.visualPacket.retainedPredictionRevision );
     Store( outTopics, Cause, BuildCause( replay, detail ), replay.causeInspection.generation );
     Store( outTopics, Planning, BuildPlanning( replay, detail ), replay.visualPacket.header.topologyVersion );
     Store( outTopics, VisualPacket, BuildVisualPacket( replay, detail ), replay.visualPacket.retainedPredictionRevision );
-    Store( outTopics, RenderSubmission, BuildRenderSubmission( state, replay ),
-           replay.trajectorySubmission.presentationTopologyVersion );
+    Store( outTopics, RenderSubmission, BuildRenderSubmission( state, replay ), replay.trajectorySubmission.presentationTopologyVersion );
     Store( outTopics, LegacyScene, BuildScene( state ), state.sceneGeneration );
     Store( outTopics, LegacyReplay, BuildLegacyReplay( state, replay ), state.predictionGeneration );
+    Store( outTopics, Presentation, { { "layout", state.presentation.editorLayout ? "Editor" : "Canvas" },
+                           { "positionGates", BuildPositionGates( state.presentation.positionGates ) },
+                           { "workspace", state.presentation.solverLabWorkspace ? "Solver Lab" : "Scene" },
+                           { "editorMode", state.presentation.editorMode },
+                           { "editorPlacement", state.presentation.editorPlacement },
+                           { "editorStaticObject", state.presentation.editorStaticObject },
+                           { "editorTerrainAlign", state.presentation.editorTerrainAlign },
+                           { "editorTerrainBrush", state.presentation.editorTerrainBrush },
+                           { "editorVelocityEdit", state.presentation.editorVelocityEdit },
+                           { "editorVelocityAngular", state.presentation.editorVelocityAngular },
+                           { "editorSelectedObjectId", state.presentation.editorSelectedObjectId },
+                           { "editorHotAxis", state.presentation.editorHotAxis },
+                           { "editorGestureAxis", state.presentation.editorGestureAxis },
+                           { "pointerWorldSuppressed", state.presentation.pointerWorldSuppressed },
+                           { "worldInteractionOwner", state.presentation.worldInteractionOwner },
+                           { "terrainBrushVisible", state.presentation.terrainBrushVisible },
+                           { "terrainBrushRadius", state.presentation.editorTerrainBrushRadius },
+                           { "terrainRevision", state.presentation.terrainEditRevision },
+                           { "terrainFlat", state.presentation.terrainFlat },
+                           { "terrainCenterHeight", state.presentation.terrainCenterHeight },
+                           { "terrainMinimumHeight", state.presentation.terrainMinimumHeight },
+                           { "terrainMaximumHeight", state.presentation.terrainMaximumHeight },
+                           { "cameraMode", state.presentation.cameraMode },
+                           { "cameraModeEnabledMask", state.presentation.cameraModeEnabledMask },
+                           { "cameraPopupBounds", state.presentation.cameraPopupBounds },
+                           { "cameraPopupOpen", state.presentation.cameraPopupOpen },
+                           { "toolsPopupBounds", state.presentation.toolsPopupBounds },
+                           { "toolsPopupFirstOption", state.presentation.toolsPopupFirstOption },
+                           { "toolsPopupVisibleOptions", state.presentation.toolsPopupVisibleOptions },
+                           { "toolsPopupOptions", state.presentation.toolsPopupOptions },
+                           { "toolsPopupOpen", state.presentation.toolsPopupOpen },
+                           { "editorObjectType", state.presentation.editorObjectType },
+                           { "editorPopupBounds", state.presentation.editorPopupBounds },
+                           { "editorPopupFirstOption", state.presentation.editorPopupFirstOption },
+                           { "editorPopupVisibleOptions", state.presentation.editorPopupVisibleOptions },
+                           { "editorObjectOptions", state.presentation.editorObjectOptions },
+                           { "editorPopupOpen", state.presentation.editorPopupOpen },
+                           { "targetPopupBounds", state.presentation.targetPopupBounds },
+                           { "targetFirstOption", state.presentation.targetFirstOption },
+                           { "targetVisibleOptions", state.presentation.targetVisibleOptions },
+                           { "targetOptions", state.presentation.targetOptions },
+                           { "selectedTarget", state.presentation.selectedTarget },
+                           { "targetDisabledMask", state.presentation.targetDisabledMask },
+                           { "recordingPopupBounds", state.presentation.recordingPopupBounds },
+                           { "recordingFirstOption", state.presentation.recordingFirstOption },
+                           { "recordingVisibleOptions", state.presentation.recordingVisibleOptions },
+                           { "recordingOptions", state.presentation.recordingOptions },
+                           { "toolsVisible", state.presentation.toolsVisible },
+                           { "activeTool", state.presentation.activeTool },
+                           { "markerHistoryVisible", state.presentation.markerHistoryVisible },
+                           { "memoryWaterlineVisible", state.presentation.memoryWaterlineVisible },
+                           { "markerSamples", state.presentation.markerSamples },
+                           { "memorySamples", state.presentation.memorySamples },
+                           { "focusedDiagnostic", state.presentation.focusedDiagnostic },
+                           { "markerSelectionHash", state.presentation.markerSelectionHash },
+                           { "profilerTimeline", state.presentation.profilerTimeline },
+                           { "profilerMarkerCount", state.presentation.profilerMarkerCount },
+                           { "profilerDrawNodeCount", state.presentation.profilerDrawNodeCount },
+                           { "profilerExpansionHash", state.presentation.profilerExpansionHash },
+                           { "drawExpansionHash", state.presentation.drawExpansionHash },
+                           { "profilerDrawExpanderBounds", state.presentation.profilerDrawExpanderBounds },
+                           { "markerHistoryBounds", state.presentation.markerHistoryBounds },
+                           { "workerToggleBounds", state.presentation.workerToggleBounds },
+                           { "workerSliderBounds", state.presentation.workerSliderBounds },
+                           { "workerThreads", state.presentation.workerThreads },
+                           { "maxWorkerThreads", state.presentation.maxWorkerThreads },
+                           { "replayMemoryPreset", state.presentation.replayMemoryPreset },
+                           { "replayRetentionSeconds", state.presentation.replayRetentionSeconds },
+                           { "replayBudgetMiB", state.presentation.replayBudgetMiB },
+                           { "optionsToggles", state.presentation.optionsToggles },
+                           { "sceneControlValues", state.presentation.sceneControlValues },
+                           { "modelCapacity", state.presentation.modelCapacity },
+                           { "fileDialogResponsesConsumed", state.presentation.fileDialogResponsesConsumed },
+                           { "cinematicShadows", state.presentation.cinematicShadows },
+                           { "physicsParameters", state.presentation.physicsParameters },
+                           { "physicsToggles", state.presentation.physicsToggles },
+                           { "physicsPipelineStage", state.presentation.physicsPipelineStage },
+                           { "physicsPipelineStages", state.presentation.physicsPipelineStages },
+                           { "ordinaryRenderParameters", state.presentation.ordinaryRenderParameters },
+                           { "cinematicParameters", state.presentation.cinematicParameters },
+                           { "cinematicFeatures", state.presentation.cinematicFeatures },
+                           { "toolsScroll", state.presentation.toolsScroll },
+                           { "theme", state.presentation.theme },
+                           { "panelVisibility", state.presentation.panelVisibility },
+                           { "panelsAnimating", state.presentation.panelsAnimating },
+                           { "panelDrawOverflow", state.presentation.panelDrawOverflow },
+                           { "toolsContentBounds", state.presentation.toolsContentBounds },
+                           { "tooltipId", state.presentation.tooltipId },
+                           { "tooltipAction", state.presentation.tooltipAction },
+                           { "tooltipTargetBounds", state.presentation.tooltipTargetBounds },
+                           { "window", { state.presentation.windowWidth, state.presentation.windowHeight } },
+                           { "viewport", { state.presentation.viewportX, state.presentation.viewportY, state.presentation.viewportWidth, state.presentation.viewportHeight } },
+                           { "projectionScale", { state.presentation.projectionX, state.presentation.projectionY } },
+                           { "pointerHasWorldRay", state.presentation.pointerHasWorldRay },
+                           { "pointerClientPosition", state.presentation.pointerClientPosition },
+                           { "pointerLeftState", state.presentation.pointerLeftState },
+                           { "pointerGesture", state.presentation.pointerGesture },
+                           { "transportBounds", state.presentation.transportBounds },
+                           { "replayControlsBounds", state.presentation.replayControlsBounds },
+                           { "causeControlsBounds", state.presentation.causeControlsBounds },
+                           { "detailsCausesTabBounds", state.presentation.detailsCausesTabBounds },
+                           { "editorControlsBounds", state.presentation.editorControlsBounds },
+                           { "editorReplayTabBounds", state.presentation.editorReplayTabBounds },
+                           { "replayFoldBounds", state.presentation.replayFoldBounds },
+                           { "replayResizeBounds", state.presentation.replayResizeBounds },
+                           { "memoryWaterlineBounds", state.presentation.memoryWaterlineBounds },
+                           { "leftResizeBounds", state.presentation.leftResizeBounds },
+                           { "rightResizeBounds", state.presentation.rightResizeBounds },
+                           { "rightFoldBounds", state.presentation.rightFoldBounds },
+                           { "replayDetailsBounds", state.presentation.replayDetailsBounds },
+                           { "editorTabBounds", state.presentation.editorTabBounds },
+                           { "causeTabBounds", state.presentation.causeTabBounds },
+                           { "leftFoldBounds", state.presentation.leftFoldBounds },
+                           { "headerLayoutBounds", state.presentation.headerLayoutBounds },
+                           { "headerWorkspaceBounds", state.presentation.headerWorkspaceBounds },
+                           { "headerCloseBounds", state.presentation.headerCloseBounds },
+                           { "drawerBounds", state.presentation.drawerBounds },
+                           { "replayScroll", state.presentation.replayScroll },
+                           { "pointerRayDirection", state.presentation.pointerRayDirection } } );
 }
 } // namespace SkullbonezCore::Runtime
 

@@ -33,6 +33,7 @@ UIRect MinimizedRect( int screenW, int screenH, float requestedW );
 
 float SmoothStep( float t );
 UIRect LerpRect( const UIRect& from, const UIRect& to, float t );
+UIRect ClampFloatingRect( const UIRect& bounds, const UIRect& viewport, float minimumWidth, float minimumHeight );
 
 } // namespace Layout
 } // namespace UI

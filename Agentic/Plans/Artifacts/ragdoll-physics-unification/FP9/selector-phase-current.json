@@ -1,0 +1,41 @@
+{
+  "passed": true,
+  "executableSha256": "b9df9507c6fb1c80a7a84af5d07320f1ec1242ab5e8bc861a81a968b7721cae9",
+  "rejection": {
+    "schemaVersion": 1,
+    "sequence": 71,
+    "kind": "command",
+    "requestId": "96472d4da5dd465998f30f3e33e977af",
+    "status": "rejected",
+    "reason": "pause the validation session before changing speculative contact mode",
+    "result": {}
+  },
+  "afterRejected": {
+    "kind": "speculative_summary",
+    "run": "f3aaf663472f5c4907449cb6",
+    "frame": 4,
+    "enabled": true,
+    "articulated_bodies": 40,
+    "active_speculative_bodies": 40,
+    "candidate_pairs": 66,
+    "admitted_rows": 0,
+    "eligibility_ns": 3600,
+    "articulation_ns": 1100
+  },
+  "afterPausedApply": {
+    "kind": "speculative_summary",
+    "run": "f3aaf663472f5c4907449cb6",
+    "frame": 5,
+    "enabled": false,
+    "articulated_bodies": 40,
+    "active_speculative_bodies": 0,
+    "candidate_pairs": 66,
+    "admitted_rows": 0,
+    "eligibility_ns": 3300,
+    "articulation_ns": 1100
+  },
+  "processExit": {
+    "processId": 3704,
+    "exitCode": 0
+  }
+}

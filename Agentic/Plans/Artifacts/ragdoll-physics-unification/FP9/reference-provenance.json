@@ -1,0 +1,31 @@
+{
+  "physics_bench": {
+    "baseline": "TestOutput/baselines/physics_bench_perf.json",
+    "producer": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP4/golden-transitions/7ddbc9d4-to-6ef6b797/new/SKULLBONEZ_CORE-Profile.exe",
+    "producerSha256": "3eacb81542b5dc0b9d5ed8d6ff8a176fd0b1f83a6bdfec4904b846d1d183593d",
+    "firstPartyDlls": [],
+    "manifest": "Agentic\\Plans\\Artifacts\\ragdoll-physics-unification\\FP4\\golden-transitions\\7ddbc9d4-to-6ef6b797\\manifest.json",
+    "priorProducerVerified": true,
+    "originalBaselineSha256": "6ef6b79741f713f454803f1d83907ea97e40db2b8af71e0002b64847f9dd3550",
+    "baselineSha256": "68e3c163f446c270a96a277e23e36d6314d5540864d8cb34507fff1beec6837c",
+    "latestTransition": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP9/golden-transitions/performance-references-8f40ec6e/manifest.json",
+    "meaning": "producer and originalBaselineSha256 identify the original FP4 reference; baselineSha256 identifies the reviewed FP9 replacement with mapped perf06 pass (98.211 seconds)"
+  },
+  "dx12": {
+    "baseline": "TestOutput/baselines/dx12_perf.json",
+    "producer": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP4/golden-transitions/99e03bc1-to-bcb67b8d/new/SKULLBONEZ_CORE-Profile.exe",
+    "producerSha256": "3eacb81542b5dc0b9d5ed8d6ff8a176fd0b1f83a6bdfec4904b846d1d183593d",
+    "firstPartyDlls": [],
+    "manifest": "Agentic\\Plans\\Artifacts\\ragdoll-physics-unification\\FP4\\golden-transitions\\99e03bc1-to-bcb67b8d\\manifest.json",
+    "priorProducerVerified": true,
+    "originalBaselineSha256": "bcb67b8d4e1bfcc4bc64f37185c2bc6f8b90e173cb25ef5bff503fbbac8643ef",
+    "baselineSha256": "03cab7d929939fa36209f8549d3754c569150c7a8d2feafe8c96f394adfbb4ab",
+    "latestTransition": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP9/golden-transitions/performance-references-8f40ec6e/manifest.json",
+    "meaning": "producer and originalBaselineSha256 identify the original FP4 reference; baselineSha256 identifies the reviewed FP9 replacement with mapped perf06 pass (98.211 seconds)"
+  },
+  "dx12Screenshots": {
+    "referenceCommit": "e9f02a92539f6a678e6729e4e14c060b51c6e4b3",
+    "priorProducerVerified": false,
+    "finding": "No exact original screenshot producer has been located. The preserved pre-FP8 producer is not proven to be that executable. No screenshot golden can be replaced under the existing Physics transition rule without resolving this missing prior producer."
+  }
+}

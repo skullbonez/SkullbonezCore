@@ -63,8 +63,7 @@ enum class VertexFormat12
 class MeshVertexDataView
 {
   public:
-    static std::optional<MeshVertexDataView> TryCreate( const float* data, int vertexCount, int floatsPerVertex,
-                                                        VertexFormat12 format ) noexcept;
+    static std::optional<MeshVertexDataView> TryCreate( const float* data, int vertexCount, int floatsPerVertex, VertexFormat12 format ) noexcept;
 
     std::span<const float> Components() const noexcept
     {
@@ -88,8 +87,7 @@ class MeshVertexDataView
     }
 
   private:
-    MeshVertexDataView( std::span<const float> components, int vertexCount, int floatsPerVertex,
-                        VertexFormat12 format ) noexcept
+    MeshVertexDataView( std::span<const float> components, int vertexCount, int floatsPerVertex, VertexFormat12 format ) noexcept
         : m_components( components ), m_vertexCount( vertexCount ), m_floatsPerVertex( floatsPerVertex ), m_format( format )
     {
     }
@@ -106,8 +104,7 @@ class MeshVertexDataView
 class Dx12MeshUploadSlice
 {
   public:
-    static std::optional<Dx12MeshUploadSlice> TryCreate( D3D12_GPU_VIRTUAL_ADDRESS address, uint8_t* bytes, UINT64 byteCount,
-                                                         ID3D12Resource* backing ) noexcept;
+    static std::optional<Dx12MeshUploadSlice> TryCreate( D3D12_GPU_VIRTUAL_ADDRESS address, uint8_t* bytes, UINT64 byteCount, ID3D12Resource* backing ) noexcept;
 
     D3D12_GPU_VIRTUAL_ADDRESS Address() const noexcept
     {
@@ -123,8 +120,7 @@ class Dx12MeshUploadSlice
     }
 
   private:
-    Dx12MeshUploadSlice( D3D12_GPU_VIRTUAL_ADDRESS address, std::span<uint8_t> bytes, ID3D12Resource& backing ) noexcept
-        : m_address( address ), m_bytes( bytes ), m_backing( &backing )
+    Dx12MeshUploadSlice( D3D12_GPU_VIRTUAL_ADDRESS address, std::span<uint8_t> bytes, ID3D12Resource& backing ) noexcept : m_address( address ), m_bytes( bytes ), m_backing( &backing )
     {
     }
 
@@ -152,6 +148,7 @@ class MeshDX12
     ~MeshDX12();
 
     bool Create( const MeshVertexDataView& vertices, const Dx12MeshUploadSlice& upload );
+    bool UpdateVertices( const MeshVertexDataView& vertices, const Dx12MeshUploadSlice& upload );
 
     bool PrecompileRasterState( const PassRasterStateBucket& bucket ) const;
     void Draw( const PassRasterStateBucket& bucket ) const;

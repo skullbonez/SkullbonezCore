@@ -28,6 +28,8 @@ Related:
 #include "PhysicsStepDiagnostics.h"
 
 #include "../../Core/FatalError.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/Profiler.h"
 #include "../../Core/SceneCapacity.h"
 #include "../ColliderStore.h"
 #include "../PhysicsBodyStore.h"
@@ -71,8 +73,7 @@ void PhysicsPipelineTraceRecorder::RecordEvents( std::size_t eventCount )
 {
     if ( m_retainFullRecords )
     {
-        SB_FATAL( "Physics/PhysicsStepDiagnostics",
-                  "Count-only pipeline event batches cannot be recorded while full payload retention is active." );
+        SB_FATAL( "Physics/PhysicsStepDiagnostics", "Count-only pipeline event batches cannot be recorded while full payload retention is active." );
     }
 
     // Invariant: this is algebraically identical to eventCount successful
@@ -221,8 +222,7 @@ int PhysicsStepDiagnostics::RemainingPipelineRecordCapacity() const
     return m_pipelineTrace.RemainingRecordCapacity();
 }
 
-void PhysicsStepDiagnostics::EmitCollisionTime( bool diagnosticsSuppressed, const char* type, int bodyA, int bodyB,
-                                                float collisionTime, float availableTime )
+void PhysicsStepDiagnostics::EmitCollisionTime( bool diagnosticsSuppressed, const char* type, int bodyA, int bodyB, float collisionTime, float availableTime )
 {
 #if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 
@@ -246,8 +246,10 @@ bool PhysicsStepDiagnostics::ShouldEmitStepDiagnostics( bool diagnosticsSuppress
 #endif
 }
 
-void PhysicsStepDiagnostics::EmitStepDiagnostics( bool diagnosticsSuppressed, const PhysicsDiagnosticsView& diagnosticsView,
-                                                  const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+void PhysicsStepDiagnostics::EmitStepDiagnostics( bool diagnosticsSuppressed,
+                                                  const PhysicsDiagnosticsView& diagnosticsView,
+                                                  const PhysicsBodyStore& bodyStore,
+                                                  const ColliderStore& colliderStore,
                                                   float deltaSeconds,
                                                   const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
@@ -255,14 +257,17 @@ void PhysicsStepDiagnostics::EmitStepDiagnostics( bool diagnosticsSuppressed, co
 
     if ( !diagnosticsSuppressed )
     {
+        // Explicit file dumps are cold diagnostics work. Keep their serialization
+        // cost visible without granting the solver any allocation privilege.
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope allocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Diagnostics );
+        PROFILE_SCOPED( "Frame/Physics/DiagnosticsDump" );
         const bool regressionLogEnabled = m_sink.IsRegressionLogEnabled();
         const bool frameLogEnabled = m_sink.IsFrameLogEnabled();
 
         if ( regressionLogEnabled || frameLogEnabled )
         {
             const PhysicsDiagnosticsNameView names = m_sink.RegisteredNames();
-            const PhysicsDiagnosticsFrameInput frame { diagnosticsView,      bodyStore,     colliderStore, names,
-                                                       diagnosticsCsvWriter, m_correlation, deltaSeconds };
+            const PhysicsDiagnosticsFrameInput frame { diagnosticsView, bodyStore, colliderStore, names, diagnosticsCsvWriter, m_correlation, deltaSeconds };
 
             if ( regressionLogEnabled )
             {
@@ -333,8 +338,7 @@ void PhysicsStepDiagnostics::CaptureReplayState( PhysicsSolverSnapshot& snapshot
     {
         if ( m_pipelineTrace.Count() != m_pipelineTrace.Records().size() )
         {
-            SB_FATAL( "Physics/PhysicsStepDiagnostics",
-                      "Replay capture requires full pipeline records for every counted event." );
+            SB_FATAL( "Physics/PhysicsStepDiagnostics", "Replay capture requires full pipeline records for every counted event." );
         }
 
         for ( const PhysicsPipelineRecord& record : m_pipelineTrace.Records() )
@@ -348,10 +352,8 @@ void PhysicsStepDiagnostics::CaptureReplayState( PhysicsSolverSnapshot& snapshot
 
 bool PhysicsStepDiagnostics::CanRestoreReplayState( const PhysicsSolverSnapshot& snapshot, int modelCount ) const noexcept
 {
-    return modelCount >= 0 && snapshot.collisionVisualContacts.size() == static_cast<std::size_t>( modelCount ) &&
-           snapshot.collisionVisualContacts.size() <= m_collisionVisualContacts.capacity() &&
-           snapshot.debugContacts.size() <= m_physicsDebugContacts.capacity() &&
-           m_pipelineTrace.CanRestoreFullRecords( snapshot.pipelineTrace.size() );
+    return modelCount >= 0 && snapshot.collisionVisualContacts.size() == static_cast<std::size_t>( modelCount ) && snapshot.collisionVisualContacts.size() <= m_collisionVisualContacts.capacity() &&
+           snapshot.debugContacts.size() <= m_physicsDebugContacts.capacity() && m_pipelineTrace.CanRestoreFullRecords( snapshot.pipelineTrace.size() );
 }
 
 void PhysicsStepDiagnostics::RestoreReplayState( const PhysicsSolverSnapshot& snapshot )
@@ -404,8 +406,7 @@ std::span<const PhysicsPipelineRecord> PhysicsStepDiagnostics::GetPipelineTrace(
 
 uint64_t PhysicsStepDiagnostics::CollectDynamicMemoryBytes() const
 {
-    return ListCapacityBytes( m_collisionVisualContacts ) + ListCapacityBytes( m_physicsDebugContacts ) +
-           m_pipelineTrace.CollectDynamicMemoryBytes();
+    return ListCapacityBytes( m_collisionVisualContacts ) + ListCapacityBytes( m_physicsDebugContacts ) + m_pipelineTrace.CollectDynamicMemoryBytes();
 }
 
 uint64_t PhysicsStepDiagnostics::CollectDebugMemoryBytes() const

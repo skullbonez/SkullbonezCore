@@ -26,8 +26,10 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 
+#include <chrono>
 #include "Run.h"
 #include "../UI/OperatorUiProjection.h"
+#include "../Planning/ReplayOverlayRenderer.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../RuntimeFrameViews.h"
@@ -120,8 +122,7 @@ UiOverlayMode ProjectUiOverlayMode( OverlayMode mode )
     }
 }
 
-OperatorUiGizmoMode SampleOperatorUiGizmoMode( RuntimeInteractionGestureKind gestureKind,
-                                               RuntimeGizmoDragKind gizmoKind ) noexcept
+OperatorUiGizmoMode SampleOperatorUiGizmoMode( RuntimeInteractionGestureKind gestureKind, RuntimeGizmoDragKind gizmoKind ) noexcept
 {
     if ( gestureKind != RuntimeInteractionGestureKind::GizmoDrag )
     {
@@ -139,13 +140,16 @@ OperatorUiGizmoMode SampleOperatorUiGizmoMode( RuntimeInteractionGestureKind ges
     }
 }
 
-RuntimeViewModel SampleRuntimeViewModel( const SceneSessionState& scene, const SceneWorld& world, int sceneCount,
-                                         const RunScreenshotState& screenshot, bool presentationInterpolation,
-                                         bool presentationPinned, float presentationAlpha )
+RuntimeViewModel SampleRuntimeViewModel( const SceneSessionState& scene,
+                                         const SceneWorld& world,
+                                         int sceneCount,
+                                         const RunScreenshotState& screenshot,
+                                         bool presentationInterpolation,
+                                         bool presentationPinned,
+                                         float presentationAlpha )
 {
     RuntimeViewModel view;
-    const bool screenshotConfigured = screenshot.isScreenshotAndExit || screenshot.screenshotFrame >= 0 ||
-                                      screenshot.screenshotMs >= 0 || screenshot.screenshotPath[0] != '\0' ||
+    const bool screenshotConfigured = screenshot.isScreenshotAndExit || screenshot.screenshotFrame >= 0 || screenshot.screenshotMs >= 0 || screenshot.screenshotPath[0] != '\0' ||
                                       screenshot.screenshotInterval > 0;
     view.sceneMode = scene.isSceneMode;
     view.scenePhysics = scene.isScenePhysics;
@@ -196,10 +200,8 @@ OperatorUiForecastFacts SampleOperatorUiForecastFacts( const ContinuousOrbitalFo
 {
     const bool blockingFailureFirst = forecast.stability.firstBlockingFailure.latched &&
                                       ( !forecast.stability.firstAuxiliaryFailure.latched ||
-                                        forecast.stability.firstBlockingFailure.absoluteTick <=
-                                            forecast.stability.firstAuxiliaryFailure.absoluteTick );
-    const ContinuousOrbitalFailure& firstFailure = blockingFailureFirst ? forecast.stability.firstBlockingFailure
-                                                                        : forecast.stability.firstAuxiliaryFailure;
+                                        forecast.stability.firstBlockingFailure.absoluteTick <= forecast.stability.firstAuxiliaryFailure.absoluteTick );
+    const ContinuousOrbitalFailure& firstFailure = blockingFailureFirst ? forecast.stability.firstBlockingFailure : forecast.stability.firstAuxiliaryFailure;
     OperatorUiForecastFacts facts;
     facts.simulatedSeconds = forecast.simulatedSeconds;
     facts.simulatedSecondsPerRealSecond = forecast.simulatedSecondsPerRealSecond;
@@ -227,8 +229,7 @@ OperatorUiForecastFacts SampleOperatorUiForecastFacts( const ContinuousOrbitalFo
     return facts;
 }
 
-Core::MainMemoryStats SampleMainMemoryOverlayStats( const DiagnosticsRuntime& diagnosticsRuntime,
-                                                    const Core::MainMemoryGameObjectStats& gameObjects )
+Core::MainMemoryStats SampleMainMemoryOverlayStats( const DiagnosticsRuntime& diagnosticsRuntime, const Core::MainMemoryGameObjectStats& gameObjects )
 {
     Core::MainMemoryStats stats = diagnosticsRuntime.MainMemoryStatsSnapshot();
     stats.process = Core::MainMemoryProcessStats {};
@@ -243,17 +244,18 @@ Core::MainMemoryStats SampleMainMemoryOverlayStats( const DiagnosticsRuntime& di
 } // namespace
 
 
-OperatorUiProjectionFacts Run::SampleOperatorUiProjectionFacts( const RuntimeUiTextFrameFacts& uiTextFacts,
-                                                                const RuntimeFrameMetricsSnapshot& frameMetrics,
-                                                                const OverlayDebugState& debug )
+OperatorUiProjectionFacts Run::SampleOperatorUiProjectionFacts( const RuntimeUiTextFrameFacts& uiTextFacts, const RuntimeFrameMetricsSnapshot& frameMetrics, const OverlayDebugState& debug )
 {
     const UI::RunSceneBrowserState& browser = m_operatorUi->SceneNavigation().browser;
     const std::string* scenePath = m_sceneController.CurrentPath();
     const SceneSessionState& scene = m_sceneController.State();
-    RuntimeViewModel runtime = SampleRuntimeViewModel( scene, m_sceneController.Scene(), m_sceneController.QueueSize(),
+    RuntimeViewModel runtime = SampleRuntimeViewModel( scene,
+                                                       m_sceneController.Scene(),
+                                                       m_sceneController.QueueSize(),
                                                        m_capture.Screenshot(),
                                                        m_config.runtimeRender.presentationInterpolation,
-                                                       uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
+                                                       uiTextFacts.presentationPinned,
+                                                       uiTextFacts.presentationAlpha );
     OperatorUiSceneFacts sceneFacts { runtime,
                                       scenePath ? scenePath->c_str() : nullptr,
                                       scenePath ? SceneFileNameFromPath( scenePath->c_str() ) : "",
@@ -274,19 +276,19 @@ OperatorUiProjectionFacts Run::SampleOperatorUiProjectionFacts( const RuntimeUiT
                                       scene.isTestComplete };
     const ReplayHudStatus replayHud = m_replayRuntime.BuildHudStatus( false );
     const Core::CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( scene, m_config );
-    const bool cinematicRendering = IsSceneCinematicRenderingEnabled( scene, m_config, m_launchOptions, debug.isTextOnly,
-                                                                      true );
+    const bool cinematicRendering = IsSceneCinematicRenderingEnabled( scene, m_config, m_launchOptions, debug.isTextOnly, true );
     const bool shadowsEnabled = cinematicRendering ? cinematic.shadow.enabled : m_config.ordinaryRender.shadow.enabled;
     return { runtime, uiTextFacts, sceneFacts, replayHud, cinematic, cinematicRendering, shadowsEnabled };
 }
 
-void Run::ProjectOperatorEditorPrimaryView( UI::OperatorEditorFrameView& view, const OperatorUiProjectionFacts& facts,
-                                            const RuntimeUiTextFrameFacts& uiTextFacts, bool secondarySurfaceVisible,
+void Run::ProjectOperatorEditorPrimaryView( UI::OperatorEditorFrameView& view,
+                                            const OperatorUiProjectionFacts& facts,
+                                            const RuntimeUiTextFrameFacts& uiTextFacts,
+                                            bool secondarySurfaceVisible,
                                             const OverlayDebugState& debug )
 {
     const RenderPresentationSettings& renderPresentation = Renderer().PresentationSettings();
-    const OperatorUiGizmoMode gizmoMode = SampleOperatorUiGizmoMode( m_interaction.Gesture().kind,
-                                                                     m_interaction.Gesture().gizmoKind );
+    const OperatorUiGizmoMode gizmoMode = SampleOperatorUiGizmoMode( m_interaction.Gesture().kind, m_interaction.Gesture().gizmoKind );
     const OperatorUiRenderingFacts renderingFacts { m_config.ordinaryRender,
                                                     facts.cinematic,
                                                     uiTextFacts,
@@ -307,9 +309,13 @@ void Run::ProjectOperatorEditorPrimaryView( UI::OperatorEditorFrameView& view, c
     ProjectOperatorEditorScene( view, facts.scene );
     ProjectOperatorEditorRendering( view, renderingFacts );
     ProjectOperatorEditorLookLab( view, m_operatorUi->LookLabView() );
-    ProjectOperatorEditorReplay( view, facts.replayHud.memoryPreset, facts.replayHud.requestedRetentionSeconds,
-                                 facts.replayHud.requestedBudgetMiB, facts.replayHud.presentationRetentionSeconds,
-                                 facts.replayHud.solverRetentionSeconds, facts.replayHud.memoryBudgetClamped,
+    ProjectOperatorEditorReplay( view,
+                                 facts.replayHud.memoryPreset,
+                                 facts.replayHud.requestedRetentionSeconds,
+                                 facts.replayHud.requestedBudgetMiB,
+                                 facts.replayHud.presentationRetentionSeconds,
+                                 facts.replayHud.solverRetentionSeconds,
+                                 facts.replayHud.memoryBudgetClamped,
                                  facts.replayHud.solverWindowReduced );
     ProjectOperatorEditorSurfaces( view, m_operatorUi->IsVisible(), secondarySurfaceVisible );
     ProjectOperatorEditorForecast( view, SampleOperatorUiForecastFacts( m_continuousForecast.View() ) );
@@ -359,8 +365,10 @@ void Run::ProjectOperatorEditorInspectorView( UI::OperatorEditorFrameView& view 
     (void)view;
 }
 
-void Run::SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts, const RuntimeRenderFrameViews& renderFrame,
-                                            const ReplayHudStatus& replayHud, const RuntimeFrameMetricsSnapshot& metrics )
+void Run::SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts,
+                                            const RuntimeRenderFrameViews& renderFrame,
+                                            const ReplayHudStatus& replayHud,
+                                            const RuntimeFrameMetricsSnapshot& metrics )
 {
     RuntimeRenderer& renderer = Renderer();
     facts.metrics = metrics;
@@ -429,9 +437,7 @@ void Run::SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts, c
 
     if ( memoryTabActive && replayHud.memoryStatsValid )
     {
-        facts.mainMemory = m_diagnosticsRuntime.RefreshMainMemoryStats( replayHud.memoryStats,
-                                                                        renderFrame.diagnostics.gameObjectMemory, facts.now,
-                                                                        false, false );
+        facts.mainMemory = m_diagnosticsRuntime.RefreshMainMemoryStats( replayHud.memoryStats, renderFrame.diagnostics.gameObjectMemory, facts.now, false, false );
     }
     else if ( memoryOverlayEnabled )
     {
@@ -443,17 +449,14 @@ void Run::SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts, c
         facts.renderMemoryAvailable = true;
         facts.reserveGrowthEventTotalCount = CoreAllocation::RuntimeReserveAllocator::GrowthEventCount();
         facts.reserveGrowthEventDroppedCount = CoreAllocation::RuntimeReserveAllocator::GrowthEventDroppedCount();
-        facts.reserveGrowthEventCount = CoreAllocation::RuntimeReserveAllocator::
-            CopyRecentGrowthEvents( facts.reserveGrowthEvents.data(), static_cast<int>( facts.reserveGrowthEvents.size() ) );
+        facts.reserveGrowthEventCount = CoreAllocation::RuntimeReserveAllocator::CopyRecentGrowthEvents( facts.reserveGrowthEvents.data(), static_cast<int>( facts.reserveGrowthEvents.size() ) );
     }
 
     if ( memoryTabActive )
     {
         facts.reserveCapacityAvailable = true;
-        const std::span<const CoreAllocation::RuntimeReserveCapacityView>
-            capacityRows = CoreAllocation::RuntimeReserveAllocator::CapacityRows();
-        facts.reserveCapacityRowCount = (std::min)( static_cast<int>( capacityRows.size() ),
-                                                    static_cast<int>( facts.reserveCapacityRows.size() ) );
+        const std::span<const CoreAllocation::RuntimeReserveCapacityView> capacityRows = CoreAllocation::RuntimeReserveAllocator::CapacityRows();
+        facts.reserveCapacityRowCount = (std::min)( static_cast<int>( capacityRows.size() ), static_cast<int>( facts.reserveCapacityRows.size() ) );
 
         for ( int index = 0; index < facts.reserveCapacityRowCount; ++index )
         {
@@ -462,11 +465,14 @@ void Run::SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts, c
     }
 }
 
-void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData, const OperatorUiProjectionFacts& projection,
+void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData,
+                                   const OperatorUiProjectionFacts& projection,
                                    const RuntimeRenderFrameViews& renderFrame,
                                    const UI::OperatorEditorFrameView& operatorEditorView,
-                                   const RuntimeFrameMetricsSnapshot& metrics, const UiTextViewport& uiViewport,
-                                   int uiDrawCallStart, const OverlayDebugState& debug,
+                                   const RuntimeFrameMetricsSnapshot& metrics,
+                                   const UiTextViewport& uiViewport,
+                                   int uiDrawCallStart,
+                                   const OverlayDebugState& debug,
                                    RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews )
 {
     UI::UIRuntimeReserveCapacityRow reserveCapacityRows[UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX] = {};
@@ -523,15 +529,17 @@ void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData, const Operator
                                                    static_cast<int>( editor.history.UndoDepth() ),
                                                    static_cast<int>( editor.history.RedoDepth() ),
                                                    rayCast.visualizeRays,
-                                                   ( inputMode == RuntimeInputMode::FlyCamera ||
-                                                     inputMode == RuntimeInputMode::Launcher ||
-                                                     inputMode == RuntimeInputMode::EditorViewportLook ) &&
-                                                       !m_operatorUi->BlocksCameraMouse(),
+                                                   ( inputMode == RuntimeInputMode::FlyCamera || inputMode == RuntimeInputMode::Launcher || inputMode == RuntimeInputMode::EditorViewportLook ) && !m_operatorUi->BlocksCameraMouse(),
                                                    editor.editorModeEnabled,
                                                    editor.placementModeEnabled,
                                                    editor.placeStaticObject,
                                                    editor.autoTerrainAlign,
+                                                   editor.terrainBrushEnabled,
+                                                   editor.velocityEditEnabled,
+                                                   editor.velocityEditAngular,
+                                                   editor.terrainBrushRadius,
                                                    editor.viewportLookActive };
+    uiData.surface.transportAlpha = projection.replayHud.scrubberAlpha;
     ProjectOperatorUiInteraction( uiData, interaction );
     ProjectOperatorUiPresentation( uiData, projection.scene, operatorEditorView );
     ProjectOperatorUiViewport( uiData, uiViewport.screenW, uiViewport.screenH );
@@ -539,31 +547,31 @@ void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData, const Operator
     const RenderDiagnosticsReadout readout = Renderer().BuildDiagnosticsReadout();
     ProjectOperatorUiRenderIdentity( uiData, readout.rendererName.data(), uiDrawCallStart );
     const UI::InteractionRecordingBrowserState& recordings = m_operatorUi->SceneNavigation().recordings;
-    ProjectOperatorUiRecordingBrowser( uiData, recordings.namePtrs.empty() ? nullptr : recordings.namePtrs.data(),
+    ProjectOperatorUiRecordingBrowser( uiData,
+                                       recordings.namePtrs.empty() ? nullptr : recordings.namePtrs.data(),
                                        static_cast<int>( recordings.namePtrs.size() ),
                                        recordings.paths.empty() ? -1 : recordings.selectedIndex );
 
-    Renderer().AppendDxrReflectionPreview( renderTargetPreviews, uiViewport,
-                                           settings.waterRtReflect && !settings.waterNoReflect );
+    Renderer().AppendDxrReflectionPreview( renderTargetPreviews, uiViewport, settings.waterRtReflect && !settings.waterNoReflect );
     OperatorUiRenderTargetListFacts renderTargets;
     const int targetCount = (std::min)( renderTargetPreviews.count, UI::UI_RENDER_TARGET_PREVIEW_MAX );
 
     for ( int index = 0; index < targetCount; ++index )
     {
         const RuntimeRenderTargetPreview& source = renderTargetPreviews.targets[static_cast<std::size_t>( index )];
-        static_cast<void>( renderTargets.Append( source.label, source.width, source.height,
-                                                 source.available && source.width > 0 && source.height > 0, source.depth,
-                                                 source.hdr ) );
+        static_cast<void>( renderTargets.Append( source.label, source.width, source.height, source.available && source.width > 0 && source.height > 0, source.depth, source.hdr ) );
     }
 
     ProjectOperatorUiRenderTargets( uiData, renderTargets );
 }
 
-int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const OperatorUiProjectionFacts& projection,
+int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase,
+                                   const OperatorUiProjectionFacts& projection,
                                    const RuntimeRenderFrameViews& renderFrame,
                                    const UI::OperatorEditorFrameView& operatorEditorView,
                                    const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
-                                   RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews, const OverlayDebugState& debug )
+                                   RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews,
+                                   const OverlayDebugState& debug )
 {
     RuntimeRenderer& renderer = Renderer();
     UI::InGameUI& ui = *m_operatorUi;
@@ -581,17 +589,17 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
                                         replayPathVisualizerHasTarget,
                                         ProjectUiCameraBadgeMode( m_camera.mode ) != UiCameraBadgeMode::Quiet };
 
-    renderer.PrepareUiFrameTarget();
+    // Hazard: an empty/loading Lab skips world drawing. Clear its previous
+    // backbuffer so hidden chrome and dismissed menus cannot remain as pixels.
+    const bool emptyComparisonFrame = ComparisonUiActive() && ( !m_comparison.Active() || m_comparisonLoad.Pending() || !m_comparisonLoad.Error().empty() );
+    renderer.PrepareUiFrameTarget( emptyComparisonFrame );
 
     if ( !renderer.ResourceLifecycle().ShouldRenderUiText( visibility ) )
     {
         return 0;
     }
 
-    renderTargetPreviews = renderer.ResourceLifecycle()
-                               .BuildRenderTargetPreviewSnapshot( projection.shadowsEnabled, projection.cinematicRendering,
-                                                                  projection.cinematicRendering &&
-                                                                      projection.cinematic.volumetricLightingEnabled );
+    renderTargetPreviews = renderer.ResourceLifecycle().BuildRenderTargetPreviewSnapshot( projection.shadowsEnabled, projection.cinematicRendering, projection.cinematicRendering && projection.cinematic.volumetricLightingEnabled );
     const bool memoryStatsRequested = ui.IsVisible() && !ui.IsMinimized() && ui.GetActiveTab() == UI::InGameUITab::Memory;
     const ReplayHudStatus replayHud = m_replayRuntime.BuildHudStatus( memoryStatsRequested );
     const UiTextViewport viewport { operatorUiPhase.Snapshot().viewportWidth, operatorUiPhase.Snapshot().viewportHeight };
@@ -601,20 +609,37 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
     PROFILE_BEGIN( "Frame/UI" );
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
     const int drawCallStart = renderer.BeginUiTextFrame( viewport );
+    auto& panels = ui.PanelTransitions();
+    panels.BeginFrame();
+    const auto shell = ui.PresentationBounds();
+    const UI::UIRect bodyClip { 0, shell.header.h, shell.window.w, shell.transport.y - shell.header.h };
+    panels.SetClip( UI::UIPanel::Right, bodyClip );
+    // Retain the last expanded clip during exit, so folding cannot chop the animation.
+    if ( shell.leftResize.w > 0 )
+    {
+        panels.SetClip( UI::UIPanel::Left, UI::IntersectRect( bodyClip, shell.editorPane ) );
+    }
+    if ( shell.replayResize.w > 0 )
+    {
+        panels.SetClip( UI::UIPanel::LowerLeft, UI::IntersectRect( bodyClip, shell.replayPane ) );
+    }
+    // The attached drawer emerges from under Causes without painting over its hierarchy.
+    panels.SetClip( UI::UIPanel::AttachedRight, { shell.viewport.x, bodyClip.y, shell.right.x - shell.viewport.x, bodyClip.h } );
+    panels.SetClip( UI::UIPanel::DiagnosticPrimary, shell.window );
+    panels.SetClip( UI::UIPanel::DiagnosticSecondary, shell.window );
+    const UI::UIDrawList* comparisonDraw = nullptr;
     if ( ComparisonUiActive() )
     {
-        const auto& draw = m_comparisonLoad.Pending() || !m_comparisonLoad.Error().empty()
-                               ? m_comparisonPanel.ComposeLoading( viewport.screenW, viewport.screenH,
-                                                                   m_comparisonLoad.Percent(),
-                                                                   m_comparisonLoad.Error().c_str(),
-                                                                   m_comparisonLoad.Phase() )
-                               : m_comparisonPanel.Compose( m_comparison, viewport.screenW, viewport.screenH );
-        renderer.SubmitUiDrawList( draw, viewport );
-        const int drawCalls = renderer.EndUiTextFrame( drawCallStart );
-        PROFILE_END( "Frame/UI" );
-        return drawCalls;
+        comparisonDraw = m_comparisonLoad.Pending() || !m_comparisonLoad.Error().empty()
+                             ? &m_comparisonPanel.ComposeLoading( viewport.screenW, viewport.screenH, m_comparisonLoad.Percent(), m_comparisonLoad.Error().c_str(), m_comparisonLoad.Phase() )
+                             : &m_comparisonPanel.Compose( m_comparison, viewport.screenW, viewport.screenH );
     }
+
     UiChromeStatusValues chromeStatus;
+    if ( submission.composeGameUi )
+    {
+        chromeStatus.contentBounds = ui.PresentationBounds().statusContent;
+    }
     chromeStatus.textOnly = debug.isTextOnly;
     chromeStatus.topTextHidden = debug.isTopTextHidden;
     chromeStatus.sceneMode = scene.isSceneMode;
@@ -657,31 +682,65 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
         renderer.PrepareOperatorUiSubmission( viewport, debug.isUITestPattern );
         OperatorUiProjectionFacts gameUiProjection = projection;
         gameUiProjection.replayHud = replayHud;
-        BuildOperatorGameUiData( uiData, gameUiProjection, renderFrame, operatorEditorView, metrics, viewport, drawCallStart,
-                                 debug, renderTargetPreviews );
+        BuildOperatorGameUiData( uiData, gameUiProjection, renderFrame, operatorEditorView, metrics, viewport, drawCallStart, debug, renderTargetPreviews );
+        ReplayOverlay::ReplayOverlayViewport tooltipViewport;
+        tooltipViewport.width = viewport.screenW;
+        tooltipViewport.height = viewport.screenH;
+        if ( ui.SharedPresentationEnabled() )
+        {
+            tooltipViewport.sceneBounds = ui.PresentationBounds().viewport;
+            tooltipViewport.planningBounds = ui.PresentationBounds().statusContent;
+            tooltipViewport.transportBounds = ui.PresentationBounds().transport;
+            tooltipViewport.controlsBounds = ui.PresentationBounds().replayControls;
+            tooltipViewport.controlsScroll = ui.PresentationBounds().replayScroll;
+        }
+        const ReplayOverlay::ReplayWorkspaceTooltips replayTooltips = ReplayOverlay::BuildReplayWorkspaceTooltips( replayOverlay, tooltipViewport, scene.isScenePhysics );
+        const auto comparisonTooltips = m_comparisonPanel.Tooltips();
+        uiData.workspaceTooltips = ComparisonUiActive() ? std::span<const UI::UITooltipTarget>( comparisonTooltips ) : std::span<const UI::UITooltipTarget>( replayTooltips );
         const UI::UIDrawList& drawList = ui.Draw( uiData );
-        renderer.SubmitOperatorUiDrawList( drawList, renderTargetPreviews, m_assets, viewport );
+        panels.Append( drawList );
     }
 
     if ( submission.submitOverlay )
     {
         const float rollingFps = metrics.rollingFrameSeconds > 0.0f ? 1.0f / metrics.rollingFrameSeconds : 0.0f;
-        renderer.SubmitUiOverlay( viewport, ProjectUiOverlayMode( debug.overlayMode ), scene.modelCount, rollingFps,
-                                  metrics.sceneEnergy );
+        renderer.SubmitUiOverlay( viewport, ProjectUiOverlayMode( debug.overlayMode ), scene.modelCount, rollingFps, metrics.sceneEnergy );
     }
 
-    if ( submission.submitReplay )
+    if ( submission.submitReplay && !ComparisonUiActive() )
     {
-        const UI::UIDrawList&
-            drawList = m_replayRuntime.ComposeOverlayDrawList( replayOverlay, projection.uiText.gameUiActive,
-                                                               scene.isScenePhysics,
-                                                               projection.uiText.interactionGestureKind,
-                                                               { viewport.screenW, viewport.screenH,
-                                                                 m_window.GetProjectionMatrix() *
-                                                                     m_sceneController.Scene().Cameras().GetViewMatrix() },
-                                                               metrics.simulationTotalSeconds );
-        renderer.SubmitUiDrawList( drawList, viewport );
+        const RECT sceneBounds = m_window.PresentationViewport();
+        const UI::UIDrawList& drawList = m_replayRuntime.ComposeOverlayDrawList( replayOverlay,
+                                                                                 projection.uiText.gameUiActive,
+                                                                                 scene.isScenePhysics,
+                                                                                 projection.uiText.interactionGestureKind,
+                                                                                 { viewport.screenW,
+                                                                                                                             viewport.screenH,
+                                                                                                                             m_window.GetProjectionMatrix() * m_sceneController.Scene().Cameras().GetViewMatrix(),
+                                                                                                                             { static_cast<float>( sceneBounds.left ),
+                                                                                                                                                                           static_cast<float>( sceneBounds.top ),
+                                                                                                                                                                           static_cast<float>( sceneBounds.right - sceneBounds.left ),
+                                                                                                                                                                           static_cast<float>( sceneBounds.bottom - sceneBounds.top ) },
+                                                                                                                             m_operatorUi->SharedPresentationEnabled() ? m_operatorUi->PresentationBounds().transport : UI::UIRect {},
+                                                                                                                             m_operatorUi->PresentationBounds().replayControls,
+                                                                                                                             m_operatorUi->PresentationBounds().replayScroll,
+                                                                                                                             m_operatorUi->SharedPresentationEnabled() ? m_operatorUi->PresentationBounds().statusContent : UI::UIRect {} },
+                                                                                 metrics.simulationTotalSeconds );
+        panels.Append( drawList );
     }
+
+    if ( comparisonDraw )
+    {
+        panels.Append( *comparisonDraw );
+    }
+
+    if ( submission.composeGameUi && !ui.ForegroundDraw().Empty() )
+    {
+        panels.Append( ui.ForegroundDraw() );
+    }
+
+    const double animationTime = std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count();
+    renderer.SubmitOperatorUiDrawList( panels.Compose( animationTime ), renderTargetPreviews, m_assets, viewport );
 
     if ( submission.finalizeOverlay )
     {
@@ -694,17 +753,18 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
 }
 
 
-void Run::RenderOperatorUiPhase( const RuntimeRenderFrameViews& renderFrame, float presentationAlpha,
-                                 bool capturePresentationPinned, double secondsPerFrame, bool gameUiActive,
+void Run::RenderOperatorUiPhase( const RuntimeRenderFrameViews& renderFrame,
+                                 float presentationAlpha,
+                                 bool capturePresentationPinned,
+                                 double secondsPerFrame,
+                                 bool gameUiActive,
                                  const RuntimeFrameMetricsSnapshot& frameMetrics )
 {
     SkullbonezCore::UI::OperatorEditorFrameView operatorEditorView;
     bool secondarySurfaceVisible = false;
     OperatorUiFrameSnapshot operatorUiSnapshot;
-    operatorUiSnapshot.uiText = { RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode,
-                                                                m_sceneController.Scene().SceneEntityCount() ),
-                                  m_camera.mode == RunCameraMode::Attach ? m_attachedCamera.ModeLabel()
-                                                                         : RunCameraModeLabel( m_camera.mode ),
+    operatorUiSnapshot.uiText = { RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode, m_sceneController.Scene().SceneEntityCount() ),
+                                  m_camera.mode == RunCameraMode::Attach ? m_attachedCamera.ModeLabel() : RunCameraModeLabel( m_camera.mode ),
                                   m_runtimeTools.LauncherFireModeLabel(),
                                   RunCameraModeUsesLauncher( m_camera.mode ),
                                   m_interaction.Gesture().kind,
@@ -723,12 +783,13 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderFrameViews& renderFrame, flo
 
     const RuntimeUiTextFrameFacts& uiTextFacts = operatorUiPhase.Snapshot().uiText;
 
-    const ReplayOverlay::ReplayOverlayStateView
-        replayOverlay = m_replayRuntime.BuildOverlayStateView( m_editorTools.Editor().editorModeEnabled,
-                                                               m_operatorUi->IsVisible(), m_operatorUi->IsMinimized(),
-                                                               m_interaction.Gesture().kind,
-                                                               renderFrame.modelPresentation.presentationRecords,
-                                                               renderFrame.debug.physics.bodyStore );
+    const ReplayOverlay::ReplayOverlayStateView replayOverlay = m_replayRuntime.BuildOverlayStateView( m_editorTools.Editor().editorModeEnabled,
+                                                                                                       m_operatorUi->IsVisible(),
+                                                                                                       m_operatorUi->IsMinimized(),
+                                                                                                       m_interaction.Gesture().kind,
+                                                                                                       renderFrame.modelPresentation.presentationRecords,
+                                                                                                       renderFrame.debug.physics.bodyStore,
+                                                                                                       m_operatorUi->SharedPresentationEnabled() );
 
     RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
     OverlayDebugState& debug = presentationEdit.State();
@@ -742,12 +803,10 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderFrameViews& renderFrame, flo
 
     RuntimeRenderTargetPreviewSnapshot renderTargetPreviews;
 
-    const bool profilerBars = debug.overlayMode == OverlayMode::BarsNormalized ||
-                              debug.overlayMode == OverlayMode::BarsAbsolute;
+    const bool profilerBars = debug.overlayMode == OverlayMode::BarsNormalized || debug.overlayMode == OverlayMode::BarsAbsolute;
     operatorUiPhase.Compose( debug.isTextOnly, m_operatorUi->NeedsUiTextPass(), m_operatorUi->IsVisible(), profilerBars );
 
-    const int gameUiDrawCalls = RenderOperatorUiTextPass( operatorUiPhase, projection, renderFrame, operatorEditorView,
-                                                          replayOverlay, renderTargetPreviews, debug );
+    const int gameUiDrawCalls = RenderOperatorUiTextPass( operatorUiPhase, projection, renderFrame, operatorEditorView, replayOverlay, renderTargetPreviews, debug );
     operatorUiPhase.RecordGpuSubmission( gameUiDrawCalls );
     m_timers.RecordUiDrawCalls( operatorUiPhase.GameUiDrawCalls() );
 

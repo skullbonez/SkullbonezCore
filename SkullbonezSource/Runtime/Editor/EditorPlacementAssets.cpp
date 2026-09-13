@@ -55,15 +55,13 @@ namespace SkullbonezCore
 namespace Runtime
 {
 
-constexpr EditorBuildingDefinition EDITOR_BUILDING_ASSETS[] = {
-    { SkullbonezCore::UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP, "building.brick_house_low", "bhl" },
-    { SkullbonezCore::UI::EditorTab::OBJECT_BRICK_HOUSE_HIGH_SLEEP, "building.brick_house_high", "bhh" },
-    { SkullbonezCore::UI::EditorTab::OBJECT_CUTE_HOUSE_SLEEP, "building.cute_house_low", "chl" },
-    { SkullbonezCore::UI::EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP, "building.cute_house_high", "chh" },
-    { SkullbonezCore::UI::EditorTab::OBJECT_TRIPLE_DECKER_SLEEP, "building.triple_decker_low", "tdl" },
-    { SkullbonezCore::UI::EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP, "building.triple_decker_high", "tdh" },
-    { SkullbonezCore::UI::EditorTab::OBJECT_BRICK_WALL_200_SLEEP, "building.brick_wall_200", "bw200" },
-};
+constexpr EditorBuildingDefinition EDITOR_BUILDING_ASSETS[] = { { SkullbonezCore::UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP, "building.brick_house_low", "bhl" },
+                                                                { SkullbonezCore::UI::EditorTab::OBJECT_BRICK_HOUSE_HIGH_SLEEP, "building.brick_house_high", "bhh" },
+                                                                { SkullbonezCore::UI::EditorTab::OBJECT_CUTE_HOUSE_SLEEP, "building.cute_house_low", "chl" },
+                                                                { SkullbonezCore::UI::EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP, "building.cute_house_high", "chh" },
+                                                                { SkullbonezCore::UI::EditorTab::OBJECT_TRIPLE_DECKER_SLEEP, "building.triple_decker_low", "tdl" },
+                                                                { SkullbonezCore::UI::EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP, "building.triple_decker_high", "tdh" },
+                                                                { SkullbonezCore::UI::EditorTab::OBJECT_BRICK_WALL_200_SLEEP, "building.brick_wall_200", "bw200" }, };
 
 
 Vector3 HullAuthoredLocalOffset( const ConvexHullShape& hull )
@@ -281,8 +279,7 @@ void IncludeEditorBoundsPoint( const Vector3& point, Vector3& inOutMin, Vector3&
 
 std::string EditorLowercase( std::string value )
 {
-    std::transform( value.begin(), value.end(), value.begin(),
-                    []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
+    std::transform( value.begin(), value.end(), value.begin(), []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
 
     return value;
 }
@@ -410,8 +407,7 @@ SkullbonezCore::Rendering::RenderMaterial EditorBuildingPartMaterial( const Json
         mode = EditorMaterialLegacyModeFromAsset( *materialJson );
     }
 
-    SkullbonezCore::Rendering::RenderMaterial
-        material = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( color.x, color.y, color.z, mode );
+    SkullbonezCore::Rendering::RenderMaterial material = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( color.x, color.y, color.z, mode );
 
     if ( materialJson && materialJson->is_object() )
     {
@@ -419,11 +415,9 @@ SkullbonezCore::Rendering::RenderMaterial EditorBuildingPartMaterial( const Json
 
         material.metallic = std::clamp( EditorJsonFloatOr( *materialJson, "metallic", material.metallic ), 0.0f, 1.0f );
         material.specular = std::clamp( EditorJsonFloatOr( *materialJson, "specular", material.specular ), 0.0f, 1.0f );
-        material.transmission = std::clamp( EditorJsonFloatOr( *materialJson, "transmission", material.transmission ), 0.0f,
-                                            1.0f );
+        material.transmission = std::clamp( EditorJsonFloatOr( *materialJson, "transmission", material.transmission ), 0.0f, 1.0f );
 
-        material.stylization = std::clamp( EditorJsonFloatOr( *materialJson, "stylization", material.stylization ), 0.0f,
-                                           1.0f );
+        material.stylization = std::clamp( EditorJsonFloatOr( *materialJson, "stylization", material.stylization ), 0.0f, 1.0f );
 
         if ( const Json* emissive = EditorJsonFindMember( *materialJson, "emissive" ) )
         {
@@ -437,12 +431,10 @@ SkullbonezCore::Rendering::RenderMaterial EditorBuildingPartMaterial( const Json
             }
         }
 
-        material.emissiveStrength = (std::max)( 0.0f,
-                                                EditorJsonFloatOr( *materialJson, "strength", material.emissiveStrength ) );
+        material.emissiveStrength = (std::max)( 0.0f, EditorJsonFloatOr( *materialJson, "strength", material.emissiveStrength ) );
 
         material.flags = static_cast<uint32_t>( (std::max)( 0.0f, EditorJsonFloatOr( *materialJson, "flags", 0.0f ) ) );
-        const std::string name = EditorJsonStringOr( *materialJson, "name",
-                                                     SkullbonezCore::Rendering::RenderMaterialKindName( material.kind ) );
+        const std::string name = EditorJsonStringOr( *materialJson, "name", SkullbonezCore::Rendering::RenderMaterialKindName( material.kind ) );
 
         strncpy_s( material.name, sizeof( material.name ), name.c_str(), _TRUNCATE );
     }
@@ -506,8 +498,7 @@ int EditorBuildingPartCount( int objectType, const SkullbonezCore::Assets::Asset
 }
 
 
-const ConvexHullShape* CachedEditorBuildingHull( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                 const std::string& hullPath )
+const ConvexHullShape* CachedEditorBuildingHull( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const std::string& hullPath )
 {
     static std::vector<std::pair<std::string, ConvexHullShape>> hulls;
 
@@ -520,9 +511,7 @@ const ConvexHullShape* CachedEditorBuildingHull( SkullbonezCore::Core::SbDiagnos
     }
 
     ConvexHullShape hull;
-    const SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( diagnostics,
-                                                                                      ResolveEditorHullAssetPath( hullPath.c_str() ),
-                                                                                      hull );
+    const SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( diagnostics, ResolveEditorHullAssetPath( hullPath.c_str() ), hull );
 
     if ( !hullLoad.Ok() )
     {
@@ -535,105 +524,92 @@ const ConvexHullShape* CachedEditorBuildingHull( SkullbonezCore::Core::SbDiagnos
 }
 
 
-float EditorBuildingVerticalSize( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int objectType,
-                                  const SkullbonezCore::Assets::AssetSystem& assets )
+float EditorBuildingVerticalSize( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int objectType, const SkullbonezCore::Assets::AssetSystem& assets )
 {
     float minY = FLT_MAX;
     float maxY = -FLT_MAX;
-    const bool
-        ok = ForEachEditorBuildingPart( objectType, assets,
-                                        [&]( const Json& part )
-                                        {
-                                            const Vector3 offset = EditorJsonVec3Or( part, "offset",
-                                                                                     Vector3( 0.0f, 0.0f, 0.0f ) );
+    const bool ok = ForEachEditorBuildingPart( objectType,
+                                               assets,
+                                               [&]( const Json& part )
+                                               {
+                                                   const Vector3 offset = EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
 
-                                            const Quaternion
-                                                orientation = EditorBuildingPartOrientation( IDENTITY_QUATERNION, part );
+                                                   const Quaternion orientation = EditorBuildingPartOrientation( IDENTITY_QUATERNION, part );
 
-                                            Quaternion orientationCopy = orientation;
-                                            const RotationMatrix rotation = orientationCopy.GetOrientationMatrix();
-                                            const std::string primitiveType = EditorAssetPrimitiveType( part );
+                                                   Quaternion orientationCopy = orientation;
+                                                   const RotationMatrix rotation = orientationCopy.GetOrientationMatrix();
+                                                   const std::string primitiveType = EditorAssetPrimitiveType( part );
 
-                                            if ( primitiveType == "convexHull" )
-                                            {
-                                                const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
-                                                const ConvexHullShape* hull = hullPath.empty()
-                                                                                  ? nullptr
-                                                                                  : CachedEditorBuildingHull( diagnostics,
-                                                                                                              hullPath );
+                                                   if ( primitiveType == "convexHull" )
+                                                   {
+                                                       const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
+                                                       const ConvexHullShape* hull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( diagnostics, hullPath );
 
-                                                if ( !hull )
-                                                {
-                                                    return;
-                                                }
+                                                       if ( !hull )
+                                                       {
+                                                           return;
+                                                       }
 
-                                                const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
+                                                       const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
 
-                                                for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount();
-                                                      ++vertexIndex )
-                                                {
-                                                    const float y = offset.y +
-                                                                    ( rotation *
-                                                                      ( hullLocalOffset + hull->GetVertex( vertexIndex ) ) )
-                                                                        .y;
+                                                       for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
+                                                       {
+                                                           const float y = offset.y + ( rotation * ( hullLocalOffset + hull->GetVertex( vertexIndex ) ) ).y;
 
-                                                    minY = (std::min)( minY, y );
-                                                    maxY = (std::max)( maxY, y );
-                                                }
+                                                           minY = (std::min)( minY, y );
+                                                           maxY = (std::max)( maxY, y );
+                                                       }
 
-                                                return;
-                                            }
+                                                       return;
+                                                   }
 
-                                            if ( primitiveType == "box" )
-                                            {
-                                                Vector3 halfExtents;
+                                                   if ( primitiveType == "box" )
+                                                   {
+                                                       Vector3 halfExtents;
 
-                                                if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
-                                                {
-                                                    return;
-                                                }
+                                                       if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
+                                                       {
+                                                           return;
+                                                       }
 
-                                                for ( int xSign = -1; xSign <= 1; xSign += 2 )
-                                                {
-                                                    for ( int ySign = -1; ySign <= 1; ySign += 2 )
-                                                    {
-                                                        for ( int zSign = -1; zSign <= 1; zSign += 2 )
-                                                        {
-                                                            const Vector3 corner( halfExtents.x *
-                                                                                      static_cast<float>( xSign ),
-                                                                                  halfExtents.y *
-                                                                                      static_cast<float>( ySign ),
-                                                                                  halfExtents.z *
-                                                                                      static_cast<float>( zSign ) );
-                                                            const float y = offset.y + ( rotation * corner ).y;
-                                                            minY = (std::min)( minY, y );
-                                                            maxY = (std::max)( maxY, y );
-                                                        }
-                                                    }
-                                                }
+                                                       // Iterate the same X/Y/Z corner order without three nested loops.
+                                                       for ( int cornerIndex = 0; cornerIndex < 8; ++cornerIndex )
+                                                       {
+                                                           const int xSign = ( cornerIndex & 4 ) ? 1 : -1;
+                                                           const int ySign = ( cornerIndex & 2 ) ? 1 : -1;
+                                                           const int zSign = ( cornerIndex & 1 ) ? 1 : -1;
 
-                                                return;
-                                            }
+                                                           const Vector3 corner( halfExtents.x * static_cast<float>( xSign ), halfExtents.y * static_cast<float>( ySign ), halfExtents.z * static_cast<float>( zSign ) );
+                                                           const float y = offset.y + ( rotation * corner ).y;
+                                                           minY = (std::min)( minY, y );
+                                                           maxY = (std::max)( maxY, y );
+                                                       }
 
-                                            if ( primitiveType == "sphere" )
-                                            {
-                                                float radius = 0.0f;
+                                                       return;
+                                                   }
 
-                                                if ( TryReadEditorSphereRadius( part, radius ) )
-                                                {
-                                                    minY = (std::min)( minY, offset.y - radius );
-                                                    maxY = (std::max)( maxY, offset.y + radius );
-                                                }
-                                            }
-                                        } );
+                                                   if ( primitiveType == "sphere" )
+                                                   {
+                                                       float radius = 0.0f;
+
+                                                       if ( TryReadEditorSphereRadius( part, radius ) )
+                                                       {
+                                                           minY = (std::min)( minY, offset.y - radius );
+                                                           maxY = (std::max)( maxY, offset.y + radius );
+                                                       }
+                                                   }
+                                               } );
 
     return ok && minY != FLT_MAX ? (std::max)( 1.0f, maxY - minY ) : 1.0f;
 }
 
 
-bool TryComputeEditorBuildingWorldBounds( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int objectType,
-                                          const Vector3& terrainPoint, const Quaternion& placementOrientation,
-                                          const SkullbonezCore::Assets::AssetSystem& assets, Vector3& outMin,
+bool TryComputeEditorBuildingWorldBounds( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                          int objectType,
+                                          const Vector3& terrainPoint,
+                                          const Quaternion& placementOrientation,
+                                          const SkullbonezCore::Assets::AssetSystem& assets,
+                                          Vector3& outMin,
                                           Vector3& outMax )
 {
     outMin = Vector3( FLT_MAX, FLT_MAX, FLT_MAX );
@@ -641,96 +617,76 @@ bool TryComputeEditorBuildingWorldBounds( SkullbonezCore::Core::SbDiagnosticStor
     Quaternion placementCopy = placementOrientation;
     const RotationMatrix placementRotation = placementCopy.GetOrientationMatrix();
     const Vector3 base = terrainPoint + placementRotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
-    const bool
-        ok = ForEachEditorBuildingPart( objectType, assets,
-                                        [&]( const Json& part )
-                                        {
-                                            const Vector3 offset = EditorJsonVec3Or( part, "offset",
-                                                                                     Vector3( 0.0f, 0.0f, 0.0f ) );
+    const bool ok = ForEachEditorBuildingPart( objectType,
+                                               assets,
+                                               [&]( const Json& part )
+                                               {
+                                                   const Vector3 offset = EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
 
-                                            const Quaternion
-                                                partOrientation = EditorBuildingPartOrientation( placementOrientation,
-                                                                                                 part );
+                                                   const Quaternion partOrientation = EditorBuildingPartOrientation( placementOrientation, part );
 
-                                            Quaternion partCopy = partOrientation;
-                                            const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
-                                            const Vector3 partCenter = base + placementRotation * offset;
-                                            const std::string primitiveType = EditorAssetPrimitiveType( part );
+                                                   Quaternion partCopy = partOrientation;
+                                                   const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
+                                                   const Vector3 partCenter = base + placementRotation * offset;
+                                                   const std::string primitiveType = EditorAssetPrimitiveType( part );
 
-                                            if ( primitiveType == "convexHull" )
-                                            {
-                                                const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
-                                                const ConvexHullShape* hull = hullPath.empty()
-                                                                                  ? nullptr
-                                                                                  : CachedEditorBuildingHull( diagnostics,
-                                                                                                              hullPath );
+                                                   if ( primitiveType == "convexHull" )
+                                                   {
+                                                       const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
+                                                       const ConvexHullShape* hull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( diagnostics, hullPath );
 
-                                                if ( !hull )
-                                                {
-                                                    return;
-                                                }
+                                                       if ( !hull )
+                                                       {
+                                                           return;
+                                                       }
 
-                                                const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
+                                                       const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
 
-                                                for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount();
-                                                      ++vertexIndex )
-                                                {
-                                                    IncludeEditorBoundsPoint( partCenter +
-                                                                                  partRotation *
-                                                                                      ( hullLocalOffset +
-                                                                                        hull->GetVertex( vertexIndex ) ),
-                                                                              outMin, outMax );
-                                                }
+                                                       for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
+                                                       {
+                                                           IncludeEditorBoundsPoint( partCenter + partRotation * ( hullLocalOffset + hull->GetVertex( vertexIndex ) ), outMin, outMax );
+                                                       }
 
-                                                return;
-                                            }
+                                                       return;
+                                                   }
 
-                                            if ( primitiveType == "box" )
-                                            {
-                                                Vector3 halfExtents;
+                                                   if ( primitiveType == "box" )
+                                                   {
+                                                       Vector3 halfExtents;
 
-                                                if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
-                                                {
-                                                    return;
-                                                }
+                                                       if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
+                                                       {
+                                                           return;
+                                                       }
 
-                                                for ( int xSign = -1; xSign <= 1; xSign += 2 )
-                                                {
-                                                    for ( int ySign = -1; ySign <= 1; ySign += 2 )
-                                                    {
-                                                        for ( int zSign = -1; zSign <= 1; zSign += 2 )
-                                                        {
-                                                            const Vector3 corner( halfExtents.x *
-                                                                                      static_cast<float>( xSign ),
-                                                                                  halfExtents.y *
-                                                                                      static_cast<float>( ySign ),
-                                                                                  halfExtents.z *
-                                                                                      static_cast<float>( zSign ) );
-                                                            IncludeEditorBoundsPoint( partCenter + partRotation * corner,
-                                                                                      outMin, outMax );
-                                                        }
-                                                    }
-                                                }
+                                                       // Iterate the same X/Y/Z corner order without three nested loops.
+                                                       for ( int cornerIndex = 0; cornerIndex < 8; ++cornerIndex )
+                                                       {
+                                                           const int xSign = ( cornerIndex & 4 ) ? 1 : -1;
+                                                           const int ySign = ( cornerIndex & 2 ) ? 1 : -1;
+                                                           const int zSign = ( cornerIndex & 1 ) ? 1 : -1;
 
-                                                return;
-                                            }
+                                                           const Vector3 corner( halfExtents.x * static_cast<float>( xSign ), halfExtents.y * static_cast<float>( ySign ), halfExtents.z * static_cast<float>( zSign ) );
+                                                           IncludeEditorBoundsPoint( partCenter + partRotation * corner, outMin, outMax );
+                                                       }
 
-                                            if ( primitiveType == "sphere" )
-                                            {
-                                                float radius = 0.0f;
+                                                       return;
+                                                   }
 
-                                                if ( !TryReadEditorSphereRadius( part, radius ) )
-                                                {
-                                                    return;
-                                                }
+                                                   if ( primitiveType == "sphere" )
+                                                   {
+                                                       float radius = 0.0f;
 
-                                                IncludeEditorBoundsPoint( partCenter + Vector3( -radius, -radius, -radius ),
-                                                                          outMin, outMax );
+                                                       if ( !TryReadEditorSphereRadius( part, radius ) )
+                                                       {
+                                                           return;
+                                                       }
 
-                                                IncludeEditorBoundsPoint( partCenter + Vector3( radius, radius, radius ),
-                                                                          outMin, outMax );
-                                            }
-                                        } );
+                                                       IncludeEditorBoundsPoint( partCenter + Vector3( -radius, -radius, -radius ), outMin, outMax );
+
+                                                       IncludeEditorBoundsPoint( partCenter + Vector3( radius, radius, radius ), outMin, outMax );
+                                                   }
+                                               } );
 
     return ok && outMin.x != FLT_MAX && outMax.x != -FLT_MAX;
 }
@@ -792,8 +748,7 @@ constexpr EditorTreePartDefinition LargeRootPart()
 }
 
 
-constexpr EditorTreePartDefinition PineNeedlePart( const char* suffix, float offsetX, float offsetY, float offsetZ,
-                                                   float shade )
+constexpr EditorTreePartDefinition PineNeedlePart( const char* suffix, float offsetX, float offsetY, float offsetZ, float shade )
 {
     return NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::PINE_NEEDLE_CLUSTER,
                                                                .suffix = suffix,
@@ -815,8 +770,7 @@ constexpr EditorTreePartDefinition PineNeedlePart( const char* suffix, float off
 }
 
 
-constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_PARTS[] = {
-    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::TREE_TRUNK_SMALL_FACETED,
+constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_PARTS[] = { NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::TREE_TRUNK_SMALL_FACETED,
                                                         .suffix = "trunk",
                                                         .offsetX = 0.0f,
                                                         .offsetY = 6.5f,
@@ -830,7 +784,7 @@ constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_PARTS[] = {
                                                         .roughness = 0.94f,
                                                         .specular = 0.06f,
                                                         .stylization = 0.50f } ),
-    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_LOW,
+                                                                 NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_LOW,
                                                         .suffix = "low",
                                                         .offsetX = 0.0f,
                                                         .offsetY = 20.0f,
@@ -844,7 +798,7 @@ constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_PARTS[] = {
                                                         .roughness = 0.89f,
                                                         .specular = 0.08f,
                                                         .stylization = 0.90f } ),
-    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_MID,
+                                                                 NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_MID,
                                                         .suffix = "mid",
                                                         .offsetX = 0.0f,
                                                         .offsetY = 28.0f,
@@ -858,7 +812,7 @@ constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_PARTS[] = {
                                                         .roughness = 0.89f,
                                                         .specular = 0.08f,
                                                         .stylization = 0.90f } ),
-    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_TOP,
+                                                                 NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_TOP,
                                                         .suffix = "top",
                                                         .offsetX = 0.0f,
                                                         .offsetY = 35.0f,
@@ -871,17 +825,13 @@ constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_PARTS[] = {
                                                         .colorB = 0.18f,
                                                         .roughness = 0.89f,
                                                         .specular = 0.08f,
-                                                        .stylization = 0.90f } ),
-};
-constexpr int EDITOR_TREE_SMALL_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_SMALL_PARTS ) /
-                                                               sizeof( EDITOR_TREE_SMALL_PARTS[0] ) );
+                                                        .stylization = 0.90f } ), };
+constexpr int EDITOR_TREE_SMALL_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_SMALL_PARTS ) / sizeof( EDITOR_TREE_SMALL_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_SMALL = { "tree_small", EDITOR_TREE_SMALL_PARTS, EDITOR_TREE_SMALL_PART_COUNT };
-constexpr EditorTreeDefinition EDITOR_TREE_SMALL_SLOPE = { "tree_small_slope", EDITOR_TREE_SMALL_PARTS,
-                                                           EDITOR_TREE_SMALL_PART_COUNT, true, false };
+constexpr EditorTreeDefinition EDITOR_TREE_SMALL_SLOPE = { "tree_small_slope", EDITOR_TREE_SMALL_PARTS, EDITOR_TREE_SMALL_PART_COUNT, true, false };
 constexpr EditorTreeDefinition EDITOR_TREE_SMALL_SLEEP = { "tree_small_sleep", EDITOR_TREE_SMALL_PARTS, EDITOR_TREE_SMALL_PART_COUNT, false, false, true };
 
-constexpr EditorTreePartDefinition EDITOR_TREE_BIG_PARTS[] = {
-    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::TREE_TRUNK_FACETED,
+constexpr EditorTreePartDefinition EDITOR_TREE_BIG_PARTS[] = { NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::TREE_TRUNK_FACETED,
                                                         .suffix = "trunk",
                                                         .offsetX = 0.0f,
                                                         .offsetY = 9.0f,
@@ -895,7 +845,7 @@ constexpr EditorTreePartDefinition EDITOR_TREE_BIG_PARTS[] = {
                                                         .roughness = 0.94f,
                                                         .specular = 0.06f,
                                                         .stylization = 0.48f } ),
-    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::PINE_TIER_LARGE,
+                                                               NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::PINE_TIER_LARGE,
                                                         .suffix = "low",
                                                         .offsetX = 0.0f,
                                                         .offsetY = 24.0f,
@@ -909,7 +859,7 @@ constexpr EditorTreePartDefinition EDITOR_TREE_BIG_PARTS[] = {
                                                         .roughness = 0.88f,
                                                         .specular = 0.08f,
                                                         .stylization = 0.88f } ),
-    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::PINE_TIER_MID,
+                                                               NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::PINE_TIER_MID,
                                                         .suffix = "mid",
                                                         .offsetX = 0.0f,
                                                         .offsetY = 34.0f,
@@ -923,7 +873,7 @@ constexpr EditorTreePartDefinition EDITOR_TREE_BIG_PARTS[] = {
                                                         .roughness = 0.88f,
                                                         .specular = 0.08f,
                                                         .stylization = 0.88f } ),
-    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::PINE_TIER_TOP,
+                                                               NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::PINE_TIER_TOP,
                                                         .suffix = "top",
                                                         .offsetX = 0.0f,
                                                         .offsetY = 43.0f,
@@ -936,17 +886,13 @@ constexpr EditorTreePartDefinition EDITOR_TREE_BIG_PARTS[] = {
                                                         .colorB = 0.10f,
                                                         .roughness = 0.88f,
                                                         .specular = 0.08f,
-                                                        .stylization = 0.88f } ),
-};
-constexpr int EDITOR_TREE_BIG_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_BIG_PARTS ) /
-                                                             sizeof( EDITOR_TREE_BIG_PARTS[0] ) );
+                                                        .stylization = 0.88f } ), };
+constexpr int EDITOR_TREE_BIG_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_BIG_PARTS ) / sizeof( EDITOR_TREE_BIG_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_BIG = { "tree_pine", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT };
-constexpr EditorTreeDefinition EDITOR_TREE_BIG_SLOPE = { "tree_pine_slope", EDITOR_TREE_BIG_PARTS,
-                                                         EDITOR_TREE_BIG_PART_COUNT, true, false };
+constexpr EditorTreeDefinition EDITOR_TREE_BIG_SLOPE = { "tree_pine_slope", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT, true, false };
 constexpr EditorTreeDefinition EDITOR_TREE_BIG_SLEEP = { "tree_pine_sleep", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT, false, false, true };
 
-constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_PARTS[] = {
-    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::TREE_TRUNK_FACETED,
+constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_PARTS[] = { NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::TREE_TRUNK_FACETED,
                                                         .suffix = "trunk",
                                                         .offsetX = 0.0f,
                                                         .offsetY = 9.0f,
@@ -960,7 +906,7 @@ constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_PARTS[] = {
                                                         .roughness = 0.94f,
                                                         .specular = 0.06f,
                                                         .stylization = 0.50f } ),
-    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_TALL_LOW,
+                                                                 NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_TALL_LOW,
                                                         .suffix = "low",
                                                         .offsetX = 0.0f,
                                                         .offsetY = 25.0f,
@@ -974,7 +920,7 @@ constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_PARTS[] = {
                                                         .roughness = 0.89f,
                                                         .specular = 0.08f,
                                                         .stylization = 0.90f } ),
-    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_TALL_MID,
+                                                                 NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_TALL_MID,
                                                         .suffix = "mid",
                                                         .offsetX = 0.0f,
                                                         .offsetY = 38.0f,
@@ -988,7 +934,7 @@ constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_PARTS[] = {
                                                         .roughness = 0.89f,
                                                         .specular = 0.08f,
                                                         .stylization = 0.90f } ),
-    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_TOP,
+                                                                 NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_TOP,
                                                         .suffix = "top",
                                                         .offsetX = 0.0f,
                                                         .offsetY = 48.0f,
@@ -1001,102 +947,64 @@ constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_PARTS[] = {
                                                         .colorB = 0.18f,
                                                         .roughness = 0.89f,
                                                         .specular = 0.08f,
-                                                        .stylization = 0.90f } ),
-};
-constexpr int EDITOR_TREE_CEDAR_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_CEDAR_PARTS ) /
-                                                               sizeof( EDITOR_TREE_CEDAR_PARTS[0] ) );
+                                                        .stylization = 0.90f } ), };
+constexpr int EDITOR_TREE_CEDAR_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_CEDAR_PARTS ) / sizeof( EDITOR_TREE_CEDAR_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_CEDAR = { "tree_cedar", EDITOR_TREE_CEDAR_PARTS, EDITOR_TREE_CEDAR_PART_COUNT };
-constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_SLOPE = { "tree_cedar_slope", EDITOR_TREE_CEDAR_PARTS,
-                                                           EDITOR_TREE_CEDAR_PART_COUNT, true, false };
+constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_SLOPE = { "tree_cedar_slope", EDITOR_TREE_CEDAR_PARTS, EDITOR_TREE_CEDAR_PART_COUNT, true, false };
 constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_SLEEP = { "tree_cedar_sleep", EDITOR_TREE_CEDAR_PARTS, EDITOR_TREE_CEDAR_PART_COUNT, false, false, true };
 
-constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_ROOTED_PARTS[] = {
-    SmallRootPart(),
-    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
-};
-constexpr int EDITOR_TREE_SMALL_ROOTED_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_SMALL_ROOTED_PARTS ) /
-                                                                      sizeof( EDITOR_TREE_SMALL_ROOTED_PARTS[0] ) );
-constexpr EditorTreeDefinition EDITOR_TREE_SMALL_ROOTED = { "tree_small_rooted", EDITOR_TREE_SMALL_ROOTED_PARTS,
-                                                            EDITOR_TREE_SMALL_ROOTED_PART_COUNT, true, true };
+constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_ROOTED_PARTS[] = { SmallRootPart(),
+                                                                        LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                        LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                        LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                        LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ), };
+constexpr int EDITOR_TREE_SMALL_ROOTED_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_SMALL_ROOTED_PARTS ) / sizeof( EDITOR_TREE_SMALL_ROOTED_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_SMALL_ROOTED = { "tree_small_rooted", EDITOR_TREE_SMALL_ROOTED_PARTS, EDITOR_TREE_SMALL_ROOTED_PART_COUNT, true, true };
 
-constexpr EditorTreePartDefinition EDITOR_TREE_BIG_ROOTED_PARTS[] = {
-    LargeRootPart(),
-    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-};
-constexpr int EDITOR_TREE_BIG_ROOTED_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_BIG_ROOTED_PARTS ) /
-                                                                    sizeof( EDITOR_TREE_BIG_ROOTED_PARTS[0] ) );
-constexpr EditorTreeDefinition EDITOR_TREE_BIG_ROOTED = { "tree_pine_rooted", EDITOR_TREE_BIG_ROOTED_PARTS,
-                                                          EDITOR_TREE_BIG_ROOTED_PART_COUNT, true, true };
+constexpr EditorTreePartDefinition EDITOR_TREE_BIG_ROOTED_PARTS[] = { LargeRootPart(),
+                                                                      LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                      LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                      LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                      LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ), };
+constexpr int EDITOR_TREE_BIG_ROOTED_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_BIG_ROOTED_PARTS ) / sizeof( EDITOR_TREE_BIG_ROOTED_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_BIG_ROOTED = { "tree_pine_rooted", EDITOR_TREE_BIG_ROOTED_PARTS, EDITOR_TREE_BIG_ROOTED_PART_COUNT, true, true };
 
-constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_ROOTED_PARTS[] = {
-    LargeRootPart(),
-    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-};
-constexpr int EDITOR_TREE_CEDAR_ROOTED_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_CEDAR_ROOTED_PARTS ) /
-                                                                      sizeof( EDITOR_TREE_CEDAR_ROOTED_PARTS[0] ) );
-constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_ROOTED = { "tree_cedar_rooted", EDITOR_TREE_CEDAR_ROOTED_PARTS,
-                                                            EDITOR_TREE_CEDAR_ROOTED_PART_COUNT, true, true };
+constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_ROOTED_PARTS[] = { LargeRootPart(),
+                                                                        LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                        LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                        LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                        LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ), };
+constexpr int EDITOR_TREE_CEDAR_ROOTED_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_CEDAR_ROOTED_PARTS ) / sizeof( EDITOR_TREE_CEDAR_ROOTED_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_ROOTED = { "tree_cedar_rooted", EDITOR_TREE_CEDAR_ROOTED_PARTS, EDITOR_TREE_CEDAR_ROOTED_PART_COUNT, true, true };
 
-constexpr EditorTreePartDefinition EDITOR_TREE_PINE_SHEDDING_PARTS[] = {
-    LargeRootPart(),
-    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_00", -12.0f, 22.0f, -12.0f, 0.10f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_01", -4.0f, 21.5f, -16.0f, 0.18f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_02", 6.0f, 22.5f, -15.0f, 0.30f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_03", 14.0f, 23.0f, -7.0f, 0.24f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_04", 15.0f, 23.5f, 5.0f, 0.14f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_05", 8.0f, 22.0f, 14.0f, 0.34f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_06", -4.0f, 22.5f, 16.0f, 0.22f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_07", -15.0f, 23.0f, 7.0f, 0.28f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_08", -9.0f, 31.0f, -10.0f, 0.38f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_09", 1.0f, 31.5f, -12.0f, 0.26f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_10", 10.0f, 32.0f, -5.0f, 0.16f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_11", 11.0f, 32.5f, 6.0f, 0.32f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_12", 2.0f, 31.0f, 12.0f, 0.20f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_13", -10.0f, 32.0f, 4.0f, 0.36f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_14", -6.0f, 40.0f, -6.0f, 0.18f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_15", 4.0f, 40.5f, -7.0f, 0.28f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_16", 7.0f, 41.0f, 3.0f, 0.12f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( PineNeedlePart( "needle_17", -3.0f, 41.0f, 7.0f, 0.34f ),
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-};
-constexpr int EDITOR_TREE_PINE_SHEDDING_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_PINE_SHEDDING_PARTS ) /
-                                                                       sizeof( EDITOR_TREE_PINE_SHEDDING_PARTS[0] ) );
-constexpr EditorTreeDefinition EDITOR_TREE_PINE_SHEDDING = { "tree_pine_shedding", EDITOR_TREE_PINE_SHEDDING_PARTS,
-                                                             EDITOR_TREE_PINE_SHEDDING_PART_COUNT, true, true };
+constexpr EditorTreePartDefinition EDITOR_TREE_PINE_SHEDDING_PARTS[] = { LargeRootPart(),
+                                                                         LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_00", -12.0f, 22.0f, -12.0f, 0.10f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_01", -4.0f, 21.5f, -16.0f, 0.18f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_02", 6.0f, 22.5f, -15.0f, 0.30f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_03", 14.0f, 23.0f, -7.0f, 0.24f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_04", 15.0f, 23.5f, 5.0f, 0.14f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_05", 8.0f, 22.0f, 14.0f, 0.34f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_06", -4.0f, 22.5f, 16.0f, 0.22f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_07", -15.0f, 23.0f, 7.0f, 0.28f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_08", -9.0f, 31.0f, -10.0f, 0.38f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_09", 1.0f, 31.5f, -12.0f, 0.26f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_10", 10.0f, 32.0f, -5.0f, 0.16f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_11", 11.0f, 32.5f, 6.0f, 0.32f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_12", 2.0f, 31.0f, 12.0f, 0.20f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_13", -10.0f, 32.0f, 4.0f, 0.36f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_14", -6.0f, 40.0f, -6.0f, 0.18f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_15", 4.0f, 40.5f, -7.0f, 0.28f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_16", 7.0f, 41.0f, 3.0f, 0.12f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+                                                                         LiftEditorTreePartY( PineNeedlePart( "needle_17", -3.0f, 41.0f, 7.0f, 0.34f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ), };
+constexpr int EDITOR_TREE_PINE_SHEDDING_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_PINE_SHEDDING_PARTS ) / sizeof( EDITOR_TREE_PINE_SHEDDING_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_PINE_SHEDDING = { "tree_pine_shedding", EDITOR_TREE_PINE_SHEDDING_PARTS, EDITOR_TREE_PINE_SHEDDING_PART_COUNT, true, true };
 
 
-constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
-    EditorHousePartDefinition { .suffix = "foundation",
+constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = { EditorHousePartDefinition { .suffix = "foundation",
                                 .offsetX = 0.0f,
                                 .offsetY = 0.38f,
                                 .offsetZ = 0.0f,
@@ -1112,7 +1020,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.98f,
                                 .specular = 0.07f,
                                 .stylization = 0.58f },
-    EditorHousePartDefinition { .suffix = "upper_floor",
+                                                                   EditorHousePartDefinition { .suffix = "upper_floor",
                                 .offsetX = 0.0f,
                                 .offsetY = 7.52f,
                                 .offsetZ = 0.0f,
@@ -1128,7 +1036,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.90f,
                                 .specular = 0.08f,
                                 .stylization = 0.40f },
-    EditorHousePartDefinition { .suffix = "roof",
+                                                                   EditorHousePartDefinition { .suffix = "roof",
                                 .offsetX = 0.0f,
                                 .offsetY = 14.75f,
                                 .offsetZ = 0.0f,
@@ -1144,7 +1052,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.94f,
                                 .specular = 0.10f,
                                 .stylization = 0.62f },
-    EditorHousePartDefinition { .suffix = "front_lower_left",
+                                                                   EditorHousePartDefinition { .suffix = "front_lower_left",
                                 .offsetX = -14.8f,
                                 .offsetY = 3.92f,
                                 .offsetZ = -15.45f,
@@ -1160,7 +1068,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.72f },
-    EditorHousePartDefinition { .suffix = "front_lower_right",
+                                                                   EditorHousePartDefinition { .suffix = "front_lower_right",
                                 .offsetX = 14.8f,
                                 .offsetY = 3.92f,
                                 .offsetZ = -15.45f,
@@ -1176,7 +1084,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.72f },
-    EditorHousePartDefinition { .suffix = "front_door_lintel",
+                                                                   EditorHousePartDefinition { .suffix = "front_door_lintel",
                                 .offsetX = 0.0f,
                                 .offsetY = 6.37f,
                                 .offsetZ = -15.45f,
@@ -1192,7 +1100,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.72f },
-    EditorHousePartDefinition { .suffix = "front_upper_left",
+                                                                   EditorHousePartDefinition { .suffix = "front_upper_left",
                                 .offsetX = -15.0f,
                                 .offsetY = 11.12f,
                                 .offsetZ = -15.45f,
@@ -1208,7 +1116,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.72f },
-    EditorHousePartDefinition { .suffix = "front_upper_center",
+                                                                   EditorHousePartDefinition { .suffix = "front_upper_center",
                                 .offsetX = 0.0f,
                                 .offsetY = 11.12f,
                                 .offsetZ = -15.45f,
@@ -1224,7 +1132,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.72f },
-    EditorHousePartDefinition { .suffix = "front_upper_right",
+                                                                   EditorHousePartDefinition { .suffix = "front_upper_right",
                                 .offsetX = 15.0f,
                                 .offsetY = 11.12f,
                                 .offsetZ = -15.45f,
@@ -1240,7 +1148,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.72f },
-    EditorHousePartDefinition { .suffix = "back_lower_left",
+                                                                   EditorHousePartDefinition { .suffix = "back_lower_left",
                                 .offsetX = -14.8f,
                                 .offsetY = 3.92f,
                                 .offsetZ = 15.45f,
@@ -1256,7 +1164,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.70f },
-    EditorHousePartDefinition { .suffix = "back_lower_center",
+                                                                   EditorHousePartDefinition { .suffix = "back_lower_center",
                                 .offsetX = 0.0f,
                                 .offsetY = 3.92f,
                                 .offsetZ = 15.45f,
@@ -1272,7 +1180,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.70f },
-    EditorHousePartDefinition { .suffix = "back_lower_right",
+                                                                   EditorHousePartDefinition { .suffix = "back_lower_right",
                                 .offsetX = 14.8f,
                                 .offsetY = 3.92f,
                                 .offsetZ = 15.45f,
@@ -1288,7 +1196,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.70f },
-    EditorHousePartDefinition { .suffix = "back_upper_left",
+                                                                   EditorHousePartDefinition { .suffix = "back_upper_left",
                                 .offsetX = -15.0f,
                                 .offsetY = 11.12f,
                                 .offsetZ = 15.45f,
@@ -1304,7 +1212,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.70f },
-    EditorHousePartDefinition { .suffix = "back_upper_center",
+                                                                   EditorHousePartDefinition { .suffix = "back_upper_center",
                                 .offsetX = 0.0f,
                                 .offsetY = 11.12f,
                                 .offsetZ = 15.45f,
@@ -1320,7 +1228,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.70f },
-    EditorHousePartDefinition { .suffix = "back_upper_right",
+                                                                   EditorHousePartDefinition { .suffix = "back_upper_right",
                                 .offsetX = 15.0f,
                                 .offsetY = 11.12f,
                                 .offsetZ = 15.45f,
@@ -1336,7 +1244,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.70f },
-    EditorHousePartDefinition { .suffix = "west_lower_front",
+                                                                   EditorHousePartDefinition { .suffix = "west_lower_front",
                                 .offsetX = -22.45f,
                                 .offsetY = 3.92f,
                                 .offsetZ = -10.0f,
@@ -1352,7 +1260,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.70f },
-    EditorHousePartDefinition { .suffix = "west_lower_back",
+                                                                   EditorHousePartDefinition { .suffix = "west_lower_back",
                                 .offsetX = -22.45f,
                                 .offsetY = 3.92f,
                                 .offsetZ = 10.0f,
@@ -1368,7 +1276,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.70f },
-    EditorHousePartDefinition { .suffix = "east_lower_front",
+                                                                   EditorHousePartDefinition { .suffix = "east_lower_front",
                                 .offsetX = 22.45f,
                                 .offsetY = 3.92f,
                                 .offsetZ = -10.0f,
@@ -1384,7 +1292,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.70f },
-    EditorHousePartDefinition { .suffix = "east_lower_back",
+                                                                   EditorHousePartDefinition { .suffix = "east_lower_back",
                                 .offsetX = 22.45f,
                                 .offsetY = 3.92f,
                                 .offsetZ = 10.0f,
@@ -1400,7 +1308,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.70f },
-    EditorHousePartDefinition { .suffix = "west_upper_front",
+                                                                   EditorHousePartDefinition { .suffix = "west_upper_front",
                                 .offsetX = -22.45f,
                                 .offsetY = 11.12f,
                                 .offsetZ = -10.0f,
@@ -1416,7 +1324,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.70f },
-    EditorHousePartDefinition { .suffix = "west_upper_back",
+                                                                   EditorHousePartDefinition { .suffix = "west_upper_back",
                                 .offsetX = -22.45f,
                                 .offsetY = 11.12f,
                                 .offsetZ = 10.0f,
@@ -1432,7 +1340,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.70f },
-    EditorHousePartDefinition { .suffix = "east_upper_front",
+                                                                   EditorHousePartDefinition { .suffix = "east_upper_front",
                                 .offsetX = 22.45f,
                                 .offsetY = 11.12f,
                                 .offsetZ = -10.0f,
@@ -1448,7 +1356,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.70f },
-    EditorHousePartDefinition { .suffix = "east_upper_back",
+                                                                   EditorHousePartDefinition { .suffix = "east_upper_back",
                                 .offsetX = 22.45f,
                                 .offsetY = 11.12f,
                                 .offsetZ = 10.0f,
@@ -1464,7 +1372,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
                                 .stylization = 0.70f },
-    EditorHousePartDefinition { .suffix = "door",
+                                                                   EditorHousePartDefinition { .suffix = "door",
                                 .offsetX = 0.0f,
                                 .offsetY = 3.17f,
                                 .offsetZ = -16.04f,
@@ -1480,7 +1388,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.86f,
                                 .specular = 0.10f,
                                 .stylization = 0.38f },
-    EditorHousePartDefinition { .suffix = "front_window_left",
+                                                                   EditorHousePartDefinition { .suffix = "front_window_left",
                                 .offsetX = -6.8f,
                                 .offsetY = 11.10f,
                                 .offsetZ = -16.05f,
@@ -1496,7 +1404,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.08f,
                                 .specular = 0.88f,
                                 .stylization = 0.18f },
-    EditorHousePartDefinition { .suffix = "front_window_right",
+                                                                   EditorHousePartDefinition { .suffix = "front_window_right",
                                 .offsetX = 6.8f,
                                 .offsetY = 11.10f,
                                 .offsetZ = -16.05f,
@@ -1512,7 +1420,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.08f,
                                 .specular = 0.88f,
                                 .stylization = 0.18f },
-    EditorHousePartDefinition { .suffix = "back_window_left",
+                                                                   EditorHousePartDefinition { .suffix = "back_window_left",
                                 .offsetX = -6.8f,
                                 .offsetY = 11.10f,
                                 .offsetZ = 16.05f,
@@ -1528,7 +1436,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.08f,
                                 .specular = 0.88f,
                                 .stylization = 0.18f },
-    EditorHousePartDefinition { .suffix = "back_window_right",
+                                                                   EditorHousePartDefinition { .suffix = "back_window_right",
                                 .offsetX = 6.8f,
                                 .offsetY = 11.10f,
                                 .offsetZ = 16.05f,
@@ -1544,7 +1452,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.08f,
                                 .specular = 0.88f,
                                 .stylization = 0.18f },
-    EditorHousePartDefinition { .suffix = "west_window",
+                                                                   EditorHousePartDefinition { .suffix = "west_window",
                                 .offsetX = -23.05f,
                                 .offsetY = 3.92f,
                                 .offsetZ = 0.0f,
@@ -1560,7 +1468,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.08f,
                                 .specular = 0.88f,
                                 .stylization = 0.18f },
-    EditorHousePartDefinition { .suffix = "east_window",
+                                                                   EditorHousePartDefinition { .suffix = "east_window",
                                 .offsetX = 23.05f,
                                 .offsetY = 3.92f,
                                 .offsetZ = 0.0f,
@@ -1576,7 +1484,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.08f,
                                 .specular = 0.88f,
                                 .stylization = 0.18f },
-    EditorHousePartDefinition { .suffix = "porch",
+                                                                   EditorHousePartDefinition { .suffix = "porch",
                                 .offsetX = 0.0f,
                                 .offsetY = 0.28f,
                                 .offsetZ = -20.2f,
@@ -1592,7 +1500,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.97f,
                                 .specular = 0.07f,
                                 .stylization = 0.58f },
-    EditorHousePartDefinition { .suffix = "porch_post_left",
+                                                                   EditorHousePartDefinition { .suffix = "porch_post_left",
                                 .offsetX = -5.2f,
                                 .offsetY = 2.98f,
                                 .offsetZ = -20.2f,
@@ -1608,7 +1516,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.88f,
                                 .specular = 0.08f,
                                 .stylization = 0.42f },
-    EditorHousePartDefinition { .suffix = "porch_post_right",
+                                                                   EditorHousePartDefinition { .suffix = "porch_post_right",
                                 .offsetX = 5.2f,
                                 .offsetY = 2.98f,
                                 .offsetZ = -20.2f,
@@ -1624,7 +1532,7 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .roughness = 0.88f,
                                 .specular = 0.08f,
                                 .stylization = 0.42f },
-    EditorHousePartDefinition { .suffix = "chimney",
+                                                                   EditorHousePartDefinition { .suffix = "chimney",
                                 .offsetX = 13.0f,
                                 .offsetY = 16.55f,
                                 .offsetZ = 7.6f,
@@ -1639,12 +1547,9 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
                                 .colorB = 0.14f,
                                 .roughness = 0.96f,
                                 .specular = 0.07f,
-                                .stylization = 0.70f },
-};
-constexpr int EDITOR_BRICK_HOUSE_PART_COUNT = static_cast<int>( sizeof( EDITOR_BRICK_HOUSE_PARTS ) /
-                                                                sizeof( EDITOR_BRICK_HOUSE_PARTS[0] ) );
-constexpr EditorHouseDefinition EDITOR_BRICK_HOUSE_SLEEP = { "brick_house", EDITOR_BRICK_HOUSE_PARTS,
-                                                             EDITOR_BRICK_HOUSE_PART_COUNT, true };
+                                .stylization = 0.70f }, };
+constexpr int EDITOR_BRICK_HOUSE_PART_COUNT = static_cast<int>( sizeof( EDITOR_BRICK_HOUSE_PARTS ) / sizeof( EDITOR_BRICK_HOUSE_PARTS[0] ) );
+constexpr EditorHouseDefinition EDITOR_BRICK_HOUSE_SLEEP = { "brick_house", EDITOR_BRICK_HOUSE_PARTS, EDITOR_BRICK_HOUSE_PART_COUNT, true };
 
 
 const EditorTreeDefinition* EditorTreeDefinitionForType( int objectType )
@@ -1706,8 +1611,7 @@ bool EditorObjectAlignsToTerrainNormal( int objectType, bool autoTerrainAlign )
         return tree->alignToTerrainNormal;
     }
 
-    return type == SkullbonezCore::UI::EditorTab::OBJECT_ROOT_SMALL ||
-           type == SkullbonezCore::UI::EditorTab::OBJECT_ROOT_LARGE;
+    return type == SkullbonezCore::UI::EditorTab::OBJECT_ROOT_SMALL || type == SkullbonezCore::UI::EditorTab::OBJECT_ROOT_LARGE;
 }
 
 
@@ -1735,8 +1639,7 @@ Quaternion EditorPlacementOrientation( int objectType, Vector3 terrainNormal, bo
 }
 
 
-const ConvexHullShape* CachedEditorHullForAsset( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                 EditorHullAsset asset )
+const ConvexHullShape* CachedEditorHullForAsset( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, EditorHullAsset asset )
 {
     const char* path = EditorHullAssetPath( asset );
 
@@ -1762,8 +1665,7 @@ const ConvexHullShape* CachedEditorHullForAsset( SkullbonezCore::Core::SbDiagnos
 
             if ( !hullLoad.Ok() )
             {
-                fprintf( stderr, "[editor] Cannot cache hull asset %s: %s\n", EditorHullAssetToken( asset ),
-                         hullLoad.ErrorMessage() );
+                fprintf( stderr, "[editor] Cannot cache hull asset %s: %s\n", EditorHullAssetToken( asset ), hullLoad.ErrorMessage() );
 
                 return nullptr;
             }
@@ -1786,8 +1688,7 @@ const ConvexHullShape* CachedEditorHullForType( SkullbonezCore::Core::SbDiagnost
 }
 
 
-bool TryComputeEditorTreeVerticalBounds( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                         const EditorTreeDefinition& tree, float& outMinY, float& outMaxY )
+bool TryComputeEditorTreeVerticalBounds( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const EditorTreeDefinition& tree, float& outMinY, float& outMaxY )
 {
     outMinY = FLT_MAX;
     outMaxY = -FLT_MAX;
@@ -1815,8 +1716,11 @@ bool TryComputeEditorTreeVerticalBounds( SkullbonezCore::Core::SbDiagnosticStore
 }
 
 
-bool TryComputeEditorTreeWorldBounds( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const EditorTreeDefinition& tree,
-                                      const Vector3& terrainPoint, const RotationMatrix& orientation, Vector3& outMin,
+bool TryComputeEditorTreeWorldBounds( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                      const EditorTreeDefinition& tree,
+                                      const Vector3& terrainPoint,
+                                      const RotationMatrix& orientation,
+                                      Vector3& outMin,
                                       Vector3& outMax )
 {
     outMin = Vector3( FLT_MAX, FLT_MAX, FLT_MAX );
@@ -1852,8 +1756,7 @@ bool TryComputeEditorTreeWorldBounds( SkullbonezCore::Core::SbDiagnosticStore& d
 }
 
 
-void ExpandEditorHousePartWorldBounds( const EditorHousePartDefinition& part, const Vector3& terrainPoint,
-                                       const RotationMatrix& orientation, Vector3& outMin, Vector3& outMax )
+void ExpandEditorHousePartWorldBounds( const EditorHousePartDefinition& part, const Vector3& terrainPoint, const RotationMatrix& orientation, Vector3& outMin, Vector3& outMax )
 {
     const Vector3 base = terrainPoint + orientation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
     const Vector3 center = base + orientation * Vector3( part.offsetX, part.offsetY, part.offsetZ );
@@ -1865,9 +1768,7 @@ void ExpandEditorHousePartWorldBounds( const EditorHousePartDefinition& part, co
         {
             for ( int z = -1; z <= 1; z += 2 )
             {
-                const Vector3 corner = center + orientation * Vector3( halfExtents.x * static_cast<float>( x ),
-                                                                       halfExtents.y * static_cast<float>( y ),
-                                                                       halfExtents.z * static_cast<float>( z ) );
+                const Vector3 corner = center + orientation * Vector3( halfExtents.x * static_cast<float>( x ), halfExtents.y * static_cast<float>( y ), halfExtents.z * static_cast<float>( z ) );
 
                 outMin.x = (std::min)( outMin.x, corner.x );
                 outMin.y = (std::min)( outMin.y, corner.y );
@@ -1921,9 +1822,7 @@ float EditorHouseVerticalSize( int objectType )
 
 SkullbonezCore::Rendering::RenderMaterial EditorTreePartMaterial( const EditorTreePartDefinition& part )
 {
-    SkullbonezCore::Rendering::RenderMaterial
-        material = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( part.colorR, part.colorG, part.colorB,
-                                                                                static_cast<float>( part.materialKind ) );
+    SkullbonezCore::Rendering::RenderMaterial material = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( part.colorR, part.colorG, part.colorB, static_cast<float>( part.materialKind ) );
 
     strncpy_s( material.name, sizeof( material.name ), part.materialName, _TRUNCATE );
     material.roughness = part.roughness;
@@ -1935,9 +1834,7 @@ SkullbonezCore::Rendering::RenderMaterial EditorTreePartMaterial( const EditorTr
 
 SkullbonezCore::Rendering::RenderMaterial EditorHousePartMaterial( const EditorHousePartDefinition& part )
 {
-    SkullbonezCore::Rendering::RenderMaterial
-        material = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( part.colorR, part.colorG, part.colorB,
-                                                                                static_cast<float>( part.materialKind ) );
+    SkullbonezCore::Rendering::RenderMaterial material = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( part.colorR, part.colorG, part.colorB, static_cast<float>( part.materialKind ) );
 
     strncpy_s( material.name, sizeof( material.name ), part.materialName, _TRUNCATE );
     material.roughness = part.roughness;
@@ -1994,9 +1891,7 @@ bool TryEditorRockMaterial( EditorHullAsset asset, SkullbonezCore::Rendering::Re
         return false;
     }
 
-    outMaterial = SkullbonezCore::Rendering::
-        MakeRenderMaterialFromLegacyTint( r, g, b,
-                                          static_cast<float>( SkullbonezCore::Rendering::RenderMaterialKind::Stone ) );
+    outMaterial = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( r, g, b, static_cast<float>( SkullbonezCore::Rendering::RenderMaterialKind::Stone ) );
 
     strncpy_s( outMaterial.name, sizeof( outMaterial.name ), name, _TRUNCATE );
     outMaterial.roughness = roughness;
@@ -2020,9 +1915,7 @@ bool TryEditorRootMaterial( EditorHullAsset asset, SkullbonezCore::Rendering::Re
     const float r = smallRoot ? 0.24f : 0.23f;
     const float g = smallRoot ? 0.12f : 0.115f;
     const float b = smallRoot ? 0.055f : 0.052f;
-    outMaterial = SkullbonezCore::Rendering::
-        MakeRenderMaterialFromLegacyTint( r, g, b,
-                                          static_cast<float>( SkullbonezCore::Rendering::RenderMaterialKind::Bark ) );
+    outMaterial = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( r, g, b, static_cast<float>( SkullbonezCore::Rendering::RenderMaterialKind::Bark ) );
 
     strncpy_s( outMaterial.name, sizeof( outMaterial.name ), name, _TRUNCATE );
     outMaterial.roughness = 0.96f;
@@ -2031,8 +1924,7 @@ bool TryEditorRootMaterial( EditorHullAsset asset, SkullbonezCore::Rendering::Re
     return true;
 }
 
-bool TryBuildScaledEditorHullForType( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int objectType,
-                                      const Vector3& placementScale, ConvexHullShape& outHull )
+bool TryBuildScaledEditorHullForType( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int objectType, const Vector3& placementScale, ConvexHullShape& outHull )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const ConvexHullShape* baseHull = CachedEditorHullForType( diagnostics, type );

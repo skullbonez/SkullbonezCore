@@ -43,6 +43,16 @@ UIRect MinimizedRect( int screenW, int screenH, float requestedW )
 }
 
 
+UIRect ClampFloatingRect( const UIRect& bounds, const UIRect& viewport, float minimumWidth, float minimumHeight )
+{
+    // Small viewports take precedence over preferred minimum window dimensions.
+    const float width = (std::max)( 0.0f, viewport.w );
+    const float height = (std::max)( 0.0f, viewport.h );
+    const float w = std::clamp( bounds.w, (std::min)( minimumWidth, width ), width );
+    const float h = std::clamp( bounds.h, (std::min)( minimumHeight, height ), height );
+    return { std::clamp( bounds.x, viewport.x, viewport.x + width - w ), std::clamp( bounds.y, viewport.y, viewport.y + height - h ), w, h };
+}
+
 float SmoothStep( float t )
 {
     t = std::clamp( t, 0.0f, 1.0f );
@@ -53,8 +63,7 @@ float SmoothStep( float t )
 UIRect LerpRect( const UIRect& from, const UIRect& to, float t )
 {
     const float e = SmoothStep( t );
-    return { from.x + ( to.x - from.x ) * e, from.y + ( to.y - from.y ) * e, from.w + ( to.w - from.w ) * e,
-             from.h + ( to.h - from.h ) * e };
+    return { from.x + ( to.x - from.x ) * e, from.y + ( to.y - from.y ) * e, from.w + ( to.w - from.w ) * e, from.h + ( to.h - from.h ) * e };
 }
 
 } // namespace Layout

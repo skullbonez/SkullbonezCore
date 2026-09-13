@@ -1,0 +1,13 @@
+{
+  "command": [
+    "C:\\Users\\sesch\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+    "tools/check_physics_baseline_guard.py",
+    "--repo",
+    ".",
+    "--staged"
+  ],
+  "exitCode": 0,
+  "stagedFilesInPrivateIndex": 141,
+  "realIndexUnmodified": true,
+  "scope": "Private index before final plan acceptance edits; 141 files include exact retained binaries. Real staging area remains unchanged."
+}

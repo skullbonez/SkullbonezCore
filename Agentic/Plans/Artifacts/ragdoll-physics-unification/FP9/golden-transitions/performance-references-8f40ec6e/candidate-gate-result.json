@@ -1,0 +1,6 @@
+{
+  "command": "tools\\validate_perf.bat",
+  "exitCode": 7,
+  "elapsedSeconds": 95.97443990000465,
+  "uiLayout": "C:\\SkullbonezCore\\TestOutput\\fp9-perf05-ui.preferences"
+}

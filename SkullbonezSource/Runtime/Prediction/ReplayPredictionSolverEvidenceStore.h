@@ -103,10 +103,8 @@ class ReplayPredictionSolverEvidenceStore
     std::size_t PublishedFrameCount() const noexcept;
 
     const ReplayPredictionSolverEvidenceFrame* PublishedFrame( std::size_t index ) const noexcept;
-    const ReplayPredictionSolverEvidenceFrame*
-    FindPublishedFrame( const ReplayPredictionEvidenceIdentity& identity ) const noexcept;
-    const Physics::PhysicsSolverPersistentContactSample* Contact( ReplayPredictionEvidenceRange range,
-                                                                  std::size_t offset ) const noexcept;
+    const ReplayPredictionSolverEvidenceFrame* FindPublishedFrame( const ReplayPredictionEvidenceIdentity& identity ) const noexcept;
+    const Physics::PhysicsSolverPersistentContactSample* Contact( ReplayPredictionEvidenceRange range, std::size_t offset ) const noexcept;
     const Physics::PhysicsPipelineRecord* Pipeline( ReplayPredictionEvidenceRange range, std::size_t offset ) const noexcept;
     ReplayPredictionSolverEvidenceStoreMemoryStats CollectMemoryStats() const noexcept;
 
@@ -122,11 +120,8 @@ class ReplayPredictionSolverEvidenceStore
     struct PipelineSegment;
 
     void BeginBank( uint32_t generation, ReplayPredictionDetailMode mode, uint64_t bankEpoch ) noexcept;
-    bool Reserve( std::size_t requiredFrameCount, std::size_t requiredContactCount, std::size_t requiredPipelineCount,
-                  int frameNumber );
-    ReplayPredictionEvidenceAppendResult AppendFrame( const ReplayPredictionEvidenceIdentity& identity,
-                                                      ReplayPredictionContactSpan contacts,
-                                                      ReplayPredictionPipelineSpan pipeline, int frameNumber );
+    bool Reserve( std::size_t requiredFrameCount, std::size_t requiredContactCount, std::size_t requiredPipelineCount, int frameNumber );
+    ReplayPredictionEvidenceAppendResult AppendFrame( const ReplayPredictionEvidenceIdentity& identity, ReplayPredictionContactSpan contacts, ReplayPredictionPipelineSpan pipeline, int frameNumber );
     void ResetPreservingCapacity() noexcept;
     void ReleaseCapacity() noexcept;
 
@@ -189,17 +184,20 @@ class ReplayPredictionSolverEvidenceBanks
 {
   public:
     uint64_t BeginBuild( uint32_t generation, ReplayPredictionDetailMode mode ) noexcept;
-    bool ReserveBuild( std::size_t requiredFrameCount, std::size_t requiredContactCount, std::size_t requiredPipelineCount,
-                       int frameNumber );
-    bool AppendBuildFrame( ReplayFrameIndex frame, uint32_t topologyVersion, uint64_t publicationVersion,
-                           ReplayPredictionContactSpan contacts, ReplayPredictionPipelineSpan pipeline, int frameNumber );
-    ReplayPredictionEvidenceAppendResult AppendBuildFrameResult( ReplayFrameIndex frame, uint32_t topologyVersion,
+    bool ReserveBuild( std::size_t requiredFrameCount, std::size_t requiredContactCount, std::size_t requiredPipelineCount, int frameNumber );
+    bool
+    AppendBuildFrame( ReplayFrameIndex frame, uint32_t topologyVersion, uint64_t publicationVersion, ReplayPredictionContactSpan contacts, ReplayPredictionPipelineSpan pipeline, int frameNumber );
+    ReplayPredictionEvidenceAppendResult AppendBuildFrameResult( ReplayFrameIndex frame,
+                                                                 uint32_t topologyVersion,
                                                                  uint64_t publicationVersion,
                                                                  ReplayPredictionContactSpan contacts,
-                                                                 ReplayPredictionPipelineSpan pipeline, int frameNumber );
+                                                                 ReplayPredictionPipelineSpan pipeline,
+                                                                 int frameNumber );
     bool PromoteBuild() noexcept;
     bool PromoteEmptyBuild() noexcept;
     void CancelBuild() noexcept;
+    // Caller joins the build worker before releasing the non-committed bank.
+    void ReleaseBuildCapacity() noexcept;
     void ReleaseCapacity() noexcept;
 
     const ReplayPredictionSolverEvidenceStore& Build() const noexcept;

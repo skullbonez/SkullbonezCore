@@ -1,0 +1,90 @@
+{
+  "command": "tools\\validate_perf.bat",
+  "exitCode": 0,
+  "elapsedSeconds": 98.21148310000717,
+  "uiLayout": "C:\\SkullbonezCore\\TestOutput\\fp9-perf06-ui.preferences",
+  "log": "TestOutput/fp9-terminal-perf-06.log",
+  "producerSha256": "8f40ec6ea98771486fcf0a30737fd0ed2a516689c5b9429816d528e10ca894fc",
+  "artifacts": [
+    {
+      "path": "TestOutput\\fp9-perf06-results\\dx12_perf.json",
+      "bytes": 22521,
+      "sha256": "58f67c88f2c4506033bb6795323fb7981e5b08bd3ef46e9340a71eeea363d5ee"
+    },
+    {
+      "path": "TestOutput\\fp9-perf06-results\\dx12_perf_log.csv",
+      "bytes": 1678489,
+      "sha256": "78eb2ec8a17851270c59a14a4c044aa4403a92a107bfd5d889168453a416d809"
+    },
+    {
+      "path": "TestOutput\\fp9-perf06-results\\gate.log",
+      "bytes": 2366251,
+      "sha256": "b1c2c958eae89b2882881124ae338488362e520655622a2a297e5ccdd5326a99"
+    },
+    {
+      "path": "TestOutput\\fp9-perf06-results\\physics_bench_perf.json",
+      "bytes": 22088,
+      "sha256": "d89e784fa494f56c89857d5b5807d396c50d2788481efee5d8f0814f72d3ac7e"
+    },
+    {
+      "path": "TestOutput\\fp9-perf06-results\\physics_bench_perf_log.csv",
+      "bytes": 1997799,
+      "sha256": "2a70801de2076be83a9f778f52f1a4fc25653f964aa503939ad643256cf86309"
+    },
+    {
+      "path": "TestOutput\\fp9-perf06-results\\physics_scale_1000_perf.json",
+      "bytes": 22047,
+      "sha256": "f8c0279c0cd7938457713ed0dd20f98875316489ba99b61d8b9af60399b93cec"
+    },
+    {
+      "path": "TestOutput\\fp9-perf06-results\\physics_scale_1000_perf_log.csv",
+      "bytes": 978141,
+      "sha256": "41b8aaf11d89d1d5d63b8b050dc6e574eba3dc4ea1867ec32441c878be8accb4"
+    },
+    {
+      "path": "TestOutput\\fp9-perf06-results\\physics_scale_2000_perf.json",
+      "bytes": 22080,
+      "sha256": "b2b31a74571bcffaa46d94ddcb73321feb5c92122ed643aa7da056e1dac9e2f5"
+    },
+    {
+      "path": "TestOutput\\fp9-perf06-results\\physics_scale_2000_perf_log.csv",
+      "bytes": 988773,
+      "sha256": "3bf1edf9b8be2552bddda44c7c711d958bb71ae0efd6f801435d84f70f1d73fd"
+    },
+    {
+      "path": "TestOutput\\fp9-perf06-results\\physics_scale_200_perf.json",
+      "bytes": 20318,
+      "sha256": "d2f56e3323392c82d290f34b04a04395cb9b90bd45d26eb4c144ff8eda83a648"
+    },
+    {
+      "path": "TestOutput\\fp9-perf06-results\\physics_scale_200_perf_log.csv",
+      "bytes": 901179,
+      "sha256": "bd2372473b1cac17211833bab9ada49382394505ae3948e18c0cdfa57461f9a4"
+    },
+    {
+      "path": "TestOutput\\fp9-perf06-results\\physics_scale_520_perf.json",
+      "bytes": 22000,
+      "sha256": "5a609a97aa28bcc9b7f26b3eb1b2acf712bb6b42ee144c9469a70485a0342262"
+    },
+    {
+      "path": "TestOutput\\fp9-perf06-results\\physics_scale_520_perf_log.csv",
+      "bytes": 971063,
+      "sha256": "35c1428291c1a740cd00972a245e1d5f0ddbd73e04049c8bee7d64ccd9ccced1"
+    },
+    {
+      "path": "TestOutput\\fp9-perf06-results\\physics_scale_sleepy_5000_perf.json",
+      "bytes": 17123,
+      "sha256": "5ca8ee6d74c670e00d1b5a1bf9a402266d19b3fa0c6f5143d10005a3a340f910"
+    },
+    {
+      "path": "TestOutput\\fp9-perf06-results\\physics_scale_sleepy_5000_perf_log.csv",
+      "bytes": 770089,
+      "sha256": "d99a7cc9c3c6c51435e2ff10c43180ad82fa89ea784895879c70a29e9b1794aa"
+    },
+    {
+      "path": "TestOutput\\fp9-perf06-results\\ui.preferences",
+      "bytes": 131,
+      "sha256": "046629cb087ccbd5eb291e867a71b7f2ef1187e7cb3fa23555383e5432a0a815"
+    }
+  ]
+}

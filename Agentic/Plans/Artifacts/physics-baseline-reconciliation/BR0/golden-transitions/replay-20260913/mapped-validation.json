@@ -1,0 +1,30 @@
+{
+  "owner_approval": {
+    "date": "2026-09-13",
+    "text": "All baselines approved",
+    "scope": "The six exact reviewed candidates; this manifest contains its owning subset."
+  },
+  "canonical_gate": {
+    "command": "tools/validate_replay_visual_fidelity.bat",
+    "durationSeconds": 356.2803095,
+    "exitCode": 0,
+    "completedUtc": "2026-09-12T23:34:37.1766245Z"
+  },
+  "validation_source_commit": "39bd94d2602c47ac73b4b75cb0db49b3aec1e097",
+  "runtime_changed_during_reconciliation": false,
+  "other_protected_files_unchanged": 130,
+  "goldens": [
+    {
+      "path": "TestOutput/baselines/replay_visual_fidelity_200_box.json",
+      "old_sha256": "c739159cb72e3bc2410a1eeea40c0a7adb2ff2bb4c581ce33a62d9b7b93adc43",
+      "new_sha256": "bc62e53310c2ea0b241c4151f2534a4b6a0a374a1d79e33ca8141557c999c408"
+    },
+    {
+      "path": "TestOutput/baselines/replay_visual_fidelity_200_box_causal.json",
+      "old_sha256": "abf2a2ec7ce6b6e09ba388cc11ebe4040a1760170d22d71367215d68a3a0e016",
+      "new_sha256": "58c99b6dbfcadf46d4e6a1f89ba2f0b7000709bedc24d016c7fbbfac8c58d3a5"
+    }
+  ],
+  "review": "Independent read-only subagent found no correctness, assertion weakening or integrity defect. Two obsolete per-run reports were preserved locally and removed from the tree.",
+  "negative_controls": "Existing mapped gate controls remain unchanged and pass. Candidate-specific altered signature/velocity controls also rejected planted failures before approval."
+}

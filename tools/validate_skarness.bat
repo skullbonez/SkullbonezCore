@@ -23,6 +23,10 @@ echo [skarness] Player-control capability coverage...
 "%PYTHON_EXE%" "%~dp0validate_skarness_command_coverage.py" --output-root TestOutput\validation\skarness\command-coverage
 if errorlevel 1 goto fail
 
+echo [skarness] Lazy velocity comparison, frozen Original, both choices, and cleanup...
+"%PYTHON_EXE%" "%~dp0validate_velocity_divergence.py" --session TestOutput\skarness\validation\velocity-divergence
+if errorlevel 1 goto fail
+
 echo [skarness] Snapshot, delta, eviction, reset, and Physics correlation state...
 "%PYTHON_EXE%" "%~dp0validate_skarness_state_stream.py" --session TestOutput\validation\skarness\state-stream
 if errorlevel 1 goto fail

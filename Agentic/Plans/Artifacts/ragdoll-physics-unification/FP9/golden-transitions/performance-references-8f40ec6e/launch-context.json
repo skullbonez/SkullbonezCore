@@ -1,0 +1,16 @@
+{
+  "oldContentCommit": "3a4b52e94c1bf61b2f04b975a4fa2e63fe3cbf5a",
+  "oldPreparation": "git archive that commit SkullbonezData into an isolated workspace; do not use current shaders with the old executable",
+  "dllSearchPath": "prepend repository Profile to PATH for pinned third-party dependencies; no third-party binaries retained here",
+  "newContent": "current worktree; exact measured candidates and producer from exclusive performance attempt 05",
+  "uiPreferences": "fresh nonexistent SKULLBONEZ_UI_LAYOUT_FILE per independent launch; candidate full gate used fp9-perf05-ui.preferences and retained Canvas",
+  "currentInputHashes": {
+    "C:\\SkullbonezCore\\SkullbonezData\\scenes\\perf_test.scene.json": "017e0f86459faa193f574b98b4e38bded80e0743716eedd6584f4ae2f53884ed",
+    "C:\\SkullbonezCore\\SkullbonezData\\scenes\\physics_bench_varied.scene.json": "1dd5397b63224bd5f32aab3f07d5e2a70250853d8234a48b1e9a518c0e595a74"
+  },
+  "candidateGateCommands": [
+    "Profile/SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene.json",
+    "Profile/SKULLBONEZ_CORE.exe --vsync off --fixed-step --scene SkullbonezData/scenes/physics_bench_varied.scene.json"
+  ],
+  "rendererNote": "The full candidate gate omits the physics_bench renderer argument and uses default DX12. Both archived comparison launch commands specify DX12 explicitly; reference-producer-runs.json retains complete measured argv."
+}

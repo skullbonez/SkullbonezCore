@@ -54,8 +54,7 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-int HitEditorGizmoAxis( RunEditorPlacementState& editor, SceneWorld& world, const Vector3& rayOrigin,
-                        const Vector3& rayDirection )
+int HitEditorGizmoAxis( RunEditorPlacementState& editor, SceneWorld& world, const Vector3& rayOrigin, const Vector3& rayDirection )
 {
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( editor, bodyStore );
@@ -68,13 +67,24 @@ int HitEditorGizmoAxis( RunEditorPlacementState& editor, SceneWorld& world, cons
     Vector3 origin;
     float radius = 1.0f;
 
-    if ( !TryGetEditorSelectionFrame( world, editor.selectedBody, editor.selectedCollider, selectedModelIndex, origin,
-                                      radius ) )
+    if ( !TryGetEditorSelectionFrame( world, editor.selectedBody, editor.selectedCollider, selectedModelIndex, origin, radius ) )
     {
         return -1;
     }
 
-    const float length = EditorGizmoAxisLength( radius );
+    if ( editor.velocityEditEnabled )
+    {
+        const auto hot = bodyStore.HotFields();
+        if ( hot.fixed[selectedModelIndex] )
+        {
+            return -1;
+        }
+        origin = Physics::PhysicsBodyPosition( hot, selectedModelIndex ) +
+                 ( editor.velocityEditAngular ? Physics::PhysicsBodyAngularVelocity( hot, selectedModelIndex ) : Physics::PhysicsBodyLinearVelocity( hot, selectedModelIndex ) ) *
+                     ReplayVelocityVectorScale( editor.velocityEditAngular );
+        radius = hot.boundingRadius[selectedModelIndex];
+    }
+    const float length = editor.velocityEditEnabled ? ReplayVelocityHandleLength( radius ) : EditorGizmoAxisLength( radius );
     const float threshold = (std::max)( 1.25f, length * 0.06f );
     const float thresholdSq = threshold * threshold;
 
@@ -84,8 +94,7 @@ int HitEditorGizmoAxis( RunEditorPlacementState& editor, SceneWorld& world, cons
     for ( int axis = 0; axis < 3; ++axis )
     {
         const Vector3 axisVector = EditorAxisVector( axis );
-        const float distanceSq = DistanceRayToSegmentSquared( rayOrigin, rayDirection, origin,
-                                                              origin + axisVector * length );
+        const float distanceSq = DistanceRayToSegmentSquared( rayOrigin, rayDirection, origin, origin + axisVector * length );
 
         if ( distanceSq <= thresholdSq && distanceSq < bestDistanceSq )
         {
@@ -98,8 +107,7 @@ int HitEditorGizmoAxis( RunEditorPlacementState& editor, SceneWorld& world, cons
 }
 
 
-int HitEditorRotationGizmoAxis( RunEditorPlacementState& editor, SceneWorld& world, const Vector3& rayOrigin,
-                                const Vector3& rayDirection )
+int HitEditorRotationGizmoAxis( RunEditorPlacementState& editor, SceneWorld& world, const Vector3& rayOrigin, const Vector3& rayDirection )
 {
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( editor, bodyStore );
@@ -112,8 +120,7 @@ int HitEditorRotationGizmoAxis( RunEditorPlacementState& editor, SceneWorld& wor
     Vector3 origin;
     float radius = 1.0f;
 
-    if ( !TryGetEditorSelectionFrame( world, editor.selectedBody, editor.selectedCollider, selectedModelIndex, origin,
-                                      radius ) )
+    if ( !TryGetEditorSelectionFrame( world, editor.selectedBody, editor.selectedCollider, selectedModelIndex, origin, radius ) )
     {
         return -1;
     }
@@ -157,8 +164,7 @@ int HitEditorRotationGizmoAxis( RunEditorPlacementState& editor, SceneWorld& wor
 }
 
 
-bool TryEditorAxisRayParameter( RunEditorPlacementState& editor, SceneWorld& world, int axis, const Vector3& rayOrigin,
-                                const Vector3& rayDirection, float& outAxisT )
+bool TryEditorAxisRayParameter( RunEditorPlacementState& editor, SceneWorld& world, int axis, const Vector3& rayOrigin, const Vector3& rayDirection, float& outAxisT )
 {
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( editor, bodyStore );
@@ -171,8 +177,7 @@ bool TryEditorAxisRayParameter( RunEditorPlacementState& editor, SceneWorld& wor
     Vector3 axisOrigin;
     float radius = 1.0f;
 
-    if ( !TryGetEditorSelectionFrame( world, editor.selectedBody, editor.selectedCollider, selectedModelIndex, axisOrigin,
-                                      radius ) )
+    if ( !TryGetEditorSelectionFrame( world, editor.selectedBody, editor.selectedCollider, selectedModelIndex, axisOrigin, radius ) )
     {
         return false;
     }
@@ -220,8 +225,7 @@ Vector3 EditorAxisDragPlaneNormal( int axis, const Vector3& rayDirection )
 }
 
 
-bool TryEditorAxisPlaneRayParameter( int axis, const Vector3& planeOrigin, const Vector3& planeNormal,
-                                     const Vector3& rayOrigin, const Vector3& rayDirection, float& outAxisT )
+bool TryEditorAxisPlaneRayParameter( int axis, const Vector3& planeOrigin, const Vector3& planeNormal, const Vector3& rayOrigin, const Vector3& rayDirection, float& outAxisT )
 {
     if ( axis < 0 || axis > 2 )
     {
@@ -255,8 +259,7 @@ bool TryEditorAxisPlaneRayParameter( int axis, const Vector3& planeOrigin, const
 }
 
 
-bool TryEditorRotationRayAngle( RunEditorPlacementState& editor, SceneWorld& world, int axis, const Vector3& rayOrigin,
-                                const Vector3& rayDirection, float& outAngle )
+bool TryEditorRotationRayAngle( RunEditorPlacementState& editor, SceneWorld& world, int axis, const Vector3& rayOrigin, const Vector3& rayDirection, float& outAngle )
 {
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( editor, bodyStore );
@@ -269,8 +272,7 @@ bool TryEditorRotationRayAngle( RunEditorPlacementState& editor, SceneWorld& wor
     Vector3 origin;
     float radius = 1.0f;
 
-    if ( !TryGetEditorSelectionFrame( world, editor.selectedBody, editor.selectedCollider, selectedModelIndex, origin,
-                                      radius ) )
+    if ( !TryGetEditorSelectionFrame( world, editor.selectedBody, editor.selectedCollider, selectedModelIndex, origin, radius ) )
     {
         return false;
     }
@@ -308,22 +310,18 @@ bool TryEditorRotationRayAngle( RunEditorPlacementState& editor, SceneWorld& wor
 }
 
 
-void MoveSelectedEditorObjectAlongAxis( RunEditorPlacementState& editor, SceneWorld& world,
-                                        RuntimeInteractionController& interaction, const Vector3& rayOrigin,
-                                        const Vector3& rayDirection )
+void MoveSelectedEditorObjectAlongAxis( RunEditorPlacementState& editor, SceneWorld& world, RuntimeInteractionController& interaction, const Vector3& rayOrigin, const Vector3& rayDirection )
 {
     const RuntimeInteractionGesture& gesture = interaction.Gesture();
 
-    if ( gesture.kind != RuntimeInteractionGestureKind::GizmoDrag || gesture.gizmoKind != RuntimeGizmoDragKind::Translate ||
-         gesture.axis < 0 )
+    if ( gesture.kind != RuntimeInteractionGestureKind::GizmoDrag || gesture.gizmoKind != RuntimeGizmoDragKind::Translate || gesture.axis < 0 )
     {
         return;
     }
 
     float axisT = 0.0f;
 
-    if ( !TryEditorAxisPlaneRayParameter( gesture.axis, editor.gizmoDragStartPosition, editor.gizmoDragPlaneNormal,
-                                          rayOrigin, rayDirection, axisT ) )
+    if ( !TryEditorAxisPlaneRayParameter( gesture.axis, editor.gizmoDragStartPosition, editor.gizmoDragPlaneNormal, rayOrigin, rayDirection, axisT ) )
     {
         return;
     }
@@ -339,6 +337,28 @@ void MoveSelectedEditorObjectAlongAxis( RunEditorPlacementState& editor, SceneWo
 
     const Vector3 axisVector = EditorAxisVector( gesture.axis );
     const Vector3 delta = axisVector * ( axisT - editor.gizmoDragStartAxisT );
+    if ( editor.velocityEditEnabled )
+    {
+        const auto hot = bodyStore.HotFields();
+        if ( hot.fixed[index] )
+        {
+            return;
+        }
+        PhysicsBodyUpdateDesc edit;
+        edit.body = editor.selectedBody;
+        edit.updateMask = Physics::PHYSICS_BODY_UPDATE_VELOCITY | Physics::PHYSICS_BODY_UPDATE_SLEEP_STATE;
+        edit.linearVelocity = editor.velocityDragStartLinear;
+        edit.angularVelocity = editor.velocityDragStartAngular;
+        Vector3& velocity = editor.velocityEditAngular ? edit.angularVelocity : edit.linearVelocity;
+        velocity += delta / ReplayVelocityVectorScale( editor.velocityEditAngular );
+        if ( VectorMagSquared( edit.linearVelocity - Physics::PhysicsBodyLinearVelocity( hot, index ) ) <= 1.0e-10f &&
+             VectorMagSquared( edit.angularVelocity - Physics::PhysicsBodyAngularVelocity( hot, index ) ) <= 1.0e-10f )
+        {
+            return;
+        }
+        (void)world.Physics().UpdateAuthoredBody( edit );
+        return;
+    }
     const int groupCount = ValidCapturedEditorGizmoGroupCount( editor, world.SceneEntityCount() );
 
     if ( groupCount > 0 )
@@ -367,14 +387,11 @@ void MoveSelectedEditorObjectAlongAxis( RunEditorPlacementState& editor, SceneWo
 }
 
 
-void ScaleSelectedEditorObjectAlongAxis( RunEditorPlacementState& editor, SceneWorld& world,
-                                         RuntimeInteractionController& interaction, const Vector3& rayOrigin,
-                                         const Vector3& rayDirection )
+void ScaleSelectedEditorObjectAlongAxis( RunEditorPlacementState& editor, SceneWorld& world, RuntimeInteractionController& interaction, const Vector3& rayOrigin, const Vector3& rayDirection )
 {
     const RuntimeInteractionGesture& gesture = interaction.Gesture();
 
-    if ( gesture.kind != RuntimeInteractionGestureKind::GizmoDrag || gesture.gizmoKind != RuntimeGizmoDragKind::Scale ||
-         gesture.axis < 0 )
+    if ( gesture.kind != RuntimeInteractionGestureKind::GizmoDrag || gesture.gizmoKind != RuntimeGizmoDragKind::Scale || gesture.axis < 0 )
     {
         return;
     }
@@ -406,8 +423,7 @@ void ScaleSelectedEditorObjectAlongAxis( RunEditorPlacementState& editor, SceneW
     const PhysicsBodyRecord* selectedBody = nullptr;
     const ColliderRecord* selectedCollider = nullptr;
 
-    if ( !TryResolveEditorBodyCollider( bodyStore, colliderStore, editor.selectedBody, editor.selectedCollider, index,
-                                        selectedBody, selectedCollider ) )
+    if ( !TryResolveEditorBodyCollider( bodyStore, colliderStore, editor.selectedBody, editor.selectedCollider, index, selectedBody, selectedCollider ) )
     {
         return;
     }
@@ -417,21 +433,16 @@ void ScaleSelectedEditorObjectAlongAxis( RunEditorPlacementState& editor, SceneW
     if ( ScaleShapeAxisFromBase( editor.gizmoDragStartShape, gesture.axis, factor, scaledShape ) )
     {
         PhysicsBodyUpdateDesc edit;
-        ResetEditorModelMotionAndWake( world, index, edit,
-                                       MakeColliderCreateDesc( std::move( scaledShape ), selectedCollider->restitution,
-                                                               selectedCollider->contactMaterialId ) );
+        ResetEditorModelMotionAndWake( world, index, edit, MakeColliderCreateDesc( std::move( scaledShape ), selectedCollider->restitution, selectedCollider->contactMaterialId ) );
     }
 }
 
 
-void RotateSelectedEditorObjectAroundAxis( RunEditorPlacementState& editor, SceneWorld& world,
-                                           RuntimeInteractionController& interaction, const Vector3& rayOrigin,
-                                           const Vector3& rayDirection )
+void RotateSelectedEditorObjectAroundAxis( RunEditorPlacementState& editor, SceneWorld& world, RuntimeInteractionController& interaction, const Vector3& rayOrigin, const Vector3& rayDirection )
 {
     const RuntimeInteractionGesture& gesture = interaction.Gesture();
 
-    if ( gesture.kind != RuntimeInteractionGestureKind::GizmoDrag || gesture.gizmoKind != RuntimeGizmoDragKind::Rotate ||
-         gesture.axis < 0 )
+    if ( gesture.kind != RuntimeInteractionGestureKind::GizmoDrag || gesture.gizmoKind != RuntimeGizmoDragKind::Rotate || gesture.axis < 0 )
     {
         return;
     }
@@ -463,8 +474,7 @@ void RotateSelectedEditorObjectAroundAxis( RunEditorPlacementState& editor, Scen
         for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
         {
             const int modelIndex = editor.gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )];
-            const Vector3 startOffset = editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] -
-                                        editor.gizmoDragStartPosition;
+            const Vector3 startOffset = editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] - editor.gizmoDragStartPosition;
 
             Quaternion orientation = editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )];
 
@@ -490,10 +500,9 @@ void RotateSelectedEditorObjectAroundAxis( RunEditorPlacementState& editor, Scen
 }
 
 
-void UpdateEditorGizmoHotAxes( RunEditorPlacementState& editor, SceneWorld& world, const Vector3& rayOrigin,
-                               const Vector3& rayDirection, bool scaleMode )
+void UpdateEditorGizmoHotAxes( RunEditorPlacementState& editor, SceneWorld& world, const Vector3& rayOrigin, const Vector3& rayDirection, bool scaleMode )
 {
-    if ( scaleMode )
+    if ( scaleMode || editor.velocityEditEnabled )
     {
         editor.hotGizmoAxis = HitEditorGizmoAxis( editor, world, rayOrigin, rayDirection );
         return;

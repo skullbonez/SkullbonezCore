@@ -151,8 +151,7 @@ uint64_t AllocationOwnershipCookie( const AllocationHeader& header, const void* 
     cookie = MixOwnershipCookieValue( cookie, static_cast<uint64_t>( reinterpret_cast<uintptr_t>( header.raw ) ) );
     cookie = MixOwnershipCookieValue( cookie, header.size );
     cookie = MixOwnershipCookieValue( cookie, static_cast<uint64_t>( header.phase ) << 32u | header.flags );
-    cookie = MixOwnershipCookieValue( cookie, static_cast<uint64_t>( header.owner ) << 48u |
-                                                  static_cast<uint64_t>( header.reserved ) << 32u | header.magic );
+    cookie = MixOwnershipCookieValue( cookie, static_cast<uint64_t>( header.owner ) << 48u | static_cast<uint64_t>( header.reserved ) << 32u | header.magic );
     cookie = MixOwnershipCookieValue( cookie, header.trackerAccountingGeneration );
     cookie = MixOwnershipCookieValue( cookie, header.ownerAccountingGeneration );
 
@@ -223,8 +222,7 @@ void UpdateHighWater( std::atomic<uint64_t>& highWater, uint64_t value ) noexcep
 {
     uint64_t observed = highWater.load( std::memory_order_relaxed );
 
-    while ( observed < value &&
-            !highWater.compare_exchange_weak( observed, value, std::memory_order_relaxed, std::memory_order_relaxed ) )
+    while ( observed < value && !highWater.compare_exchange_weak( observed, value, std::memory_order_relaxed, std::memory_order_relaxed ) )
     {
     }
 }
@@ -260,8 +258,7 @@ RuntimeAllocationGuardMode CurrentMode() noexcept
 {
     const int mode = s_guardMode.load( std::memory_order_relaxed );
 
-    if ( mode < static_cast<int>( RuntimeAllocationGuardMode::Off ) ||
-         mode > static_cast<int>( RuntimeAllocationGuardMode::Gameplay ) )
+    if ( mode < static_cast<int>( RuntimeAllocationGuardMode::Off ) || mode > static_cast<int>( RuntimeAllocationGuardMode::Gameplay ) )
     {
         return RuntimeAllocationGuardMode::Off;
     }
@@ -269,8 +266,7 @@ RuntimeAllocationGuardMode CurrentMode() noexcept
     return static_cast<RuntimeAllocationGuardMode>( mode );
 }
 
-void RecordCallsite( RuntimeAllocationPhase phase, RuntimeReserveOwnerHandle owner, uintptr_t callsite, uintptr_t parent,
-                     bool violation, uint64_t size ) noexcept
+void RecordCallsite( RuntimeAllocationPhase phase, RuntimeReserveOwnerHandle owner, uintptr_t callsite, uintptr_t parent, bool violation, uint64_t size ) noexcept
 {
     if ( callsite == 0u )
     {
@@ -285,8 +281,7 @@ void RecordCallsite( RuntimeAllocationPhase phase, RuntimeReserveOwnerHandle own
         CallsiteCounters& counters = s_callsiteCounters[( start + probe ) % MAX_ALLOCATION_CALLSITES];
         uintptr_t observed = counters.address.load( std::memory_order_acquire );
 
-        if ( observed == callsite && counters.parentAddress.load( std::memory_order_relaxed ) == parent &&
-             counters.phaseIndex.load( std::memory_order_relaxed ) == phaseIndex &&
+        if ( observed == callsite && counters.parentAddress.load( std::memory_order_relaxed ) == parent && counters.phaseIndex.load( std::memory_order_relaxed ) == phaseIndex &&
              counters.owner.load( std::memory_order_relaxed ) == owner )
         {
             counters.allocations.fetch_add( 1u, std::memory_order_relaxed );
@@ -318,8 +313,7 @@ void RecordCallsite( RuntimeAllocationPhase phase, RuntimeReserveOwnerHandle own
     }
 }
 
-bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReserveOwnerHandle owner, uintptr_t callsite,
-                       uint64_t& outTrackerGeneration, uint64_t& outOwnerGeneration ) noexcept
+bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReserveOwnerHandle owner, uintptr_t callsite, uint64_t& outTrackerGeneration, uint64_t& outOwnerGeneration ) noexcept
 {
     AccountingSessionLock accountingLock;
     outTrackerGeneration = s_trackerAccountingGeneration.load( std::memory_order_relaxed );
@@ -328,9 +322,7 @@ bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReser
     // The replay grant is an allocation-safety contract, not diagnostic state.
     // Consume its exact byte allowance even when measurement is disabled so an
     // earlier allocation cannot leave approval behind for a later allocation.
-    const bool
-        approvedReplayGrowth = RuntimeReserveAllocator::TryConsumeApprovedReplayGrowthAllocation( owner, phaseIndex, size,
-                                                                                                  &outOwnerGeneration );
+    const bool approvedReplayGrowth = RuntimeReserveAllocator::TryConsumeApprovedReplayGrowthAllocation( owner, phaseIndex, size, &outOwnerGeneration );
 
     if ( owner != INVALID_RUNTIME_RESERVE_OWNER && !approvedReplayGrowth )
     {
@@ -357,6 +349,14 @@ bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReser
         outOwnerGeneration = RuntimeReserveAllocator::RecordAllocation( owner, phaseIndex, size );
     }
 
+    // The callsite report only displays guarded steady phases. Keep cold and
+    // diagnostic traffic out of its fixed table so it cannot hide later
+    // gameplay violations; all phase and owner totals above still include it.
+    if ( !SkullbonezCore::Core::Allocation::IsRuntimeAllocationGuardedSteadyPhase( phase ) )
+    {
+        return true;
+    }
+
     uintptr_t stackFrames[8] = {};
 #if defined( _WIN32 )
     // Why: CaptureStackBackTrace reports opaque return addresses through its
@@ -371,9 +371,7 @@ bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReser
         stackFrames[index] = reinterpret_cast<uintptr_t>( capturedFrames[index] );
     }
 #endif
-    const bool gameplayViolation = CurrentMode() == RuntimeAllocationGuardMode::Gameplay &&
-                                   SkullbonezCore::Core::Allocation::IsRuntimeAllocationGuardedSteadyPhase( phase ) &&
-                                   !approvedReplayGrowth;
+    const bool gameplayViolation = CurrentMode() == RuntimeAllocationGuardMode::Gameplay && SkullbonezCore::Core::Allocation::IsRuntimeAllocationGuardedSteadyPhase( phase ) && !approvedReplayGrowth;
 
     // Why: STL allocation helpers often inline several layers below the owner.
     // The fourth captured frame normally clears those helpers while remaining
@@ -408,13 +406,10 @@ void RecordFree( const AllocationHeader& header ) noexcept
         return;
     }
 
-    const int phaseIndex = header.phase < static_cast<uint32_t>( RuntimeAllocationPhase::Count )
-                               ? static_cast<int>( header.phase )
-                               : static_cast<int>( RuntimeAllocationPhase::Startup );
+    const int phaseIndex = header.phase < static_cast<uint32_t>( RuntimeAllocationPhase::Count ) ? static_cast<int>( header.phase ) : static_cast<int>( RuntimeAllocationPhase::Startup );
 
     PhaseCounters& counters = s_phaseCounters[phaseIndex];
-    const bool currentSession = header.trackerAccountingGeneration ==
-                                s_trackerAccountingGeneration.load( std::memory_order_relaxed );
+    const bool currentSession = header.trackerAccountingGeneration == s_trackerAccountingGeneration.load( std::memory_order_relaxed );
 
     if ( currentSession && CurrentMode() != RuntimeAllocationGuardMode::Off )
     {
@@ -427,8 +422,7 @@ void RecordFree( const AllocationHeader& header ) noexcept
     SubtractActiveBytes( counters.activeBytes, header.size );
 }
 
-void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAlignment, void* callsite,
-                             bool* overflowed = nullptr ) noexcept
+void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAlignment, void* callsite, bool* overflowed = nullptr ) noexcept
 {
     const std::size_t size = requestedSize == 0u ? 1u : requestedSize;
     const std::size_t alignment = NormalizeAlignment( requestedAlignment );
@@ -483,8 +477,11 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
     {
         s_insideAllocationHook = true;
 
-        if ( RecordAllocation( static_cast<RuntimeAllocationPhase>( header->phase ), header->size, owner,
-                               reinterpret_cast<uintptr_t>( callsite ), header->trackerAccountingGeneration,
+        if ( RecordAllocation( static_cast<RuntimeAllocationPhase>( header->phase ),
+                               header->size,
+                               owner,
+                               reinterpret_cast<uintptr_t>( callsite ),
+                               header->trackerAccountingGeneration,
                                header->ownerAccountingGeneration ) )
         {
             header->flags |= ALLOCATION_HEADER_RECORDED;
@@ -531,15 +528,17 @@ bool TryCopyAllocationHeader( const AllocationHeader* header, AllocationHeader& 
 // Compile its definition under the same condition so warning-clean Release and
 // portable builds do not retain a dead internal symbol.
 #if defined( _DEBUG ) || defined( SKULLBONEZ_PROFILE_ENABLED ) || defined( SKULLBONEZ_TEST_PROFILE_ALLOCATION_FATAL )
-[[noreturn]] void FatalForeignFree( void* pointer, RuntimeAllocationPhase phase, RuntimeReserveOwnerHandle owner,
-                                    const char* headerState, uint64_t foreignFreeCount ) noexcept
+[[noreturn]] void FatalForeignFree( void* pointer, RuntimeAllocationPhase phase, RuntimeReserveOwnerHandle owner, const char* headerState, uint64_t foreignFreeCount ) noexcept
 {
     char message[384] = {};
-    std::snprintf( message, sizeof( message ),
-                   "FATAL[Runtime/Allocation]: unprovable foreign pointer delete. pointer=%p phase=%s owner=%u "
-                   "header=%s foreign_free_count=%llu\n",
-                   pointer, SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName( phase ),
-                   static_cast<unsigned int>( owner ), headerState, static_cast<unsigned long long>( foreignFreeCount ) );
+    std::snprintf( message,
+                   sizeof( message ),
+                   "FATAL[Runtime/Allocation]: unprovable foreign pointer delete. pointer=%p phase=%s owner=%u " "header=%s foreign_free_count=%llu\n",
+                   pointer,
+                   SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName( phase ),
+                   static_cast<unsigned int>( owner ),
+                   headerState,
+                   static_cast<unsigned long long>( foreignFreeCount ) );
 
     SkullbonezCore::Core::Platform::WriteDebugger( message );
     std::fputs( message, stderr );
@@ -561,10 +560,14 @@ void HandleForeignFree( void* pointer, const char* headerState ) noexcept
     FatalForeignFree( pointer, phase, owner, headerState, foreignFreeCount );
 #else
     char message[384] = {};
-    std::snprintf( message, sizeof( message ),
+    std::snprintf( message,
+                   sizeof( message ),
                    "[allocation-guard] FOREIGN_FREE pointer=%p phase=%s owner=%u header=%s foreign_free_count=%llu\n",
-                   pointer, SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName( phase ),
-                   static_cast<unsigned int>( owner ), headerState, static_cast<unsigned long long>( foreignFreeCount ) );
+                   pointer,
+                   SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName( phase ),
+                   static_cast<unsigned int>( owner ),
+                   headerState,
+                   static_cast<unsigned long long>( foreignFreeCount ) );
 
     SkullbonezCore::Core::Platform::WriteDebugger( message );
     std::fputs( message, stderr );
@@ -584,8 +587,7 @@ void FreeTrackedMemory( void* pointer ) noexcept
         return;
     }
 
-    auto* header = reinterpret_cast<AllocationHeader*>( reinterpret_cast<unsigned char*>( pointer ) -
-                                                        sizeof( AllocationHeader ) );
+    auto* header = reinterpret_cast<AllocationHeader*>( reinterpret_cast<unsigned char*>( pointer ) - sizeof( AllocationHeader ) );
 
     AllocationHeader headerCopy = {};
 
@@ -625,9 +627,12 @@ void FreeTrackedMemory( void* pointer ) noexcept
 [[noreturn]] void FatalAllocationFailure( std::size_t size, std::size_t alignment, const char* reason ) noexcept
 {
     char message[256] = {};
-    std::snprintf( message, sizeof( message ),
-                   "FATAL[Runtime/Allocation]: global operator new failed. reason=%s size=%llu alignment=%llu\n", reason,
-                   static_cast<unsigned long long>( size ), static_cast<unsigned long long>( alignment ) );
+    std::snprintf( message,
+                   sizeof( message ),
+                   "FATAL[Runtime/Allocation]: global operator new failed. reason=%s size=%llu alignment=%llu\n",
+                   reason,
+                   static_cast<unsigned long long>( size ),
+                   static_cast<unsigned long long>( alignment ) );
 
     SkullbonezCore::Core::Platform::WriteDebugger( message );
     std::fputs( message, stderr );
@@ -662,8 +667,7 @@ namespace Core
 {
 namespace Allocation
 {
-RuntimeAllocationScope::RuntimeAllocationScope( RuntimeAllocationPhase phase ) noexcept
-    : m_previous( GetRuntimeAllocationPhase() )
+RuntimeAllocationScope::RuntimeAllocationScope( RuntimeAllocationPhase phase ) noexcept : m_previous( GetRuntimeAllocationPhase() )
 {
     // Invariant: lifecycle phase is runtime policy input even when allocation
     // counting is disabled. Upload overflow, replay reserve, and future phase
@@ -750,8 +754,7 @@ bool RuntimeAllocationGuardEnabled() noexcept
 
 bool RuntimeAllocationGuardHasGameplayViolations() noexcept
 {
-    return RuntimeAllocationGuardViolationCount() > 0u ||
-           RuntimeAllocationForeignFreeCount() > s_foreignFreeGuardBaseline.load( std::memory_order_relaxed ) ||
+    return RuntimeAllocationGuardViolationCount() > 0u || RuntimeAllocationForeignFreeCount() > s_foreignFreeGuardBaseline.load( std::memory_order_relaxed ) ||
            RuntimeReserveAllocator::HasPolicyViolations();
 }
 
@@ -806,8 +809,7 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
 
     const RuntimeAllocationGuardMode mode = GetRuntimeAllocationGuardMode();
     fprintf( out,
-             "[allocation-guard] mode=%s total_allocations=%llu total_bytes=%llu gameplay_violations=%llu "
-             "foreign_frees=%llu\n",
+             "[allocation-guard] mode=%s total_allocations=%llu total_bytes=%llu gameplay_violations=%llu " "foreign_frees=%llu\n",
              RuntimeAllocationGuardModeName( mode ),
              static_cast<unsigned long long>( s_totalAllocations.load( std::memory_order_relaxed ) ),
              static_cast<unsigned long long>( s_totalBytes.load( std::memory_order_relaxed ) ),
@@ -829,11 +831,12 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
         }
 
         fprintf( out,
-                 "[allocation-guard] phase=%s allocations=%llu frees=%llu bytes=%llu active_bytes=%llu "
-                 "high_water_bytes=%llu\n",
+                 "[allocation-guard] phase=%s allocations=%llu frees=%llu bytes=%llu active_bytes=%llu " "high_water_bytes=%llu\n",
                  RuntimeAllocationPhaseName( static_cast<RuntimeAllocationPhase>( phaseIndex ) ),
-                 static_cast<unsigned long long>( allocations ), static_cast<unsigned long long>( frees ),
-                 static_cast<unsigned long long>( bytes ), static_cast<unsigned long long>( activeBytes ),
+                 static_cast<unsigned long long>( allocations ),
+                 static_cast<unsigned long long>( frees ),
+                 static_cast<unsigned long long>( bytes ),
+                 static_cast<unsigned long long>( activeBytes ),
                  static_cast<unsigned long long>( highWaterBytes ) );
     }
 
@@ -865,20 +868,16 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
 
         for ( const CallsiteCounters& counters : s_callsiteCounters )
         {
-            const CallsiteSnapshot candidate {
-                counters.address.load( std::memory_order_acquire ),
-                counters.parentAddress.load( std::memory_order_relaxed ),
-                counters.phaseIndex.load( std::memory_order_relaxed ),
-                counters.owner.load( std::memory_order_relaxed ),
-                counters.allocations.load( std::memory_order_relaxed ),
-                counters.violations.load( std::memory_order_relaxed ),
-                counters.bytes.load( std::memory_order_relaxed ),
-            };
+            const CallsiteSnapshot candidate { counters.address.load( std::memory_order_acquire ),
+                                               counters.parentAddress.load( std::memory_order_relaxed ),
+                                               counters.phaseIndex.load( std::memory_order_relaxed ),
+                                               counters.owner.load( std::memory_order_relaxed ),
+                                               counters.allocations.load( std::memory_order_relaxed ),
+                                               counters.violations.load( std::memory_order_relaxed ),
+                                               counters.bytes.load( std::memory_order_relaxed ), };
 
-            if ( candidate.address == 0u || candidate.allocations == 0u || candidate.phaseIndex < 0 ||
-                 candidate.phaseIndex >= static_cast<int>( RuntimeAllocationPhase::Count ) ||
-                 !SkullbonezCore::Core::Allocation::IsRuntimeAllocationGuardedSteadyPhase(
-                     static_cast<RuntimeAllocationPhase>( candidate.phaseIndex ) ) )
+            if ( candidate.address == 0u || candidate.allocations == 0u || candidate.phaseIndex < 0 || candidate.phaseIndex >= static_cast<int>( RuntimeAllocationPhase::Count ) ||
+                 !SkullbonezCore::Core::Allocation::IsRuntimeAllocationGuardedSteadyPhase( static_cast<RuntimeAllocationPhase>( candidate.phaseIndex ) ) )
             {
                 continue;
             }
@@ -919,29 +918,27 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
             continue;
         }
 
-        const uintptr_t rva = imageBase != 0u && counters.address >= imageBase ? counters.address - imageBase
-                                                                               : counters.address;
-        const uintptr_t parentRva = imageBase != 0u && counters.parentAddress >= imageBase
-                                        ? counters.parentAddress - imageBase
-                                        : counters.parentAddress;
+        const uintptr_t rva = imageBase != 0u && counters.address >= imageBase ? counters.address - imageBase : counters.address;
+        const uintptr_t parentRva = imageBase != 0u && counters.parentAddress >= imageBase ? counters.parentAddress - imageBase : counters.parentAddress;
         fprintf( out,
-                 "[allocation-guard] callsite rank=%d phase=%s owner=%u rva=0x%llx parent_rva=0x%llx "
-                 "allocations=%llu violations=%llu bytes=%llu\n",
-                 rank + 1, RuntimeAllocationPhaseName( static_cast<RuntimeAllocationPhase>( counters.phaseIndex ) ),
-                 counters.owner, static_cast<unsigned long long>( rva ), static_cast<unsigned long long>( parentRva ),
+                 "[allocation-guard] callsite rank=%d phase=%s owner=%u rva=0x%llx parent_rva=0x%llx " "allocations=%llu violations=%llu bytes=%llu\n",
+                 rank + 1,
+                 RuntimeAllocationPhaseName( static_cast<RuntimeAllocationPhase>( counters.phaseIndex ) ),
+                 counters.owner,
+                 static_cast<unsigned long long>( rva ),
+                 static_cast<unsigned long long>( parentRva ),
                  static_cast<unsigned long long>( counters.allocations ),
-                 static_cast<unsigned long long>( counters.violations ), static_cast<unsigned long long>( counters.bytes ) );
+                 static_cast<unsigned long long>( counters.violations ),
+                 static_cast<unsigned long long>( counters.bytes ) );
     }
 
     if ( RuntimeAllocationGuardHasGameplayViolations() )
     {
-        fprintf( out, "[allocation-guard] VIOLATION: gameplay allocation guard detected heap or reserve policy "
-                      "violations; strict mode will fail after the summary.\n" );
+        fprintf( out, "[allocation-guard] VIOLATION: gameplay allocation guard detected heap or reserve policy " "violations; strict mode will fail after the summary.\n" );
     }
     else
     {
-        fprintf( out, "[allocation-guard] PASS: no steady gameplay allocations or reserve policy violations recorded by "
-                      "the guard.\n" );
+        fprintf( out, "[allocation-guard] PASS: no steady gameplay allocations or reserve policy violations recorded by " "the guard.\n" );
     }
 
     fflush( out );

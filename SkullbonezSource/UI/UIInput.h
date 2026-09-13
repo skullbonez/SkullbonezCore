@@ -47,6 +47,8 @@ struct UIInputSnapshot
     bool leftDown = false;
     bool leftPressed = false;
     bool leftReleased = false;
+    bool rightDown = false;
+    bool middleDown = false;
 };
 
 struct UIPointerOverride

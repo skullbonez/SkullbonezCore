@@ -1,0 +1,30 @@
+{
+  "owner_approval": {
+    "date": "2026-09-13",
+    "text": "All baselines approved",
+    "scope": "The six exact reviewed candidates; this manifest contains its owning subset."
+  },
+  "canonical_gate": {
+    "exitCode": 0,
+    "durationSeconds": 133.3116079,
+    "command": "tools/validate_physics_deep.bat",
+    "completedUtc": "2026-09-12T23:30:54.0174635Z"
+  },
+  "validation_source_commit": "39bd94d2602c47ac73b4b75cb0db49b3aec1e097",
+  "runtime_changed_during_reconciliation": false,
+  "other_protected_files_unchanged": 130,
+  "goldens": [
+    {
+      "path": "TestOutput/baselines/physics_known_issue_signatures.json",
+      "old_sha256": "e8969506482ae6f282823cb87f8fedfa07dfac245e003fdf7319fe7d93fb7ef3",
+      "new_sha256": "f4995ae80616e70162f4fe16ae6057c71d7bb340c832865aa80d0544c3cae5b7"
+    },
+    {
+      "path": "TestOutput/baselines/physics_query_varied.json",
+      "old_sha256": "4a07413b8b504cf0147ec9eb7bb96ae2e6853f136e655c3726e5d14ad239eba3",
+      "new_sha256": "06943cd8eb7a6f336a2268aee366831b6d16aa48677a7cb0cfdf173a3c5e9656"
+    }
+  ],
+  "review": "Independent read-only subagent found no correctness, assertion weakening or integrity defect. Two obsolete per-run reports were preserved locally and removed from the tree.",
+  "negative_controls": "Existing mapped gate controls remain unchanged and pass. Candidate-specific altered signature/velocity controls also rejected planted failures before approval."
+}

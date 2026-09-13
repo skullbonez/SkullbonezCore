@@ -56,11 +56,9 @@ ReplayPorkchopSweepInput SolarDesignWindow()
     ReplayPorkchopSweepInput input;
     input.sun = Body( 1, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 10000.0f );
     input.departure = Body( 2, Vector3( 80.0f, 0.0f, 0.0f ), Vector3( 0.0f, std::sqrt( 500.0f ), 0.0f ) );
-    input.target = Body( 3,
-                         Vector3( 121.6f * std::cos( phase ), 121.6f * std::sin( phase ), 0.0f ),
+    input.target = Body( 3, Vector3( 121.6f * std::cos( phase ), 121.6f * std::sin( phase ), 0.0f ),
                          Vector3( -std::sqrt( 40000.0f / 121.6f ) * std::sin( phase ),
-                                  std::sqrt( 40000.0f / 121.6f ) * std::cos( phase ),
-                                  0.0f ) );
+                                  std::sqrt( 40000.0f / 121.6f ) * std::cos( phase ), 0.0f ) );
     input.gravitationalConstant = 4.0f;
     input.mutualGravityEnabled = true;
     return input;
@@ -168,15 +166,14 @@ TEST_CASE( "Replay porkchop refresh follows visibility and target identity" )
 
 TEST_CASE( "Replay porkchop drawing and hit testing share one cell geometry" )
 {
-    constexpr int screenWidth = 1800;
+    const SkullbonezCore::UI::UIRect panel { 300.0f, 110.0f, 720.0f, 420.0f };
     constexpr std::size_t cellIndex = 36u * 64u + 1u;
-    const auto cell = SkullbonezCore::Runtime::ReplayOverlay::ReplayPorkchopCellRect( screenWidth, cellIndex );
+    const auto cell = SkullbonezCore::Runtime::ReplayOverlay::ReplayPorkchopCellRect( panel, cellIndex );
     std::size_t resolved = 0u;
-    REQUIRE(
-        SkullbonezCore::Runtime::ReplayOverlay::ReplayPorkchopCellAtPointer( screenWidth,
-                                                                             static_cast<int>( cell.x + cell.w * 0.5f ),
-                                                                             static_cast<int>( cell.y + cell.h * 0.5f ),
-                                                                             resolved ) );
+    REQUIRE( SkullbonezCore::Runtime::ReplayOverlay::ReplayPorkchopCellAtPointer( panel,
+                                                                                  static_cast<int>( cell.x + cell.w * 0.5f ),
+                                                                                  static_cast<int>( cell.y + cell.h * 0.5f ),
+                                                                                  resolved ) );
     CHECK( resolved == cellIndex );
-    CHECK_FALSE( SkullbonezCore::Runtime::ReplayOverlay::ReplayPorkchopCellAtPointer( screenWidth, 0, 0, resolved ) );
+    CHECK_FALSE( SkullbonezCore::Runtime::ReplayOverlay::ReplayPorkchopCellAtPointer( panel, 0, 0, resolved ) );
 }

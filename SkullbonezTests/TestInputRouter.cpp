@@ -30,6 +30,27 @@ using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::UI::InputControl;
 using SkullbonezCore::Core::SbDiagnosticStore;
 
+TEST_CASE( "Unified shell presses suppress world selection without suppressing captured motion" )
+{
+    SbDiagnosticStore diagnostics;
+    InputRouter router { diagnostics };
+    UiInputHitSnapshot ui;
+    ui.blocksCameraMouse = true;
+    ui.mouse.leftDown = true;
+    ui.mouse.leftPressed = true;
+    router.PublishUiSnapshot( ui );
+    CHECK( router.BuildRuntimeSnapshot( {}, false ).pointer.suppressWorldAction );
+    ui.mouse.leftPressed = false;
+    router.PublishUiSnapshot( ui );
+    CHECK_FALSE( router.BuildRuntimeSnapshot( {}, false ).pointer.suppressWorldAction );
+    ui.mouse.leftDown = false;
+    ui.mouse.leftReleased = true;
+    router.PublishUiSnapshot( ui );
+    CHECK_FALSE( router.BuildRuntimeSnapshot( {}, false ).pointer.suppressWorldAction );
+    CHECK( router.BuildRuntimeSnapshot( {}, false ).pointer.leftReleased );
+    CHECK( router.BuildRuntimeSnapshot( {}, true ).pointer.suppressWorldAction );
+}
+
 namespace
 {
 template <std::size_t N> RuntimeInputKeyBindingView BindingView( const RuntimeInputKeyBinding ( &bindings )[N] )

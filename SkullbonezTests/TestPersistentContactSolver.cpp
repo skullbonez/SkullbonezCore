@@ -33,11 +33,13 @@
 
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestColliderStoreFixtures.h"
+#include "TestResultLoadFixtures.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "TestFixedSeed.h"
 #include "../SkullbonezSource/Physics/PhysicsTimestep.h"
 
 #include "../SkullbonezSource/Core/Common.h"
+#include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 #include "../SkullbonezSource/Core/Config.h"
 #include "../SkullbonezSource/Maths/Quaternion.h"
 #include "../SkullbonezSource/Physics/BoundingBox.h"
@@ -48,6 +50,7 @@
 #include "../SkullbonezSource/Physics/ContactSolverCommon.h"
 #include "../SkullbonezSource/Physics/ObjectContactManifold.h"
 #include "../SkullbonezSource/Physics/PersistentContactSolver.h"
+#include "../SkullbonezSource/Physics/PhysicsMotionEligibility.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/PhysicsMass.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
@@ -204,6 +207,7 @@ struct SolverFixture
     std::vector<std::pair<int, int>> candidatePairs;
     std::vector<SkullbonezCore::Physics::PointJointConstraint> joints;
     std::vector<uint8_t> sleepState;
+    std::vector<uint8_t> collisionPathState;
     std::vector<float> timeRemaining;
     SkullbonezCore::Physics::PhysicsCandidatePairList
         sleepSupportEdges { "TestPersistentContactSolver.sleepSupportEdges",
@@ -406,6 +410,7 @@ struct SolverFixture
         diagnostics.SetPipelineTraceFullRecordConsumerActive( retainPipelineRecords );
         diagnostics.BeginStep( bodyStore.Count() );
         auto policy = PhysicsContactSolverStage::ResolveStepPolicy( config, worldForces, kSolverDt );
+        policy.collisionPathState = collisionPathState;
         policy.collectConvergenceDiagnostics = collectConvergenceDiagnostics;
         terrain.PublishRestSupport( bodyStore, sleepState );
         solver.Solve( bodyStore, colliderStore, policy, candidatePairs, sleepState, timeRemaining, sleepSupportEdges,
@@ -496,6 +501,219 @@ TEST_CASE( "Persistent contact solver: face position correction uses one deepest
     CHECK( fourRows.stats.positionCorrectionTotal == doctest::Approx( 0.175f ) );
 }
 #endif
+
+TEST_CASE( "Speculative contacts: closing gap brakes without friction bounce support or release" )
+{
+    SolverFixture fixture;
+    fixture.AddDynamicSphere( Vector3( 0, 0, 0 ), Vector3( 0.75f / kSolverDt, 3, 0 ), 1.0f );
+    fixture.AddDynamicSphere( Vector3( 2.25f, 0, 0 ), ZERO_VECTOR, 1.0f, true );
+    fixture.bodyStore.MutableRecords()[1].releasesFromFixedOnContact = true;
+    fixture.bodyStore.MutableRecords()[1].contactReleaseImpulseThreshold = 0.01f;
+    fixture.collisionPathState = { SkullbonezCore::Physics::PhysicsMotionEligibilityArticulated, 0u };
+    fixture.candidatePairs.emplace_back( 0, 1 );
+    fixture.Solve();
+    const auto rows = fixture.solver.GetPersistentContacts();
+    REQUIRE( rows.size() == 1u );
+    CHECK( rows[0].penetration == doctest::Approx( -0.25f ) );
+    CHECK( rows[0].bias == doctest::Approx( -0.25f / kSolverDt ) );
+    CHECK( rows[0].accN > 0.0f );
+    CHECK( rows[0].accT1 == 0.0f );
+    CHECK( rows[0].accT2 == 0.0f );
+    CHECK_FALSE( rows[0].supportsRestingPolicy );
+    CHECK_FALSE( rows[0].warmStarted );
+    const Vector3 velocity = PhysicsBodyLinearVelocity( fixture.bodyStore.HotFields(), 0 );
+    CHECK( velocity.x == doctest::Approx( 0.25f / kSolverDt ) );
+    CHECK( velocity.y == 3.0f );
+    CHECK( fixture.sleepSupportEdges.empty() );
+    CHECK( fixture.solver.GetSideEffects().releaseWakeBodies.empty() );
+    CHECK( fixture.solver.GetSideEffects().collisionVisualBodies.empty() );
+    CHECK( PhysicsBodyPosition( fixture.bodyStore.HotFields(), 0 ) == ZERO_VECTOR );
+}
+
+TEST_CASE( "Speculative contacts: disabling eligibility leaves the separated ordinary pair untouched" )
+{
+    SolverFixture fixture;
+    const Vector3 velocity( 0.75f / kSolverDt, 0, 0 );
+    fixture.AddDynamicSphere( Vector3( 0, 0, 0 ), velocity );
+    fixture.AddDynamicSphere( Vector3( 2.25f, 0, 0 ), ZERO_VECTOR, 0.0f, true );
+    fixture.candidatePairs.emplace_back( 0, 1 );
+    fixture.Solve();
+    CHECK( fixture.solver.GetPersistentContacts().empty() );
+    CHECK( PhysicsBodyLinearVelocity( fixture.bodyStore.HotFields(), 0 ) == velocity );
+}
+
+TEST_CASE( "Speculative contacts: grazing trajectory rejects a closing plane with no physical impact" )
+{
+    for ( const float spin : { 0.0f, 100.0f } )
+    {
+        SolverFixture fixture;
+        const Vector3 velocity( 8.0f / kSolverDt, 0, 0 );
+        fixture.AddDynamicSphere( Vector3( -4, 2.1f, 0 ), velocity );
+        fixture.AddDynamicSphere( Vector3( 0, 0, 0 ), ZERO_VECTOR, 0.0f, true );
+        fixture.bodyStore.MutableHotFields().angularVelocityZ[0] = spin;
+        fixture.collisionPathState = { SkullbonezCore::Physics::PhysicsMotionEligibilityArticulated, 0u };
+        fixture.candidatePairs.emplace_back( 0, 1 );
+        fixture.Solve();
+        CHECK( fixture.solver.GetPersistentContacts().empty() );
+        CHECK( PhysicsBodyLinearVelocity( fixture.bodyStore.HotFields(), 0 ) == velocity );
+        CHECK( fixture.bodyStore.HotFields().angularVelocityZ[0] == spin );
+    }
+}
+
+TEST_CASE( "Speculative contacts: exact arrival threshold and separating motion remain impulse free" )
+{
+    for ( const float travel : { -0.75f, 0.0f, 0.25f } )
+    {
+        SolverFixture fixture;
+        const Vector3 velocity( travel / kSolverDt, 0, 0 );
+        fixture.AddDynamicSphere( ZERO_VECTOR, velocity );
+        fixture.AddDynamicSphere( Vector3( 2.25f, 0, 0 ), ZERO_VECTOR, 0.0f, true );
+        fixture.collisionPathState = { SkullbonezCore::Physics::PhysicsMotionEligibilityArticulated, 0u };
+        fixture.candidatePairs.emplace_back( 0, 1 );
+        fixture.Solve();
+        CHECK( fixture.solver.GetPersistentContacts().empty() );
+        CHECK( PhysicsBodyLinearVelocity( fixture.bodyStore.HotFields(), 0 ) == velocity );
+    }
+}
+
+TEST_CASE( "Speculative contacts: actual touching enables friction and impact restitution" )
+{
+    for ( const bool impact : { false, true } )
+    {
+        SolverFixture fixture;
+        const Vector3 initialVelocity( impact ? 30.0f : 1.0f, impact ? 0.0f : 3.0f, 0 );
+        fixture.AddDynamicSphere( ZERO_VECTOR, initialVelocity, impact ? 1.0f : 0.0f );
+        fixture.AddDynamicSphere( Vector3( 2, 0, 0 ), ZERO_VECTOR, impact ? 1.0f : 0.0f, true );
+        fixture.collisionPathState = { SkullbonezCore::Physics::PhysicsMotionEligibilityArticulated, 0u };
+        fixture.candidatePairs.emplace_back( 0, 1 );
+        fixture.Solve();
+        const auto rows = fixture.solver.GetPersistentContacts();
+        REQUIRE( rows.size() == 1u );
+        CHECK( rows[0].penetration == 0.0f );
+        CHECK( rows[0].allowsTangentFriction );
+        CHECK( rows[0].supportsRestingPolicy );
+        const Vector3 velocity = PhysicsBodyLinearVelocity( fixture.bodyStore.HotFields(), 0 );
+        if ( impact )
+        {
+            CHECK( velocity.x == doctest::Approx( -initialVelocity.x ) );
+        }
+        else
+        {
+            CHECK( velocity.y < initialVelocity.y );
+            CHECK( fabsf( rows[0].accT1 ) + fabsf( rows[0].accT2 ) > 0.0f );
+        }
+    }
+}
+
+TEST_CASE( "Speculative contacts: rotating face brakes its approaching edge against a thin wall" )
+{
+    for ( const bool fixedWall : { true, false } )
+    {
+        SolverFixture fixture;
+        fixture.AddBox( ZERO_VECTOR, 0.0f, false );
+        fixture.AddMovingBox( Vector3( 1.3f, 0, 0 ), Vector3( 0.05f, 4, 4 ), Vector3( 1, 0, 0 ), 0.0f, ZERO_VECTOR,
+                              ZERO_VECTOR, 1000.0f, 0.0f, fixedWall );
+        fixture.bodyStore.MutableHotFields().angularVelocityZ[0] = -100.0f;
+        fixture.collisionPathState = { SkullbonezCore::Physics::PhysicsMotionEligibilityArticulated, 0u };
+        fixture.candidatePairs.emplace_back( 0, 1 );
+        fixture.Solve();
+        const auto hot = fixture.bodyStore.HotFields();
+        const Vector3 approachingCornerVelocity = PhysicsBodyLinearVelocity( hot, 0 ) +
+                                                  CrossProduct( SkullbonezCore::Physics::PhysicsBodyAngularVelocity( hot,
+                                                                                                                     0 ),
+                                                                Vector3( 1, 1, 0 ) ) -
+                                                  PhysicsBodyLinearVelocity( hot, 1 ) -
+                                                  CrossProduct( SkullbonezCore::Physics::PhysicsBodyAngularVelocity( hot,
+                                                                                                                     1 ),
+                                                                Vector3( -0.05f, 1, 0 ) );
+        CHECK( approachingCornerVelocity.x <= 0.25f / kSolverDt + 0.01f );
+        CHECK( hot.angularVelocityZ[0] > -100.0f );
+        for ( const auto& row : fixture.solver.GetPersistentContacts() )
+        {
+            CHECK( row.penetration < 0.0f );
+            CHECK( row.accT1 == 0.0f );
+            CHECK( row.accT2 == 0.0f );
+        }
+    }
+}
+
+TEST_CASE( "Speculative contacts: rotating cube does not hit a wall outside its rotational reach" )
+{
+    SolverFixture fixture;
+    fixture.AddBox( ZERO_VECTOR, 0.0f, false );
+    fixture.AddMovingBox( Vector3( 1.6f, 0, 0 ), Vector3( 0.05f, 4, 4 ), Vector3( 1, 0, 0 ), 0.0f, ZERO_VECTOR, ZERO_VECTOR,
+                          1000.0f, 0.0f, true );
+    fixture.bodyStore.MutableHotFields().angularVelocityZ[0] = -100.0f;
+    fixture.collisionPathState = { SkullbonezCore::Physics::PhysicsMotionEligibilityArticulated, 0u };
+    fixture.candidatePairs.emplace_back( 0, 1 );
+    fixture.Solve();
+    // Any Z rotation keeps this cube within sqrt(2) on X. The wall begins
+    // at 1.55, so its tangent-plane closing speed cannot imply an impact.
+    CHECK( fixture.solver.GetPersistentContacts().empty() );
+    CHECK( PhysicsBodyLinearVelocity( fixture.bodyStore.HotFields(), 0 ) == ZERO_VECTOR );
+    CHECK( fixture.bodyStore.HotFields().angularVelocityZ[0] == -100.0f );
+}
+
+TEST_CASE( "Speculative contacts: rotating cube cannot reach flat terrain beneath its orbit" )
+{
+    SolverFixture fixture;
+    fixture.AddBox( Vector3( 0, 1.5f, 0 ), 0.0f, false );
+    fixture.bodyStore.MutableHotFields().angularVelocityZ[0] = 100.0f;
+    TerrainContactBodyView body;
+    body.position = Vector3( 0, 1.5f, 0 );
+    body.angularVelocity = Vector3( 0, 0, 100 );
+    body.terrain.flatSlope = true;
+    body.terrain.flatSlopeExtent = 1000.0f;
+    body.terrain.flatSlopePlane.m_normal = Vector3( 0, 1, 0 );
+    body.terrain.flatSlopePlane.m_distance = 0.0f;
+    body.boundingRadius = sqrtf( 3.0f );
+    TerrainContactSweepResult sweep;
+    sweep.hit = true;
+    sweep.uniformStep = true;
+    sweep.collidedPlane = body.terrain.flatSlopePlane;
+    TerrainContactManifold manifold;
+    const bool hit = BuildTerrainContactManifold( body, fixture.colliderStore.Records()[0].shape, 0, sweep, kSolverDt,
+                                                  manifold );
+    CHECK_FALSE( hit );
+    if ( hit )
+    {
+        fixture.terrain.GetContactManifolds().push_back( manifold );
+    }
+    fixture.Solve();
+    // The lowest possible corner is 1.5 - sqrt(2), still above the plane.
+    CHECK( fixture.solver.GetPersistentContacts().empty() );
+    CHECK( PhysicsBodyLinearVelocity( fixture.bodyStore.HotFields(), 0 ) == ZERO_VECTOR );
+    CHECK( fixture.bodyStore.HotFields().angularVelocityZ[0] == 100.0f );
+}
+
+TEST_CASE( "Speculative contacts: airborne convex tip receives no support instability nudge" )
+{
+    SolverFixture fixture;
+    fixture.config.sleep.linearSpeed = 0.2f;
+    fixture.config.sleep.angularSpeed = 0.2f;
+    fixture.AddBox( Vector3( 0, 8.0001f, 0 ), 0.0f, false );
+    fixture.AddBox( ZERO_VECTOR, 0.0f, true );
+    SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+    SkullbonezCore::Math::CollisionDetection::ConvexHullShape hull;
+    REQUIRE(
+        SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/diamond.hull", hull ) );
+    ColliderRecord collider = fixture.colliderStore.Records()[0];
+    collider.shapeKind = ColliderShapeKind::ConvexHull;
+    collider.boundingRadius = hull.GetBoundingRadius();
+    REQUIRE( SkullbonezTests::ColliderStoreFixtures::UpdateRecordForHandle( fixture.colliderStore, collider.handle, collider,
+                                                                            CollisionShape( hull ) ) );
+    fixture.bodyStore.MutableHotFields().boundingRadius[0] = hull.GetBoundingRadius();
+    fixture.bodyStore.MutableHotFields().linearVelocityY[0] = -0.05f;
+    fixture.collisionPathState = { SkullbonezCore::Physics::PhysicsMotionEligibilityArticulated, 0u };
+    fixture.candidatePairs.emplace_back( 0, 1 );
+    fixture.Solve();
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+    const auto& row = fixture.solver.GetPersistentContacts()[0];
+    CHECK( row.penetration < 0.0f );
+    CHECK( row.accN > 0.005f );
+    CHECK_FALSE( row.supportsRestingPolicy );
+    CHECK( SkullbonezCore::Physics::PhysicsBodyAngularVelocity( fixture.bodyStore.HotFields(), 0 ) == ZERO_VECTOR );
+}
 
 void ConfigureClosedSolve( SolverFixture& fixture )
 {

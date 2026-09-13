@@ -93,8 +93,7 @@ float MinimizedWidthWithCameraModeCombo( const char* title, int screenW )
     const float maxW = (std::max)( 1.0f, safeScreenW - marginX * 2.0f );
     const float minW = (std::min)( 154.0f, maxW );
     const float titleW = UIFontMetrics::MeasureText( textSize, title ? title : "" );
-    const float desiredW = titleLeft + titleW + MINIMIZED_CAMERA_MODE_GAP + MINIMIZED_CAMERA_MODE_COMBO_W +
-                           MINIMIZED_RESTORE_W;
+    const float desiredW = titleLeft + titleW + MINIMIZED_CAMERA_MODE_GAP + MINIMIZED_CAMERA_MODE_COMBO_W + MINIMIZED_RESTORE_W;
 
     return std::clamp( desiredW, minW, maxW );
 }
@@ -110,17 +109,14 @@ void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize 
 
     if ( data.surface.sceneMode && data.surface.sceneName && data.surface.sceneName[0] != '\0' )
     {
-        const int displayedFrame = ( data.scene.testComplete && data.scene.targetFrameCount > 0 &&
-                                     data.scene.currentFrame > data.scene.targetFrameCount )
-                                       ? data.scene.targetFrameCount
-                                       : data.scene.currentFrame;
+        const int displayedFrame = ( data.scene.testComplete && data.scene.targetFrameCount > 0 && data.scene.currentFrame > data.scene.targetFrameCount ) ? data.scene.targetFrameCount
+                                                                                                                                                           : data.scene.currentFrame;
 
         if ( data.scene.testComplete )
         {
             if ( data.scene.targetFrameCount > 0 )
             {
-                snprintf( out, outSize, "%s  %d/%d complete", data.surface.sceneName, displayedFrame,
-                          data.scene.targetFrameCount );
+                snprintf( out, outSize, "%s  %d/%d complete", data.surface.sceneName, displayedFrame, data.scene.targetFrameCount );
             }
             else
             {
@@ -299,9 +295,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
 
     hash = HashInt( hash, data.diagnostics.reserveCapacityRowCount );
 
-    for ( int rowIndex = 0; data.diagnostics.reserveCapacityRows && rowIndex < data.diagnostics.reserveCapacityRowCount &&
-                            rowIndex < UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX;
-          ++rowIndex )
+    for ( int rowIndex = 0; data.diagnostics.reserveCapacityRows && rowIndex < data.diagnostics.reserveCapacityRowCount && rowIndex < UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX; ++rowIndex )
     {
         const UIRuntimeReserveCapacityRow& row = data.diagnostics.reserveCapacityRows[rowIndex];
         hash = HashTextValue( hash, row.ownerName );
@@ -318,12 +312,9 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashInt( hash, static_cast<int>( data.diagnostics.reserveGrowthEventTotalCount ) );
     hash = HashInt( hash, data.diagnostics.reserveGrowthEventCount );
 
-    for ( int eventIndex = 0;
-          eventIndex < data.diagnostics.reserveGrowthEventCount && eventIndex < UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX;
-          ++eventIndex )
+    for ( int eventIndex = 0; eventIndex < data.diagnostics.reserveGrowthEventCount && eventIndex < UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX; ++eventIndex )
     {
-        const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event = data.diagnostics
-                                                                                           .reserveGrowthEvents[eventIndex];
+        const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event = data.diagnostics.reserveGrowthEvents[eventIndex];
 
         hash = HashTextValue( hash, event.targetName );
         hash = HashInt( hash, event.frameNumber );
@@ -355,6 +346,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.surface.scenePhysicsEnabled );
     hash = HashBool( hash, data.surface.sceneTextEnabled );
     hash = HashBool( hash, data.surface.textOnly );
+    hash = HashBool( hash, data.operatorEditor.tools.crossScenePauseLocked );
     hash = HashBool( hash, data.scene.fixedStep );
     hash = HashBool( hash, data.scene.exitOnComplete );
     hash = HashBool( hash, data.scene.testComplete );
@@ -410,6 +402,10 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.editor.editorPlacementMode );
     hash = HashBool( hash, data.editor.editorPlaceStatic );
     hash = HashBool( hash, data.editor.editorTerrainAlign );
+    hash = HashBool( hash, data.editor.editorTerrainBrush );
+    hash = HashBool( hash, data.editor.editorVelocityEdit );
+    hash = HashBool( hash, data.editor.editorVelocityAngular );
+    hash = HashFloat( hash, data.editor.editorTerrainBrushRadius, 1000.0f );
     hash = HashBool( hash, data.editor.editorViewportLookActive );
     hash = HashInt( hash, data.editor.editorObjectType );
     hash = HashInt( hash, data.editor.editorUndoDepth );
@@ -675,20 +671,15 @@ UIRect TitleButtonGroupBounds( const Chrome::TitleButtonRects& titleButtons )
 
     const float top = (std::min)( titleButtons.minimize.y, (std::min)( titleButtons.maximize.y, titleButtons.close.y ) );
 
-    const float right = (std::max)( titleButtons.minimize.x + titleButtons.minimize.w,
-                                    (std::max)( titleButtons.maximize.x + titleButtons.maximize.w,
-                                                titleButtons.close.x + titleButtons.close.w ) );
+    const float right = (std::max)( titleButtons.minimize.x + titleButtons.minimize.w, (std::max)( titleButtons.maximize.x + titleButtons.maximize.w, titleButtons.close.x + titleButtons.close.w ) );
 
-    const float bottom = (std::max)( titleButtons.minimize.y + titleButtons.minimize.h,
-                                     (std::max)( titleButtons.maximize.y + titleButtons.maximize.h,
-                                                 titleButtons.close.y + titleButtons.close.h ) );
+    const float bottom = (std::max)( titleButtons.minimize.y + titleButtons.minimize.h, (std::max)( titleButtons.maximize.y + titleButtons.maximize.h, titleButtons.close.y + titleButtons.close.h ) );
 
     return { left, top, right - left, bottom - top };
 }
 
 
-void DrawEditorObjectCounter( const UIDrawContext& draw, const InGameUIFrameData& data, int screenW, int screenH,
-                              const UIRect* avoidBounds )
+void DrawEditorObjectCounter( const UIDrawContext& draw, const InGameUIFrameData& data, int screenW, int screenH, const UIRect* avoidBounds )
 {
     if ( !data.editor.editorModeEnabled )
     {
@@ -723,12 +714,10 @@ void DrawEditorObjectCounter( const UIDrawContext& draw, const InGameUIFrameData
     const Style::UIPalette& palette = Style::Palette();
     Style::UIColor fill = palette.windowRaised;
     fill.a = 0.90f;
-    draw.RoundedRect( bounds.x + 3.0f, bounds.y + 4.0f, bounds.w, bounds.h, Style::Radii().control, palette.shadow.r,
-                      palette.shadow.g, palette.shadow.b, 0.24f );
+    draw.RoundedRect( bounds.x + 3.0f, bounds.y + 4.0f, bounds.w, bounds.h, Style::Radii().control, palette.shadow.r, palette.shadow.g, palette.shadow.b, 0.24f );
 
     draw.RoundedPanel( bounds, Style::Radii().control, fill, palette.border );
-    draw.Text( bounds.x + padX, bounds.y + 8.0f, fontSize, palette.textPrimary.r, palette.textPrimary.g,
-               palette.textPrimary.b, counterText );
+    draw.Text( bounds.x + padX, bounds.y + 8.0f, fontSize, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, counterText );
 }
 
 

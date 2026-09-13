@@ -43,16 +43,28 @@ struct UIEditorTabState
     UICheckBox editorModeToggle;
     UICheckBox placementModeToggle;
     UICheckBox staticObjectToggle;
+    UICheckBox terrainAlignToggle;
+    UICheckBox terrainBrushToggle;
+    UICheckBox velocityToggle;
+    UICheckBox angularVelocityToggle;
     UIComboBox objectCombo;
     int selectedObjectType = OBJECT_BOX;
+    bool placementModeAvailable = false;
 };
 
 int ContentHeight();
-bool HandleContentClick( UIEditorTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX,
-                         float rowBase, float contentW );
+bool HandleContentClick( UIEditorTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX, float rowBase, float contentW );
 
-void Draw( UIEditorTabState& state, const UIDrawContext& draw, const UIEditorTabFrameView& data, float contentX,
-           float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY );
+void Draw( UIEditorTabState& state,
+           const UIDrawContext& draw,
+           const UIEditorTabFrameView& data,
+           float contentX,
+           float contentY,
+           float contentW,
+           float contentH,
+           float scrolledY,
+           int mouseX,
+           int mouseY );
 
 } // namespace EditorTab
 } // namespace UI

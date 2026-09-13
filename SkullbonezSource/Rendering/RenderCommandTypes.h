@@ -140,6 +140,14 @@ struct RetainedGeometryCapacity
     uint32_t rangeCapacity = 0;
 };
 
+enum class RetainedRibbonInput
+{
+    ExpandedOrdinary,
+    ExpandedPriority,
+    CompactOrdinary,
+    CompactPriority
+};
+
 struct RetainedGeometryStreamToken
 {
     uint64_t identity = 0;
@@ -217,9 +225,7 @@ constexpr RetainedGeometryUploadPlan BuildRetainedGeometryUploadPlan( RetainedGe
 // Concept: each retained range owns an independent compact slice. A sibling
 // append may advance the stream revision without changing this slice, while
 // extending the slice repairs only its formerly open adjacency tail.
-constexpr RetainedGeometryUploadPlan
-BuildRetainedGeometryRangeUploadPlan( const RetainedGeometryRangeToken& cached,
-                                      const RetainedGeometryRangeToken& incoming ) noexcept
+constexpr RetainedGeometryUploadPlan BuildRetainedGeometryRangeUploadPlan( const RetainedGeometryRangeToken& cached, const RetainedGeometryRangeToken& incoming ) noexcept
 {
     const bool sameRange = cached.identity == incoming.identity && cached.sourceVersion == incoming.sourceVersion;
 

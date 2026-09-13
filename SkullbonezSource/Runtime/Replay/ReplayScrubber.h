@@ -23,6 +23,7 @@ Related:
 #include "ReplayRecorder.h"
 #include "ReplayTimelinePackets.h"
 #include "ReplayAuthoringPackets.h"
+#include "../../UI/UIDraw.h"
 
 #include <algorithm>
 #include <cmath>
@@ -64,14 +65,14 @@ struct RunReplayScrubberState
     bool restoreConsumedThisFrame = false;
     RunReplayTrack activeTrack = RunReplayTrack::Solver;
     RunReplayTrack saveMessageTrack = RunReplayTrack::Solver;
-    float position = 1.0f;                                 // 0 = oldest retained sample, 1 = live edge.
+    float position = 1.0f; // 0 = oldest retained sample, 1 = live edge.
     float presentationPosition = 1.0f;
     float solverPosition = 1.0f;
     int mouseX = 0;
     int mouseY = 0;
     double visibleUntil = 0.0;
-    double fadeUpdatedAt = 0.0;                            // Last scrubber opacity update in runtime seconds.
-    float visibleAlpha = 0.0f;                             // 0 = hidden, 1 = fully faded in.
+    double fadeUpdatedAt = 0.0; // Last scrubber opacity update in runtime seconds.
+    float visibleAlpha = 0.0f;  // 0 = hidden, 1 = fully faded in.
     double saveMessageUntil = 0.0;
     char saveMessage[96] = {};
 };
@@ -109,11 +110,15 @@ struct ReplayScrubberPointerFrame
     bool pathTargetAvailable = false;
     bool predictionEnabled = false;
     bool predictionHighDetail = true;
+    bool velocityEditing = false;
     bool predictionTimelineAvailable = false;
     bool currentPresentationAvailable = false;
     bool currentSolverAvailable = false;
     bool scenePhysicsEnabled = false;
     bool inspectionCameraActive = false;
+    UI::UIRect transportBounds;
+    UI::UIRect controlsBounds;
+    float controlsScroll = 0.0f;
 };
 
 struct ReplayScrubberPointerDecision
@@ -129,6 +134,7 @@ struct ReplayScrubberPointerDecision
     bool exitInspectionCamera = false;
     bool consumesMouse = false;
     bool leftReleased = false;
+    UI::UIRect trackBounds;
 };
 
 struct RunReplayV2TargetRestoreResult
@@ -372,8 +378,7 @@ class ReplayScrubber
     // the previous update timestamp is part of scrubber presentation state.
     // Invariant: visibility remains published through the fade-out tail and
     // frame stalls contribute at most 250 ms to one opacity step.
-    void UpdateVisibilityFade( bool targetVisible, double now, double fadeInSeconds, double fadeOutSeconds,
-                               float visibleEpsilon ) noexcept
+    void UpdateVisibilityFade( bool targetVisible, double now, double fadeInSeconds, double fadeOutSeconds, float visibleEpsilon ) noexcept
     {
         if ( m_state.fadeUpdatedAt <= 0.0 || now < m_state.fadeUpdatedAt )
         {
@@ -388,11 +393,13 @@ class ReplayScrubber
         m_state.visible = targetVisible || m_state.visibleAlpha > visibleEpsilon;
     }
 
-    bool BuildRestoreRequest( const ReplayScrubberRestoreSources& sources, double now, ReplayLiveRestoreRequest& outRequest,
-                              char* outReason = nullptr, std::size_t reasonSize = 0 );
-    void CompleteRestore( const ReplayLiveRestoreRequest& request, bool restored,
-                          const RunReplayV2TargetRestoreResult& v2Result, const char* reason,
-                          RunReplayV2TargetRestoreResult* outV2Result = nullptr, char* outReason = nullptr,
+    bool BuildRestoreRequest( const ReplayScrubberRestoreSources& sources, double now, ReplayLiveRestoreRequest& outRequest, char* outReason = nullptr, std::size_t reasonSize = 0 );
+    void CompleteRestore( const ReplayLiveRestoreRequest& request,
+                          bool restored,
+                          const RunReplayV2TargetRestoreResult& v2Result,
+                          const char* reason,
+                          RunReplayV2TargetRestoreResult* outV2Result = nullptr,
+                          char* outReason = nullptr,
                           std::size_t reasonSize = 0 );
 
   private:

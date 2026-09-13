@@ -1,0 +1,44 @@
+{
+  "passed": true,
+  "executableSha256": "b16b66ca710989e4d4d9dd8c45326aeefc4a4e9656d2392c7a42c6b72f505a80",
+  "scope": "Exact published body frames and solver evidence; full solver state has a separate worker oracle",
+  "generations": [
+    {
+      "label": "first",
+      "target": 6,
+      "generation": 1,
+      "sourceFrame": 0,
+      "sha256": "0620db899aff68a9d8d316a33c42972b26f9701684894088cd85e91d0531603c",
+      "bytes": 28630460
+    },
+    {
+      "label": "after-cancellation",
+      "target": 6,
+      "generation": 4,
+      "sourceFrame": 0,
+      "sha256": "0620db899aff68a9d8d316a33c42972b26f9701684894088cd85e91d0531603c",
+      "bytes": 28630460
+    },
+    {
+      "label": "other-target",
+      "target": 16,
+      "generation": 5,
+      "sourceFrame": 0,
+      "sha256": "4b023406cd97f27e11841c890ed20c05f73d639d52d69c9f2d383d0c0cb80775",
+      "bytes": 28630460
+    },
+    {
+      "label": "reselected",
+      "target": 6,
+      "generation": 6,
+      "sourceFrame": 0,
+      "sha256": "0620db899aff68a9d8d316a33c42972b26f9701684894088cd85e91d0531603c",
+      "bytes": 28630460
+    }
+  ],
+  "cancelledGeneration": 3,
+  "processExit": {
+    "processId": 35684,
+    "exitCode": 0
+  }
+}

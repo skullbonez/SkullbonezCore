@@ -33,8 +33,7 @@ namespace UI
 
 bool UIRect::Contains( int px, int py ) const
 {
-    return static_cast<float>( px ) >= x && static_cast<float>( px ) <= x + w && static_cast<float>( py ) >= y &&
-           static_cast<float>( py ) <= y + h;
+    return w > 0.0f && h > 0.0f && static_cast<float>( px ) >= x && static_cast<float>( px ) <= x + w && static_cast<float>( py ) >= y && static_cast<float>( py ) <= y + h;
 }
 
 UIRect IntersectRect( const UIRect& leftRect, const UIRect& rightRect )
@@ -71,8 +70,7 @@ void UIDrawContext::Rect( float x, float y, float w, float h, float r, float g, 
 }
 
 
-void UIDrawContext::Triangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b,
-                              float a ) const
+void UIDrawContext::Triangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b, float a ) const
 {
     m_drawList->AddTriangle( { { x0, y0 }, { x1, y1 }, { x2, y2 } }, { r, g, b, a } );
 }
@@ -93,16 +91,36 @@ void UIDrawContext::RoundedRect( float x, float y, float w, float h, float radiu
 }
 
 
-void UIDrawContext::RoundedPanel( const UIRect& bounds, float radius, const Style::UIColor& fill,
-                                  const Style::UIColor& border ) const
+void UIDrawContext::RoundedPanel( const UIRect& bounds, float radius, const Style::UIColor& fill, const Style::UIColor& border ) const
 {
     RoundedRect( bounds.x, bounds.y, bounds.w, bounds.h, radius, border.r, border.g, border.b, border.a );
     const float inset = border.a > 0.0f ? 1.0f : 0.0f;
-    RoundedRect( bounds.x + inset, bounds.y + inset, (std::max)( 0.0f, bounds.w - inset * 2.0f ),
-                 (std::max)( 0.0f, bounds.h - inset * 2.0f ), (std::max)( 0.0f, radius - inset ), fill.r, fill.g, fill.b,
+    RoundedRect( bounds.x + inset,
+                 bounds.y + inset,
+                 (std::max)( 0.0f, bounds.w - inset * 2.0f ),
+                 (std::max)( 0.0f, bounds.h - inset * 2.0f ),
+                 (std::max)( 0.0f, radius - inset ),
+                 fill.r,
+                 fill.g,
+                 fill.b,
                  fill.a );
 }
 
+
+void UIDrawContext::BeginLayer() const
+{
+    m_drawList->BeginLayer();
+}
+
+void UIDrawContext::BeginForeground() const
+{
+    m_drawList->BeginForeground();
+}
+
+void UIDrawContext::EndForeground() const
+{
+    m_drawList->EndForeground();
+}
 
 void UIDrawContext::PushClip( const UIRect& bounds ) const
 {
@@ -121,6 +139,11 @@ void UIDrawContext::Text( float x, float y, float pxSize, float r, float g, floa
     m_drawList->AddText( { x, y }, pxSize, { r, g, b, 1.0f }, value );
 }
 
+
+void UIDrawContext::VerticalText( UIPoint position, float pxSize, const Style::UIColor& color, const char* value ) const
+{
+    m_drawList->AddText( position, pxSize, color, value, true );
+}
 
 float UIDrawContext::TextX( float x ) const
 {

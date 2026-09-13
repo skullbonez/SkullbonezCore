@@ -345,6 +345,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorEditorExchange.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\UIProfilerOverlayPresenter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\GameUILayout.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIPresentationPreferences.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIToolsTooltips.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UI.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPalette.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPaletteDraw.cpp" />
@@ -385,6 +387,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Core\Log.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\Run.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\TerrainEditor.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorInteractionTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorHistory.cpp" />
@@ -421,6 +424,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublication.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\ReplayPredictionPresentation.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\ReplayVelocityDivergence.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionScheduling.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionTopologyPublication.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\ReplayPredictionDrawing.cpp" />
@@ -437,6 +441,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Render\UiTextPass.cpp" />
     <ClCompile Include="SkullbonezSource\World\SkyBox.cpp" />
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp" />
+    <ClCompile Include="SkullbonezSource\World\TerrainEditing.cpp" />
     <ClCompile Include="SkullbonezSource\Assets\TextureCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Timer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Startup\Window.cpp" />
@@ -575,6 +580,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabProfiler.h" />
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabScene.h" />
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabSky.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UIRenderTooltipText.h" />
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UIWindowInteractionOwner.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\PhysicsAdvanceState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.h" />
@@ -925,6 +931,10 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <None Include="SkullbonezData\styles\studio_lighting_showcase.style.json" />
     <None Include="SkullbonezData\styles\tron_grid.style.json" />
     <None Include="SkullbonezData\styles\_concept_base.style.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="SkullbonezSource\Runtime\Startup\Skullbonez.rc" />
+    <Image Include="SkullbonezData\branding\Skullbonez.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

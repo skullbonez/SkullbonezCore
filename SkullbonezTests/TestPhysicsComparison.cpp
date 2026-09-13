@@ -39,8 +39,7 @@ bool WriteDiagnosticArchive( const std::filesystem::path& path, const std::strin
 
 TEST_CASE( "Physics comparison archives preserve bytes and reject incomplete evidence" )
 {
-    const auto directory = std::filesystem::temp_directory_path() /
-                           ( "solver-lab-archive-test-" + std::to_string( GetCurrentProcessId() ) );
+    const auto directory = std::filesystem::temp_directory_path() / ( "solver-lab-archive-test-" + std::to_string( GetCurrentProcessId() ) );
     std::filesystem::create_directories( directory );
     const auto output = directory / "restored.ndjson";
     const std::vector<std::string> parts { "first.skdiag", "second.skdiag" };
@@ -257,8 +256,7 @@ TEST_CASE( "Physics comparison repeated contacts preserve A/A equality without a
     }
     recordings[1].observations[1].contacts[0].normalImpulse = 4;
     PhysicsComparisonTestAccess::Events( comparison );
-    CHECK( std::any_of( comparison.Events().begin(), comparison.Events().end(),
-                        []( const auto& event ) { return event.change == ComparisonChange::Ambiguous; } ) );
+    CHECK( std::any_of( comparison.Events().begin(), comparison.Events().end(), []( const auto& event ) { return event.change == ComparisonChange::Ambiguous; } ) );
 }
 TEST_CASE( "Physics comparison invalid finding exposes a useful loading error" )
 {
@@ -302,8 +300,7 @@ TEST_CASE( "Physics comparison supplements equal summaries with recorded manifol
 
 TEST_CASE( "Physics comparison buffered diagnostics preserve block boundaries and final lines" )
 {
-    const auto path = std::filesystem::temp_directory_path() /
-                      ( "solver-lab-lines-" + std::to_string( GetCurrentProcessId() ) );
+    const auto path = std::filesystem::temp_directory_path() / ( "solver-lab-lines-" + std::to_string( GetCurrentProcessId() ) );
     const std::string first( 65530, 'x' );
     const std::string second = "a row crossing the block boundary\r";
     {
@@ -339,8 +336,7 @@ TEST_CASE( "Physics comparison streaming JSON preserves contact values and rejec
     PhysicsComparisonTestAccess::Populate( comparison, 1 );
     auto& recording = PhysicsComparisonTestAccess::Recordings( comparison )[0];
     recording.frames[0].bodies[0].modelRow.value = 0;
-    const auto path = std::filesystem::temp_directory_path() /
-                      ( "solver-lab-row-" + std::to_string( GetCurrentProcessId() ) );
+    const auto path = std::filesystem::temp_directory_path() / ( "solver-lab-row-" + std::to_string( GetCurrentProcessId() ) );
     auto load = [&]( const std::string& normal )
     {
         recording.observations.clear();
@@ -379,4 +375,41 @@ TEST_CASE( "Physics comparison streaming JSON preserves contact values and rejec
         CHECK_FALSE( load( normal ) );
     }
     std::filesystem::remove( path );
+}
+
+TEST_CASE( "Physics comparison imports paired predicted motion without changing either future" )
+{
+    std::array<RunReplayPredictionFrame, 2> blue, red;
+    for ( int tick = 0; tick < 2; ++tick )
+    {
+        blue[tick].frameIndex = red[tick].frameIndex = tick;
+        blue[tick].simulationSeconds = tick / 120.0;
+        red[tick].simulationSeconds = 10.0 + tick / 120.0;
+        RunReplayPredictionBodySample a, b;
+        a.id.value = 9;
+        b.id.value = 2;
+        a.position.x = static_cast<float>( tick );
+        blue[tick].bodies = { a, b };
+        a.position.x += 2.0f * tick;
+        a.linearVelocity.x = 3;
+        red[tick].bodies = { b, a };
+    }
+    PhysicsComparison comparison;
+    REQUIRE( comparison.LoadPredictionFrames( blue, red ) );
+    CHECK( comparison.Active() );
+    CHECK( comparison.LastTick() == 1 );
+    REQUIRE( comparison.Body( 0, 9, 1 ) );
+    REQUIRE( comparison.Body( 1, 9, 1 ) );
+    CHECK( comparison.Difference( 9, 1 ).distance == doctest::Approx( 2 ) );
+    CHECK( comparison.Recording( 0 ).Evidence( 1 ) == nullptr );
+    CHECK( comparison.Recording( 0 ).Observation( 1 ) == nullptr );
+    CHECK( comparison.MemoryCharge() <= PhysicsComparison::MEMORY_BUDGET );
+    CHECK( blue[1].bodies[0].position.x == 1 );
+    CHECK( red[1].bodies[1].position.x == 3 );
+    red[1].simulationSeconds += 1;
+    CHECK_FALSE( comparison.LoadPredictionFrames( blue, red ) );
+    CHECK( comparison.Active() );
+    CHECK( comparison.Difference( 9, 1 ).distance == doctest::Approx( 2 ) );
+    comparison.Close();
+    CHECK_FALSE( comparison.Active() );
 }

@@ -1,0 +1,111 @@
+{
+  "executableSha256": "0350311bf2fc8aa61360768ca85584222767858a9a0464d08f4915262717db97",
+  "replies": {
+    "scene.object.resolve": {
+      "sceneObjectId": 6,
+      "modelRow": 5,
+      "name": "fall_stack_0_torso",
+      "position": [
+        502.6839904785156,
+        26.623811721801758,
+        500.0002136230469
+      ],
+      "linearVelocity": [
+        0.7326958775520325,
+        3.032508611679077,
+        0.024138454347848892
+      ],
+      "angularVelocity": [
+        0.01621335931122303,
+        -0.003446256509050727,
+        -0.013590930961072445
+      ],
+      "fixed": false,
+      "sleepStateAvailable": true,
+      "sleeping": false
+    },
+    "replay.set_intercept_target": {
+      "sceneObjectId": 6,
+      "modelRow": 5,
+      "name": "fall_stack_0_torso"
+    },
+    "scene.object.select": {
+      "sceneObjectId": 6,
+      "modelRow": 5,
+      "name": "fall_stack_0_torso"
+    }
+  },
+  "catalogCount": 45,
+  "allocations": {
+    "total_allocations": 447071,
+    "total_bytes": 292140254,
+    "gameplay_violations": 100,
+    "foreign_frees": 0,
+    "mode": "gameplay",
+    "phases": {
+      "startup": {
+        "allocations": 9928,
+        "frees": 9925,
+        "bytes": 221223527,
+        "active_bytes": 1439688,
+        "high_water_bytes": 192421103
+      },
+      "scene_load": {
+        "allocations": 6724,
+        "frees": 6724,
+        "bytes": 6282831,
+        "active_bytes": 0,
+        "high_water_bytes": 4240934
+      },
+      "backend_init": {
+        "allocations": 321844,
+        "frees": 321837,
+        "bytes": 24426312,
+        "active_bytes": 392,
+        "high_water_bytes": 3362070
+      },
+      "steady_gameplay": {
+        "allocations": 100,
+        "frees": 100,
+        "bytes": 7775,
+        "active_bytes": 0,
+        "high_water_bytes": 5831
+      },
+      "replay": {
+        "allocations": 396,
+        "frees": 396,
+        "bytes": 2904382,
+        "active_bytes": 0,
+        "high_water_bytes": 2904382
+      },
+      "capture": {
+        "allocations": 16,
+        "frees": 16,
+        "bytes": 28294977,
+        "active_bytes": 0,
+        "high_water_bytes": 28294021
+      },
+      "diagnostics": {
+        "allocations": 108057,
+        "frees": 108054,
+        "bytes": 8999548,
+        "active_bytes": 9358,
+        "high_water_bytes": 89436
+      },
+      "shutdown": {
+        "allocations": 6,
+        "frees": 6,
+        "bytes": 902,
+        "active_bytes": 0,
+        "high_water_bytes": 774
+      }
+    },
+    "passed": false,
+    "physicsAllocations": 0
+  },
+  "processExit": {
+    "processId": 33252,
+    "exitCode": 9
+  },
+  "passed": false
+}

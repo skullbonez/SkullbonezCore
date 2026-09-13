@@ -1,0 +1,199 @@
+{
+  "scope": "First striker divergence at an identity-bound speculative ragdoll-head contact; source prefixes byte-match full reveal runs.",
+  "sourcePrefixes": {
+    "old": {
+      "frames": 62,
+      "presentationSha256": "d75110137dcdb1b253b4469f8553c4e3b10a3140097879cd8111fd6a82868086",
+      "processExit": 0
+    },
+    "current": {
+      "frames": 62,
+      "presentationSha256": "18c4d729cdf6632ad1228dcfef56879c0619716d1040bf84645d88dc75e1ae7b",
+      "processExit": 0
+    }
+  },
+  "equalStrikerPredictionFrames": [
+    0,
+    13
+  ],
+  "firstDifferentFrame": 14,
+  "oldFirstStrikerContact": {
+    "frame": 15,
+    "idA": 1,
+    "idB": 204,
+    "bodyA": 0,
+    "bodyB": 203,
+    "featureId": 19456,
+    "normal": [
+      0.9764316082000732,
+      -0.21582652628421783,
+      -0.0004244582378305495
+    ],
+    "penetration": 0.8167963027954102,
+    "normalImpulse": 1627.7398681640625,
+    "tangentImpulse1": 0.012762698344886303,
+    "tangentImpulse2": 5.224264621734619,
+    "warmStarted": false,
+    "terrain": false,
+    "manifoldPointCount": 1
+  },
+  "newFirstStrikerContact": {
+    "frame": 14,
+    "idA": 1,
+    "idB": 204,
+    "bodyA": 0,
+    "bodyB": 203,
+    "featureId": 19456,
+    "normal": [
+      0.9794474244117737,
+      -0.20169125497341156,
+      0.001835999428294599
+    ],
+    "penetration": -0.596153736114502,
+    "normalImpulse": 824.2064208984375,
+    "tangentImpulse1": 0.0,
+    "tangentImpulse2": 0.0,
+    "warmStarted": false,
+    "terrain": false,
+    "manifoldPointCount": 1
+  },
+  "strikerFrames": {
+    "old": [
+      {
+        "frame": 13,
+        "id": 1,
+        "modelRow": 0,
+        "position": [
+          496.2492370605469,
+          21.041667938232422,
+          500.0
+        ],
+        "orientation": [
+          0.0,
+          0.0,
+          -0.9998254776000977,
+          -0.01868503727018833
+        ],
+        "linearVelocity": [
+          170.0,
+          -20.999990463256836,
+          0.0
+        ],
+        "sleeping": false
+      },
+      {
+        "frame": 14,
+        "id": 1,
+        "modelRow": 0,
+        "position": [
+          497.6658935546875,
+          20.86444664001465,
+          500.0
+        ],
+        "orientation": [
+          0.0,
+          0.0,
+          -0.9992049932479858,
+          -0.03986865654587746
+        ],
+        "linearVelocity": [
+          170.0,
+          -21.26665687561035,
+          0.0
+        ],
+        "sleeping": false
+      },
+      {
+        "frame": 15,
+        "id": 1,
+        "modelRow": 0,
+        "position": [
+          498.978271484375,
+          20.708322525024414,
+          500.0000305175781
+        ],
+        "orientation": [
+          0.0,
+          0.0,
+          -0.9981384873390198,
+          -0.0609893798828125
+        ],
+        "linearVelocity": [
+          160.37425231933594,
+          -19.37325668334961,
+          0.004109969362616539
+        ],
+        "sleeping": false
+      }
+    ],
+    "new": [
+      {
+        "frame": 13,
+        "id": 1,
+        "modelRow": 0,
+        "position": [
+          496.2492370605469,
+          21.041667938232422,
+          500.0
+        ],
+        "orientation": [
+          0.0,
+          0.0,
+          -0.9998254776000977,
+          -0.01868503727018833
+        ],
+        "linearVelocity": [
+          170.0,
+          -20.999990463256836,
+          0.0
+        ],
+        "sleeping": false
+      },
+      {
+        "frame": 14,
+        "id": 1,
+        "modelRow": 0,
+        "position": [
+          497.6251220703125,
+          20.872840881347656,
+          499.9999084472656
+        ],
+        "orientation": [
+          0.0,
+          0.0,
+          -0.9992049932479858,
+          -0.03986865282058716
+        ],
+        "linearVelocity": [
+          165.1074981689453,
+          -20.259170532226562,
+          -0.009171168319880962
+        ],
+        "sleeping": false
+      },
+      {
+        "frame": 15,
+        "id": 1,
+        "modelRow": 0,
+        "position": [
+          498.7953186035156,
+          20.8022518157959,
+          499.9998779296875
+        ],
+        "orientation": [
+          -5.33556931259227e-06,
+          1.8129493355445447e-06,
+          -0.9981385469436646,
+          -0.06098698079586029
+        ],
+        "linearVelocity": [
+          140.48648071289062,
+          -8.492701530456543,
+          -0.004298141226172447
+        ],
+        "sleeping": false
+      }
+    ]
+  },
+  "rawEvidence": "TestOutput/skarness/fp9-wall-contact-investigation-01"
+}

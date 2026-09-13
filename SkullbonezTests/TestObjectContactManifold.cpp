@@ -43,6 +43,10 @@
 #include "../SkullbonezSource/Physics/BoundingBox.h"
 #include "../SkullbonezSource/Physics/ConvexHullShape.h"
 #include "../SkullbonezSource/Physics/ObjectContactManifold.h"
+#include "../SkullbonezSource/Physics/ConvexDistance.h"
+#include "../SkullbonezSource/Physics/ConvexMotionBounds.h"
+#include "../SkullbonezSource/Physics/PhysicsPoseIntegration.h"
+#include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h"
 #include "TestCollisionShapeFixtures.h"
 
@@ -1192,4 +1196,259 @@ TEST_CASE( "Object CCD: shallow oblique sphere motion reaches a box face" )
 
     REQUIRE( sweep.hit );
     CHECK( sweep.collisionTime == doctest::Approx( 0.5f ).epsilon( 0.0001f ) );
+}
+
+TEST_CASE( "Convex distance: uninflated sphere witnesses and signed separation" )
+{
+    const CollisionShape sphere = SphereShape( 0.5f );
+    const auto a = MakeBody( Vector3( 0.0f, 0.0f, 0.0f ) );
+    for ( const float centerDistance : { 0.75f, 1.0f, 4.0f } )
+    {
+        const auto b = MakeBody( Vector3( centerDistance, 0.0f, 0.0f ) );
+        const auto result = SkullbonezCore::Physics::ComputeConvexDistance( a, sphere, b, sphere );
+        REQUIRE( result.converged );
+        CHECK( result.separation == doctest::Approx( centerDistance - 1.0f ) );
+        CHECK( result.pointA.x == doctest::Approx( 0.5f ) );
+        CHECK( result.pointB.x == doctest::Approx( centerDistance - 0.5f ) );
+        CHECK( result.normal.x == doctest::Approx( 1.0f ) );
+    }
+}
+
+TEST_CASE( "Convex distance: diagonal box gap is Euclidean and shape order reverses witnesses" )
+{
+    const CollisionShape box = MakeBox();
+    const auto a = MakeBody( Vector3( 0.0f, 0.0f, 0.0f ) );
+    const auto b = MakeBody( Vector3( 5.0f, 6.0f, 0.0f ) );
+    const auto result = SkullbonezCore::Physics::ComputeConvexDistance( a, box, b, box );
+    const auto reverse = SkullbonezCore::Physics::ComputeConvexDistance( b, box, a, box );
+    REQUIRE( result.converged );
+    REQUIRE( reverse.converged );
+    CHECK( result.separation == doctest::Approx( 5.0f ) );
+    CHECK( result.normal.x == doctest::Approx( 0.6f ) );
+    CHECK( result.normal.y == doctest::Approx( 0.8f ) );
+    CHECK( reverse.separation == result.separation );
+    CHECK( reverse.normal.x == -result.normal.x );
+    CHECK( reverse.normal.y == -result.normal.y );
+    CHECK( result.pointA.x == doctest::Approx( 1.0f ) );
+    CHECK( result.pointB.x == doctest::Approx( 4.0f ) );
+    const auto repeat = SkullbonezCore::Physics::ComputeConvexDistance( a, box, b, box );
+    CHECK( repeat.featureId == result.featureId );
+    CHECK( repeat.pointA == result.pointA );
+    CHECK( repeat.pointB == result.pointB );
+}
+
+TEST_CASE( "Convex distance: sphere misses a box corner despite overlapping inflated axis bounds" )
+{
+    const CollisionShape sphere = SphereShape( 0.5f );
+    const CollisionShape box = MakeBox();
+    const auto a = MakeBody( Vector3( 1.4f, 1.4f, 0.0f ) );
+    const auto b = MakeBody( Vector3( 0.0f, 0.0f, 0.0f ) );
+    const auto result = SkullbonezCore::Physics::ComputeConvexDistance( a, sphere, b, box );
+    REQUIRE( result.converged );
+    CHECK( result.separation == doctest::Approx( sqrtf( 0.32f ) - 0.5f ) );
+    CHECK( result.separation > 0.06f );
+    CHECK( result.pointB.x == doctest::Approx( 1.0f ) );
+    CHECK( result.pointB.y == doctest::Approx( 1.0f ) );
+}
+
+TEST_CASE( "Convex distance: rotated boxes converge under large translations and repeated support ties" )
+{
+    const CollisionShape box = MakeBox( Vector3( 1.2f, 0.8f, 0.4f ) );
+    const Vector3 translation( 500, 100, 500 );
+    for ( int index = 0; index < 120; ++index )
+    {
+        const float angle = static_cast<float>( index ) * 0.037f;
+        const auto a = MakeBody( Vector3( 0, 0, 0 ), Vector3( 1, 2, 3 ), angle );
+        const auto b = MakeBody( Vector3( 0.2f, 0.6f, 2.0f ), Vector3( 3, 1, 2 ), -angle );
+        auto farA = a;
+        auto farB = b;
+        farA.position += translation;
+        farB.position += translation;
+        const auto near = SkullbonezCore::Physics::ComputeConvexDistance( a, box, b, box );
+        const auto far = SkullbonezCore::Physics::ComputeConvexDistance( farA, box, farB, box );
+        REQUIRE( near.converged );
+        REQUIRE( far.converged );
+        CHECK( far.separation == doctest::Approx( near.separation ).epsilon( 0.0001f ) );
+        CHECK( far.separation >= 0.0f );
+    }
+}
+
+TEST_CASE( "Convex distance: rotated collider offsets and hull core preserve geometric distance" )
+{
+    RuntimeAllocationScope allocationScope( RuntimeAllocationPhase::SceneLoad );
+    ConvexHullShape hull;
+    REQUIRE(
+        ConvexHullShape::TryLoadFromFile( diagnostics, "SkullbonezData/hulls/test_scaled_normals_box.hull", hull ).Ok() );
+    const CollisionShape hullShape = hull;
+    const CollisionShape sphere = BoundingSphere( 0.5f, Vector3( 2.0f, 0.0f, 0.0f ) );
+    const auto a = MakeBody( Vector3( 0.0f, 4.0f, 0.0f ), Vector3( 0.0f, 0.0f, 1.0f ), 1.57079632679f );
+    const auto b = MakeBody( Vector3( 0.0f, 0.0f, 0.0f ) );
+    const auto result = SkullbonezCore::Physics::ComputeConvexDistance( a, sphere, b, hullShape );
+    REQUIRE( result.converged );
+    CHECK( result.normal.y == doctest::Approx( -1.0f ) );
+    CHECK( result.pointA.y == doctest::Approx( 5.5f ) );
+    float top = hull.GetVertex( 0 ).y + hull.GetPosition().y;
+    for ( uint16_t index = 1; index < hull.GetVertexCount(); ++index )
+    {
+        top = (std::max)( top, hull.GetVertex( index ).y + hull.GetPosition().y );
+    }
+    CHECK( result.separation == doctest::Approx( 5.5f - top ) );
+}
+
+TEST_CASE( "Convex distance: distant thin wall and ragdoll leg converge at the pile starting pose" )
+{
+    const CollisionShape wall = MakeBox( Vector3( 1, 8, 19 ) );
+    const CollisionShape leg = MakeBox( Vector3( 0.8f, 2.4f, 0.75f ) );
+    const auto a = MakeBody( Vector3( 519, 8, 500 ) );
+    for ( const float angle : { -0.2094395102f, 0.2094395102f } )
+    {
+        const auto b = MakeBody( Vector3( 500.6821594238281f, 21.297639846801758f, 500 ), Vector3( 0, 0, 1 ), angle );
+        const auto result = SkullbonezCore::Physics::ComputeConvexDistance( a, wall, b, leg );
+        REQUIRE( result.converged );
+        // The wall's nearest XY corner projects onto the limb rectangle;
+        // both shapes overlap along Z, so their distance is two-dimensional.
+        float expectedSquared = 1.0e10f;
+        for ( const float x : { -0.8f, 0.8f } )
+        {
+            for ( const float y : { -2.4f, 2.4f } )
+            {
+                const Vector3 point = b.position + b.orientation.GetOrientationMatrix() * Vector3( x, y, 0 );
+                for ( const Vector3 localEnd : { Vector3( -x, y, 0 ), Vector3( x, -y, 0 ) } )
+                {
+                    const Vector3 end = b.position + b.orientation.GetOrientationMatrix() * localEnd;
+                    const Vector3 edge = end - point;
+                    const Vector3 toCorner = Vector3( 518, 16, 500 ) - point;
+                    const float fraction = std::clamp( Dot( toCorner, edge ) / Dot( edge, edge ), 0.0f, 1.0f );
+                    const Vector3 delta = toCorner - edge * fraction;
+                    expectedSquared = (std::min)( expectedSquared, Dot( delta, delta ) );
+                }
+            }
+        }
+        CHECK( result.separation == doctest::Approx( sqrtf( expectedSquared ) ).epsilon( 0.00001f ) );
+    }
+}
+
+TEST_CASE( "Convex distance: nearly touching parallel limb edges terminate without support cycling" )
+{
+    const Vector3 extentA( 0.8f, 2.4f, 0.75f );
+    const Vector3 extentB( 0.72f, 2.4f, 0.72f );
+    const CollisionShape legA = MakeBox( extentA );
+    const CollisionShape legB = MakeBox( extentB );
+    const Vector3 root( 500, 14.08f, 500 );
+    for ( int index = 0; index < 720; ++index )
+    {
+        const float halfAngle = static_cast<float>( index ) * ( 3.14159265f / 180.0f ) * 0.5f;
+        Quaternion orientation( 0, 0, -sinf( halfAngle ), cosf( halfAngle ) );
+        orientation.Normalise();
+        const auto rotation = orientation.GetOrientationMatrix();
+        ObjectContactBodyView a;
+        a.orientation = orientation;
+        a.position = root + rotation * Vector3( -0.85f, 7.2f, 0 );
+        ObjectContactBodyView b;
+        b.orientation = orientation;
+        b.position = root + rotation * Vector3( 0.85f, 2.4f, 0 );
+        // Equal orientations reduce the geometric reference to AABB distance
+        // in their shared frame, including the rounded world-space centers.
+        const Vector3 relative = rotation.TransposeMultiply( b.position - a.position );
+        const Vector3 gap( (std::max)( 0.0f, fabsf( relative.x ) - extentA.x - extentB.x ),
+                           (std::max)( 0.0f, fabsf( relative.y ) - extentA.y - extentB.y ),
+                           (std::max)( 0.0f, fabsf( relative.z ) - extentA.z - extentB.z ) );
+        const auto result = SkullbonezCore::Physics::ComputeConvexDistance( a, legA, b, legB );
+        CAPTURE( index );
+        REQUIRE( result.converged );
+        CHECK( result.separation == doctest::Approx( sqrtf( Dot( gap, gap ) ) ).epsilon( 0.00002f ) );
+    }
+}
+
+TEST_CASE( "Convex motion bounds: finite endpoint encloses deterministic half-angle error" )
+{
+    using namespace SkullbonezCore::Physics;
+    PhysicsBodyHotState hot;
+    hot.angularVelocity = Vector3( 0, 0, 1.2f );
+    constexpr float duration = 1.0f / 120.0f;
+    const CollisionShape shape = BoundingSphere( 0.0f, Vector3( 1, 0, 0 ) );
+    const float bound = MaximumRotatedProjection( hot.orientation, shape, hot.angularVelocity, Vector3( 0, 1, 0 ),
+                                                  duration );
+    IntegrateBodyRecordPose( hot, duration );
+    const float actual = ( hot.orientation.GetOrientationMatrix() * Vector3( 1, 0, 0 ) ).y;
+    // This endpoint lies beyond the ideal arc by more than float roundoff.
+    // Removing the integrator allowance must fail even with the Taylor bound.
+    CHECK( actual > std::sin( 1.2f * duration ) + 0.0001f );
+    CHECK( bound >= actual );
+    CHECK( bound < 0.02f );
+}
+
+namespace
+{
+void CheckIntegratedShapeProjection( const CollisionShape& shape,
+                                     const SkullbonezCore::Math::Transformation::RotationMatrix& rotation,
+                                     const Vector3& normal, float bound )
+{
+    auto checkPoint = [&]( const Vector3& point, float radius )
+    { CHECK( Dot( normal, rotation * point ) + radius <= bound + 0.000002f ); };
+    if ( const auto* sphere = std::get_if<BoundingSphere>( &shape ) )
+    {
+        checkPoint( sphere->GetPosition(), sphere->GetRadius() );
+    }
+    else if ( const auto* box = std::get_if<BoundingBox>( &shape ) )
+    {
+        const Vector3 half = box->GetHalfExtents();
+        for ( unsigned vertex = 0; vertex < 8; ++vertex )
+        {
+            checkPoint( box->GetPosition() + Vector3( vertex & 1u ? half.x : -half.x, vertex & 2u ? half.y : -half.y,
+                                                      vertex & 4u ? half.z : -half.z ),
+                        0.0f );
+        }
+    }
+    else
+    {
+        const auto& hull = std::get<ConvexHullShape>( shape );
+        for ( uint16_t vertex = 0; vertex < hull.GetVertexCount(); ++vertex )
+        {
+            checkPoint( hull.GetPosition() + hull.GetVertex( vertex ), 0.0f );
+        }
+    }
+}
+
+void CheckIntegratedArcBound( const CollisionShape& shape, const Quaternion& orientation, const Vector3& omega,
+                              const Vector3& normal )
+{
+    using namespace SkullbonezCore::Physics;
+    constexpr float duration = 1.0f / 120.0f;
+    const float bound = MaximumRotatedProjection( orientation, shape, omega, normal, duration );
+    for ( int sample = 0; sample <= 8; ++sample )
+    {
+        PhysicsBodyHotState hot;
+        hot.orientation = orientation;
+        hot.angularVelocity = omega;
+        IntegrateBodyRecordPose( hot, duration * static_cast<float>( sample ) / 8.0f );
+        CheckIntegratedShapeProjection( shape, hot.orientation.GetOrientationMatrix(), normal, bound );
+    }
+}
+} // namespace
+
+TEST_CASE( "Convex motion bounds: offset shapes enclose integrated arcs on varied axes" )
+{
+    using namespace SkullbonezCore::Physics;
+    const std::array<CollisionShape, 3> shapes = { BoundingSphere( 0.3f, Vector3( 1, -2, 0.5f ) ),
+                                                   BoundingBox( Vector3( 0.3f, 2, 0.7f ), Vector3( -1, 0.5f, 0.2f ) ),
+                                                   BrickHull() };
+    const std::array<Vector3, 3> axes = { Vector3( 0, 0, 1 ), Vector3( 0.6f, 0.8f, 0 ), Vector3( -0.48f, 0.64f, 0.6f ) };
+    const std::array<Vector3, 3> normals = { Vector3( 1, 0, 0 ), Vector3( 0, -1, 0 ), Vector3( 0.6f, 0, -0.8f ) };
+    Quaternion orientation;
+    orientation.RotateAboutAxis( axes[1], 0.73f );
+    for ( const CollisionShape& shape : shapes )
+    {
+        for ( const Vector3& axis : axes )
+        {
+            for ( int step = 0; step < 64; ++step )
+            {
+                const Vector3 omega = axis * ( static_cast<float>( step ) * 16.0f );
+                for ( const Vector3& normal : normals )
+                {
+                    CheckIntegratedArcBound( shape, orientation, omega, normal );
+                }
+            }
+        }
+    }
 }

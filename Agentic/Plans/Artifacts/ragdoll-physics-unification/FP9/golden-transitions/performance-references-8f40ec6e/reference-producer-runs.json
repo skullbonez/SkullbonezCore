@@ -1,0 +1,422 @@
+[
+  {
+    "cwd": "C:\\SkullbonezCore\\TestOutput\\fp9-reference-producer-perf-02\\old-work",
+    "contentCommit": "3a4b52e94c1bf61b2f04b975a4fa2e63fe3cbf5a",
+    "workload": "dx12",
+    "variant": "old",
+    "command": [
+      "C:\\SkullbonezCore\\TestOutput\\fp9-reference-producer-perf-02\\old\\SKULLBONEZ_CORE-Profile.exe",
+      "--renderer",
+      "dx12",
+      "--vsync",
+      "off",
+      "--fixed-step",
+      "--scene",
+      "C:\\SkullbonezCore\\TestOutput\\fp9-reference-producer-perf-02\\old-work\\SkullbonezData\\scenes\\perf_test.scene.json"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 5.402564799995162,
+    "exeSha256": "3eacb81542b5dc0b9d5ed8d6ff8a176fd0b1f83a6bdfec4904b846d1d183593d",
+    "sceneSha256": "6425cd463823f6105c1e8e437dbbd60c0fa89136685bb586084f163a7fa5762a",
+    "measuredFrames": 1940,
+    "markers": {
+      "Frame": {
+        "min": 0.6738,
+        "max": 1.8155,
+        "avg": 0.8791,
+        "p50": 0.8338,
+        "p99": 1.5169,
+        "p99_9": 1.7104
+      },
+      "Frame/Physics": {
+        "min": 0.1851,
+        "max": 0.7511,
+        "avg": 0.3339,
+        "p50": 0.3115,
+        "p99": 0.6677,
+        "p99_9": 0.7328
+      },
+      "Frame/UI": null,
+      "Frame/UI/BuildData": null,
+      "Frame/UI/Draw": null
+    }
+  },
+  {
+    "cwd": "C:\\SkullbonezCore",
+    "contentCommit": "current worktree",
+    "workload": "dx12",
+    "variant": "current",
+    "command": [
+      "C:\\SkullbonezCore\\TestOutput\\fp9-reference-producer-perf-02\\current\\SKULLBONEZ_CORE-Profile.exe",
+      "--renderer",
+      "dx12",
+      "--vsync",
+      "off",
+      "--fixed-step",
+      "--scene",
+      "C:\\SkullbonezCore\\SkullbonezData\\scenes\\perf_test.scene.json"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 6.02657650000765,
+    "exeSha256": "8f40ec6ea98771486fcf0a30737fd0ed2a516689c5b9429816d528e10ca894fc",
+    "sceneSha256": "017e0f86459faa193f574b98b4e38bded80e0743716eedd6584f4ae2f53884ed",
+    "measuredFrames": 1940,
+    "markers": {
+      "Frame": {
+        "min": 0.9337,
+        "max": 2.6242,
+        "avg": 1.2217,
+        "p50": 1.1509,
+        "p99": 2.0038,
+        "p99_9": 2.4277
+      },
+      "Frame/Physics": {
+        "min": 0.1637,
+        "max": 0.7078,
+        "avg": 0.2914,
+        "p50": 0.2875,
+        "p99": 0.579,
+        "p99_9": 0.6867
+      },
+      "Frame/UI": {
+        "min": 0.315,
+        "max": 0.6643,
+        "avg": 0.3625,
+        "p50": 0.3325,
+        "p99": 0.5494,
+        "p99_9": 0.6106
+      },
+      "Frame/UI/BuildData": {
+        "min": 0.2595,
+        "max": 0.5383,
+        "avg": 0.2969,
+        "p50": 0.2738,
+        "p99": 0.4349,
+        "p99_9": 0.4881
+      },
+      "Frame/UI/Draw": {
+        "min": 0.0429,
+        "max": 0.1901,
+        "avg": 0.0516,
+        "p50": 0.046,
+        "p99": 0.0931,
+        "p99_9": 0.14
+      }
+    }
+  },
+  {
+    "cwd": "C:\\SkullbonezCore\\TestOutput\\fp9-reference-producer-perf-02\\old-work",
+    "contentCommit": "3a4b52e94c1bf61b2f04b975a4fa2e63fe3cbf5a",
+    "workload": "dx12",
+    "variant": "old",
+    "command": [
+      "C:\\SkullbonezCore\\TestOutput\\fp9-reference-producer-perf-02\\old\\SKULLBONEZ_CORE-Profile.exe",
+      "--renderer",
+      "dx12",
+      "--vsync",
+      "off",
+      "--fixed-step",
+      "--scene",
+      "C:\\SkullbonezCore\\TestOutput\\fp9-reference-producer-perf-02\\old-work\\SkullbonezData\\scenes\\perf_test.scene.json"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 4.974190099994303,
+    "exeSha256": "3eacb81542b5dc0b9d5ed8d6ff8a176fd0b1f83a6bdfec4904b846d1d183593d",
+    "sceneSha256": "6425cd463823f6105c1e8e437dbbd60c0fa89136685bb586084f163a7fa5762a",
+    "measuredFrames": 1940,
+    "markers": {
+      "Frame": {
+        "min": 0.6489,
+        "max": 1.5907,
+        "avg": 0.8258,
+        "p50": 0.7937,
+        "p99": 1.2287,
+        "p99_9": 1.4412
+      },
+      "Frame/Physics": {
+        "min": 0.1833,
+        "max": 0.6146,
+        "avg": 0.3127,
+        "p50": 0.3033,
+        "p99": 0.5432,
+        "p99_9": 0.5767
+      },
+      "Frame/UI": null,
+      "Frame/UI/BuildData": null,
+      "Frame/UI/Draw": null
+    }
+  },
+  {
+    "cwd": "C:\\SkullbonezCore",
+    "contentCommit": "current worktree",
+    "workload": "dx12",
+    "variant": "current",
+    "command": [
+      "C:\\SkullbonezCore\\TestOutput\\fp9-reference-producer-perf-02\\current\\SKULLBONEZ_CORE-Profile.exe",
+      "--renderer",
+      "dx12",
+      "--vsync",
+      "off",
+      "--fixed-step",
+      "--scene",
+      "C:\\SkullbonezCore\\SkullbonezData\\scenes\\perf_test.scene.json"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 5.649544900006731,
+    "exeSha256": "8f40ec6ea98771486fcf0a30737fd0ed2a516689c5b9429816d528e10ca894fc",
+    "sceneSha256": "017e0f86459faa193f574b98b4e38bded80e0743716eedd6584f4ae2f53884ed",
+    "measuredFrames": 1940,
+    "markers": {
+      "Frame": {
+        "min": 0.9181,
+        "max": 2.1108,
+        "avg": 1.1479,
+        "p50": 1.1219,
+        "p99": 1.5931,
+        "p99_9": 1.8212
+      },
+      "Frame/Physics": {
+        "min": 0.1583,
+        "max": 0.5544,
+        "avg": 0.2754,
+        "p50": 0.2651,
+        "p99": 0.4554,
+        "p99_9": 0.5232
+      },
+      "Frame/UI": {
+        "min": 0.3104,
+        "max": 0.5608,
+        "avg": 0.339,
+        "p50": 0.3246,
+        "p99": 0.4598,
+        "p99_9": 0.5244
+      },
+      "Frame/UI/BuildData": {
+        "min": 0.2547,
+        "max": 0.4465,
+        "avg": 0.2782,
+        "p50": 0.2661,
+        "p99": 0.371,
+        "p99_9": 0.41
+      },
+      "Frame/UI/Draw": {
+        "min": 0.0436,
+        "max": 0.1372,
+        "avg": 0.0477,
+        "p50": 0.0456,
+        "p99": 0.0714,
+        "p99_9": 0.1296
+      }
+    }
+  },
+  {
+    "cwd": "C:\\SkullbonezCore\\TestOutput\\fp9-reference-producer-perf-02\\old-work",
+    "contentCommit": "3a4b52e94c1bf61b2f04b975a4fa2e63fe3cbf5a",
+    "workload": "physics_bench",
+    "variant": "old",
+    "command": [
+      "C:\\SkullbonezCore\\TestOutput\\fp9-reference-producer-perf-02\\old\\SKULLBONEZ_CORE-Profile.exe",
+      "--renderer",
+      "dx12",
+      "--vsync",
+      "off",
+      "--fixed-step",
+      "--scene",
+      "C:\\SkullbonezCore\\TestOutput\\fp9-reference-producer-perf-02\\old-work\\SkullbonezData\\scenes\\physics_bench_varied.scene.json"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 4.750716399998055,
+    "exeSha256": "3eacb81542b5dc0b9d5ed8d6ff8a176fd0b1f83a6bdfec4904b846d1d183593d",
+    "sceneSha256": "1d73fef58565eb71c655780220db771b88285db35901f6bd6f3304a8c669355c",
+    "measuredFrames": 2340,
+    "markers": {
+      "Frame": {
+        "min": 0.3243,
+        "max": 0.967,
+        "avg": 0.4161,
+        "p50": 0.394,
+        "p99": 0.7132,
+        "p99_9": 0.9376
+      },
+      "Frame/Physics": {
+        "min": 0.0453,
+        "max": 0.2578,
+        "avg": 0.1031,
+        "p50": 0.1,
+        "p99": 0.1696,
+        "p99_9": 0.2125
+      },
+      "Frame/UI": null,
+      "Frame/UI/BuildData": null,
+      "Frame/UI/Draw": null
+    }
+  },
+  {
+    "cwd": "C:\\SkullbonezCore",
+    "contentCommit": "current worktree",
+    "workload": "physics_bench",
+    "variant": "current",
+    "command": [
+      "C:\\SkullbonezCore\\TestOutput\\fp9-reference-producer-perf-02\\current\\SKULLBONEZ_CORE-Profile.exe",
+      "--renderer",
+      "dx12",
+      "--vsync",
+      "off",
+      "--fixed-step",
+      "--scene",
+      "C:\\SkullbonezCore\\SkullbonezData\\scenes\\physics_bench_varied.scene.json"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 5.5912558999989415,
+    "exeSha256": "8f40ec6ea98771486fcf0a30737fd0ed2a516689c5b9429816d528e10ca894fc",
+    "sceneSha256": "1dd5397b63224bd5f32aab3f07d5e2a70250853d8234a48b1e9a518c0e595a74",
+    "measuredFrames": 2340,
+    "markers": {
+      "Frame": {
+        "min": 0.638,
+        "max": 1.5182,
+        "avg": 0.7427,
+        "p50": 0.7142,
+        "p99": 1.1071,
+        "p99_9": 1.3624
+      },
+      "Frame/Physics": {
+        "min": 0.0397,
+        "max": 0.2388,
+        "avg": 0.0925,
+        "p50": 0.0924,
+        "p99": 0.1553,
+        "p99_9": 0.1958
+      },
+      "Frame/UI": {
+        "min": 0.3126,
+        "max": 0.6731,
+        "avg": 0.3353,
+        "p50": 0.3226,
+        "p99": 0.448,
+        "p99_9": 0.5533
+      },
+      "Frame/UI/BuildData": {
+        "min": 0.2595,
+        "max": 0.4959,
+        "avg": 0.2773,
+        "p50": 0.2674,
+        "p99": 0.3655,
+        "p99_9": 0.4296
+      },
+      "Frame/UI/Draw": {
+        "min": 0.0416,
+        "max": 0.1563,
+        "avg": 0.0458,
+        "p50": 0.0436,
+        "p99": 0.0722,
+        "p99_9": 0.1254
+      }
+    }
+  },
+  {
+    "cwd": "C:\\SkullbonezCore\\TestOutput\\fp9-reference-producer-perf-02\\old-work",
+    "contentCommit": "3a4b52e94c1bf61b2f04b975a4fa2e63fe3cbf5a",
+    "workload": "physics_bench",
+    "variant": "old",
+    "command": [
+      "C:\\SkullbonezCore\\TestOutput\\fp9-reference-producer-perf-02\\old\\SKULLBONEZ_CORE-Profile.exe",
+      "--renderer",
+      "dx12",
+      "--vsync",
+      "off",
+      "--fixed-step",
+      "--scene",
+      "C:\\SkullbonezCore\\TestOutput\\fp9-reference-producer-perf-02\\old-work\\SkullbonezData\\scenes\\physics_bench_varied.scene.json"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 4.76893609999388,
+    "exeSha256": "3eacb81542b5dc0b9d5ed8d6ff8a176fd0b1f83a6bdfec4904b846d1d183593d",
+    "sceneSha256": "1d73fef58565eb71c655780220db771b88285db35901f6bd6f3304a8c669355c",
+    "measuredFrames": 2340,
+    "markers": {
+      "Frame": {
+        "min": 0.3248,
+        "max": 1.0441,
+        "avg": 0.4133,
+        "p50": 0.3895,
+        "p99": 0.6842,
+        "p99_9": 0.9065
+      },
+      "Frame/Physics": {
+        "min": 0.0457,
+        "max": 0.2139,
+        "avg": 0.1028,
+        "p50": 0.0991,
+        "p99": 0.1622,
+        "p99_9": 0.2055
+      },
+      "Frame/UI": null,
+      "Frame/UI/BuildData": null,
+      "Frame/UI/Draw": null
+    }
+  },
+  {
+    "cwd": "C:\\SkullbonezCore",
+    "contentCommit": "current worktree",
+    "workload": "physics_bench",
+    "variant": "current",
+    "command": [
+      "C:\\SkullbonezCore\\TestOutput\\fp9-reference-producer-perf-02\\current\\SKULLBONEZ_CORE-Profile.exe",
+      "--renderer",
+      "dx12",
+      "--vsync",
+      "off",
+      "--fixed-step",
+      "--scene",
+      "C:\\SkullbonezCore\\SkullbonezData\\scenes\\physics_bench_varied.scene.json"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 6.252758400005405,
+    "exeSha256": "8f40ec6ea98771486fcf0a30737fd0ed2a516689c5b9429816d528e10ca894fc",
+    "sceneSha256": "1dd5397b63224bd5f32aab3f07d5e2a70250853d8234a48b1e9a518c0e595a74",
+    "measuredFrames": 2340,
+    "markers": {
+      "Frame": {
+        "min": 0.6405,
+        "max": 2.2199,
+        "avg": 0.8406,
+        "p50": 0.7989,
+        "p99": 1.3742,
+        "p99_9": 1.6191
+      },
+      "Frame/Physics": {
+        "min": 0.0398,
+        "max": 0.2736,
+        "avg": 0.1059,
+        "p50": 0.1054,
+        "p99": 0.1821,
+        "p99_9": 0.2186
+      },
+      "Frame/UI": {
+        "min": 0.3144,
+        "max": 0.7251,
+        "avg": 0.3673,
+        "p50": 0.3503,
+        "p99": 0.5696,
+        "p99_9": 0.6303
+      },
+      "Frame/UI/BuildData": {
+        "min": 0.2609,
+        "max": 0.5538,
+        "avg": 0.3024,
+        "p50": 0.2883,
+        "p99": 0.4503,
+        "p99_9": 0.5054
+      },
+      "Frame/UI/Draw": {
+        "min": 0.042,
+        "max": 0.189,
+        "avg": 0.0508,
+        "p50": 0.0474,
+        "p99": 0.1061,
+        "p99_9": 0.1377
+      }
+    }
+  }
+]

@@ -46,6 +46,7 @@ struct SceneRequest
     SceneRequestType type = SceneRequestType::LoadBrowserIndex;
     int index = -1;
     char text[SCENE_REQUEST_TEXT_CAPACITY] = {};
+    bool importHeightMap = false;
     bool preserveUIState = true;
     bool suppressExitOnComplete = true;
     bool preserveRuntimeState = true;
@@ -57,6 +58,7 @@ inline uint32_t SceneRequestFlags( const SceneRequest& request ) noexcept
     flags |= request.preserveUIState ? 1u : 0u;
     flags |= request.suppressExitOnComplete ? 2u : 0u;
     flags |= request.preserveRuntimeState ? 4u : 0u;
+    flags |= request.importHeightMap ? 8u : 0u;
     return flags;
 }
 
@@ -83,8 +85,7 @@ constexpr bool SceneRequestBatchContinuesAfter( SceneRequestType type, bool acce
 class SceneRequestQueue
 {
   public:
-    SkullbonezCore::Core::SbResult Submit( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                           const SceneRequest& request );
+    SkullbonezCore::Core::SbResult Submit( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const SceneRequest& request );
     SceneRequestBatch TakePending();
 
     // Lets App cancel scene-local sibling state before request execution begins a

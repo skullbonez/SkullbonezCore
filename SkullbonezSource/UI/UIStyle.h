@@ -1,21 +1,4 @@
-/*
-File: SkullbonezSource/UI/UIStyle.h
-Purpose:
-  Declares the immutable palette, radii, typography, spacing, and control-
-  style values.
-
-Summary:
-  Owns immutable palette, radii, typography,
-  control, accent, and footer-toggle values.
-
-Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
-
-Related:
-  - SkullbonezSource/UI/UIStyle.cpp
-  - Agentic/Reference/engine-glossary.md
-*/
+// Shared colour roles and fixed geometry for the operator UI.
 #pragma once
 
 namespace SkullbonezCore
@@ -50,6 +33,7 @@ struct UIPalette
     UIColor windowSubtle;
     UIColor control;
     UIColor controlHover;
+    UIColor selection;
     UIColor textPrimary;
     UIColor textSecondary;
     UIColor textMuted;
@@ -60,6 +44,9 @@ struct UIPalette
     UIColor accent;
     UIColor accentStrong;
     UIColor warningAccent;
+    UIColor toggleKnob;
+    // Darken diagnostic series colours on pale tables without changing their hue.
+    float dataInkScale = 1.0f;
 };
 
 struct UIRadii
@@ -77,6 +64,19 @@ struct UIControlStyle
     float switchH = 16.0f;
 };
 
+// Stable IDs are persisted; append new themes without renumbering existing ones.
+enum class Theme : unsigned char
+{
+    Blue,
+    Dark,
+    Light,
+    Count
+};
+Theme CurrentTheme();
+const char* ThemeName( Theme theme );
+const UIPalette& Palette( Theme theme );
+// UI-thread only. References to the active palette remain valid across selection.
+void SelectTheme( Theme theme );
 const UIPalette& Palette();
 const UIRadii& Radii();
 const UIControlStyle& Control();

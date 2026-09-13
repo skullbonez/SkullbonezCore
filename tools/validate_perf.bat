@@ -16,9 +16,9 @@
 @rem   Headless perf args: Launch flags used to remove unrelated interactive or
 @rem   Structural perf proof: Counter-based assertion that rejects an expensive
 @rem     algorithmic path without relying on machine-specific frame timings.
-@rem   Scale matrix: Measurement-only 200/520/1,000/2,000/sleepy-5,000-body artifacts used
-@rem     to ratify and track the physics fixed-step budget. These rows are
-@rem     reported but do not compare against a committed timing baseline.
+@rem   Scale matrix: Identified scale, joint, and gravity workloads checked by
+@rem     operation counters and broad timing ceilings. Optional matched reference
+@rem     runs support tighter relative comparisons without changing baselines.
 @rem
 @rem Invariants:
 @rem   - Tool output should be bounded and readable because agents and humans use
@@ -66,6 +66,8 @@ if errorlevel 1 exit /b 9
 "%PYTHON_EXE%" "%REPO%\tools\generate_physics_scale_sleepy_scene.py" --check
 if errorlevel 1 exit /b 9
 "%PYTHON_EXE%" "%REPO%\tools\measure_causal_inspection_perf.py" --self-test
+if errorlevel 1 exit /b 9
+"%PYTHON_EXE%" "%REPO%\tools\check_physics_scale.py" --self-test
 if errorlevel 1 exit /b 9
 
 echo [3/5] Cleaning old perf artifacts...
@@ -162,19 +164,12 @@ if errorlevel 1 (
 )
 
 echo.
-echo Running measurement-only physics scale matrix...
-for %%n in (200 520 1000 2000 sleepy_5000) do (
-    del /q "%REPO%\Profile\physics_scale_%%n_perf_log.csv" 2>nul
-    "%REPO%\Profile\SKULLBONEZ_CORE.exe" --vsync off --fixed-step --shadows off %PERF_HEADLESS_ARGS% --scene SkullbonezData/scenes/physics_scale_%%n.scene.json
-    if errorlevel 1 (
-        echo FAIL: physics_scale_%%n scene crashed or errored.
-        exit /b 6
-    )
-    if not exist "%REPO%\Profile\physics_scale_%%n_perf_log.csv" (
-        echo FAIL: physics_scale_%%n_perf_log.csv was not produced.
-        exit /b 6
-    )
-)
+echo Running checked physics scale, joint and gravity matrix...
+set "SCALE_OUTPUT=%REPO%\TestOutput\validation\physics_scale"
+"%PYTHON_EXE%" "%REPO%\tools\measure_physics_scale.py" --exe "%REPO%\Profile\SKULLBONEZ_CORE.exe" --out-dir "%SCALE_OUTPUT%" --runs 1 --workers 4
+if errorlevel 1 exit /b 6
+"%PYTHON_EXE%" "%REPO%\tools\check_physics_scale.py" --results "%SCALE_OUTPUT%\results.json"
+if errorlevel 1 exit /b 6
 
 echo [5/5] Analyzing and comparing performance...
 set "SKORE_REPO=%REPO%"
@@ -193,7 +188,7 @@ for %%r in (dx12 physics_bench) do (
 
 for %%n in (200 520 1000 2000 sleepy_5000) do (
     echo.
-    echo Analyzing measurement-only physics_scale_%%n performance...
+    echo Analyzing physics_scale_%%n performance...
     "%PYTHON_EXE%" "%REPO%\Agentic\Skills\skore-render-test\analyze_perf.py" --renderer physics_scale_%%n --csv "%REPO%\Profile\physics_scale_%%n_perf_log.csv" --out-dir "%REPO%\Profile"
     if errorlevel 1 (
         echo FAIL: physics_scale_%%n perf analysis failed.

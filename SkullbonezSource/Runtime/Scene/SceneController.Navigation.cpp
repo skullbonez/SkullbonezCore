@@ -29,16 +29,14 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-SceneLoadRequest SceneController::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete,
-                                                     bool preserveRuntimeState )
+SceneLoadRequest SceneController::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
     if ( !HasCurrentEntry() )
     {
         return SceneLoadRequest::None();
     }
 
-    SceneLoadRequest request = SceneLoadRequest::Load( CurrentIndex(), preserveUIState, suppressExitOnComplete,
-                                                       preserveRuntimeState, true );
+    SceneLoadRequest request = SceneLoadRequest::Load( CurrentIndex(), preserveUIState, suppressExitOnComplete, preserveRuntimeState, true );
 
     request.markManualReset = true;
     return request;
@@ -101,7 +99,7 @@ SceneUICommandSubmissionResult SceneController::SubmitUIRequests( const UI::UISc
 
     if ( commands.createScene )
     {
-        result.status = SubmitCreateScene( commands.requestedSceneName );
+        result.status = SubmitCreateScene( commands.requestedSceneName, commands.importHeightMap );
 
         if ( !result.status.Ok() )
         {
