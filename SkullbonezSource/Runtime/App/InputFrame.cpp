@@ -2095,7 +2095,8 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
                                        m_camera,
                                        m_sceneController,
                                        m_replayRuntime,
-                                       m_inputRouter.RuntimeContext() );
+                                       m_inputRouter.RuntimeContext(),
+                                       commands.run.toggleFourViews || commands.run.requestedEditorView >= 0 );
     }
 
     if ( commands.run.requestedEditorView >= 0 )

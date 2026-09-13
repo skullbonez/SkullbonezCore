@@ -44,6 +44,22 @@ void UIDrawList::Clear()
 }
 
 
+void UIDrawList::AddImage( UIImageId image, const UIRect& bounds, float opacity )
+{
+    Command* command = PushCommand();
+    if ( !command )
+    {
+        return;
+    }
+    command->type = CommandType::Image;
+    command->image = image;
+    command->x0 = bounds.x;
+    command->y0 = bounds.y;
+    command->w = bounds.w;
+    command->h = bounds.h;
+    command->a = std::clamp( opacity, 0.0f, 1.0f );
+}
+
 void UIDrawList::AddRect( const UIRect& bounds, const Style::UIColor& color )
 {
     Command* cmd = PushCommand();
@@ -314,6 +330,9 @@ void UIDrawList::Append( const UIDrawList& source, float offsetX, float offsetY 
         case CommandType::LayerBreak:
             BeginLayer();
             break;
+        case CommandType::Image:
+            AddImage( command.image, { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h }, command.a );
+            break;
         case CommandType::PreviewImage:
             AddPreviewImage( command.preview,
                              { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h },
@@ -421,6 +440,10 @@ uint64_t UIDrawList::Fingerprint() const
         addFloat( command.a );
         addUint32( command.preview.catalogIndex );
         addByte( command.preview.valid ? 1u : 0u );
+        if ( command.type == CommandType::Image )
+        {
+            addByte( static_cast<uint8_t>( command.image ) );
+        }
 
         if ( command.type == CommandType::Text || command.type == CommandType::VerticalText || command.type == CommandType::PreviewImage )
         {

@@ -2,7 +2,43 @@
 
 Date: 2026-09-14
 Branch: `codex/prediction-speed-editor-views`
-Status: Four-view editor, camera clipping, Replay controls, Split State branding and authored reset/explicit-save fixes implemented; PR #170 is open, with the Split State follow-up validated and being published. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
+Status: Four-view editor, camera clipping, Replay controls, Split State branding and authored reset/explicit-save fixes implemented; PR #170 is open. The textured-mark and camera-playback follow-up passes final native validation. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
+
+## Textured marks and camera playback - 2026-09-14
+
+The resumed task replaces the procedural native skull with one filtered RGBA
+texture quad at both toolbar sizes. UI records a detached image identity;
+Runtime/Render owns startup upload, mip filtering, ordered submission and release.
+The generator writes premultiplied color to preserve edge coverage during filtering.
+The shader and quad vertex buffer are also initialized during BackendInit, before
+the first image can appear; the allocation-sensitive native check passes.
+
+View presets and Four Views retain the current interaction workspace. Scene
+activation is consumed once even when the initial camera is live, preventing a
+later Inspect camera selection from reapplying the activation pause. The native
+camera regression checks captured solver frames with the harness pause released,
+for both running and prediction-paused states. It also uses actual button centers
+and waits for hover transitions before clicking.
+
+Fast validation passes in `TestOutput/takeover-fast2.log`. The final UI gate
+passes 1,057 unit cases / 3,734,886 assertions, with one skipped case, and all
+native UI checks (`TestOutput/takeover-ui-final.log`, 774 seconds). Camera
+validation passes 40 checks in `TestOutput/skarness/takeover-editor-final`.
+DX12 validation passes in 25 seconds; the one-minute graphics stress run
+completes; all 15 prediction-matrix cases pass in 414 seconds. Logs are
+`TestOutput/takeover-dx12.log`, `TestOutput/takeover-stress.log` and
+`TestOutput/takeover-prediction-matrix.log`. Focused compiler-backed design,
+dependency and allocation-policy checks pass. Dark and Light screenshots in
+`TestOutput/skarness/ui-gate-ui_themes-10816/live` were visually inspected.
+
+The final review checked image ordering, filtered alpha, resource lifetime,
+workspace preservation and one-time activation. Temporary diagnostics were
+removed. No dependency rule, Replay growth privilege or baseline changed.
+The unrelated `SkullbonezData/scenes/simon.scene.json` remains untouched;
+commit validation uses an isolated checkout to exclude that untracked input.
+The staged physics gate passes in 43 seconds: all four worker configurations
+match the unchanged 44,401-line golden byte for byte
+(`TestOutput/takeover-physics-commit.log`).
 
 ## Split State branding - 2026-09-14
 

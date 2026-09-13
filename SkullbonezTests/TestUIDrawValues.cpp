@@ -1113,6 +1113,56 @@ TEST_CASE( "UI draw values retain nested clips and report imbalance" )
 }
 
 
+TEST_CASE( "UI images retain identity, clipping and opacity through panel composition" )
+{
+    using namespace SkullbonezCore::UI;
+    auto source = std::make_unique<UIDrawList>();
+    auto composed = std::make_unique<UIDrawList>();
+    auto panel = std::make_unique<UIDrawList>();
+    source->Clear();
+    composed->Clear();
+    panel->Clear();
+    source->SetPanel( UIPanel::Header );
+    source->PushClip( { 0, 0, 20, 20 } );
+    source->AddImage( UIImageId::ApplicationMark, { 2, 3, 26, 26 }, 0.8f );
+    source->PopClip();
+    composed->Append( *source, 10, 20 );
+    source->Clear();
+    panel->CopyPanel( *composed, UIPanel::Header );
+    panel->ApplyPresentation( { 5, 6 }, 0.5f );
+    const auto commands = panel->Commands();
+    REQUIRE( commands.size() == 3 );
+    CHECK( commands[0].type == UIDrawList::CommandType::PushClip );
+    CHECK( commands[1].type == UIDrawList::CommandType::Image );
+    CHECK( commands[1].image == UIImageId::ApplicationMark );
+    CHECK( commands[1].x0 == 17 );
+    CHECK( commands[1].y0 == 29 );
+    CHECK( commands[1].w == 26 );
+    CHECK( commands[1].a == doctest::Approx( 0.4f ) );
+    CHECK( commands[2].type == UIDrawList::CommandType::PopClip );
+    CHECK_FALSE( panel->GetStats().clipOverflow );
+    CHECK( panel->Fingerprint() != composed->Fingerprint() );
+}
+
+TEST_CASE( "Application marks record one textured quad at toolbar sizes" )
+{
+    using namespace SkullbonezCore::UI;
+    auto list = std::make_unique<UIDrawList>();
+    for ( float size : { 22.0f, 30.0f } )
+    {
+        list->Clear();
+        const UIDrawContext draw( 640, 480, *list );
+        SkullbonezCore::UI::GameLayout::DrawSkullLogo( draw, { 8, 6, size, size } );
+        const auto commands = list->Commands();
+        REQUIRE( commands.size() == 1 );
+        CHECK( commands[0].type == UIDrawList::CommandType::Image );
+        CHECK( commands[0].image == UIImageId::ApplicationMark );
+        CHECK( commands[0].w == size );
+        CHECK( commands[0].h == size );
+    }
+}
+
+
 TEST_CASE( "UI preview values define unavailable fallback presentation" )
 {
     UIDrawList list;
@@ -1226,35 +1276,31 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
     data->renderTargets.count = 1;
     data->renderTargets.previews[0] = { "Scene HDR", 1920, 1080, false, false, true };
 
-    constexpr InGameUITab tabs[] = {
-        InGameUITab::Profiler,
-        InGameUITab::Scene,
-        InGameUITab::Editor,
-        InGameUITab::Physics,
-        InGameUITab::Options,
-        InGameUITab::Render,
-        InGameUITab::Targets,
-        InGameUITab::Keys,
-        InGameUITab::Sky,
-        InGameUITab::Cinematic,
-        InGameUITab::Memory,
-    };
+    constexpr InGameUITab tabs[] = { InGameUITab::Profiler,
+                                     InGameUITab::Scene,
+                                     InGameUITab::Editor,
+                                     InGameUITab::Physics,
+                                     InGameUITab::Options,
+                                     InGameUITab::Render,
+                                     InGameUITab::Targets,
+                                     InGameUITab::Keys,
+                                     InGameUITab::Sky,
+                                     InGameUITab::Cinematic,
+                                     InGameUITab::Memory, };
     // Blue-gray mockup palette with selected-value clips that reserve combo arrows.
     // Options adds themes; Profiler/Memory share table roles.
     // Editor adds sculpt controls; native evidence: terrain-validation-06/editor-controls-view.png.
-    constexpr uint64_t expected[] = {
-        2132093253974716310ull,
-        8999909969555097215ull,
-        15598442833394761550ull,
-        5029844691847507383ull,
-        10394370338941968616ull,
-        5478074610712965329ull,
-        6412084034923494129ull,
-        16903291462328685303ull,
-        17139239282114657199ull,
-        17717404666730030321ull,
-        2685391709597859732ull,
-    };
+    constexpr uint64_t expected[] = { 2132093253974716310ull,
+                                      8999909969555097215ull,
+                                      15598442833394761550ull,
+                                      5029844691847507383ull,
+                                      10394370338941968616ull,
+                                      5478074610712965329ull,
+                                      6412084034923494129ull,
+                                      16903291462328685303ull,
+                                      17139239282114657199ull,
+                                      17717404666730030321ull,
+                                      2685391709597859732ull, };
     static_assert( std::size( tabs ) == std::size( expected ) );
 
     auto ui = std::make_unique<InGameUI>();

@@ -49,6 +49,8 @@
 #include "../SkullbonezSource/Runtime/Replay/ReplayPresentation.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRuntimePackets.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
+
+
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionCommands.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
@@ -1449,4 +1451,22 @@ TEST_CASE( "Native window ordinary events remain FIFO across queue wrap" )
         }
         CHECK_FALSE( queue.Pop( event ) );
     }
+}
+
+TEST_CASE( "Scene activation does not reapply an Inspect pause after camera changes" )
+{
+    using namespace SkullbonezCore::Runtime;
+    RuntimeInteractionController controller;
+    controller.ObserveSceneLifecycle( 1, true, true, false );
+    CHECK( controller.Workspace() == RuntimeWorkspace::Live );
+    controller.ObserveSceneLifecycle( 1, true, true, true );
+    CHECK( controller.Workspace() == RuntimeWorkspace::Live );
+
+    controller.ObserveSceneLifecycle( 2, true, false, true );
+    CHECK( controller.Workspace() == RuntimeWorkspace::Live );
+    controller.ObserveSceneLifecycle( 2, true, true, true );
+    CHECK( controller.Workspace() == RuntimeWorkspace::Inspect );
+    controller.EnterLive();
+    controller.ObserveSceneLifecycle( 2, true, true, true );
+    CHECK( controller.Workspace() == RuntimeWorkspace::Live );
 }

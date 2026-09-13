@@ -362,7 +362,8 @@ class InputRouter
                           CameraControlState& camera,
                           SceneController& sceneController,
                           ReplayRuntime& replayRuntime,
-                          RuntimeInputContext& runtimeInput );
+                          RuntimeInputContext& runtimeInput,
+                          bool preserveWorkspace = false );
     void CycleCameraMode( EditorToolsOwner& editorTools,
                           RuntimeTools& runtimeTools,
                           RuntimeInteractionController& interaction,

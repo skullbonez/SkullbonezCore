@@ -64,6 +64,11 @@ UIDrawContext::UIDrawContext( int screenW, int screenH, UIDrawList& drawList )
 }
 
 
+void UIDrawContext::Image( UIImageId image, const UIRect& bounds, float opacity ) const
+{
+    m_drawList->AddImage( image, bounds, opacity );
+}
+
 void UIDrawContext::Rect( float x, float y, float w, float h, float r, float g, float b, float a ) const
 {
     m_drawList->AddRect( { x, y, w, h }, { r, g, b, a } );

@@ -56,18 +56,28 @@ def run(session: Path) -> None:
 
     def preset(axis):
         nonlocal before_click
+        # Dock and transport transitions temporarily own their moving bounds.
+        # Target the settled viewport just as the visible button is presented.
+        settle = time.monotonic() + .25
+        while time.monotonic() < settle:
+            send('run.step_frames', count=3)
         ui = sample('before-preset')
         x, y, w, h = ui['viewport']
-        centers = [(68, h-14), (68, h-68), (36, h-41), (96, h-41)]
+        centers = [(68, h-22), (68, h-76), (36, h-49), (96, h-49)]
         dx, dy = centers[axis]
         send('input.pointer_position', enabled=True, x=round(x+dx), y=round(y+dy))
+        settle = time.monotonic() + .25
+        while time.monotonic() < settle:
+            send('run.step_frames', count=3)
         sample('preset-hover')
         before_click = pose()
         previous_axis = latest['ui.presentation']['editorView']
         first_tween = len(tween_samples)
         send('input.pointer_drag', button='left', x=round(x+dx), y=round(y+dy), deltaX=0, deltaY=0)
         ui = sample('preset-' + str(axis))
-        assert ui['editorView'] == axis, (axis, ui['editorView'], ui['viewport'])
+        if ui['editorView'] != axis:
+            send('capture.screenshot', path=str(session/'failed-preset.png'))
+            raise AssertionError((axis, ui['editorView'], ui['viewport']))
         deadline = time.monotonic() + 3
         while latest['camera.state']['tweenActive'] and time.monotonic() < deadline:
             ui = sample('preset-' + str(axis))
@@ -78,6 +88,52 @@ def run(session: Path) -> None:
 
     def pose():
         return {k: latest['camera.state'][k] for k in ('renderEye', 'renderView', 'renderUp')}
+
+    def assert_playback_preserved(label):
+        ui = sample(label+'-playback-start')
+        if ui['layout'] != 'Editor':
+            middle(ui['headerLayoutBounds'])
+            sample(label+'-editor-layout')
+
+        def solver_frame():
+            return latest['replay.timeline']['solver']['nextFrame']
+
+        def check_advance(paused, action):
+            before = solver_frame()
+            # The harness pause is independent of the user's pause. Release it
+            # so captured solver frames prove whether live Physics actually ran.
+            send('run.resume')
+            time.sleep(.2)
+            send('run.pause')
+            sample(label+'-'+action)
+            after = solver_frame()
+            assert (after == before if paused else after > before), (label, action, paused, before, after)
+            assert latest['input.state']['predictionEnabled'] == paused
+            assert latest['replay.timeline']['scrubber']['liveAdvanceHeld'] == paused
+            checks.append(label+'-'+action+('-paused' if paused else '-running'))
+
+        for paused in (False, True):
+            if paused:
+                send('input.set_prediction_key', down=True)
+                sample(label+'-pause-key')
+                send('input.set_prediction_key', down=False)
+                ui = sample(label+'-pause-release')
+                if ui['toolsVisible']:
+                    middle(ui['replayDetailsBounds'])
+                    sample(label+'-tools-closed')
+            check_advance(paused, 'before-views')
+            for axis in (1, 2, 3, 0):
+                preset(axis)
+                check_advance(paused, 'view-'+str(axis))
+            for enabled in (True, False):
+                middle(latest['ui.presentation']['headerFourViewsBounds'])
+                ui = sample(label+'-four-views')
+                assert ui['fourViews'] == enabled
+                check_advance(paused, 'four-views-'+str(enabled))
+        send('input.set_prediction_key', down=True)
+        sample(label+'-resume-key')
+        send('input.set_prediction_key', down=False)
+        sample(label+'-resume-release')
 
     def assert_axis(axis):
         p = pose()
@@ -131,8 +187,9 @@ def run(session: Path) -> None:
             checks.append(label+'-'+str(axis))
 
     try:
-        assert {'input.pointer_drag','input.pointer_wheel','input.set_movement'} <= set(send('capabilities.get')['commands'])
+        assert {'input.pointer_drag','input.pointer_wheel','input.set_movement','input.set_prediction_key','run.resume','run.pause'} <= set(send('capabilities.get')['commands'])
         send('state.subscribe', topics=[], detail='normal')
+        assert_playback_preserved('space')
         exercise('space')
         preset(1)
         scene_pose = pose()
@@ -196,6 +253,7 @@ def run(session: Path) -> None:
         ui=sample('leave-editor-surface')
         assert ui['editorView']==0
         send('scene.load_demo')
+        assert_playback_preserved('demo')
         exercise('demo')
         assert any(0 < state['tweenProgress'] < 1 for state in tween_samples), 'No intermediate camera pose was rendered'
         (session/'tweens.json').write_text(json.dumps(tween_samples,indent=2))

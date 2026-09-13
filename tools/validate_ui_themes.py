@@ -65,6 +65,19 @@ def run(root: Path) -> None:
             path = directory/(name+'.png')
             send('input.pointer_position', x=800, y=180, enabled=True)
             send('capture.screenshot', path=str(path))
+            ui = latest['ui.presentation']
+            # Check the actual texture submission at both native toolbar sizes.
+            # These two artwork colors are distinct from all three backdrops.
+            marks = [(8, 6, 30, 30)]
+            if ui['toolsVisible']:
+                x, y, _, _ = ui['drawerBounds']
+                marks.append((round(x+14), round(y+11), 22, 22))
+            with Image.open(path).convert('RGB') as image:
+                for x, y, w, h in marks:
+                    pixels = list(image.crop((x, y, x+w, y+h)).getdata())
+                    cyan = sum(g > 135 and b > 150 and g-r > 45 for r, g, b in pixels)
+                    ivory = sum(r > 185 and g > 185 and b > 175 and max(r,g,b)-min(r,g,b) < 25 for r, g, b in pixels)
+                    assert cyan >= 12 and ivory >= 15, (name, (x,y,w,h), cyan, ivory)
             return path
         try:
             assert {'input.pointer_drag', 'capture.screenshot'} <= set(send('capabilities.get')['commands'])

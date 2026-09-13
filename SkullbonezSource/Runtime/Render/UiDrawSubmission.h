@@ -7,7 +7,7 @@ Purpose:
 Summary:
   UI authors a bounded UIDrawList without seeing renderer capabilities.
   UiDrawSubmission consumes that value stream during the late UI pass, owns the
-  preview shader and dynamic vertex buffer, and releases them before backend
+  image textures, preview shader and dynamic vertex buffer, and releases them before backend
   teardown.
 
 Glossary:
@@ -17,7 +17,7 @@ Glossary:
 
 Invariants:
   - No renderer pointer or frame borrow is retained after Submit returns.
-  - Preview resources are owned here and released before geometry teardown.
+  - Image and preview resources are owned here and released before geometry teardown.
   - Preview commands split queued text/quad batches so authored order survives
     translation to the backend.
   - Draw trace and GPU timing labels remain stable validation vocabulary.
@@ -68,30 +68,48 @@ class UiDrawSubmission
     UiDrawSubmission( const UiDrawSubmission& ) = delete;
     UiDrawSubmission& operator=( const UiDrawSubmission& ) = delete;
 
-    void Submit( const UI::UIDrawList& drawList, Text::TextBatch& textBatch, Rendering::RenderGpuTimingOwner* gpuTiming,
-                 Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                 Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH );
+    void Submit( const UI::UIDrawList& drawList,
+                 Text::TextBatch& textBatch,
+                 Rendering::RenderGpuTimingOwner* gpuTiming,
+                 Rendering::Dx12TextureOwner& renderTextures,
+                 Rendering::Dx12GeometryOwner& renderGeometry,
+                 Rendering::Dx12Diagnostics& renderDiagnostics,
+                 int screenW,
+                 int screenH );
 
-    void SubmitWithPreviews( const UI::UIDrawList& drawList, const RuntimeRenderTargetPreviewSnapshot& previewData,
-                             Text::TextBatch& textBatch, Rendering::RenderGpuTimingOwner* gpuTiming,
-                             Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
-                             Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                             Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH );
+    void SubmitWithPreviews( const UI::UIDrawList& drawList,
+                             const RuntimeRenderTargetPreviewSnapshot& previewData,
+                             Text::TextBatch& textBatch,
+                             Rendering::RenderGpuTimingOwner* gpuTiming,
+                             Assets::AssetSystem& assets,
+                             Rendering::Dx12ResourceBuilder& renderResources,
+                             Rendering::Dx12TextureOwner& renderTextures,
+                             Rendering::Dx12GeometryOwner& renderGeometry,
+                             Rendering::Dx12Diagnostics& renderDiagnostics,
+                             int screenW,
+                             int screenH );
 
-    void ReleaseGpuResources( Rendering::Dx12GeometryOwner* renderGeometry );
+    bool InitializeImages( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry );
+    void ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTextures, Rendering::Dx12GeometryOwner* renderGeometry );
 
   private:
-    void SubmitCommands( const UI::UIDrawList& drawList, const RuntimeRenderTargetPreviewSnapshot* previewData,
-                         Text::TextBatch& textBatch, Rendering::RenderGpuTimingOwner* gpuTiming, Assets::AssetSystem* assets,
-                         Rendering::Dx12ResourceBuilder* renderResources, Rendering::Dx12TextureOwner& renderTextures,
-                         Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics,
-                         int screenW, int screenH );
+    void SubmitCommands( const UI::UIDrawList& drawList,
+                         const RuntimeRenderTargetPreviewSnapshot* previewData,
+                         Text::TextBatch& textBatch,
+                         Rendering::RenderGpuTimingOwner* gpuTiming,
+                         Assets::AssetSystem* assets,
+                         Rendering::Dx12ResourceBuilder* renderResources,
+                         Rendering::Dx12TextureOwner& renderTextures,
+                         Rendering::Dx12GeometryOwner& renderGeometry,
+                         Rendering::Dx12Diagnostics& renderDiagnostics,
+                         int screenW,
+                         int screenH );
 
-    void EnsurePreviewResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
-                                 Rendering::Dx12GeometryOwner& renderGeometry );
+    void EnsurePreviewResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12GeometryOwner& renderGeometry );
 
     std::unique_ptr<Rendering::ShaderDX12> m_previewShader;
     uint32_t m_previewVertexBuffer = 0;
+    uint32_t m_applicationMarkTexture = 0;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore
