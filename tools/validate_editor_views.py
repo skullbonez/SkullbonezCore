@@ -20,6 +20,7 @@ def run(session: Path) -> None:
     offset = 0
     checks = []
     before_click = {}
+    tween_samples = []
 
     def send(command, **args):
         result = connection.wait(connection.send(command, args))
@@ -38,6 +39,8 @@ def run(session: Path) -> None:
                 event = json.loads(line)
                 if 'topic' in event:
                     latest[event['topic']] = event['payload']
+                if event.get('topic') == 'camera.state' and event['payload'].get('tweenActive', False):
+                    tween_samples.append(event['payload'])
         result = {k: latest[k] for k in ('ui.presentation', 'camera.state', 'scene.state')}
         (session / (label + '.json')).write_text(json.dumps(result, indent=2))
         return latest['ui.presentation']
@@ -60,9 +63,17 @@ def run(session: Path) -> None:
         send('input.pointer_position', enabled=True, x=round(x+dx), y=round(y+dy))
         sample('preset-hover')
         before_click = pose()
+        previous_axis = latest['ui.presentation']['editorView']
+        first_tween = len(tween_samples)
         send('input.pointer_drag', button='left', x=round(x+dx), y=round(y+dy), deltaX=0, deltaY=0)
         ui = sample('preset-' + str(axis))
         assert ui['editorView'] == axis, (axis, ui['editorView'], ui['viewport'])
+        deadline = time.monotonic() + 3
+        while latest['camera.state']['tweenActive'] and time.monotonic() < deadline:
+            ui = sample('preset-' + str(axis))
+        assert not latest['camera.state']['tweenActive'], 'Editor camera transition did not settle'
+        if previous_axis != axis:
+            assert any(0 < state['tweenProgress'] < 1 for state in tween_samples[first_tween:]), (axis, 'No intermediate editor pose rendered')
         return ui
 
     def pose():
@@ -82,6 +93,7 @@ def run(session: Path) -> None:
             send('run.step_frames', count=60)
         ui = preset(0)
         perspective = pose()
+        assert math.dist(perspective['renderEye'], perspective['renderView']) > 0.001, perspective
         for axis in (1,2,3):
             ui = preset(axis)
             perspective = dict(before_click)
@@ -181,7 +193,9 @@ def run(session: Path) -> None:
         assert ui['editorView']==0
         send('scene.load_demo')
         exercise('demo')
-        (session/'result.json').write_text(json.dumps({'passed':True,'checks':checks},indent=2))
+        assert any(0 < state['tweenProgress'] < 1 for state in tween_samples), 'No intermediate camera pose was rendered'
+        (session/'tweens.json').write_text(json.dumps(tween_samples,indent=2))
+        (session/'result.json').write_text(json.dumps({'passed':True,'checks':checks,'tweenSamples':len(tween_samples)},indent=2))
         print('PASS: native axis selection, zoom-only poses, perspective restore, workspace retention: '+str(len(checks))+' views')
     finally:
         try:

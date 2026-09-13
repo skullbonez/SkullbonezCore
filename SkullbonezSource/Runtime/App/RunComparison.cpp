@@ -422,6 +422,9 @@ bool Run::UpdateComparisonInput( bool textActive )
         const auto* before = m_comparison.Body( 0, previousSelection, m_comparison.Tick() );
         const Vector3 previous = before ? before->position : Vector3 { 0, 0, 0 };
         const double elapsed = m_comparisonPanel.Advance( m_comparison, now );
+        // Lab bypasses ordinary scene logic; its presentation clock must also
+        // advance camera transitions while recorded playback is paused.
+        m_sceneController.Scene().Cameras().SetTweenDeltaSeconds( static_cast<float>( elapsed ) );
         const auto ui = BuildUIInputSnapshot( device, m_inputRouter.UiSnapshot().mouse, m_operatorUi->InputOverride() );
         const bool dragging = m_inputRouter.UpdateTimelineDrag( m_comparisonPanel.TimelineContains( ui.mouseX, ui.mouseY ) );
         const bool panelMoving = m_operatorUi->PanelTransitions().BlocksPointer( { static_cast<float>( ui.mouseX ), static_cast<float>( ui.mouseY ) } );

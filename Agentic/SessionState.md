@@ -4,6 +4,24 @@ Date: 2026-09-13
 Branch: `codex/prediction-speed-editor-views`
 Status: Prediction speed parity and editor axis views complete; focused, native, renderer and replay gates pass. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
 
+## Editor view transitions — 2026-09-13
+
+The owner requested 200 ms eased transitions and retained the existing camera
+setup. Editor view changes now use cubic ease-out, blend the top/side up
+vectors, and retarget from the visible pose if another view is selected during
+the transition. No additional scene cameras are registered. Ordinary camera
+transitions retain their 1.5-second duration. Solve Lab advances the camera
+with its presentation clock even while playback is paused. Newly started
+tweens initialize their visible sample before another same-frame command can
+read it, fixing the demo-to-Inspect empty-pose case.
+
+Final validation passes 28 camera cases / 474 assertions, all 12 native view
+cases with 1,029 intermediate tween samples, the DX12 renderer gate, and the
+compiler-backed source-design check. Native checks include paused Lab, actual
+edit mode, compact Canvas, zoom-only locks and Perspective restoration.
+Evidence is in `TestOutput/skarness/editor-tween-final-4/` and
+`TestOutput/editor-tween-*-final.log`. No baseline changed.
+
 ## Prediction speed and editor views — 2026-09-13
 
 Modified velocity prediction now retains the selected reveal rate instead of

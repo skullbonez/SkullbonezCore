@@ -474,6 +474,8 @@ TEST_CASE( "Editor camera views: fixed axes allow only bounded zoom and restore 
     for ( int axis = 1; axis <= 3; ++axis )
     {
         cameras.SelectEditorView( cameras.GetCameraView(), 100.0f, axis );
+        cameras.SetTweenDeltaSeconds( 0.2f );
+        cameras.SetCamera();
         CHECK( cameras.EditorView() == axis );
         const Vector3 direction = axis == 1 ? Vector3( 0, 1, 0 ) : axis == 2 ? Vector3( 1, 0, 0 ) : Vector3( 0, 0, 1 );
         CHECK( cameras.GetRenderCameraTranslation() == focus + direction * 100.0f );
@@ -493,6 +495,7 @@ TEST_CASE( "Editor camera views: fixed axes allow only bounded zoom and restore 
         cameras.SelectEditorView( cameras.GetCameraView(), 100.0f, 99 );
         CHECK( cameras.GetRenderCameraTranslation() == zoomed );
         cameras.SelectEditorView( cameras.GetCameraView(), 100.0f, 0 );
+        cameras.SetCamera();
         CHECK( cameras.GetRenderCameraTranslation() == eye );
         CHECK( cameras.GetRenderCameraView() == focus );
         CHECK( cameras.GetRenderCameraUp() == up );
@@ -505,6 +508,8 @@ TEST_CASE( "Editor camera views: workspace axis and zoom are independent and res
     cameras.AddCamera( Vector3( 0, 30, 80 ), Vector3( 0, 0, 0 ), Vector3( 0, 1, 0 ), CAMERA_FREE );
     cameras.SetCamera();
     cameras.SelectEditorView( cameras.GetCameraView(), 100.0f, 1 );
+    cameras.SetTweenDeltaSeconds( 0.2f );
+    cameras.SetCamera();
     cameras.ZoomEditorView( 0.5f );
     const Vector3 sceneEye = cameras.GetCameraTranslation();
     cameras.SetEditorViewWorkspace( true );
@@ -512,6 +517,7 @@ TEST_CASE( "Editor camera views: workspace axis and zoom are independent and res
     cameras.SetPrimaryPose( Vector3( 100, 100, 100 ), Vector3( 0, 0, 0 ), Vector3( 0, 1, 0 ) );
     cameras.SetCamera();
     cameras.SelectEditorView( cameras.GetCameraView(), 100.0f, 2 );
+    cameras.SetCamera();
     const Vector3 labEye = cameras.GetCameraTranslation();
     cameras.SetEditorViewWorkspace( false );
     cameras.SetCamera();
@@ -523,4 +529,59 @@ TEST_CASE( "Editor camera views: workspace axis and zoom are independent and res
     CHECK( cameras.GetRenderCameraTranslation() == labEye );
     cameras.Reset();
     CHECK( cameras.EditorView() == 0 );
+}
+
+TEST_CASE( "Editor camera views: eased transitions finish in 200ms and retarget from the visible pose" )
+{
+    CameraCollection cameras;
+    const Vector3 eye( 10, 40, 70 ), focus( 1, 2, 3 ), up( 0, 1, 0 );
+    cameras.AddCamera( eye, focus, up, CAMERA_FREE );
+    cameras.SetCamera();
+    cameras.SelectEditorView( focus, 100, 1 );
+    CHECK( cameras.GetSelectedCameraName() == CAMERA_FREE );
+    REQUIRE( cameras.IsTweening() );
+    CHECK( cameras.GetRenderCameraTranslation() == eye );
+    cameras.SetTweenDeltaSeconds( 0.1f );
+    cameras.SetCamera();
+    CHECK( cameras.TweenProgress() == doctest::Approx( 0.875f ) );
+    CHECK( cameras.GetRenderCameraTranslation().y == doctest::Approx( eye.y + ( focus.y + 100 - eye.y ) * 0.875f ) );
+    const Vector3 visible = cameras.GetRenderCameraTranslation();
+    const Vector3 visibleUp = cameras.GetRenderCameraUp();
+    cameras.SelectEditorView( focus, 100, 2 );
+    CHECK( cameras.GetRenderCameraTranslation() == visible );
+    CHECK( cameras.GetRenderCameraUp() == visibleUp );
+    cameras.SetTweenDeltaSeconds( 0.199f );
+    cameras.SetCamera();
+    REQUIRE( cameras.IsTweening() );
+    CHECK( SkullbonezCore::Math::Vector::Distance( cameras.GetRenderCameraUp(), up ) < 0.001f );
+    cameras.SetTweenDeltaSeconds( 0.00101f );
+    cameras.SetCamera();
+    CHECK_FALSE( cameras.IsTweening() );
+    CHECK( cameras.GetRenderCameraTranslation() == focus + Vector3( 100, 0, 0 ) );
+    cameras.SelectEditorView( focus, 100, 0 );
+    cameras.SetTweenDeltaSeconds( 0.1f );
+    cameras.SetCamera();
+    const Vector3 returning = cameras.GetRenderCameraTranslation();
+    cameras.SelectEditorView( focus, 100, 3 );
+    CHECK( cameras.GetRenderCameraTranslation() == returning );
+    cameras.SetTweenDeltaSeconds( 0.2f );
+    cameras.SetCamera();
+    cameras.SelectEditorView( focus, 100, 0 );
+    cameras.SetCamera();
+    CHECK_FALSE( cameras.IsTweening() );
+    CHECK( cameras.GetRenderCameraTranslation() == eye );
+    CHECK( cameras.GetRenderCameraUp() == up );
+    // Ordinary scene-camera transitions retain their existing 1.5-second clock.
+    cameras.TweenPrimaryToPose( Vector3( 200, 100, 100 ), focus, up );
+    cameras.SetCamera();
+    CHECK( cameras.IsTweening() );
+    cameras.SetTweenDeltaSeconds( 1.3f );
+    cameras.SetCamera();
+    CHECK_FALSE( cameras.IsTweening() );
+    const Vector3 beforeSelection = cameras.GetRenderCameraTranslation();
+    cameras.AddCamera( Vector3( 500, 100, 500 ), focus, up, CAMERA_SCENE_OBJECT_1 );
+    cameras.SelectCamera( CAMERA_SCENE_OBJECT_1, true );
+    cameras.SelectEditorView( focus, 100, 0 );
+    CHECK( cameras.GetRenderCameraTranslation() == beforeSelection );
+    CHECK( cameras.GetRenderCameraView() == focus );
 }

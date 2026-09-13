@@ -57,6 +57,7 @@ class CameraCollection
     };
     EditorViewState m_editorViews[2];
     bool m_editorViewWorkspace = false;
+    bool m_editorViewTween = false;
     void ApplyEditorView();
     Camera m_cameraArray[SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT]; // Fixed camera slots keyed by
 
@@ -83,6 +84,7 @@ class CameraCollection
 
     Camera GetTweenSourcePose() const;                                                                       // Starts new tweens from the visible frame pose when available.
     static Camera InterpolatePose( const Camera& from, const Camera& to, float progress, bool keepWorldUp ); // Optionally removes view-axis roll during interpolation.
+    static Camera InterpolateEditorPose( const Camera& from, const Camera& to, float progress );
     void BeginPrimaryPoseTween( const Math::Vector::Vector3& position, const Math::Vector::Vector3& view, const Math::Vector::Vector3& up, bool keepWorldUp );
     void SetTweenStart( int fromIndex ); // fromIndex=-1 starts from the current visible tween pose.
 
