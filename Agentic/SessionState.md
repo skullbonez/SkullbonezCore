@@ -1,8 +1,30 @@
 # Session State
 
-Date: 2026-09-13
+Date: 2026-09-14
 Branch: `codex/prediction-speed-editor-views`
-Status: Four-view editor, camera clipping, Replay controls, Finite Element branding and authored reset/explicit-save fixes implemented; terminal validation complete; branch publication and PR preparation in progress. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
+Status: Four-view editor, camera clipping, Replay controls, Split State branding and authored reset/explicit-save fixes implemented; PR #170 is open, with the Split State follow-up validated and being published. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
+
+## Split State branding - 2026-09-14
+
+The owner replaced Finite Element with Split State: neutral ivory solid skull
+on the left, cyan wireframe on the right. The native editor header and Tools
+mark share generated contours with all nine Windows ICO resolutions and the
+new split-state-skull.png export. The superseded PNG is removed.
+
+Native marks use pixel-aligned origins, a full-pixel minimum wire width and a
+sparse mesh below 32 pixels. Each ICO size is rasterized independently at 8x
+resolution and downsampled once; a tiny icon is not derived from a detailed
+large bitmap. Native drawing uses bounded contour/ellipse/stroke helpers with
+no new textures, allocations, panels or submission boundaries.
+
+Visual evidence: TestOutput/skarness/ui-gate-unified_compact_tools_ui-25178
+covers 320x240, 480x360 and 640x480; ui-gate-ui_themes-6437 covers Blue,
+Dark and Light. Inspected both header and 22-pixel Tools marks. The size sheet
+is TestOutput/split-state-icons-preview.png. Source design, dependency and
+allocation checks pass; Profile, Debug and Automation contain the exact nine
+ICO images. The complete UI gate passes: 1,054 cases / 3,734,640 assertions
+(one skipped), all native UI cases and the DX12 message check. Builds are ready.
+Closure log: TestOutput/split-state-ui-final.log.
 
 ## Authored reset and explicit scene saves - 2026-09-13
 
@@ -55,9 +77,9 @@ picking intersects the height field directly.
 
 Blue prediction outlines and Grey resting outlines now live in the scrollable
 Replay pane, with clipped matching input and tooltips. Cause retains evidence
-inspection and no longer handles those visibility clicks. Finite Element skull
-geometry is shared by native logo drawing and the nine embedded Windows ICO
-sizes through tools/generate_app_icon.py; the PNG is an export of that mesh.
+inspection and no longer handles those visibility clicks. The current Split State skull
+contours are shared by native logo drawing and the nine embedded Windows ICO
+sizes through tools/generate_app_icon.py; the PNG exports the same design.
 
 Terminal adversarial review found no remaining material blockers after fixes
 for workspace restoration, Canvas gizmo input, same-mode Inspect clearing a
