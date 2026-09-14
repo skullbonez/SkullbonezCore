@@ -626,6 +626,7 @@ CORE_PREFIXES = (
     "SceneCapacity",
     "StdioFile",
     "StringHash",
+    "TextGlyphs",
     "Timer",
     "WorkerPool",
     "WindowConstants",
