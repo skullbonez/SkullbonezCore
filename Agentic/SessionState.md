@@ -4,6 +4,30 @@ Date: 2026-09-14
 Branch: `codex/prediction-speed-editor-views`
 Status: Four-view editor, camera clipping, Replay controls and authored reset/explicit-save fixes implemented; PR #170 is open. The original cute skull is restored with black-backed Windows icons. The textured-mark and camera-playback follow-up passes final native validation. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
 
+## Profile F5 build readiness - 2026-09-14
+
+Removed CORE's obsolete DisableFastUpToDateCheck override. RENDERING's shader
+bake now uses native read/write/command tlogs, so Visual Studio can skip an
+unchanged build while retaining shader input and output tracking. DXC runtime
+DLLs use native copy-local tracking instead of unconditional post-build copies
+that failed against the user's open application.
+
+Profile is built in the original workspace. The second build passed in 1.2
+seconds with all 505 checked binary/object timestamps unchanged and no compiler
+or linker invocations. Logs are `TestOutput/f5-profile-fixed.log` and
+`TestOutput/f5-profile-noop.log`. The production shader target passes the
+isolated tracking regression for unchanged builds, include edits, missing
+outputs, failed bakes, retries and design-time skips; artifacts are under
+`TestOutput/f5-shader-tracking-final`.
+
+The user's existing Visual Studio debugging session remains open. Its loaded
+CORE project still reports the old DisableFastUpToDateCheck=true setting;
+Visual Studio must reload the project after debugging ends to adopt the fix.
+The other five loaded projects report up-to-date. Actual F5 skipping in the
+reloaded IDE is not yet verified. The running app and simon.scene.json remain
+untouched. Future handoffs must build Profile locally, not just copy an EXE
+from an isolated checkout and leave local build records stale.
+
 ## Solver mathematical typography - 2026-09-14
 
 Iterations now renders Greek capital delta through the filtered SDF font atlas.
