@@ -1520,8 +1520,9 @@ TEST_CASE( "UI font metrics are immutable and preserve legacy operation order" )
     REQUIRE( UIFontMetrics::Install( advances.data(), static_cast<int>( advances.size() ) ) );
     CHECK( UIFontMetrics::Install( advances.data(), static_cast<int>( advances.size() ) ) );
 
-    char allGlyphs[UIFontMetrics::GLYPH_COUNT + 1] = {};
-    for ( int index = 0; index < UIFontMetrics::GLYPH_COUNT; ++index )
+    REQUIRE( header.version == 2u );
+    char allGlyphs[96] = {};
+    for ( int index = 0; index < 95; ++index )
     {
         allGlyphs[index] = static_cast<char>( index + 32 );
     }
@@ -1547,6 +1548,9 @@ TEST_CASE( "UI font metrics are immutable and preserve legacy operation order" )
         }
     }
     CHECK( UIFontMetrics::MeasureText( 12.5f, nullptr ) == 0.0f );
+    CHECK( UIFontMetrics::MeasureText( 13.0f, "\xCE\x94J" ) == ( advances[95] * 13.0f + advances['J' - 32] * 13.0f ) );
+    CHECK( UIFontMetrics::MeasureText( 13.0f, "\xCE" ) == 6.5f );
+    CHECK( UIFontMetrics::MeasureText( 13.0f, "\x7F" ) == 6.5f );
 
     advances[0] += 1.0f;
     CHECK_FALSE( UIFontMetrics::Install( advances.data(), static_cast<int>( advances.size() ) ) );

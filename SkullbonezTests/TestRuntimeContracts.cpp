@@ -948,6 +948,9 @@ TEST_CASE( "SDF atlas contracts reject malformed metrics and incomplete publicat
     CHECK( Text2d::fontTexture == 99u );
     CHECK( Text2d::charAdvance[0] == 0.625f );
     CHECK( Text2d::charAdvance[95] == 0.625f );
+    CHECK( Text2d::MeasureText( 13, "\xCE\x94J" ) == 16.25f );
+    CHECK( Text2d::MeasureText( 13, "\xCE" ) == 6.5f );
+    CHECK( Text2d::MeasureText( 13, "\x7F" ) == 6.5f );
 
     Text2d::fontTexture = originalTexture;
 

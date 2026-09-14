@@ -187,23 +187,18 @@ class CauseInspectorDrawing
 
     void Impulse( const UI::UIRect& bounds, const UI::Style::UIColor& color, const char* value, const char* subscript, bool delta ) const
     {
-        // The ASCII font has no Greek glyphs. Draw the delta outline as geometry;
-        // J with a smaller lowered index uses the same font and clip as its value.
-        const auto clip = UI::IntersectRect( m_clip, bounds );
-        m_draw.PushClip( clip );
-        float x = bounds.x;
-        const float y = bounds.y;
-        if ( delta )
-        {
-            m_draw.Triangle( x + 4, y + 1, x, y + 10, x + 2, y + 10, color.r, color.g, color.b, 1 );
-            m_draw.Triangle( x + 4, y + 1, x + 6, y + 10, x + 8, y + 10, color.r, color.g, color.b, 1 );
-            m_draw.Rect( x + 1, y + 9, 6, 1, color.r, color.g, color.b, 1 );
-            x += 10;
-        }
+        // Delta uses the same filtered SDF glyphs as J and its value. Measured
+        // advances keep the readable subscript clear of both adjacent runs.
+        constexpr float SIZE = 13.0f;
+        constexpr float INDEX_SIZE = 10.0f;
+        const char* label = delta ? "\xCE\x94J" : "J";
+        m_draw.PushClip( UI::IntersectRect( m_clip, bounds ) );
         const auto draw = Clipped( bounds );
-        draw.Text( x, y, 12, color.r, color.g, color.b, "J" );
-        draw.Text( x + 6, y + 5, 8, color.r, color.g, color.b, subscript );
-        draw.Text( x + 15, y, 12, color.r, color.g, color.b, value );
+        const float indexX = bounds.x + UI::UIFontMetrics::MeasureText( SIZE, label );
+        const float valueX = indexX + UI::UIFontMetrics::MeasureText( INDEX_SIZE, subscript ) + UI::UIFontMetrics::MeasureText( SIZE, " " );
+        draw.Text( bounds.x, bounds.y, SIZE, color.r, color.g, color.b, label );
+        draw.Text( indexX, bounds.y + 4, INDEX_SIZE, color.r, color.g, color.b, subscript );
+        draw.Text( valueX, bounds.y, SIZE, color.r, color.g, color.b, value );
         m_draw.PopClip();
     }
 

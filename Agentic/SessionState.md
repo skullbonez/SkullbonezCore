@@ -4,6 +4,41 @@ Date: 2026-09-14
 Branch: `codex/prediction-speed-editor-views`
 Status: Four-view editor, camera clipping, Replay controls and authored reset/explicit-save fixes implemented; PR #170 is open. The original cute skull is restored with black-backed Windows icons. The textured-mark and camera-playback follow-up passes final native validation. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
 
+## Solver mathematical typography - 2026-09-14
+
+Iterations now renders Greek capital delta through the filtered SDF font atlas.
+The atlas version is 2: the former non-printable DEL cell contains U+0394.
+Core/TextGlyphs shares its UTF-8 mapping between UI measurement and Rendering
+submission. Printable ASCII pixels and advances are byte-identical to the
+previous asset; only delta's cell, advance and the version word change.
+
+Impulse labels retain delta-J with a normal subscript, normal J and tangential
+J. Main text is 13 pixels and subscripts are 10 pixels, with horizontal positions
+derived from font advances. The procedural delta triangles are removed.
+Focused metrics checks cover delta plus J, a truncated UTF-8 lead byte and DEL.
+The full unit suite passes 1,058 cases / 3,735,515 assertions, with one skipped.
+Compiler-backed design passes four sources / 23 contexts in 10 seconds;
+dependency and project ownership checks pass. Validation artifacts use the
+`TestOutput/smooth-text-*` prefix and the isolated checkout, preserving the
+user's running Profile app and unrelated `simon.scene.json`.
+
+The UI gate's initial build/unit/native pass ran for 359 seconds; a diagnostics
+test read a partially written JSONL row. All 2,433 completed trace rows parse,
+and the unchanged diagnostics rerun passed. The final inspector plus remaining
+UI checks and ready builds passed in 418 seconds. Final pixels are preserved
+in `TestOutput/smooth-text-inspector.png`. DX12 renderer validation passed in
+25 seconds with unchanged visual baselines and zero validation errors.
+The one-minute graphics stress run completed without a crash; its normal
+PID-scoped timeout cleanup brought total wall time to 71 seconds. The final
+review retained the inspector's clip and found no ownership, allocation or
+Replay boundary changes.
+The staged physics gate passes with all worker configurations matching the
+unchanged 44,401-line golden. The verified Profile executable and matching PDB
+are installed at the original workspace's normal launch path. The running
+executable was renamed to `Profile/SKULLBONEZ_CORE.before-smooth-text-20260914.exe`
+so the user's existing session could stay open; its symbols are retained beside
+it. The next normal Profile launch uses the new mathematical typography.
+
 ## Solver contact source labels - 2026-09-14
 
 The Iterations tab now keeps the selected contact's type and A/B sources above
