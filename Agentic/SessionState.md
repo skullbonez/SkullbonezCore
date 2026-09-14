@@ -2,7 +2,28 @@
 
 Date: 2026-09-14
 Branch: `codex/prediction-speed-editor-views`
-Status: Four-view editor, camera clipping, Replay controls, Split State branding and authored reset/explicit-save fixes implemented; PR #170 is open. The textured-mark and camera-playback follow-up passes final native validation. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
+Status: Four-view editor, camera clipping, Replay controls and authored reset/explicit-save fixes implemented; PR #170 is open. The original cute skull is restored with black-backed Windows icons. The textured-mark and camera-playback follow-up passes final native validation. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
+
+## Original cute skull restored - 2026-09-14
+
+The owner requested the original round skull with large eyes and three teeth.
+The branding generator restores that 24-unit artwork from commit `d659cdc96`.
+The editor keeps a transparent premultiplied texture on a quad. Every Windows
+ICO resolution, 16 through 256 pixels, has an opaque black background. The
+public PNG stays transparent. Existing asset paths remain in use.
+
+Regeneration reproduces all three assets byte for byte. The ICO alpha and
+black-corner checks pass, and the UI texture retains valid premultiplied color.
+Native theme assertions now check the bone color and both eye positions at
+the 30-pixel header and 22-pixel Tools sizes. Evidence is under
+`TestOutput/cute-skull-*`. Camera behavior is unchanged by this artwork update.
+The unit suite passes 1,057 cases / 3,736,731 assertions, with one skipped case.
+Dark and Light native screenshots were inspected in
+`TestOutput/skarness/ui-gate-ui_themes-31462/live`; the three-theme pixel checks
+and all three compact layout sizes pass.
+The complete `validate_ui` gate passes in 740 seconds
+(`TestOutput/cute-skull-ui.log`). Profile, Debug and Automation embed the exact
+nine black-backed ICO images (`TestOutput/cute-skull-resources.log`).
 
 ## Textured marks and camera playback - 2026-09-14
 
