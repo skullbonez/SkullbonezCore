@@ -2520,3 +2520,46 @@ TEST_CASE( "Short Causes panes scroll evidence controls inside the shell" )
     CHECK( layout.hierarchy.y == 66 );
     CHECK( ReplayCauseInspectorContainsPoint( layout, 26, 50 ) );
 }
+
+TEST_CASE( "Solver inspector attributes object and ground contact rows" )
+{
+    using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
+    std::array<PhysicsSolverPersistentContactSample, 2> contacts {};
+    contacts[0].bodyA = 203;
+    contacts[0].bodyB = 209;
+    contacts[0].featureId = 16384;
+    contacts[1] = contacts[0];
+    contacts[1].bodyB = -1;
+    contacts[1].isTerrain = true;
+    ReplayCauseSolverDetailView detail;
+    detail.solverDetailContacts = contacts;
+    detail.objects[0].bodyRow = 209;
+    detail.objects[0].available = true;
+    detail.objects[0].fixed = true;
+    strcpy_s( detail.objects[0].name, "ground_platform" );
+    detail.objects[1].bodyRow = 203;
+    detail.objects[1].available = true;
+    strcpy_s( detail.objects[1].name, "falling_ball" );
+
+    const auto objects = BuildReplayCauseIterationsProjection( detail, 0 );
+    CHECK( std::strstr( objects.contactSource, "Contact 1 of 2 | Object / object" ) != nullptr );
+    CHECK( std::strcmp( objects.bodyA, "[203] Dynamic object: falling_ball" ) == 0 );
+    CHECK( std::strcmp( objects.bodyB, "[209] Fixed object: ground_platform" ) == 0 );
+    // A fixed object named ground is still an object contact, not a terrain row.
+    CHECK( std::strstr( objects.bodyB, "terrain" ) == nullptr );
+
+    const auto ground = BuildReplayCauseIterationsProjection( detail, 1 );
+    CHECK( std::strstr( ground.contactSource, "Contact 2 of 2 | Object / ground (terrain)" ) != nullptr );
+    CHECK( std::strcmp( ground.bodyB, "Ground / terrain surface" ) == 0 );
+    CHECK( std::strcmp( ground.bodyA, objects.bodyA ) == 0 );
+    ReplayCauseTransportView transport;
+    char copied[REPLAY_CAUSE_INSPECTOR_COPY_TEXT_CAPACITY] = {};
+    REQUIRE( SerializeReplayCauseRawRecord( BuildReplayCauseRawRecordProjection( detail, transport, 1 ), copied, sizeof( copied ) ) );
+    CHECK( std::strstr( copied, "Body A Source: [203] Dynamic object: falling_ball" ) != nullptr );
+    CHECK( std::strstr( copied, "Body B Source: Ground / terrain surface" ) != nullptr );
+
+    detail.objects[1].available = false;
+    const auto missing = BuildReplayCauseIterationsProjection( detail, 0 );
+    CHECK( std::strcmp( missing.bodyA, "[203] Object (details unavailable)" ) == 0 );
+    CHECK( std::strstr( missing.bodyA, "ground_platform" ) == nullptr );
+}

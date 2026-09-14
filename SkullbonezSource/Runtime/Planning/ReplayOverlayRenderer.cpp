@@ -484,7 +484,18 @@ static void RenderReplayCauseIterationsTab( UI::UIDrawList& drawList,
     const int firstRow = std::clamp( inspection.Display().iterationsFirstRow, 0, (std::max)( 0, rowCount - layout.iterationsVisibleRows ) );
     const int endRow = (std::min)( rowCount, firstRow + layout.iterationsVisibleRows );
 
-    draw.Text( layout.content.x, layout.content.y + 2.0f, 12.0f, CAUSE_SOLVER.r, CAUSE_SOLVER.g, CAUSE_SOLVER.b, projection.summary );
+    // Keep the selected contact's sources visible while its iterations scroll.
+    // Each name has its own clip so a long authored name cannot cover the next.
+    const char* sources[] = { projection.contactSource, projection.bodyA, projection.bodyB, projection.summary };
+    const char* roles[] = { "", "A: ", "B: ", "" };
+    for ( int line = 0; line < 4; ++line )
+    {
+        const UI::UIRect bounds { layout.content.x, layout.content.y + line * 19.0f, layout.content.w, 18.0f };
+        char label[136] = {};
+        sprintf_s( label, "%s%s", roles[line], sources[line] );
+        const auto& color = line == 0 ? palette.accent : line == 3 ? palette.textMuted : palette.textPrimary;
+        draw.Clipped( bounds ).Text( bounds.x, bounds.y + 2.0f, 11.0f, color.r, color.g, color.b, label );
+    }
 
     if ( rowCount == 0 )
     {

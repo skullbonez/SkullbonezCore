@@ -338,6 +338,15 @@ def verify_inspector_controls(connection: SkarnessConnection, session: Path) -> 
     send("run.step_frames", count=40)
     send("input.pointer_wheel", x=inspector_x, y=int(window_y + 200), wheelDelta=12000)
     send("capture.screenshot", path=str((session / "inspector-controls.png").resolve()))
+    # Keep the selected pair's source facts attached to the Iterations view.
+    send("replay.set_cause_inspector_tab", tab="iterations")
+    sample("iterations-sources")
+    assert latest["replay.cause"]["activeTab"] == 2
+    objects = latest["replay.cause"]["objects"]
+    assert {item["sceneObjectId"] for item in objects} == {
+        initial["selectedCausePrimaryId"], initial["selectedCauseCounterpartId"]}
+    assert all(item["available"] and item["name"] for item in objects)
+    send("capture.screenshot", path=str((session / "inspector-iterations-sources.png").resolve()))
 
 
 def verify_timeline_drag(send, state, session: Path) -> None:

@@ -4,6 +4,36 @@ Date: 2026-09-14
 Branch: `codex/prediction-speed-editor-views`
 Status: Four-view editor, camera clipping, Replay controls and authored reset/explicit-save fixes implemented; PR #170 is open. The original cute skull is restored with black-backed Windows icons. The textured-mark and camera-playback follow-up passes final native validation. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
 
+## Solver contact source labels - 2026-09-14
+
+The Iterations tab now keeps the selected contact's type and A/B sources above
+the scrollable stage rows. Labels include the body row, fixed/dynamic status
+and authored object name. A terrain contact explicitly says Ground / terrain
+surface; a fixed object named ground remains an object. Missing metadata keeps
+the exact body row and says details unavailable. Raw Record and copied text
+include the same source descriptions. Physics and Replay ownership are unchanged.
+
+The focused attribution test passes 12 assertions; the full unit suite passes
+1,058 cases / 3,734,903 assertions, with one skipped case. Compiler-backed design
+passes two sources / eight contexts, and dependency checks pass. The native
+Iterations screenshot is `TestOutput/solver-sources-inspector.png`; its selected
+object IDs match the published source metadata. Ground wording is covered by
+the projection test; local falling-ball fixtures did not expose a selectable
+terrain row and are not counted as native terrain proof.
+
+Validation uses the isolated checkout while the user's Profile app remains
+open. Logs are `TestOutput/solver-sources-ui-isolated.log` and
+`TestOutput/solver-sources-ui-resume.log`. The older unified-Causes script has
+outdated navigation assumptions, so the maintained causal-playback gate owns
+the native source-label check. `simon.scene.json` remains untouched.
+All remaining native UI checks and the DX12 message check pass; the gate's
+initial build/unit run took 230 seconds, and its corrected causal check plus
+remaining native cases and ready builds took 614 seconds. The isolated Profile,
+Debug and Automation builds contain the change. The original Profile executable
+could not be relinked while the user's running process holds it open.
+The staged physics gate passes in 34 seconds, with all worker configurations
+matching the unchanged golden (`TestOutput/solver-sources-physics.log`).
+
 ## Original cute skull restored - 2026-09-14
 
 The owner requested the original round skull with large eyes and three teeth.

@@ -230,6 +230,28 @@ void AddRawVector( ReplayCauseRawRecordProjection& projection, const char* label
     FormatVector( value, text, sizeof( text ) );
     AddRawValue( projection, label, text, unit );
 }
+
+void FormatContactBodySource( const ReplayCauseSolverDetailView& detail, int bodyRow, bool terrain, char ( &text )[128] ) noexcept
+{
+    if ( terrain )
+    {
+        strcpy_s( text, "Ground / terrain surface" );
+        return;
+    }
+
+    // Names are detached facts for this contact's pair. Never substitute the
+    // other selected object when a recorded body has no available metadata.
+    for ( const ReplayCauseObjectDetails& object : detail.objects )
+    {
+        if ( object.bodyRow == bodyRow && object.available && !object.terrain )
+        {
+            sprintf_s( text, "[%d] %s object: %s", bodyRow, object.fixed ? "Fixed" : "Dynamic", object.name[0] ? object.name : "unnamed" );
+            return;
+        }
+    }
+
+    sprintf_s( text, "[%d] Object (details unavailable)", bodyRow );
+}
 } // namespace
 
 int ReplayCauseSolverDetailIterationCount( const ReplayCauseSolverDetailView& solverDetail, std::size_t contactRow ) noexcept
@@ -415,6 +437,12 @@ ReplayCauseRawRecordProjection BuildReplayCauseRawRecordProjection( const Replay
     AddRawInteger( projection, "Feature ID", contact.featureId );
     AddRawInteger( projection, "Body A", contact.bodyA );
     AddRawInteger( projection, "Body B", contact.bodyB );
+    AddRawValue( projection, "Contact Source", contact.isTerrain ? "OBJECT / GROUND (TERRAIN)" : "OBJECT / OBJECT" );
+    char bodySource[128] = {};
+    FormatContactBodySource( solverDetail, contact.bodyA, false, bodySource );
+    AddRawValue( projection, "Body A Source", bodySource );
+    FormatContactBodySource( solverDetail, contact.bodyB, contact.isTerrain, bodySource );
+    AddRawValue( projection, "Body B Source", bodySource );
     AddRawInteger( projection, "Manifold Points", static_cast<unsigned>( contact.manifoldPointCount ) );
     AddRawInteger( projection, "Source Frame", static_cast<unsigned long long>( transport.targetFrame ) );
     AddRawValue( projection, "Source Kind", transport.seekSource == ReplayCauseSeekSource::Prediction ? "PREDICTION" : "RECORDED" );
@@ -568,6 +596,9 @@ ReplayCauseIterationsProjection BuildReplayCauseIterationsProjection( const Repl
     const Physics::PhysicsSolverPersistentContactSample& contact = solverDetail.solverDetailContacts[static_cast<std::size_t>( rowIndex )];
 
     sprintf_s( projection.summary, sizeof( projection.summary ), "Feature %u  Body %d <-> %d  limit=%.3g", contact.featureId, contact.bodyA, contact.bodyB, contact.frictionLimit );
+    sprintf_s( projection.contactSource, "Contact %d of %zu | %s", rowIndex + 1, solverDetail.solverDetailContacts.size(), contact.isTerrain ? "Object / ground (terrain)" : "Object / object" );
+    FormatContactBodySource( solverDetail, contact.bodyA, false, projection.bodyA );
+    FormatContactBodySource( solverDetail, contact.bodyB, contact.isTerrain, projection.bodyB );
 
     for ( const Physics::PhysicsPipelineRecord& record : solverDetail.solverDetailPipelineRecords )
     {
@@ -760,7 +791,10 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSol
     layout.rawTable = { layout.content.x, layout.content.y, layout.content.w, (std::max)( 0.0f, layout.content.h - REPLAY_CAUSE_RAW_RECORD_COPY_HEIGHT - rawCopyGap ) };
     layout.rawVisibleRows = static_cast<int>( layout.rawTable.h / REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT );
 
-    layout.iterationsTable = { layout.content.x, layout.content.y + 22.0f, layout.content.w, (std::max)( 0.0f, layout.content.h - 22.0f ) };
+    layout.iterationsTable = { layout.content.x,
+                               layout.content.y + REPLAY_CAUSE_ITERATIONS_SOURCE_HEIGHT,
+                               layout.content.w,
+                               (std::max)( 0.0f, layout.content.h - REPLAY_CAUSE_ITERATIONS_SOURCE_HEIGHT ) };
     layout.iterationsVisibleRows = static_cast<int>( layout.iterationsTable.h / REPLAY_CAUSE_ITERATIONS_ROW_HEIGHT );
 
     const bool hasRows = solverDetail.solverDetailAvailability == ReplayCauseSolverDetailAvailability::Available && !solverDetail.solverDetailContacts.empty();
