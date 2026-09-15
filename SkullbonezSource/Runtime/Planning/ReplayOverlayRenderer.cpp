@@ -187,23 +187,18 @@ class CauseInspectorDrawing
 
     void Impulse( const UI::UIRect& bounds, const UI::Style::UIColor& color, const char* value, const char* subscript, bool delta ) const
     {
-        // The ASCII font has no Greek glyphs. Draw the delta outline as geometry;
-        // J with a smaller lowered index uses the same font and clip as its value.
-        const auto clip = UI::IntersectRect( m_clip, bounds );
-        m_draw.PushClip( clip );
-        float x = bounds.x;
-        const float y = bounds.y;
-        if ( delta )
-        {
-            m_draw.Triangle( x + 4, y + 1, x, y + 10, x + 2, y + 10, color.r, color.g, color.b, 1 );
-            m_draw.Triangle( x + 4, y + 1, x + 6, y + 10, x + 8, y + 10, color.r, color.g, color.b, 1 );
-            m_draw.Rect( x + 1, y + 9, 6, 1, color.r, color.g, color.b, 1 );
-            x += 10;
-        }
+        // Delta uses the same filtered SDF glyphs as J and its value. Measured
+        // advances keep the readable subscript clear of both adjacent runs.
+        constexpr float SIZE = 13.0f;
+        constexpr float INDEX_SIZE = 10.0f;
+        const char* label = delta ? "\xCE\x94J" : "J";
+        m_draw.PushClip( UI::IntersectRect( m_clip, bounds ) );
         const auto draw = Clipped( bounds );
-        draw.Text( x, y, 12, color.r, color.g, color.b, "J" );
-        draw.Text( x + 6, y + 5, 8, color.r, color.g, color.b, subscript );
-        draw.Text( x + 15, y, 12, color.r, color.g, color.b, value );
+        const float indexX = bounds.x + UI::UIFontMetrics::MeasureText( SIZE, label );
+        const float valueX = indexX + UI::UIFontMetrics::MeasureText( INDEX_SIZE, subscript ) + UI::UIFontMetrics::MeasureText( SIZE, " " );
+        draw.Text( bounds.x, bounds.y, SIZE, color.r, color.g, color.b, label );
+        draw.Text( indexX, bounds.y + 4, INDEX_SIZE, color.r, color.g, color.b, subscript );
+        draw.Text( valueX, bounds.y, SIZE, color.r, color.g, color.b, value );
         m_draw.PopClip();
     }
 
@@ -484,7 +479,18 @@ static void RenderReplayCauseIterationsTab( UI::UIDrawList& drawList,
     const int firstRow = std::clamp( inspection.Display().iterationsFirstRow, 0, (std::max)( 0, rowCount - layout.iterationsVisibleRows ) );
     const int endRow = (std::min)( rowCount, firstRow + layout.iterationsVisibleRows );
 
-    draw.Text( layout.content.x, layout.content.y + 2.0f, 12.0f, CAUSE_SOLVER.r, CAUSE_SOLVER.g, CAUSE_SOLVER.b, projection.summary );
+    // Keep the selected contact's sources visible while its iterations scroll.
+    // Each name has its own clip so a long authored name cannot cover the next.
+    const char* sources[] = { projection.contactSource, projection.bodyA, projection.bodyB, projection.summary };
+    const char* roles[] = { "", "A: ", "B: ", "" };
+    for ( int line = 0; line < 4; ++line )
+    {
+        const UI::UIRect bounds { layout.content.x, layout.content.y + line * 19.0f, layout.content.w, 18.0f };
+        char label[136] = {};
+        sprintf_s( label, "%s%s", roles[line], sources[line] );
+        const auto& color = line == 0 ? palette.accent : line == 3 ? palette.textMuted : palette.textPrimary;
+        draw.Clipped( bounds ).Text( bounds.x, bounds.y + 2.0f, 11.0f, color.r, color.g, color.b, label );
+    }
 
     if ( rowCount == 0 )
     {
@@ -554,12 +560,15 @@ static void RenderReplayCauseIterationsTab( UI::UIDrawList& drawList,
     }
 }
 
-static void RenderCauseOutlineControls( const UI::UIDrawContext& draw, const ReplayCauseInspectionView& inspection, const ReplayCauseInspectorLayout& layout, const UI::Style::UIPalette& palette )
+static void RenderReplayOutlineControls( UI::UIDrawList& drawList, const ReplayCauseInspectionView& inspection, const ReplayOverlayViewport& viewport )
 {
-    const CauseInspectorDrawing footerDraw( draw, layout.hierarchy );
-    for ( std::size_t index = 0; index < layout.outlineToggles.size(); ++index )
+    const UI::UIPanelScope panelScope( drawList, viewport.controlsBounds.x < viewport.width * 0.5f ? UI::UIPanel::LowerLeft : UI::UIPanel::Right );
+    const UI::UIDrawContext draw( viewport.width, viewport.height, drawList );
+    const CauseInspectorDrawing footerDraw( draw, viewport.controlsBounds );
+    const auto& palette = UI::Style::Palette();
+    for ( int index = 0; index < 2; ++index )
     {
-        const UI::UIRect& toggle = layout.outlineToggles[index];
+        const auto toggle = ReplayOutlineToggleRect( viewport.controlsBounds, viewport.controlsScroll, index );
         const bool visible = index == 0 ? inspection.Display().blueOutlinesVisible : inspection.Display().greyOutlinesVisible;
         footerDraw.Rect( toggle.x, toggle.y + 3.0f, 16.0f, 16.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 1.0f );
         footerDraw.Rect( toggle.x + 2.0f, toggle.y + 5.0f, 12.0f, 12.0f, CAUSE_NAVY.r, CAUSE_NAVY.g, CAUSE_NAVY.b, 1.0f );
@@ -568,11 +577,11 @@ static void RenderCauseOutlineControls( const UI::UIDrawContext& draw, const Rep
             footerDraw.Rect( toggle.x + 4.0f, toggle.y + 7.0f, 8.0f, 8.0f, 0.26f, 0.78f, 0.95f, 1.0f );
         }
         const char* label = index == 0 ? "Blue prediction outlines" : "Grey resting outlines";
-        if ( toggle.w < 220.0f )
+        if ( toggle.w < 180.0f )
         {
             label = index == 0 ? "Blue" : "Grey";
         }
-        footerDraw.Text( toggle.x + 25.0f, toggle.y + 4.0f, 12.5f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, label );
+        footerDraw.Text( toggle.x + 25.0f, toggle.y + 4.0f, 11.0f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, label );
     }
 }
 
@@ -933,6 +942,13 @@ ReplayWorkspaceTooltips BuildReplayWorkspaceTooltips( const ReplayOverlayStateVi
     ReplayWorkspaceTooltips result {};
     const ReplayScrubberTooltips scrubber = BuildReplayScrubberTooltips( replay.timeline.ScrubberPresentation(), viewport, scenePhysicsEnabled );
     std::copy( scrubber.begin(), scrubber.end(), result.begin() );
+    if ( replay.timeline.shouldRenderScrubber )
+    {
+        for ( int index = 0; index < 2; ++index )
+        {
+            result[22 + index] = { static_cast<uint32_t>( 1250 + index ), UI::IntersectRect( ReplayOutlineToggleRect( viewport.controlsBounds, viewport.controlsScroll, index ), viewport.controlsBounds ), { index == 0 ? "Show blue outlines for predicted contact geometry." : "Show grey outlines for resting contact geometry." } };
+        }
+    }
     const ReplayPlanningLayout planningLayout( viewport.PlanningBounds(),
                                                replay.planning.intercept.valid,
                                                replay.planning.tripPlanner.visible && replay.planning.tripPlanner.available,
@@ -983,15 +999,13 @@ ReplayWorkspaceTooltips BuildReplayWorkspaceTooltips( const ReplayOverlayStateVi
     std::size_t next = scrubber.size();
     const auto add = [&]( const UI::UIRect& bounds, UI::UITooltipText description )
     {
-        if ( bounds.w > 0.0f && bounds.h > 0.0f && next < 24 )
+        if ( bounds.w > 0.0f && bounds.h > 0.0f && next < 22 )
         {
             result[next] = { static_cast<uint32_t>( 1100 + next ), bounds, description };
             ++next;
         }
     };
     add( layout.drawerToggle, { "Fold between the cause hierarchy and its detailed evidence. The selection is retained." } );
-    add( layout.outlineToggles[0], { "Show blue outlines for predicted contact geometry." } );
-    add( layout.outlineToggles[1], { "Show grey outlines for resting contact geometry." } );
     if ( !causality.inspection.sharedShell || !causality.inspection.drawerOpen )
     {
         add( ReplayCauseWindowFilterFieldRect( causality.tree ), { "Filter evidence while retaining matching rows and their ancestors.", "", "Escape leaves text entry" } );
@@ -1659,6 +1673,10 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
 
     m_drawList.SetPanel( UI::UIPanel::None );
     ReplayScrubberComposer( m_drawList, replay.timeline.ScrubberPresentation(), scenePhysicsEnabled, gesture, viewport, nowSeconds ).Compose();
+    if ( replay.timeline.shouldRenderScrubber && viewport.controlsBounds.w > 0 && viewport.controlsBounds.h > 0 )
+    {
+        RenderReplayOutlineControls( m_drawList, replay.causality.inspection, viewport );
+    }
     if ( replay.timeline.velocityEdit.enabled || replay.planning.divergence.active )
     {
         m_drawList.PushClip( viewport.PlanningBounds() );
@@ -2019,7 +2037,6 @@ static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const Repla
     UI::Style::UIColor panelBorder = palette.innerBorder;
     panelBorder.a = 0.72f;
     draw.RoundedPanel( panel, 6.0f, CAUSE_NAVY, panelBorder );
-    RenderCauseOutlineControls( draw, causality.inspection, inspectorLayout, palette );
     if ( !causality.loading.active )
     {
         RenderReplayCauseInspectorToggle( draw, inspectorLayout, causality.inspection, causality.tree );

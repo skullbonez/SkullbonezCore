@@ -43,11 +43,12 @@ using namespace SkullbonezCore::Geometry;
 namespace
 {
 constexpr float CAMERA_TWEEN_DURATION_SECONDS = 1.5f;
+constexpr float EDITOR_CAMERA_TWEEN_DURATION_SECONDS = 0.2f;
 constexpr float CAMERA_DIRECTION_EPSILON = 0.00001f;
 
-float EvaluateCameraTweenProgress( float elapsedSeconds )
+float EvaluateCameraTweenProgress( float elapsedSeconds, float durationSeconds )
 {
-    const float u = std::clamp( elapsedSeconds / CAMERA_TWEEN_DURATION_SECONDS, 0.0f, 1.0f );
+    const float u = std::clamp( elapsedSeconds / durationSeconds, 0.0f, 1.0f );
     const float remaining = 1.0f - u;
     return 1.0f - remaining * remaining * remaining;
 }
@@ -59,10 +60,9 @@ Vector3 NormalizeOr( Vector3 value, const Vector3& fallback )
 
 Vector3 StableOrthogonal( const Vector3& direction )
 {
-    const Vector3 basis = fabsf( direction.x ) <= fabsf( direction.y ) && fabsf( direction.x ) <= fabsf( direction.z )
-                              ? Vector3( 1.0f, 0.0f, 0.0f )
-                          : fabsf( direction.y ) <= fabsf( direction.z ) ? Vector3( 0.0f, 1.0f, 0.0f )
-                                                                         : Vector3( 0.0f, 0.0f, 1.0f );
+    const Vector3 basis = fabsf( direction.x ) <= fabsf( direction.y ) && fabsf( direction.x ) <= fabsf( direction.z ) ? Vector3( 1.0f, 0.0f, 0.0f )
+                          : fabsf( direction.y ) <= fabsf( direction.z )                                               ? Vector3( 0.0f, 1.0f, 0.0f )
+                                                                                                                       : Vector3( 0.0f, 0.0f, 1.0f );
     return NormalizeOr( basis - direction * Dot( basis, direction ), Vector3( 1.0f, 0.0f, 0.0f ) );
 }
 
@@ -145,6 +145,20 @@ Camera CameraCollection::InterpolatePose( const Camera& from, const Camera& to, 
 }
 
 
+Camera CameraCollection::InterpolateEditorPose( const Camera& from, const Camera& to, float progress )
+{
+    Camera result = InterpolatePose( from, to, progress, false );
+    if ( progress > 0.0f && progress < 1.0f )
+    {
+        // Top and side use different up vectors; blend both endpoint bases so
+        // the last frame does not introduce a sudden roll at the destination.
+        const Vector3 direction = NormalizeOr( result.m_view - result.m_position, Vector3( 0, 0, -1 ) );
+        const Vector3 up = SlerpDirection( from.m_upVector, to.m_upVector, progress );
+        result.m_upVector = NormalizeOr( up - direction * Dot( up, direction ), result.m_upVector );
+    }
+    return result;
+}
+
 CameraCollection::CameraCollection()
 {
     m_arrayPosition = 0;
@@ -167,6 +181,133 @@ CameraCollection::CameraCollection()
 }
 
 
+void CameraCollection::SelectEditorView( const Vector3& focus, float distance, int axis )
+{
+    if ( axis < 0 || axis > 3 || m_arrayPosition == 0 )
+    {
+        return;
+    }
+    if ( FourViews() )
+    {
+        SelectEditorPane( ( axis + 3 ) % 4 );
+        return;
+    }
+    auto& state = m_editorViews[m_editorViewWorkspace ? 1 : 0];
+    if ( state.axis == axis )
+    {
+        if ( axis == 0 && m_isTweening && !m_editorViewTween )
+        {
+            const Camera visible = GetTweenSourcePose();
+            CancelTween();
+            SetPrimaryPose( visible.m_position, visible.m_view, visible.m_upVector );
+            SetCamera();
+        }
+        return;
+    }
+    const Camera visible = GetTweenSourcePose();
+    if ( state.axis == 0 )
+    {
+        // Reversing a return-to-perspective tween must retain its destination.
+        if ( !m_editorViewTween )
+        {
+            state.perspective = visible;
+        }
+        state.focus = focus;
+        state.distance = (std::max)( 100.0f, distance );
+    }
+    state.axis = axis;
+    CancelTween();
+    if ( axis == 0 )
+    {
+        m_cameraArray[m_selectedCamera].SetAll( state.perspective.m_position, state.perspective.m_view, state.perspective.m_upVector );
+    }
+    else
+    {
+        ApplyEditorView();
+    }
+    const Camera destination = m_cameraArray[m_selectedCamera];
+    BeginPrimaryPoseTween( destination.m_position, destination.m_view, destination.m_upVector, false );
+    m_editorViewTween = m_isTweening;
+    m_tweenStart = visible;
+    m_tweenCamera = visible;
+    SetTweenProgress( 0.0f );
+    SetCamera();
+}
+
+void CameraCollection::ApplyEditorView()
+{
+    if ( FourViews() )
+    {
+        const auto& state = m_fourViews[m_editorViewWorkspace ? 1 : 0];
+        if ( state.active != 3 )
+        {
+            m_cameraArray[m_selectedCamera] = state.panes[state.active];
+            CancelTween();
+        }
+        return;
+    }
+    const auto& state = m_editorViews[m_editorViewWorkspace ? 1 : 0];
+    if ( state.axis == 0 )
+    {
+        return;
+    }
+    const Vector3 direction = state.axis == 1 ? Vector3( 0, 1, 0 ) : state.axis == 2 ? Vector3( 1, 0, 0 ) : Vector3( 0, 0, 1 );
+    // Top uses -Z as screen-up so looking exactly down Y has a valid basis.
+    const Vector3 up = state.axis == 1 ? Vector3( 0, 0, -1 ) : Vector3( 0, 1, 0 );
+    m_cameraArray[m_selectedCamera].SetAll( state.focus + direction * state.distance, state.focus, up );
+    if ( !m_editorViewTween )
+    {
+        CancelTween();
+    }
+}
+
+void CameraCollection::ZoomEditorView( float logarithmicDelta )
+{
+    if ( EditorView() == 0 || logarithmicDelta == 0.0f || !std::isfinite( logarithmicDelta ) )
+    {
+        return;
+    }
+    if ( FourViews() )
+    {
+        auto& state = m_fourViews[m_editorViewWorkspace ? 1 : 0];
+        Camera& pane = state.panes[state.active];
+        Vector3 offset = pane.m_position - pane.m_view;
+        const float distance = std::clamp( std::sqrt( Dot( offset, offset ) ) * std::exp( std::clamp( logarithmicDelta, -4.0f, 4.0f ) ), 0.1f, 1000000.0f );
+        offset.TryNormalise();
+        pane.SetAll( pane.m_view + offset * distance, pane.m_view, pane.m_upVector );
+        ApplyEditorView();
+        SetCamera();
+        return;
+    }
+    auto& state = m_editorViews[m_editorViewWorkspace ? 1 : 0];
+    state.distance = std::clamp( state.distance * std::exp( std::clamp( logarithmicDelta, -4.0f, 4.0f ) ), 0.1f, 1000000.0f );
+    ApplyEditorView();
+    SetCamera();
+}
+
+void CameraCollection::SetEditorViewWorkspace( bool secondWorkspace )
+{
+    if ( m_editorViewWorkspace != secondWorkspace && FourViews() )
+    {
+        auto& previous = m_fourViews[m_editorViewWorkspace ? 1 : 0];
+        previous.panes[previous.active] = m_cameraArray[m_selectedCamera];
+    }
+    if ( m_editorViewWorkspace != secondWorkspace && m_editorViewTween )
+    {
+        CancelTween();
+    }
+    const bool changed = m_editorViewWorkspace != secondWorkspace;
+    m_editorViewWorkspace = secondWorkspace;
+    if ( changed && FourViews() )
+    {
+        auto& state = m_fourViews[m_editorViewWorkspace ? 1 : 0];
+        m_cameraArray[m_selectedCamera] = state.panes[state.active];
+        CancelTween();
+    }
+    ApplyEditorView();
+}
+
+
 void CameraCollection::ApplyMovementSettings( const CameraMovementSettings& settings )
 {
     m_movementSettings = settings;
@@ -175,6 +316,12 @@ void CameraCollection::ApplyMovementSettings( const CameraMovementSettings& sett
 
 void CameraCollection::Reset()
 {
+    m_fourViews[0] = {};
+    m_fourViews[1] = {};
+    m_editorViews[0] = {};
+    m_editorViews[1] = {};
+    m_editorViewWorkspace = false;
+    m_editorViewTween = false;
     m_arrayPosition = 0;
     m_selectedCamera = 0;
     m_isTweening = false;
@@ -208,8 +355,11 @@ void CameraCollection::AddCamera( const Vector3& position, const Vector3& view, 
 {
     if ( m_arrayPosition == SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT )
     {
-        SB_FATAL( "CameraCollection", "Camera slot capacity exhausted in AddCamera. count=%d capacity=%d hash=0x%08X",
-                  m_arrayPosition, SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT, static_cast<unsigned int>( hash ) );
+        SB_FATAL( "CameraCollection",
+                  "Camera slot capacity exhausted in AddCamera. count=%d capacity=%d hash=0x%08X",
+                  m_arrayPosition,
+                  SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT,
+                  static_cast<unsigned int>( hash ) );
     }
 
     m_cameraHashes[m_arrayPosition] = hash;
@@ -289,9 +439,7 @@ void CameraCollection::SelectCamera( uint32_t hash, const bool tween )
     // it is not possible to tween if there is only one camera in the scene
     if ( tween && m_arrayPosition == 1 )
     {
-        SB_FATAL( "CameraCollection",
-                  "SelectCamera cannot tween with one registered camera. hash=0x%08X selected=%d count=%d",
-                  static_cast<unsigned int>( hash ), m_selectedCamera, m_arrayPosition );
+        SB_FATAL( "CameraCollection", "SelectCamera cannot tween with one registered camera. hash=0x%08X selected=%d count=%d", static_cast<unsigned int>( hash ), m_selectedCamera, m_arrayPosition );
     }
 
     // where should the tween camera be referenced FROM?
@@ -316,6 +464,13 @@ void CameraCollection::SelectCamera( uint32_t hash, const bool tween )
 
     // specify if tweening
     m_isTweening = tween;
+    if ( tween )
+    {
+        // A second camera command can arrive before the first tween renders.
+        // Its visible source is the start pose, never an old or empty sample.
+        m_tweenCamera = m_tweenStart;
+    }
+    m_editorViewTween = false;
     m_tweenKeepsWorldUp = false;
 
     m_tweenProgress = 0;
@@ -348,11 +503,14 @@ bool CameraCollection::HasCamera( uint32_t hash ) const
 
 void CameraCollection::RotatePrimary( float xMove, float yMove )
 {
+    if ( EditorView() != 0 )
+    {
+        return;
+    }
     // make sure a camera exists to update
     if ( !m_arrayPosition )
     {
-        SB_FATAL( "CameraCollection", "RotatePrimary requires at least one registered camera. count=%d selected=%d",
-                  m_arrayPosition, m_selectedCamera );
+        SB_FATAL( "CameraCollection", "RotatePrimary requires at least one registered camera. count=%d selected=%d", m_arrayPosition, m_selectedCamera );
     }
 
     // rotate the primary camera
@@ -390,13 +548,12 @@ void CameraCollection::TweenPrimaryToUprightPose( const Vector3& position, const
 }
 
 
-void CameraCollection::BeginPrimaryPoseTween( const Vector3& position, const Vector3& view, const Vector3& up,
-                                              bool keepWorldUp )
+void CameraCollection::BeginPrimaryPoseTween( const Vector3& position, const Vector3& view, const Vector3& up, bool keepWorldUp )
 {
+    m_editorViewTween = false;
     if ( !m_arrayPosition )
     {
-        SB_FATAL( "CameraCollection", "TweenPrimaryToPose requires at least one registered camera. count=%d selected=%d",
-                  m_arrayPosition, m_selectedCamera );
+        SB_FATAL( "CameraCollection", "TweenPrimaryToPose requires at least one registered camera. count=%d selected=%d", m_arrayPosition, m_selectedCamera );
     }
 
     const Camera tweenStart = GetTweenSourcePose();
@@ -404,8 +561,7 @@ void CameraCollection::BeginPrimaryPoseTween( const Vector3& position, const Vec
 
     const Camera& destination = m_cameraArray[m_selectedCamera];
 
-    if ( Vector::Distance( tweenStart.m_position, destination.m_position ) <= 0.000001f &&
-         Vector::Distance( tweenStart.m_view, destination.m_view ) <= 0.000001f &&
+    if ( Vector::Distance( tweenStart.m_position, destination.m_position ) <= 0.000001f && Vector::Distance( tweenStart.m_view, destination.m_view ) <= 0.000001f &&
          Vector::Distance( tweenStart.m_upVector, destination.m_upVector ) <= 0.000001f )
     {
         // Why: replay inspection can switch ownership to the free camera while
@@ -421,6 +577,7 @@ void CameraCollection::BeginPrimaryPoseTween( const Vector3& position, const Vec
     }
 
     m_tweenStart = tweenStart;
+    m_tweenCamera = tweenStart;
     m_isTweening = true;
     m_tweenProgress = 0.0f;
     m_tweenElapsedSeconds = 0.0f;
@@ -432,12 +589,19 @@ void CameraCollection::BeginPrimaryPoseTween( const Vector3& position, const Vec
 
 void CameraCollection::MovePrimary( Camera::TravelDirection direction, float amount )
 {
+    if ( EditorView() != 0 )
+    {
+        return;
+    }
     // make sure a camera exists to update
     if ( !m_arrayPosition )
     {
         SB_FATAL( "CameraCollection",
                   "MovePrimary requires at least one registered camera. direction=%d quantity=%f count=%d selected=%d",
-                  static_cast<int>( direction ), amount, m_arrayPosition, m_selectedCamera );
+                  static_cast<int>( direction ),
+                  amount,
+                  m_arrayPosition,
+                  m_selectedCamera );
     }
 
     // move the primary camera
@@ -472,6 +636,7 @@ const Vector3& CameraCollection::GetRenderCameraUp() const
 void CameraCollection::CancelTween()
 {
     m_isTweening = false;
+    m_editorViewTween = false;
     m_hasPublishedTweenProgress = false;
     m_tweenKeepsWorldUp = false;
 }
@@ -504,11 +669,12 @@ void CameraCollection::ResetRelativity()
 
 void CameraCollection::SetCamera()
 {
+    // Fixed views are the final pose authority, including follow and replay updates.
+    ApplyEditorView();
     // make sure a camera exists
     if ( !m_arrayPosition )
     {
-        SB_FATAL( "CameraCollection", "SetCamera requires at least one registered camera. count=%d selected=%d tweening=%d",
-                  m_arrayPosition, m_selectedCamera, m_isTweening ? 1 : 0 );
+        SB_FATAL( "CameraCollection", "SetCamera requires at least one registered camera. count=%d selected=%d tweening=%d", m_arrayPosition, m_selectedCamera, m_isTweening ? 1 : 0 );
     }
 
     // if we are not in tween mode
@@ -521,19 +687,19 @@ void CameraCollection::SetCamera()
         if ( !m_hasPublishedTweenProgress )
         {
             m_tweenElapsedSeconds += m_tweenDeltaSeconds;
-            m_tweenProgress = EvaluateCameraTweenProgress( m_tweenElapsedSeconds );
+            m_tweenProgress = EvaluateCameraTweenProgress( m_tweenElapsedSeconds, m_editorViewTween ? EDITOR_CAMERA_TWEEN_DURATION_SECONDS : CAMERA_TWEEN_DURATION_SECONDS );
         }
 
         m_hasPublishedTweenProgress = false;
 
         // Keep the destination live; the target camera may move during a tween.
-        m_tweenCamera = InterpolatePose( m_tweenStart, m_cameraArray[m_selectedCamera], m_tweenProgress,
-                                         m_tweenKeepsWorldUp );
+        m_tweenCamera = m_editorViewTween ? InterpolateEditorPose( m_tweenStart, m_cameraArray[m_selectedCamera], m_tweenProgress )
+                                          : InterpolatePose( m_tweenStart, m_cameraArray[m_selectedCamera], m_tweenProgress, m_tweenKeepsWorldUp );
 
         // Avoid going through terrain during tweens when the scene owns a
         // terrain surface. Terrainless authored scenes deliberately bind null;
         // their cameras must remain unconstrained in space.
-        if ( m_terrain )
+        if ( m_terrain && !m_editorViewTween )
         {
             float terrainHeight = m_terrain->GetTerrainHeightAt( m_tweenCamera.m_position.x, m_tweenCamera.m_position.z );
 
@@ -557,6 +723,7 @@ void CameraCollection::SetCamera()
             m_cameraArray[m_selectedCamera].m_viewMagnitude = m_tweenCamera.m_viewMagnitude;
             ResetRelativity();
             m_isTweening = false;
+            m_editorViewTween = false;
             m_tweenKeepsWorldUp = false;
         }
     }
@@ -580,8 +747,7 @@ int CameraCollection::FindIndex( uint32_t hash )
         }
     }
 
-    SB_FATAL( "CameraCollection", "Camera hash lookup failed. hash=0x%08X count=%d selected=%d",
-              static_cast<unsigned int>( hash ), m_arrayPosition, m_selectedCamera );
+    SB_FATAL( "CameraCollection", "Camera hash lookup failed. hash=0x%08X count=%d selected=%d", static_cast<unsigned int>( hash ), m_arrayPosition, m_selectedCamera );
 }
 
 
@@ -622,4 +788,105 @@ void CameraCollection::SetCameraXZBounds( uint32_t hash, const XZBounds bounds )
 void CameraCollection::SetTerrain( Terrain* terrain )
 {
     m_terrain = terrain;
+}
+
+void CameraCollection::ToggleFourViews( const Vector3& focus, float distance )
+{
+    if ( m_arrayPosition == 0 )
+    {
+        return;
+    }
+    auto& state = m_fourViews[m_editorViewWorkspace ? 1 : 0];
+    if ( state.enabled )
+    {
+        state.enabled = false;
+        m_cameraArray[m_selectedCamera] = state.single;
+    }
+    else
+    {
+        // Lifetime: these are four value snapshots, never registered scene
+        // cameras. Editing a pane cannot overwrite the saved full-screen pose.
+        state.single = GetTweenSourcePose();
+        state.halfDepth = (std::max)( 100.0f, distance * 2.0f );
+        const auto& single = m_editorViews[m_editorViewWorkspace ? 1 : 0];
+        state.panes[3] = single.axis == 0 ? state.single : single.perspective;
+        const Vector3 directions[] = { { 0, 1, 0 }, { 1, 0, 0 }, { 0, 0, 1 } };
+        for ( int pane = 0; pane < 3; ++pane )
+        {
+            state.panes[pane].SetAll( focus + directions[pane] * (std::max)( 100.0f, distance ), focus, pane == 0 ? Vector3( 0, 0, -1 ) : Vector3( 0, 1, 0 ) );
+        }
+        state.active = 3;
+        state.enabled = true;
+        m_cameraArray[m_selectedCamera] = state.panes[3];
+    }
+    CancelTween();
+    SetCamera();
+}
+
+void CameraCollection::SelectEditorPane( int pane )
+{
+    if ( !FourViews() || pane < 0 || pane >= 4 )
+    {
+        return;
+    }
+    auto& state = m_fourViews[m_editorViewWorkspace ? 1 : 0];
+    if ( pane == state.active )
+    {
+        return;
+    }
+    state.panes[state.active] = m_cameraArray[m_selectedCamera];
+    state.active = pane;
+    m_cameraArray[m_selectedCamera] = state.panes[pane];
+    CancelTween();
+    SetCamera();
+}
+
+CameraCollection::EditorPanePose CameraCollection::EditorPane( int pane ) const
+{
+    const auto& state = m_fourViews[m_editorViewWorkspace ? 1 : 0];
+    const Camera& camera = !state.enabled || pane == state.active || pane < 0 || pane >= 4 ? m_renderCamera : state.panes[pane];
+    return { camera.m_position, camera.m_view, camera.m_upVector };
+}
+
+Matrix4 CameraCollection::EditorPaneProjection( int pane, const Matrix4& perspective ) const
+{
+    if ( !FourViews() || pane < 0 || pane >= 3 )
+    {
+        return perspective;
+    }
+    const auto pose = EditorPane( pane );
+    const float distance = Distance( pose.eye, pose.focus );
+    const float halfWidth = distance / perspective.m[0];
+    const float halfHeight = distance / perspective.m[5];
+    // Top keeps the full fitted height so zooming cannot hide elevated objects.
+    // Side views advance their near plane with the eye, allowing navigation
+    // through foreground walls. Picking uses this same projection.
+    const float halfDepth = m_fourViews[m_editorViewWorkspace ? 1 : 0].halfDepth;
+    const float nearPlane = pane == 0 ? distance - halfDepth : (std::max)( 0.01f, distance - halfDepth );
+    return Matrix4::OrthoZeroToOne( -halfWidth, halfWidth, -halfHeight, halfHeight, nearPlane, distance + halfDepth );
+}
+
+void CameraCollection::PanEditorView( float horizontal, float vertical )
+{
+    if ( EditorView() == 0 || !std::isfinite( horizontal ) || !std::isfinite( vertical ) )
+    {
+        return;
+    }
+    const Vector3 forward = NormalizeOr( GetCameraView() - GetCameraTranslation(), Vector3( 0, 0, -1 ) );
+    const Vector3 right = NormalizeOr( CrossProduct( forward, GetCameraUp() ), Vector3( 1, 0, 0 ) );
+    const Vector3 up = CrossProduct( right, forward );
+    const Vector3 delta = right * horizontal + up * vertical;
+    if ( FourViews() )
+    {
+        auto& state = m_fourViews[m_editorViewWorkspace ? 1 : 0];
+        auto& pane = state.panes[state.active];
+        pane.SetAll( pane.m_position + delta, pane.m_view + delta, pane.m_upVector );
+    }
+    else
+    {
+        m_editorViews[m_editorViewWorkspace ? 1 : 0].focus += delta;
+    }
+    CancelTween();
+    ApplyEditorView();
+    SetCamera();
 }

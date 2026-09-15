@@ -62,6 +62,11 @@ struct UITriangle
 
 UIRect IntersectRect( const UIRect& left, const UIRect& right );
 
+enum class UIImageId : unsigned char
+{
+    ApplicationMark
+};
+
 class UIDrawList;
 
 class UIDrawContext
@@ -72,6 +77,7 @@ class UIDrawContext
     // renderer state.
     UIDrawContext( int screenW, int screenH, UIDrawList& drawList );
 
+    void Image( UIImageId image, const UIRect& bounds, float opacity = 1.0f ) const;
     void Rect( float x, float y, float w, float h, float r, float g, float b, float a ) const;
     void Triangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b, float a ) const;
     void Outline( float x, float y, float w, float h, float r, float g, float b, float a ) const;

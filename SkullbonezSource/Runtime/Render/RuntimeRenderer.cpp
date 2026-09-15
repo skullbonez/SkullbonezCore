@@ -128,6 +128,7 @@ struct VolumetricGraphInvocation
 
 struct TonemapGraphInvocation
 {
+    const RenderCameraLighting* camera = nullptr;
     TonemapPass* pass = nullptr;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
     SkullbonezCore::Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
@@ -667,8 +668,8 @@ void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGrap
 
 void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context, TonemapGraphInvocation& data )
 {
-    if ( !data.pass || !data.cinematic || !data.renderGeometry || !data.renderTextures || !data.renderFrame || !data.renderGraph || !data.renderDiagnostics || !data.state || !data.state->compiled ||
-         !context.graph )
+    if ( !data.camera || !data.pass || !data.cinematic || !data.renderGeometry || !data.renderTextures || !data.renderFrame || !data.renderGraph || !data.renderDiagnostics || !data.state ||
+         !data.state->compiled || !context.graph )
     {
         SB_FATAL( "RunRender", "ToneMapPass graph callback missing execution data." );
     }
@@ -708,7 +709,16 @@ void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
         }
     }
 
-    data.pass->Render( *data.cinematic, *data.renderGeometry, *data.renderTextures, *data.renderFrame, *data.renderDiagnostics, data.gpuTiming, true, data.state->volumetricRendered, graphVolumetric );
+    data.pass->Render( *data.camera,
+                       *data.cinematic,
+                       *data.renderGeometry,
+                       *data.renderTextures,
+                       *data.renderFrame,
+                       *data.renderDiagnostics,
+                       data.gpuTiming,
+                       true,
+                       data.state->volumetricRendered,
+                       graphVolumetric );
 }
 
 void WriteCinematicPostGraphEvidence( const SkullbonezCore::Rendering::RenderGraph& graph,
@@ -1402,6 +1412,7 @@ RuntimeRenderer::CinematicPostFrameOutput RuntimeRenderer::ExecuteCinematicPostT
     volumetricInvocation.state = &postState;
     TonemapGraphInvocation tonemapInvocation;
     tonemapInvocation.pass = &m_tonemapPass;
+    tonemapInvocation.camera = &inputs.camera;
     tonemapInvocation.cinematic = &inputs.cinematic;
     tonemapInvocation.renderGeometry = &inputs.renderGeometry;
     tonemapInvocation.renderTextures = &inputs.renderTextures;
@@ -1830,7 +1841,7 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
     Rendering::Dx12Diagnostics& renderDiagnostics = m_resources.RenderDiagnostics();
 
     const bool shadowMapsEnabled = activeShadowStyle.shadow.enabled && !policy.textOnly;
-    const RECT viewport = m_window.PresentationViewport();
+    const RECT viewport = world.viewport.right > world.viewport.left ? world.viewport : m_window.PresentationViewport();
     const int windowWidth = viewport.right - viewport.left;
     const int windowHeight = viewport.bottom - viewport.top;
     renderFrame.SetPresentationViewport( viewport.left, viewport.top, windowWidth, windowHeight );
@@ -1885,7 +1896,7 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
         // If the cinematic target could not be created, this same graph-owned
         // frame edge clears the fallback backbuffer instead of reviving a
         // direct backend transition path.
-        ExecuteBackbufferAcquireThroughRenderGraph( { renderGraph, renderFrame, true } );
+        ExecuteBackbufferAcquireThroughRenderGraph( { renderGraph, renderFrame, world.clearBackbuffer } );
     }
 
     const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic = world.cinematicRequested ? &world.cinematic : nullptr;

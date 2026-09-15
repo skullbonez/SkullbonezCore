@@ -943,7 +943,8 @@ class TonemapPass
 
     void EnsureGpuResources( bool cinematicEnabled, Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources );
     void ReleaseGpuResources();
-    void Render( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+    void Render( const RenderCameraLighting& camera,
+                 const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                  Rendering::Dx12GeometryOwner& renderGeometry,
                  Rendering::Dx12TextureOwner& renderTextures,
                  Rendering::Dx12FrameOwner& renderFrame,
@@ -978,7 +979,9 @@ class UiTextPass
     {
     }
 
-    SkullbonezCore::Core::SbResult EnsureGpuResources( Rendering::Dx12TextureOwner& renderTextures,
+    SkullbonezCore::Core::SbResult EnsureGpuResources( Assets::AssetSystem& assets,
+                                                       Rendering::Dx12ResourceBuilder& renderResources,
+                                                       Rendering::Dx12TextureOwner& renderTextures,
                                                        Rendering::Dx12GeometryOwner& renderGeometry,
                                                        std::unique_ptr<Rendering::ShaderDX12> textShader,
                                                        std::unique_ptr<Rendering::ShaderDX12> solidShader,

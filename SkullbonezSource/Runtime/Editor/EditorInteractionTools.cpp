@@ -1721,6 +1721,19 @@ bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain, const Vector3& ra
     outPlacement.rayOrigin = rayOrigin;
     outPlacement.rayDirection = rayDirection;
 
+    // Top orthographic views can start above the ordinary ray-march range.
+    // A vertical ray intersects the height field exactly at its fixed X/Z.
+    if ( rayDirection.x == 0.0f && rayDirection.z == 0.0f && rayDirection.y < 0.0f && terrain->IsInBounds( rayOrigin.x, rayOrigin.z ) )
+    {
+        const float height = terrain->GetTerrainHeightAt( rayOrigin.x, rayOrigin.z );
+        if ( rayOrigin.y < height )
+        {
+            return false;
+        }
+        outPlacement.position = Vector3( rayOrigin.x, height, rayOrigin.z );
+        return true;
+    }
+
     // Concept: Terrain picking samples along the ray until it crosses from
     // above terrain to below terrain, then bisects the last interval for a
     // stable placement point without depending on renderer picking.

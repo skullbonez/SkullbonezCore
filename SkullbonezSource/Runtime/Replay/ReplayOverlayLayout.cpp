@@ -350,7 +350,7 @@ void PlaceScrubberInShell( const ReplayScrubberSurfaceInput& input, ReplayScrubb
     const UI::UIRect& controls = input.controlsBounds;
     const float inset = (std::min)( 72.0f, transport.w * 0.22f );
     const UI::UIRect track { transport.x + inset, transport.y + transport.h * 0.5f - 2.0f, (std::max)( 1.0f, transport.w - inset - 12.0f ), 4.0f };
-    const float scroll = std::clamp( input.controlsScroll, 0.0f, 1.0f ) * (std::max)( 0.0f, 370.0f - controls.h );
+    const float scroll = std::clamp( input.controlsScroll, 0.0f, 1.0f ) * (std::max)( 0.0f, 434.0f - controls.h );
     for ( std::size_t index = 0; index < surface.controlCount; ++index )
     {
         ReplayOverlayControl& control = surface.controls[index];

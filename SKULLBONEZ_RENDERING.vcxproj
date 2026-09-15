@@ -143,10 +143,22 @@
     <ShaderBakeOutput Include="@(ShaderBakeRasterSource-&gt;'%(RootDir)%(Directory)%(Filename).ps.dxil')" />
     <ShaderBakeOutput Include="$(ProjectDir)SkullbonezData\shaders\generate_mips.cs.dxil;$(ProjectDir)SkullbonezData\shaders\reflect.rt.dxil;$(ProjectDir)SkullbonezData\shaders\shader_manifest.json;$(ProjectDir)SkullbonezData\generated\GeneratedShaderReflection.h" />
   </ItemGroup>
-  <Target Name="BakeShippingShaders" BeforeTargets="ClCompile" Inputs="@(ShaderBakeInput)" Outputs="@(ShaderBakeOutput)">
-    <Message Importance="High" Text="Shader inputs changed; baking shipping shaders and refreshing generated metadata..." />
-    <Exec Command="call &quot;$(ProjectDir)tools\bake_shaders.bat&quot;" />
-    <Touch Files="@(ShaderBakeOutput)" />
+  <Target Name="BakeShippingShaders" BeforeTargets="ClCompile" Condition="'$(DesignTimeBuild)' != 'true'">
+    <!-- Native VS checks tlogs before F5; target Inputs/Outputs alone are invisible to that check. -->
+    <ItemGroup>
+      <ShaderBakeJob Include="$(ProjectDir)tools\bake_shaders.bat">
+        <AdditionalInputs>@(ShaderBakeInput)</AdditionalInputs>
+        <Outputs>@(ShaderBakeOutput)</Outputs>
+        <Command>call &quot;$(ProjectDir)tools\bake_shaders.bat&quot;</Command>
+      </ShaderBakeJob>
+    </ItemGroup>
+    <GetOutOfDateItems Sources="@(ShaderBakeJob)" OutputsMetadataName="Outputs" DependenciesMetadataName="AdditionalInputs" CommandMetadataName="Command"
+                       TLogDirectory="$(TLogLocation)" TLogNamePrefix="ShaderBake" TrackFileAccess="true">
+      <Output TaskParameter="OutOfDateSources" ItemName="ShaderBakePending" />
+    </GetOutOfDateItems>
+    <Message Condition="'@(ShaderBakePending)' != ''" Importance="High" Text="Shader inputs changed; baking shipping shaders and refreshing generated metadata..." />
+    <Exec Condition="'@(ShaderBakePending)' != ''" Command="call &quot;$(ProjectDir)tools\bake_shaders.bat&quot;" />
+    <Touch Condition="'@(ShaderBakePending)' != ''" Files="@(ShaderBakeOutput)" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

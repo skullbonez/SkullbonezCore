@@ -356,6 +356,7 @@ SkullbonezCore::Core::SbResult Run::LoadSceneRequest( SceneLoadTransaction& tran
             // Invariant: activation becomes visible to lifecycle consumers only
             // after the Render owner has accepted the populated Scene capacity.
             transaction.CompleteRenderActivation( m_sceneController );
+            m_sceneController.CompleteDraftActivation();
         }
     }
 
@@ -373,6 +374,12 @@ bool Run::ExecutePendingSceneRequests( SceneLoadTransaction& transaction )
         std::fflush( stderr );
     }
 
+#if defined( SKULLBONEZ_SKARNESS )
+    for ( std::size_t index = 0; index < batch.rejectedTransitionCount; ++index )
+    {
+        m_skarness.CompleteSceneRequest( batch.rejectedCompletionTokens[index], false );
+    }
+#endif
     for ( std::size_t requestIndex = 0; requestIndex < batch.count; ++requestIndex )
     {
         const SceneRequest& request = batch.requests[requestIndex];
@@ -389,7 +396,15 @@ bool Run::ExecutePendingSceneRequests( SceneLoadTransaction& transaction )
                            .Ok();
             break;
         case SceneRequestType::ResetCurrentScene:
-            accepted = LoadSceneRequest( transaction, m_sceneController.ResetCurrentScene( request.preserveUIState, request.suppressExitOnComplete, request.preserveRuntimeState ) ).Ok();
+            if ( request.preserveRuntimeState && m_sceneController.HasCurrentEntry() )
+            {
+                RestartAuthoredScene();
+                accepted = true;
+            }
+            else
+            {
+                accepted = LoadSceneRequest( transaction, m_sceneController.ResetCurrentScene( request.preserveUIState, request.suppressExitOnComplete, request.preserveRuntimeState ) ).Ok();
+            }
             break;
         case SceneRequestType::CreateScene:
         {
@@ -400,7 +415,7 @@ bool Run::ExecutePendingSceneRequests( SceneLoadTransaction& transaction )
                 break;
             }
             const SceneLoadRequest createRequest = m_sceneController.CreateScene( request.text, heightMap );
-            accepted = LoadSceneRequest( transaction, createRequest ).Ok();
+            accepted = createRequest.HasLoad() && LoadSceneRequest( transaction, createRequest ).Ok();
             transaction.SetRefreshSceneBrowser( createRequest.accepted );
             break;
         }
@@ -418,10 +433,14 @@ bool Run::ExecutePendingSceneRequests( SceneLoadTransaction& transaction )
             }
 
             accepted = saveResult.Ok();
+            transaction.SetRefreshSceneBrowser( accepted );
             break;
         }
         }
 
+#if defined( SKULLBONEZ_SKARNESS )
+        m_skarness.CompleteSceneRequest( request.completionToken, accepted );
+#endif
         if ( accepted )
         {
             transaction.RecordCompletedRequest( request );
@@ -429,6 +448,12 @@ bool Run::ExecutePendingSceneRequests( SceneLoadTransaction& transaction )
 
         if ( !SceneRequestBatchContinuesAfter( request.type, accepted ) )
         {
+#if defined( SKULLBONEZ_SKARNESS )
+            for ( std::size_t skipped = requestIndex + 1; skipped < batch.count; ++skipped )
+            {
+                m_skarness.CompleteSceneRequest( batch.requests[skipped].completionToken, false );
+            }
+#endif
             break;
         }
     }

@@ -234,11 +234,13 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `update_baselines.bat` | Update visual/perf artifacts, or run the guarded one-command core Physics transition with `--physics` |
 | `archive_validation_artifacts.bat` | Archive current Profile artifacts under `TestOutput\NNN_<commit>` |
 | `bake_shaders.bat` | Bake all shipping raster, compute, and DXR-library shaders with pinned DXC and generate fixed reflection POD metadata; `--check` verifies source/include hashes, bytecode, and metadata freshness |
+| `test_shader_build_tracking.py --msbuild <MSBuild.exe> --output <new-directory>` | Exercise native shader tracking, unchanged builds, changed includes, missing outputs, failed bakes and design-time skips in an isolated fixture |
 
-`SKULLBONEZ_RENDERING.vcxproj` runs `bake_shaders.bat` before every Visual Studio
-build in Debug, Profile, Profile-WPO, Automation, and Release. Visual Studio fast up-to-date
-skipping is disabled for that project so an HLSL-only edit still reaches the
-bake; shader compiler diagnostics and a nonzero bake exit fail the build.
+`SKULLBONEZ_RENDERING.vcxproj` tracks shader sources, includes, the baker and DXC
+in native read/write tlogs. Visual Studio can skip an unchanged build on F5;
+changed shader inputs or missing outputs still trigger `bake_shaders.bat`
+before C++ compilation. A nonzero bake exit fails the build. Design-time
+IntelliSense builds do not bake shaders.
 
 `validate_perf.bat` is a hard gate: baseline regressions and
 `check_perf_budgets.py` absolute-budget failures return nonzero. Do not treat
@@ -336,3 +338,11 @@ summary identifies completed, failed, and not-run targets.
 - Git for Windows
 - Python 3.x with Pillow (`py -m pip install Pillow`)
 - Built executable in `Profile\` for render/perf tests or `Debug\` for physics tests
+
+The Skarness Automation gate also runs `validate_velocity_prediction_speed.py`
+for equal Original/Modified reveal settings, full-detail geometry, repeated edits
+and completion timing in the 200-ball space scene. `validate_editor_views.py`
+clicks the shared view gizmo in authored/generated scenes and Solver Lab,
+checks axis-only zoom and locked movement, and verifies Perspective restoration
+and workspace retention. Both write native state and screenshots below
+`TestOutput/skarness/`.

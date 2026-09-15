@@ -36,6 +36,7 @@ Related:
 #include "../../Physics/PhysicsTimestep.h"
 #include "SceneAuthoredSetup.h"
 #include "SceneLifecycle.h"
+#include <optional>
 #include "../../Scene/SceneSnapshotWriter.h"
 
 #include <string>
@@ -86,8 +87,8 @@ struct SceneSessionState
     bool isInteractiveRun = false;             // User/UI controlled scene flow: completion automation may hold/advance but never
 
     // quit
-    bool isEditableScene = false;              // Scene-tab-created file that should save live object state back to its scene file
-    bool hasFlatSlope = false;                 // Active terrain was authored as flat_slope and can be preserved by live scene saves
+    bool isEditableScene = false; // Scene-tab-created file that should save live object state back to its scene file
+    bool hasFlatSlope = false;    // Active terrain was authored as flat_slope and can be preserved by live scene saves
     float flatBaseY = 0.0f;
     float flatSlopeX = 0.0f;
     float flatSlopeZ = 0.0f;
@@ -102,7 +103,7 @@ struct SceneSessionState
     bool hasCinematicGamma = false;
     float cinematicGamma = 2.2f;
     uint64_t cinematicOverrideMask = 0;
-    uint64_t uiCinematicOverrideMask = 0;      // Cine-tab values edited by sliders/toggles and eligible for Save Defaults
+    uint64_t uiCinematicOverrideMask = 0; // Cine-tab values edited by sliders/toggles and eligible for Save Defaults
     SkullbonezCore::Core::CinematicRenderConfig cinematicRender;
 };
 
@@ -123,6 +124,7 @@ class SceneSession
     const std::string* CurrentPath() const;
     const std::string& PathAt( int index ) const;
     int QueueSize() const;
+    void RemoveInactiveEntry( int index );
     int CurrentIndex() const;
     int NextIndex() const;
 
@@ -139,7 +141,8 @@ class SceneSession
 
   private:
     SceneSessionState m_state;
-    std::vector<std::string> m_queue;
+    // Retired unsaved drafts leave empty slots so active lifecycle indices stay stable.
+    std::vector<std::optional<std::string>> m_queue;
     SceneRuntimeLifecycleEvent m_lastLifecycleEvent = SceneRuntimeLifecycleEvent::None;
     SceneLifecyclePacket m_lifecyclePacket;
 };

@@ -13,7 +13,7 @@ Glossary:
   Cold setup: Startup/device initialization phase before steady frame work.
 
 Invariants:
-  - Measurement is byte-for-byte the legacy Text2d loop and operation order.
+  - Measurement shares the renderer's character mapping and operation order.
   - No allocation occurs during installation or measurement.
 
 Related:
@@ -22,6 +22,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "UIFontMetrics.h"
+#include "../Core/TextGlyphs.h"
 
 #include <cstring>
 
@@ -60,10 +61,10 @@ float UIFontMetrics::MeasureText( float size, const char* text )
 
     float width = 0.0f;
 
-    for ( const char* cursor = text; *cursor; ++cursor )
+    for ( const char* cursor = text; *cursor; )
     {
-        const unsigned char character = static_cast<unsigned char>( *cursor );
-        width += character >= 32 && character <= 127 ? s_advances[character - 32] * size : size * 0.5f;
+        const int glyph = Core::TextGlyphs::Next( cursor );
+        width += glyph >= 0 ? s_advances[glyph] * size : size * 0.5f;
     }
 
     return width;

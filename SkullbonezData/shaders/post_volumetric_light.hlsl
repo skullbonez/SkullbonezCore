@@ -30,7 +30,7 @@ Related:
 
 cbuffer Uniforms : register(b0)
 {
-    float4 uDepthParams;       // near, far, unused, unused
+    float4 uDepthParams;       // perspective near/far, orthographic depth scale/offset
     float4 uSunShaftParams;    // x/y screen position, strength, falloff
     float3 uSunColor;
     float _padding0;
@@ -77,6 +77,10 @@ VS_OUT main_vs(VS_IN input)
 
 float LinearizeDepth(float depth)
 {
+    if (uDepthParams.z > 0.0f)
+    {
+        return depth * uDepthParams.z + uDepthParams.w;
+    }
     // Convert depth-buffer values back into approximate scene distance so far
     // hills and near objects can influence the amount of haze differently.
     float nearPlane = max(uDepthParams.x, 0.0001f);

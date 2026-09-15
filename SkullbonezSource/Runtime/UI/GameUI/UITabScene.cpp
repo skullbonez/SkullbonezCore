@@ -114,7 +114,7 @@ void BackspaceFilter( SkullbonezCore::UI::SceneTab::UISceneTabState& state )
 void RequestNewScene( SkullbonezCore::UI::SceneTab::UISceneTabState& state, SkullbonezCore::UI::InGameUIInputResult& result, bool importHeightMap = false )
 {
     // Concept: The UI requests creation by name; scene runtime owns sanitizing,
-    // writing the starter file, refreshing the browser, and loading it.
+    // reserving an unsaved draft, refreshing the browser, and loading it.
     if ( state.filter[0] == '\0' )
     {
         return;

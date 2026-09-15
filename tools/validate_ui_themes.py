@@ -65,6 +65,19 @@ def run(root: Path) -> None:
             path = directory/(name+'.png')
             send('input.pointer_position', x=800, y=180, enabled=True)
             send('capture.screenshot', path=str(path))
+            ui = latest['ui.presentation']
+            # Check the actual texture submission at both native toolbar sizes.
+            # Bone and dark eye sockets must both survive at the small sizes.
+            marks = [(8, 6, 30, 30)]
+            if ui['toolsVisible']:
+                x, y, _, _ = ui['drawerBounds']
+                marks.append((round(x+14), round(y+11), 22, 22))
+            with Image.open(path).convert('RGB') as image:
+                for x, y, w, h in marks:
+                    pixels = list(image.crop((x, y, x+w, y+h)).getdata())
+                    bone = sum(abs(r-230) <= 6 and abs(g-235) <= 6 and abs(b-240) <= 6 for r, g, b in pixels)
+                    eyes = [image.getpixel((round(x+w*cx/24), round(y+h*12/24))) for cx in (8, 16)]
+                    assert bone >= 30 and all(max(abs(a-b) for a,b in zip(eye, (26,31,38))) <= 12 for eye in eyes), (name, (x,y,w,h), bone, eyes)
             return path
         try:
             assert {'input.pointer_drag', 'capture.screenshot'} <= set(send('capabilities.get')['commands'])

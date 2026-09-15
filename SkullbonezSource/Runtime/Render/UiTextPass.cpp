@@ -167,7 +167,9 @@ void RenderReplayDivergenceCounter( SkullbonezCore::Text::TextBatch& textBatch, 
 }
 } // namespace
 
-SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Rendering::Dx12TextureOwner& renderTextures,
+SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Assets::AssetSystem& assets,
+                                                               Rendering::Dx12ResourceBuilder& renderResources,
+                                                               Rendering::Dx12TextureOwner& renderTextures,
                                                                Rendering::Dx12GeometryOwner& renderGeometry,
                                                                std::unique_ptr<Rendering::ShaderDX12> textShader,
                                                                std::unique_ptr<Rendering::ShaderDX12> solidShader,
@@ -199,6 +201,10 @@ SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Rendering::Dx12Te
         return m_resultDiagnostics.Failure( "Runtime/Render/UiTextPass", "Baked font metrics changed after UI layout publication." );
     }
 
+    if ( !m_uiDrawSubmission.InitializeImages( assets, renderResources, renderTextures, renderGeometry ) )
+    {
+        return m_resultDiagnostics.Failure( "Runtime/Render/UiTextPass", "Application mark GPU resources could not be initialized." );
+    }
     m_profilerLifecycle.Activate();
     return SkullbonezCore::Core::SbResult::Success();
 }
@@ -207,7 +213,7 @@ SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Rendering::Dx12Te
 void UiTextPass::ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTextures, Rendering::Dx12GeometryOwner* renderGeometry )
 {
     m_profilerLifecycle.Close();
-    m_uiDrawSubmission.ReleaseGpuResources( renderGeometry );
+    m_uiDrawSubmission.ReleaseGpuResources( renderTextures, renderGeometry );
     Text2d::DeleteFont( m_textBatch, renderTextures, renderGeometry );
     m_dxrReflectionPreviewTexture = 0;
 }

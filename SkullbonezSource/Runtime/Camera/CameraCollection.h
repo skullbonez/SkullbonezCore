@@ -46,37 +46,89 @@ class CameraCollection
 {
 
   private:
+    // Invariant: each workspace retains its own fixed axis, focus and zoom.
+    // Perspective restores the pose captured before entering an axis view.
+    struct EditorViewState
+    {
+        Camera perspective;
+        Math::Vector::Vector3 focus = Math::Vector::ZERO_VECTOR;
+        float distance = 100.0f;
+        int axis = 0;
+    };
+    EditorViewState m_editorViews[2];
+    struct FourViewState
+    {
+        Camera single;
+        Camera panes[4];
+        int active = 3;
+        float halfDepth = 100.0f;
+        bool enabled = false;
+    };
+    FourViewState m_fourViews[2];
+    bool m_editorViewWorkspace = false;
+    bool m_editorViewTween = false;
+    void ApplyEditorView();
     Camera m_cameraArray[SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT]; // Fixed camera slots keyed by
 
     // m_cameraHashes.
-    Camera m_primaryStore; // Primary snapshot used to keep relative cameras coherent.
-    Camera m_tweenCamera;  // Interpolated pose while tweening.
-    Camera m_tweenStart;   // Primary pose at the start of the active tween.
-    Camera m_renderCamera; // Snapshot used to build m_currentViewMatrix this frame.
+    Camera m_primaryStore;                                                        // Primary snapshot used to keep relative cameras coherent.
+    Camera m_tweenCamera;                                                         // Interpolated pose while tweening.
+    Camera m_tweenStart;                                                          // Primary pose at the start of the active tween.
+    Camera m_renderCamera;                                                        // Snapshot used to build m_currentViewMatrix this frame.
     uint32_t m_cameraHashes[SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT]; // Scene hash key for each camera slot.
-    int m_arrayPosition;                               // Active camera array index after hash lookup.
-    int m_selectedCamera;                              // Selected camera slot used by UI/debug cycling.
-    float m_tweenDeltaSeconds;                         // Frame delta used by ordinary spatial-only tweens.
-    float m_tweenElapsedSeconds;                       // Total elapsed time; never derived recursively from progress.
-    bool m_hasPublishedTweenProgress;                  // Planning supplied this frame's synchronized causal sample.
-    bool m_isTweening;                                 // Render camera follows m_tweenCamera while this is true.
-    bool m_tweenKeepsWorldUp;                          // Causal inspection keeps the horizon level throughout its blend.
-    float m_tweenProgress;                             // Normalized eased progress from the internal or published clock.
-    CameraMovementSettings m_movementSettings;         // Cached runtime tuning used by private camera clamp paths.
-    Geometry::Terrain* m_terrain;                      // Optional borrowed terrain; null means a terrainless scene.
-    Math::Transformation::Matrix4 m_currentViewMatrix; // Render-facing view matrix refreshed once per frame.
+    int m_arrayPosition;                                                          // Active camera array index after hash lookup.
+    int m_selectedCamera;                                                         // Selected camera slot used by UI/debug cycling.
+    float m_tweenDeltaSeconds;                                                    // Frame delta used by ordinary spatial-only tweens.
+    float m_tweenElapsedSeconds;                                                  // Total elapsed time; never derived recursively from progress.
+    bool m_hasPublishedTweenProgress;                                             // Planning supplied this frame's synchronized causal sample.
+    bool m_isTweening;                                                            // Render camera follows m_tweenCamera while this is true.
+    bool m_tweenKeepsWorldUp;                                                     // Causal inspection keeps the horizon level throughout its blend.
+    float m_tweenProgress;                                                        // Normalized eased progress from the internal or published clock.
+    CameraMovementSettings m_movementSettings;                                    // Cached runtime tuning used by private camera clamp paths.
+    Geometry::Terrain* m_terrain;                                                 // Optional borrowed terrain; null means a terrainless scene.
+    Math::Transformation::Matrix4 m_currentViewMatrix;                            // Render-facing view matrix refreshed once per frame.
 
     void SetViewMatrix( const Camera& camera ); // Frame view matrix comes from the pose selected for rendering.
     int FindIndex( uint32_t hash );             // Throws when the scene asks for an unregistered camera hash.
 
-    Camera GetTweenSourcePose() const; // Starts new tweens from the visible frame pose when available.
-    static Camera InterpolatePose( const Camera& from, const Camera& to, float progress,
-                                   bool keepWorldUp ); // Optionally removes view-axis roll during interpolation.
-    void BeginPrimaryPoseTween( const Math::Vector::Vector3& position, const Math::Vector::Vector3& view,
-                                const Math::Vector::Vector3& up, bool keepWorldUp );
+    Camera GetTweenSourcePose() const;                                                                       // Starts new tweens from the visible frame pose when available.
+    static Camera InterpolatePose( const Camera& from, const Camera& to, float progress, bool keepWorldUp ); // Optionally removes view-axis roll during interpolation.
+    static Camera InterpolateEditorPose( const Camera& from, const Camera& to, float progress );
+    void BeginPrimaryPoseTween( const Math::Vector::Vector3& position, const Math::Vector::Vector3& view, const Math::Vector::Vector3& up, bool keepWorldUp );
     void SetTweenStart( int fromIndex ); // fromIndex=-1 starts from the current visible tween pose.
 
   public:
+    struct EditorPanePose
+    {
+        Math::Vector::Vector3 eye;
+        Math::Vector::Vector3 focus;
+        Math::Vector::Vector3 up;
+    };
+    void ToggleFourViews( const Math::Vector::Vector3& focus, float distance );
+    void SelectEditorPane( int pane );
+    EditorPanePose EditorPane( int pane ) const;
+    Math::Transformation::Matrix4 EditorPaneProjection( int pane, const Math::Transformation::Matrix4& perspective ) const;
+    void PanEditorView( float horizontal, float vertical );
+    bool FourViews() const noexcept
+    {
+        return m_fourViews[m_editorViewWorkspace ? 1 : 0].enabled;
+    }
+    int ActiveEditorPane() const noexcept
+    {
+        return m_fourViews[m_editorViewWorkspace ? 1 : 0].active;
+    }
+    // 0: Perspective, 1: Top (+Y), 2: X Side (+X), 3: Z Side (+Z).
+    void SelectEditorView( const Math::Vector::Vector3& focus, float distance, int axis );
+    void ZoomEditorView( float logarithmicDelta );
+    void SetEditorViewWorkspace( bool secondWorkspace );
+    int EditorView() const noexcept
+    {
+        if ( FourViews() )
+        {
+            return ( ActiveEditorPane() + 1 ) % 4;
+        }
+        return m_editorViews[m_editorViewWorkspace ? 1 : 0].axis;
+    }
     CameraCollection();
     ~CameraCollection() = default;
     CameraCollection( const CameraCollection& ) = delete;
@@ -86,28 +138,20 @@ class CameraCollection
     const Math::Vector::Vector3& GetCameraView() const;
     const Math::Vector::Vector3& GetCameraTranslation() const;
     const Math::Vector::Vector3& GetCameraUp() const;
-    const Math::Vector::Vector3&
-    GetRenderCameraView() const; // Render pose may be the tween camera instead of the primary camera.
-    const Math::Vector::Vector3&
-    GetRenderCameraTranslation() const; // Render eye may be the tween camera instead of the primary camera.
+    const Math::Vector::Vector3& GetRenderCameraView() const;        // Render pose may be the tween camera instead of the primary camera.
+    const Math::Vector::Vector3& GetRenderCameraTranslation() const; // Render eye may be the tween camera instead of the primary camera.
     const Math::Vector::Vector3& GetRenderCameraUp() const;
-    void SetViewCoordinates( const Math::Vector::Vector3& view ); // Keeps primary camera focused on a tracked world point.
-    void
-    SetPrimaryPosition( const Math::Vector::Vector3& position ); // Tracking cameras can bypass movement-buffer translation.
+    void SetViewCoordinates( const Math::Vector::Vector3& view );     // Keeps primary camera focused on a tracked world point.
+    void SetPrimaryPosition( const Math::Vector::Vector3& position ); // Tracking cameras can bypass movement-buffer translation.
 
     // Replay/debug camera restore can preserve the full pose.
     void
-    SetPrimaryPose( const Math::Vector::Vector3& position, const Math::Vector::Vector3& view,
-                    const Math::Vector::Vector3& up ); // Updates the selected slot without changing the current render pose.
-    void TweenPrimaryToPose(
-        const Math::Vector::Vector3& position, const Math::Vector::Vector3& view,
-        const Math::Vector::Vector3& up ); // Blends from the visible render pose to a selected-slot destination.
-    void TweenPrimaryToUprightPose(
-        const Math::Vector::Vector3& position, const Math::Vector::Vector3& view,
-        const Math::Vector::Vector3& up ); // Blends while keeping world-up level at every intermediate pose.
+    SetPrimaryPose( const Math::Vector::Vector3& position, const Math::Vector::Vector3& view, const Math::Vector::Vector3& up ); // Updates the selected slot without changing the current render pose.
+    void TweenPrimaryToPose( const Math::Vector::Vector3& position, const Math::Vector::Vector3& view, const Math::Vector::Vector3& up ); // Blends from the visible render pose to a selected-slot destination.
+    void TweenPrimaryToUprightPose( const Math::Vector::Vector3& position, const Math::Vector::Vector3& view, const Math::Vector::Vector3& up ); // Blends while keeping world-up level at every intermediate pose.
     void SetTweenDeltaSeconds( float deltaSeconds );
     void SetTweenProgress( float easedProgress ); // Uses one externally owned normalized sample for this frame.
-    void SetCamera(); // Call once per frame after camera updates to refresh render pose and view matrix.
+    void SetCamera();                             // Call once per frame after camera updates to refresh render pose and view matrix.
     void SetLockedMode( bool isLocked );
     void AmmendPrimaryY( float yCoordinate ); // Pins primary camera height to a world-space Y value.
     void SetCameraXZBounds( const Geometry::XZBounds bounds );
@@ -137,8 +181,7 @@ class CameraCollection
     void SelectCamera( uint32_t hash, bool tween ); // Optional tween preserves visual continuity between cameras.
     void CancelTween();                             // Immediate cut to the selected camera.
 
-    void AddCamera( const Math::Vector::Vector3& position, const Math::Vector::Vector3& view,
-                    const Math::Vector::Vector3& up, uint32_t hash );
+    void AddCamera( const Math::Vector::Vector3& position, const Math::Vector::Vector3& view, const Math::Vector::Vector3& up, uint32_t hash );
     void Reset(); // Scene reload path; preserves SceneController-owned storage.
 };
 } // namespace Environment

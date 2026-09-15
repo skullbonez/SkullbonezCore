@@ -1,25 +1,25 @@
 ﻿/*
-File: SkullbonezSource/Runtime/UI/GameUI/UI.cpp
-Purpose:
-  Composes in-engine UI drawing and preserves the public InGameUI command surface.
+ File: SkullbonezSource/Runtime/UI/GameUI/UI.cpp
+ Purpose:
+   Composes in-engine UI drawing and preserves the public InGameUI command surface.
 
-Summary:
-  UIWindowInteractionOwner records its own widgets into one ordered frame.
-  InGameUI keeps the public command surface and detached scene-navigation
-  composition without exposing the owner's complete widget storage.
+ Summary:
+   UIWindowInteractionOwner records its own widgets into one ordered frame.
+   InGameUI keeps the public command surface and detached scene-navigation
+   composition without exposing the owner's complete widget storage.
 
-Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-    constants.
-  - InGameUI never reconstructs or publishes the owner's complete widget surface.
-  - Draw builds values only; Runtime/Render performs every flush, preview
-    resolution, resource operation, and GPU timing scope.
+ Invariants:
+   - Draw geometry and hit testing must be derived from the same layout
+     constants.
+   - InGameUI never reconstructs or publishes the owner's complete widget surface.
+   - Draw builds values only; Runtime/Render performs every flush, preview
+     resolution, resource operation, and GPU timing scope.
 
-Related:
-  - SkullbonezSource/Runtime/UI/GameUI/UI.h
-  - SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.h
-  - Agentic/Reference/engine-glossary.md
-*/
+ Related:
+   - SkullbonezSource/Runtime/UI/GameUI/UI.h
+   - SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.h
+   - Agentic/Reference/engine-glossary.md
+ */
 #include "UI.h"
 #include <chrono>
 #include "UIFrameComposition.h"
@@ -1433,6 +1433,123 @@ void UIWindowInteractionOwner::DrawPresentedEditorPalette( const InGameUIFrameDa
                            data.surface.screenH );
 }
 
+namespace
+{
+void DrawCompassCircle( const UIDrawContext& draw, float x, float y, const std::array<float, 4>& color )
+{
+    // Why: pixel-row rounded rectangles generate hundreds of tiny quads for
+    // each compass end. This fixed fan and translucent rim stay small.
+    static constexpr std::array<std::array<float, 2>, 16> circle { { { 1.0000000f, 0.0000000f },
+                                                                     { 0.9238795f, 0.3826834f },
+                                                                     { 0.7071068f, 0.7071068f },
+                                                                     { 0.3826834f, 0.9238795f },
+                                                                     { 0.0000000f, 1.0000000f },
+                                                                     { -0.3826834f, 0.9238795f },
+                                                                     { -0.7071068f, 0.7071068f },
+                                                                     { -0.9238795f, 0.3826834f },
+                                                                     { -1.0000000f, 0.0000000f },
+                                                                     { -0.9238795f, -0.3826834f },
+                                                                     { -0.7071068f, -0.7071068f },
+                                                                     { -0.3826834f, -0.9238795f },
+                                                                     { -0.0000000f, -1.0000000f },
+                                                                     { 0.3826834f, -0.9238795f },
+                                                                     { 0.7071068f, -0.7071068f },
+                                                                     { 0.9238795f, -0.3826834f } } };
+    for ( std::size_t index = 0; index < circle.size(); ++index )
+    {
+        const auto& a = circle[index];
+        const auto& b = circle[( index + 1 ) % circle.size()];
+        const float ax = x + a[0] * 7.3f, ay = y + a[1] * 7.3f;
+        const float bx = x + b[0] * 7.3f, by = y + b[1] * 7.3f;
+        const float ox = x + a[0] * 8.0f, oy = y + a[1] * 8.0f;
+        const float px = x + b[0] * 8.0f, py = y + b[1] * 8.0f;
+        // Invariant: match the UI quad winding after its screen-Y projection.
+        draw.Triangle( x, y, bx, by, ax, ay, color[0], color[1], color[2], color[3] );
+        draw.Triangle( ax, ay, bx, by, ox, oy, color[0], color[1], color[2], color[3] * 0.4f );
+        draw.Triangle( bx, by, px, py, ox, oy, color[0], color[1], color[2], color[3] * 0.4f );
+    }
+}
+
+void DrawCameraCompass( const UIDrawContext& draw, const UIRect& viewport, const std::array<std::array<float, 3>, 3>& axes )
+{
+    const float centerX = viewport.x + 68;
+    const float centerY = viewport.y + viewport.h - 139;
+    std::array<int, 6> arms { 0, 1, 2, 3, 4, 5 };
+    const auto depth = [&]( int arm ) { return axes[arm % 3][2] * ( arm < 3 ? 1.0f : -1.0f ); };
+    std::sort( arms.begin(), arms.end(), [&]( int a, int b ) { return depth( a ) < depth( b ); } );
+    const float compassColors[3][3] = { { 1, 0.4f, 0.4f }, { 0.35f, 0.9f, 0.55f }, { 0.4f, 0.65f, 1 } };
+    const char* axisNames[] = { "X", "Y", "Z" };
+    for ( int arm : arms )
+    {
+        const int axis = arm % 3;
+        const float sign = arm < 3 ? 1.0f : -1.0f;
+        const float x = centerX + axes[axis][0] * sign * 35;
+        const float y = centerY + axes[axis][1] * sign * 35;
+        const float dx = x - centerX, dy = y - centerY;
+        const float length = std::sqrt( dx * dx + dy * dy );
+        const float nx = length > 0.01f ? -dy / length : 1;
+        const float ny = length > 0.01f ? dx / length : 0;
+        const auto& c = compassColors[axis];
+        const float alpha = arm < 3 ? 1.0f : 0.35f;
+        draw.Triangle( centerX + nx, centerY + ny, x + nx, y + ny, centerX - nx, centerY - ny, c[0], c[1], c[2], alpha );
+        draw.Triangle( centerX - nx, centerY - ny, x + nx, y + ny, x - nx, y - ny, c[0], c[1], c[2], alpha );
+        DrawCompassCircle( draw, x, y, { c[0], c[1], c[2], alpha } );
+        if ( arm < 3 )
+        {
+            draw.Text( x - 3, y - 5, 10, 0.08f, 0.1f, 0.14f, axisNames[axis] );
+        }
+    }
+}
+} // namespace
+
+void UIWindowInteractionOwner::DrawEditorViewGizmo( const InGameUIFrameData& data )
+{
+    m_presentedFourViews = data.surface.fourViews;
+    if ( !m_presentationEnabled ||
+         !( data.surface.fourViews || data.editor.editorModeEnabled || m_presentation.preferences.layout == LayoutMode::Editor || m_presentation.workspace == Workspace::SolverLab ) )
+    {
+        return;
+    }
+    const UIPanelScope panelScope( m_frameDrawList, UIPanel::Header );
+    const UIDrawContext draw( data.surface.screenW, data.surface.screenH, m_frameDrawList );
+    const auto& palette = Style::Palette();
+    const auto buttons = EditorViewGizmoRects( m_presentationRects.viewport );
+    const char* labels[] = { "Persp", "Y Top", "X Side", "Z Side" };
+    const float colors[4][3] = { { 0.8f, 0.85f, 0.9f }, { 0.35f, 0.9f, 0.55f }, { 1.0f, 0.4f, 0.4f }, { 0.4f, 0.65f, 1.0f } };
+    draw.BeginLayer();
+    draw.PushClip( m_presentationRects.viewport );
+    if ( data.surface.fourViews )
+    {
+        const auto panes = EditorPaneRects( m_presentationRects.viewport );
+        const auto& canvas = m_presentationRects.viewport;
+        draw.Rect( panes[0].x + panes[0].w, canvas.y, panes[1].x - panes[0].x - panes[0].w, canvas.h, palette.window.r, palette.window.g, palette.window.b, 1 );
+        draw.Rect( canvas.x, panes[0].y + panes[0].h, canvas.w, panes[2].y - panes[0].y - panes[0].h, palette.window.r, palette.window.g, palette.window.b, 1 );
+        const char* titles[] = { "Top", "X Side", "Z Side", "Perspective" };
+        for ( int pane = 0; pane < 4; ++pane )
+        {
+            const auto& rect = panes[pane];
+            const auto& color = pane == data.surface.activeEditorPane ? palette.accentStrong : palette.border;
+            draw.Outline( rect.x, rect.y, rect.w, rect.h, color.r, color.g, color.b, 1 );
+            draw.RoundedRect( rect.x + 6, rect.y + 6, 92, 23, 4, palette.window.r, palette.window.g, palette.window.b, 0.9f );
+            draw.Text( rect.x + 12, rect.y + 11, 11, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, titles[pane] );
+        }
+    }
+    DrawCameraCompass( draw, m_presentationRects.viewport, data.surface.editorAxes );
+    for ( int axis = 0; axis < 4; ++axis )
+    {
+        const auto& rect = buttons[axis];
+        if ( rect.w <= 0.0f )
+        {
+            continue;
+        }
+        const auto& fill = data.surface.editorView == axis ? palette.selection : rect.Contains( m_mouseX, m_mouseY ) ? palette.controlHover : palette.window;
+        draw.RoundedRect( rect.x, rect.y, rect.w, rect.h, 5.0f, fill.r, fill.g, fill.b, 0.95f );
+        draw.Outline( rect.x, rect.y, rect.w, rect.h, colors[axis][0], colors[axis][1], colors[axis][2], data.surface.editorView == axis ? 1.0f : 0.45f );
+        draw.Text( rect.x + 7, rect.y + 6, 11, colors[axis][0], colors[axis][1], colors[axis][2], labels[axis] );
+    }
+    draw.PopClip();
+}
+
 void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& data )
 {
     const UIPanelScope panelScope( m_frameDrawList, UIPanel::Header );
@@ -1469,6 +1586,7 @@ void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& 
         draw.PopClip();
     };
     button( bounds.layout, m_presentation.preferences.layout == LayoutMode::Canvas ? "Options" : "Exit" );
+    button( bounds.fourViews, data.surface.fourViews ? "1 View" : "4 Views" );
     if ( bounds.close.w > 0.0f )
     {
         DrawTitleButton( draw, bounds.close, TitleButtonIcon::Close, bounds.close.Contains( m_mouseX, m_mouseY ), false );
@@ -1593,6 +1711,22 @@ void UIWindowInteractionOwner::DrawTooltips( const InGameUIFrameData& data )
             target.hovered = true;
         }
     }
+    if ( target.id == 0 && m_presentationEnabled && !HasOpenPopup() && ( data.editor.editorModeEnabled || m_presentation.preferences.layout == LayoutMode::Editor || solverLab ) )
+    {
+        const auto buttons = EditorViewGizmoRects( m_presentationRects.viewport );
+        const char* help[] = { "Restore perspective and free camera movement.",
+                               "Look straight down Y. Scroll to zoom; rotation and panning are locked.",
+                               "Look along X. Scroll to zoom; rotation and panning are locked.",
+                               "Look along Z. Scroll to zoom; rotation and panning are locked." };
+        for ( int axis = 0; axis < 4; ++axis )
+        {
+            if ( buttons[axis].Contains( m_mouseX, m_mouseY ) )
+            {
+                target = { static_cast<uint32_t>( 180 + axis ), buttons[axis], { help[axis] } };
+                target.hovered = true;
+            }
+        }
+    }
     if ( target.id == 0 && !HasOpenPopup() )
     {
         target = FindToolsTooltip( content );
@@ -1658,6 +1792,7 @@ const UIDrawList& UIWindowInteractionOwner::Draw( const InGameUIFrameData& data 
     {
         DrawPresentedEditorPalette( data );
         DrawDiagnosticLinks( data );
+        DrawEditorViewGizmo( data );
         DrawPresentationHeader( data );
         DrawTooltips( data );
         // Why: every exit path must publish capacity evidence. Hidden,

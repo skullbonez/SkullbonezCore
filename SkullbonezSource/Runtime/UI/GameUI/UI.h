@@ -346,6 +346,10 @@ struct UIFrameSurfaceData
     bool nativeCursorVisible = false;
     const char* runtimeInputModeLabel = "";
     int cameraModeIndex = 0;
+    int editorView = 0;
+    bool fourViews = false;
+    int activeEditorPane = 3;
+    std::array<std::array<float, 3>, 3> editorAxes {};
     uint32_t cameraModeEnabledMask = 0x7Fu;
 };
 

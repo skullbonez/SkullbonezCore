@@ -51,6 +51,8 @@ void Run::SyncComparisonWorkspace()
     const bool foreground = ComparisonUiActive();
     if ( foreground == m_comparisonForeground )
     {
+        // Loading a Lab bundle replaces the scene cameras without changing workspace.
+        m_sceneController.Scene().Cameras().SetEditorViewWorkspace( foreground );
         return;
     }
     m_comparisonPanel.CancelInput();
@@ -68,11 +70,15 @@ void Run::SyncComparisonWorkspace()
             m_comparisonLoad.Cancel();
         }
     }
-    else if ( m_comparison.Active() && m_comparisonCameraValid )
+    // Save the departing pane before any incoming workspace overwrites the
+    // selected camera slot. Four-view state owns its own incoming pose.
+    cameras.SetEditorViewWorkspace( foreground );
+    if ( foreground && !cameras.FourViews() && m_comparison.Active() && m_comparisonCameraValid )
     {
         cameras.CancelTween();
         cameras.SetPrimaryPose( m_comparisonCamera.eye, m_comparisonCamera.view, m_comparisonCamera.up );
     }
+    cameras.SetEditorViewWorkspace( foreground );
     m_comparisonForeground = foreground;
     if ( foreground && !m_comparison.Active() && !m_comparisonLoad.Pending() && m_comparisonLoad.Error().empty() )
     {
@@ -263,6 +269,13 @@ void Run::FocusComparison()
 void Run::MoveComparisonCamera( float yaw, float pitch, float panX, float panY, float zoom )
 {
     auto& cameras = m_sceneController.Scene().Cameras();
+    if ( cameras.EditorView() != 0 )
+    {
+        const float distance = Length( cameras.GetCameraTranslation() - cameras.GetCameraView() );
+        cameras.PanEditorView( yaw * 0.2f * distance, pitch * 0.2f * distance );
+        cameras.ZoomEditorView( zoom );
+        return;
+    }
     Vector3 eye = cameras.GetCameraTranslation(), pivot = cameras.GetCameraView();
     const auto* selected = m_comparison.Body( 0, m_comparison.Selected(), m_comparison.Tick() );
     if ( !selected )
@@ -304,7 +317,7 @@ void Run::MoveComparisonCamera( float yaw, float pitch, float panX, float panY, 
 }
 void Run::FlyComparisonCamera( float forward, float strafe, float seconds )
 {
-    if ( forward == 0 && strafe == 0 )
+    if ( m_sceneController.Scene().Cameras().EditorView() != 0 || ( forward == 0 && strafe == 0 ) )
     {
         return;
     }
@@ -333,7 +346,18 @@ void Run::FlyComparisonCamera( float forward, float strafe, float seconds )
 }
 void Run::PickComparisonObject( int x, int y )
 {
-    const auto frame = m_comparisonPanel.BuildFrame( m_comparison, m_window.ClientWidth(), m_window.ClientHeight() );
+    auto frame = m_comparisonPanel.BuildFrame( m_comparison, m_window.ClientWidth(), m_window.ClientHeight() );
+    auto& cameras = m_sceneController.Scene().Cameras();
+    if ( cameras.FourViews() )
+    {
+        const auto rect = UI::GameLayout::EditorPaneRects( m_operatorUi->PresentationBounds().viewport )[cameras.ActiveEditorPane()];
+        frame.x = static_cast<int>( rect.x );
+        frame.y = static_cast<int>( rect.y );
+        frame.width = static_cast<int>( rect.w );
+        frame.height = static_cast<int>( rect.h );
+        frame.projection.m[0] = frame.projection.m[5] * frame.ImageHeight() / frame.ImageWidth();
+        frame.projection = cameras.EditorPaneProjection( cameras.ActiveEditorPane(), frame.projection );
+    }
     if ( x < frame.x || y < frame.y || x >= frame.x + frame.width || y >= frame.y + frame.height )
     {
         return;
@@ -354,7 +378,6 @@ void Run::PickComparisonObject( int x, int y )
             x %= width;
         }
     }
-    auto& cameras = m_sceneController.Scene().Cameras();
     Vector3 forward = cameras.GetCameraView() - cameras.GetCameraTranslation();
     if ( !forward.TryNormalise() )
     {
@@ -367,12 +390,15 @@ void Run::PickComparisonObject( int x, int y )
     }
     const Vector3 up = Cross( right, forward );
     // Invariant: hit testing inverts the same per-viewport lens used for drawing.
-    Vector3 direction = forward + right * ( ( 2.0f * x / width - 1 ) / frame.projection.m[0] ) + up * ( ( 1 - 2.0f * y / height ) / frame.projection.m[5] );
+    const Vector3 offset = right * ( ( 2.0f * x / width - 1 ) / frame.projection.m[0] ) + up * ( ( 1 - 2.0f * y / height ) / frame.projection.m[5] );
+    const bool orthographic = cameras.FourViews() && cameras.ActiveEditorPane() != 3;
+    const Vector3 origin = cameras.GetCameraTranslation() + ( orthographic ? offset + forward * ( frame.projection.m[14] / frame.projection.m[10] ) : Vector3( 0, 0, 0 ) );
+    Vector3 direction = orthographic ? forward : forward + offset;
     if ( !direction.TryNormalise() )
     {
         return;
     }
-    m_comparison.Select( m_comparisonPanel.Pick( m_comparison, cameras.GetCameraTranslation(), direction, side ) );
+    m_comparison.Select( m_comparisonPanel.Pick( m_comparison, origin, direction, side ) );
 }
 bool Run::UpdateComparisonInput( bool textActive )
 {
@@ -414,6 +440,9 @@ bool Run::UpdateComparisonInput( bool textActive )
         const auto* before = m_comparison.Body( 0, previousSelection, m_comparison.Tick() );
         const Vector3 previous = before ? before->position : Vector3 { 0, 0, 0 };
         const double elapsed = m_comparisonPanel.Advance( m_comparison, now );
+        // Lab bypasses ordinary scene logic; its presentation clock must also
+        // advance camera transitions while recorded playback is paused.
+        m_sceneController.Scene().Cameras().SetTweenDeltaSeconds( static_cast<float>( elapsed ) );
         const auto ui = BuildUIInputSnapshot( device, m_inputRouter.UiSnapshot().mouse, m_operatorUi->InputOverride() );
         const bool dragging = m_inputRouter.UpdateTimelineDrag( m_comparisonPanel.TimelineContains( ui.mouseX, ui.mouseY ) );
         const bool panelMoving = m_operatorUi->PanelTransitions().BlocksPointer( { static_cast<float>( ui.mouseX ), static_cast<float>( ui.mouseY ) } );
@@ -514,7 +543,25 @@ void Run::RenderComparison()
     auto frame = m_comparisonPanel.BuildFrame( m_comparison, m_window.ClientWidth(), m_window.ClientHeight() );
     frame.view = cameras.GetViewMatrix();
 
-    Renderer().RenderPairedViews( frame );
+    const auto panes = UI::GameLayout::EditorPaneRects( m_operatorUi->PresentationBounds().viewport );
+    const auto perspective = frame.projection;
+    const int count = cameras.FourViews() ? 4 : 1;
+    for ( int pane = 0; pane < count; ++pane )
+    {
+        if ( cameras.FourViews() )
+        {
+            const auto pose = cameras.EditorPane( pane );
+            frame.view = Math::Transformation::Matrix4::LookAt( pose.eye, pose.focus, pose.up );
+            frame.x = static_cast<int>( panes[pane].x );
+            frame.y = static_cast<int>( panes[pane].y );
+            frame.width = static_cast<int>( panes[pane].w );
+            frame.height = static_cast<int>( panes[pane].h );
+            auto lens = perspective;
+            lens.m[0] = lens.m[5] * frame.ImageHeight() / frame.ImageWidth();
+            frame.projection = cameras.EditorPaneProjection( pane, lens );
+        }
+        Renderer().RenderPairedViews( frame );
+    }
 }
 #if defined( SKULLBONEZ_SKARNESS )
 void Run::ApplySkarnessComparisonCommand( const SkarnessCommand& command, SkarnessCommandApplication& application )
@@ -606,6 +653,9 @@ void Run::ApplySkarnessComparisonCommand( const SkarnessCommand& command, Skarne
             break;
         }
     }
+    // Only reply strings allocate here; the comparison action above remains
+    // subject to the ordinary gameplay allocation guard.
+    Core::Allocation::RuntimeAllocationScope diagnosticsScope( Core::Allocation::RuntimeAllocationPhase::Diagnostics );
     if ( !application.applied )
     {
         application.reason = "Invalid comparison request or incompatible bundle";

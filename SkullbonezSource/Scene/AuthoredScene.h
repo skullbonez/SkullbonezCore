@@ -546,6 +546,7 @@ class AuthoredScene
 
   public:
     AuthoredScene();
+    static AuthoredScene CreateEditableStarter( const char* heightMap = nullptr );
 
     // Recoverable error: runtime scene/style callers use TryLoad* so malformed authored
     // JSON returns owner/message diagnostics at the load boundary.

@@ -230,6 +230,9 @@ class Run
     void FocusComparison();
     void FlyComparisonCamera( float forward, float strafe, float seconds );
     void PickComparisonObject( int x, int y );
+    void SelectEditorCameraView( int axis );
+    void ConfigureEditorViewport();
+    std::array<bool, 4> m_editorPaneOverlayRendered {};
     void MoveComparisonCamera( float yaw, float pitch, float panX, float panY, float zoom );
     EditorToolsOwner m_editorTools; // Retains editor placement, selection, gizmo, and history authority.
     RuntimeTools m_runtimeTools;    // Launcher, manipulator, and transient render feedback.
@@ -287,6 +290,7 @@ class Run
     void ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts );
     void ApplySkarnessComparisonCommand( const SkarnessCommand& command, SkarnessCommandApplication& application );
     void PublishSkarnessFrameState();
+    void ProjectEditorPaneState( SkarnessFrameState& state );
 #endif
     SceneFrameProceedPolicy RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput, bool& gameUiActive );
     SceneFrameProceedPolicy CompleteRuntimeInputPhase();
@@ -370,6 +374,8 @@ class Run
     void ApplyForecastOperatorCommands( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts, const UI::OperatorEditorCommandQueues& commands );
     void RecordInputModeAction( RuntimeInputAction action, RuntimeInputActionSource source );
     void ApplyEditorPlacementModeCommand( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts, bool toggle );
+    void RestartAuthoredScene();
+    void RestoreAuthoredSceneState( bool preserveCamera, RunCameraMode restoreMode );
     void ApplyEditorModeToggleCommand( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts, RuntimeInputActionSource source );
     void ApplyEditorModeCommands( RuntimeUIFrameResult& result, bool keyboardToggleEditorMode, const RuntimeInputFrameFacts& facts, const UI::InGameUICommands& commands );
     void ApplyEditorSceneCommands( RuntimeUIFrameResult& result, const UI::InGameUICommands& commands );

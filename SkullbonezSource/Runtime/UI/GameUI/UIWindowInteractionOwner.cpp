@@ -2192,6 +2192,37 @@ bool UIWindowInteractionOwner::HandleMemoryOverlayInput( const InputControl::UII
     return inside || active;
 }
 
+bool UIWindowInteractionOwner::HandleEditorViewGizmo( const InputControl::UIInputSnapshot& input, bool editorMode, InGameUIInputResult& result )
+{
+    if ( !m_presentationEnabled || HasOpenPopup() || m_interaction.isDragging || m_interaction.isResizing || m_editorMiniPalettePressActive || m_activeSlider != 0 ||
+         !( m_presentedFourViews || editorMode || m_presentation.preferences.layout == LayoutMode::Editor || m_presentation.workspace == Workspace::SolverLab ) )
+    {
+        return false;
+    }
+    const auto buttons = EditorViewGizmoRects( m_presentationRects.viewport );
+    for ( int axis = 0; axis < 4; ++axis )
+    {
+        if ( !buttons[axis].Contains( input.mouseX, input.mouseY ) )
+        {
+            continue;
+        }
+        m_blocksCameraMouse = true;
+        result.unhandledWheelDelta = 0;
+        if ( input.leftPressed && !input.rightDown && !input.middleDown )
+        {
+            result.commands.run.requestedEditorView = axis;
+            if ( m_presentation.workspace == Workspace::Scene && !editorMode )
+            {
+                // Inspect owns the free perspective camera; disable unattended cycling.
+                result.commands.run.requestedCameraMode = 2;
+            }
+            result.commands.ui.userInteracted = true;
+        }
+        return true;
+    }
+    return false;
+}
+
 InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input,
                                                            const SceneNavigationModel& sceneNavigation,
                                                            int screenWidth,
@@ -2283,6 +2314,10 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
             return result;
         }
     }
+    if ( HandleEditorViewGizmo( input, editorModeEnabled, result ) )
+    {
+        return result;
+    }
     if ( HandleEditorDockInput( input, result ) )
     {
         return result;
@@ -2326,6 +2361,14 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
     if ( m_presentationEnabled && !popupWasOpen && m_presentationRects.header.Contains( m_mouseX, m_mouseY ) && m_activeSlider == 0 && !m_interaction.isDragging && !m_interaction.isResizing &&
          !ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab ) )
     {
+        if ( input.leftPressed && ComputeHeaderRects( m_presentationRects.header, m_presentation.workspace ).fourViews.Contains( m_mouseX, m_mouseY ) )
+        {
+            result.commands.run.toggleFourViews = true;
+            if ( m_presentation.workspace == Workspace::Scene && !editorModeEnabled )
+            {
+                result.commands.run.requestedCameraMode = 2;
+            }
+        }
         // Presentation clicks do not enter the interactive scene or mutate
         // simulation state. The router still observes mouse capture below.
         result.unhandledWheelDelta = 0;

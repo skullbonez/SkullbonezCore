@@ -153,10 +153,11 @@ void SceneController::SubmitLoadDemoScene()
 }
 
 
-void SceneController::SubmitResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
+void SceneController::SubmitResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState, uint64_t completionToken )
 {
     SceneRequest request;
     request.type = SceneRequestType::ResetCurrentScene;
+    request.completionToken = completionToken;
     request.preserveUIState = preserveUIState;
     request.suppressExitOnComplete = suppressExitOnComplete;
     request.preserveRuntimeState = preserveRuntimeState;
@@ -169,7 +170,7 @@ void SceneController::SubmitResetCurrentScene( bool preserveUIState, bool suppre
 }
 
 
-SkullbonezCore::Core::SbResult SceneController::SubmitCreateScene( const char* requestedName, bool importHeightMap )
+SkullbonezCore::Core::SbResult SceneController::SubmitCreateScene( const char* requestedName, bool importHeightMap, uint64_t completionToken )
 {
     const std::size_t nameLength = requestedName ? strnlen_s( requestedName, SCENE_REQUEST_TEXT_CAPACITY ) : 0;
 
@@ -180,6 +181,7 @@ SkullbonezCore::Core::SbResult SceneController::SubmitCreateScene( const char* r
 
     SceneRequest request;
     request.type = SceneRequestType::CreateScene;
+    request.completionToken = completionToken;
     request.importHeightMap = importHeightMap;
 
     if ( requestedName )
@@ -191,10 +193,11 @@ SkullbonezCore::Core::SbResult SceneController::SubmitCreateScene( const char* r
 }
 
 
-void SceneController::SubmitSaveCurrentDefaults()
+void SceneController::SubmitSaveCurrentDefaults( uint64_t completionToken )
 {
     SceneRequest request;
     request.type = SceneRequestType::SaveCurrentDefaults;
+    request.completionToken = completionToken;
     const SkullbonezCore::Core::SbResult result = m_requests.Submit( m_resultDiagnostics, request );
 
     if ( !result.Ok() )
@@ -209,6 +212,11 @@ SceneRequestBatch SceneController::TakePendingRequests()
     return m_requests.TakePending();
 }
 
+
+bool SceneController::HasPendingReplacement() const
+{
+    return m_requests.HasReplacement();
+}
 
 bool SceneController::HasPendingTransition() const
 {

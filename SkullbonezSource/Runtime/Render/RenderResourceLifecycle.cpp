@@ -148,7 +148,8 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::EnsureUiTextResources( i
     std::unique_ptr<Rendering::ShaderDX12> textShader = m_assets.CreateShader( m_renderResources, "shader.text" );
     std::unique_ptr<Rendering::ShaderDX12> solidShader = m_assets.CreateShader( m_renderResources, "shader.solid_color" );
     std::unique_ptr<Rendering::ShaderDX12> solidBatchShader = m_assets.CreateShader( m_renderResources, "shader.solid_color_batch" );
-    return m_uiTextPass.EnsureGpuResources( m_renderTextures, m_renderGeometry, std::move( textShader ), std::move( solidShader ), std::move( solidBatchShader ), screenW, screenH );
+    return m_uiTextPass
+        .EnsureGpuResources( m_assets, m_renderResources, m_renderTextures, m_renderGeometry, std::move( textShader ), std::move( solidShader ), std::move( solidBatchShader ), screenW, screenH );
 }
 
 

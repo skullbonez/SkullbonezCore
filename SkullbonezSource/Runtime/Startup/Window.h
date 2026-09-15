@@ -192,6 +192,10 @@ class Window
     // keeps projection and pointer conversion on the same pixel extent.
     RECT PresentationViewport() const;
     void SetPresentationViewport( const RECT& bounds );
+    void SetPresentationProjection( const Math::Transformation::Matrix4& projection )
+    {
+        projectionMatrix = projection;
+    }
     bool IsFullScreenMode() const
     {
         return m_fIsFullScreenMode;

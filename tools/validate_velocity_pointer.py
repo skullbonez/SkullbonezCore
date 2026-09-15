@@ -139,7 +139,7 @@ def run(session: Path) -> None:
                 click_bounds(ui_state()['editorReplayTabBounds'])
                 assert ui_state()['viewport'][0] > 100
                 capture('replay-panel-open')
-                send('input.pointer_drag', button='left', x=round(ui_state()['viewport'][0]+80), y=835, deltaX=0, deltaY=0, moveClient=True)
+                send('input.pointer_drag', button='left', x=round(ui_state()['viewport'][0]+212), y=round(sum(ui_state()['viewport'][1::2])-97), deltaX=0, deltaY=0, moveClient=True)
             if index == 2:
                 click_bounds(ui_state()['causeTabBounds'])
                 capture('both-panels-open')
@@ -188,7 +188,7 @@ def run(session: Path) -> None:
         assert compared['divergence']['blueFrame'] == compared['divergence']['redFrame'] > 0
         save('divergent-futures', compared)
         capture('divergent-futures')
-        send('input.pointer_drag', button='left', x=round(ui_state()['viewport'][0]+80), y=870, deltaX=0, deltaY=0, moveClient=True)
+        send('input.pointer_drag', button='left', x=round(ui_state()['viewport'][0]+212), y=round(sum(ui_state()['viewport'][1::2])-61), deltaX=0, deltaY=0, moveClient=True)
         lab = send('comparison.state')['result']['comparison']
         assert lab['active'] and lab['selected'] == 7 and all(lab['coverage']), lab
         send('comparison.seek', tick=180)

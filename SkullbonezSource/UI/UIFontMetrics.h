@@ -6,15 +6,15 @@ Purpose:
 Summary:
   Publishes one fixed immutable metric table so every UI measurement uses the
   same baked facts as renderer glyph placement without importing its owners.
-  The baked font atlas contains pixels and one advance per printable ASCII
-  glyph. Runtime installs those advances once during cold font setup; UI then
+  The baked font atlas contains printable ASCII and Greek capital delta.
+  Runtime installs those advances once during cold font setup; UI then
   measures text without borrowing the renderer's atlas, shader, or text batch.
 
 Glossary:
   Baked font: The committed SDF atlas whose header is the single metric source.
 
 Invariants:
-  - Printable ASCII 32-127 maps to exactly 96 immutable advance values.
+  - Printable ASCII 32-126 and delta map to 96 immutable advance values.
   - Reinstallation may confirm identical values but cannot change live layout.
   - Unsupported bytes retain the legacy half-size fallback advance.
 

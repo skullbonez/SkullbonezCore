@@ -1045,19 +1045,6 @@
       "match_mode": "exact_finding"
     },
     {
-      "path": "SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.h",
-      "patterns": [
-        "{\"symbol\":\"Capacity\",\"before\":[\"Dx12PipelineOwner& m_pipeline;\",\"std::vector<GraphTransientResourceDX12> m_resources;\"],\"statement\":\"std::vector<GraphTransientBindingDX12> m_bindings;\",\"after\":[\"GraphTransientMaterializationStatsDX12 m_stats;\",\"bool m_renderTargetActive = false;\"]}",
-        "{\"symbol\":\"Capacity\",\"before\":[\"Dx12TextureOwner& m_textures;\",\"Dx12PipelineOwner& m_pipeline;\"],\"statement\":\"std::vector<GraphTransientResourceDX12> m_resources;\",\"after\":[\"std::vector<GraphTransientBindingDX12> m_bindings;\",\"GraphTransientMaterializationStatsDX12 m_stats;\"]}"
-      ],
-      "owner": "Rendering/DX12 graph transient pool",
-      "phase": "backend_init_scene_resource_preallocation",
-      "reason": "The extracted graph owner preserves the existing warm-up materialization vectors; steady frames reuse compiler-assigned physical slots and logical bindings.",
-      "cap": "Bounded by RENDER_GRAPH_MAX_RESOURCES and the compiler's transient allocation count.",
-      "removal_or_wrapper_plan": "Replace both graph transient vectors with fixed-capacity stores when the renderer adopts an owned graph-pool capacity contract.",
-      "match_mode": "exact_finding"
-    },
-    {
       "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp",
       "patterns": [
         "{\"symbol\":\"Dx12TextureOwner::CreateTexture2D\",\"before\":[\"{\",\"const size_t pixelCount = static_cast<size_t>( w ) * static_cast<size_t>( h );\"],\"statement\":\"rgba.resize( pixelCount * 4 );\",\"after\":[\"if ( !ExpandTextureUploadToRgba( std::span<const uint8_t>( data, pixelCount * static_cast<size_t>( channels ) ),\",\"channels, rgba ) )\"]}"
@@ -1072,14 +1059,15 @@
     {
       "path": "SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.cpp",
       "patterns": [
-        "{\"symbol\":\"Dx12GraphTransientPool::Materialize\",\"before\":[\"if ( !slot )\",\"{\"],\"statement\":\"m_resources.push_back( GraphTransientResourceDX12() );\",\"after\":[\"slot = &m_resources.back();\",\"appendedSlot = true;\"]}",
-        "{\"symbol\":\"Dx12GraphTransientPool::Materialize\",\"before\":[\"slot->lastPass = allocation.lastPass;\",\"slot->usedThisCompile = true;\"],\"statement\":\"m_bindings.push_back( { allocation.resource, static_cast<size_t>( slot - m_resources.data() ),\",\"after\":[\"allocation.firstPass, firstAccess, false } );\",\"}\"]}"
+        "{\"symbol\":\"Dx12GraphTransientPool::Materialize\",\"before\":[\"if ( !slot )\",\"{\"],\"statement\":\"m_resources.push_back( GraphTransientResourceDX12() );\",\"after\":[\"slot = &m_resources[m_resources.size() - 1];\",\"appendedSlot = true;\"]}",
+        "{\"symbol\":\"Dx12GraphTransientPool::Materialize\",\"before\":[\"if ( appendedSlot )\",\"{\"],\"statement\":\"m_resources.resize( m_resources.size() - 1 );\",\"after\":[\"}\",\"m_stats.poolSize = m_resources.size();\"]}",
+        "{\"symbol\":\"Dx12GraphTransientPool::Materialize\",\"before\":[\"slot->lastPass = allocation.lastPass;\",\"slot->usedThisCompile = true;\"],\"statement\":\"m_bindings.push_back( { allocation.resource, static_cast<size_t>( slot - m_resources.data() ), allocation.firstPass, firstAccess, false } );\",\"after\":[\"}\",\"m_stats.poolSize = m_resources.size();\"]}"
       ],
       "owner": "Rendering/DX12 graph transient pool",
-      "phase": "backend_init_scene_resource_preallocation",
-      "reason": "The extracted graph owner preserves the existing warm-up materialization vectors; steady frames reuse compiler-assigned physical slots and logical bindings.",
-      "cap": "Bounded by RENDER_GRAPH_MAX_RESOURCES and the compiler's transient allocation count.",
-      "removal_or_wrapper_plan": "Replace both graph transient vectors with fixed-capacity stores when the renderer adopts an owned graph-pool capacity contract.",
+      "phase": "fixed_storage_no_heap_allocation",
+      "reason": "RenderGraphFixedList stores both metadata tables inline. Its vector-shaped push_back and resize methods only assign fixed array entries and never allocate.",
+      "cap": "RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS (16) physical slots and logical bindings; unused physical slots are recycled before appending.",
+      "removal_or_wrapper_plan": "Remove these lexical false-positive patterns if the checker gains concrete fixed-container type recognition.",
       "match_mode": "exact_finding"
     },
     {
@@ -2140,24 +2128,26 @@
     {
       "path": "SkullbonezSource/Runtime/Scene/SceneSessionState.cpp",
       "patterns": [
-        "{\"symbol\":\"SceneSession::Append\",\"before\":[\"int SceneSession::Append( std::string path )\",\"{\"],\"statement\":\"m_queue.push_back( std::move( path ) );\",\"after\":[\"return QueueSize() - 1;\",\"}\"]}"
+        "{\"symbol\":\"SceneSession::Append\",\"before\":[\"int SceneSession::Append( std::string path )\",\"{\"],\"statement\":\"m_queue.push_back( std::move( path ) );\",\"after\":[\"return QueueSize() - 1;\",\"}\"]}",
+        "{\"symbol\":\"SceneSession::SceneSession\",\"before\":[\"SceneSession::SceneSession( std::vector<std::string> queue )\",\"{\"],\"statement\":\"m_queue.reserve( queue.size() );\",\"after\":[\"for ( std::string& path : queue )\",\"{\"]}",
+        "{\"symbol\":\"SceneSession::SceneSession\",\"before\":[\"for ( std::string& path : queue )\",\"{\"],\"statement\":\"m_queue.emplace_back( std::move( path ) );\",\"after\":[\"}\",\"}\"]}"
       ],
       "owner": "Runtime scene-load storage surface",
       "phase": "scene_load",
       "reason": "Scene queues and authored setup vectors grow while loading/resetting scene data before returning to steady gameplay.",
-      "cap": "Bounded by active scene files, authored contacts, and scene entity counts.",
+      "cap": "Scene queue slots accumulate from startup paths and explicit scene selection/New requests. Abandoned drafts release their path strings but retain empty slots for stable active indices; growth occurs only during cold scene operations.",
       "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns.",
       "match_mode": "exact_finding"
     },
     {
       "path": "SkullbonezSource/Runtime/Scene/SceneSessionState.h",
       "patterns": [
-        "{\"symbol\":\"SceneSession\",\"before\":[\"private:\",\"SceneSessionState m_state;\"],\"statement\":\"std::vector<std::string> m_queue;\",\"after\":[\"SceneRuntimeLifecycleEvent m_lastLifecycleEvent = SceneRuntimeLifecycleEvent::None;\",\"SceneLifecyclePacket m_lifecyclePacket;\"]}"
+        "{\"symbol\":\"SceneSession\",\"before\":[\"private:\",\"SceneSessionState m_state;\"],\"statement\":\"std::vector<std::optional<std::string>> m_queue;\",\"after\":[\"SceneRuntimeLifecycleEvent m_lastLifecycleEvent = SceneRuntimeLifecycleEvent::None;\",\"SceneLifecyclePacket m_lifecyclePacket;\"]}"
       ],
       "owner": "Runtime scene-load storage surface",
       "phase": "scene_load",
       "reason": "Scene queues and authored setup vectors grow while loading/resetting scene data before returning to steady gameplay.",
-      "cap": "Bounded by active scene files, authored contacts, and scene entity counts.",
+      "cap": "Scene queue slots accumulate from startup paths and explicit scene selection/New requests. Abandoned drafts release their path strings but retain empty slots for stable active indices; growth occurs only during cold scene operations.",
       "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns.",
       "match_mode": "exact_finding"
     },
@@ -2788,7 +2778,6 @@
         "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::string m_receiveBuffer;\",\"std::deque<SkarnessCommand> m_commands;\"],\"statement\":\"std::deque<PendingCompletion> m_pendingCompletions;\",\"after\":[\"std::deque<PendingCapture> m_pendingCaptures;\",\"std::deque<std::string> m_recentRequestIds;\"]}",
         "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::deque<SkarnessCommand> m_commands;\",\"std::deque<PendingCompletion> m_pendingCompletions;\"],\"statement\":\"std::deque<PendingCapture> m_pendingCaptures;\",\"after\":[\"std::deque<std::string> m_recentRequestIds;\",\"std::deque<CompletedRequest> m_completedRequests;\"]}",
         "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::deque<PendingCompletion> m_pendingCompletions;\",\"std::deque<PendingCapture> m_pendingCaptures;\"],\"statement\":\"std::deque<std::string> m_recentRequestIds;\",\"after\":[\"std::deque<CompletedRequest> m_completedRequests;\",\"PendingSceneTransition m_pendingSceneTransition;\"]}",
-        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::deque<PendingCapture> m_pendingCaptures;\",\"std::deque<std::string> m_recentRequestIds;\"],\"statement\":\"std::deque<CompletedRequest> m_completedRequests;\",\"after\":[\"PendingSceneTransition m_pendingSceneTransition;\",\"PendingPointerDrag m_pendingPointerDrag;\"]}",
         "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::array<uint64_t, 4> m_keyboardWords {};\",\"bool m_appFocused = true;\"],\"statement\":\"std::string m_fileDialogPurpose;\",\"after\":[\"std::string m_fileDialogPath;\",\"bool m_fileDialogAccepted = false;\"]}",
         "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"bool m_appFocused = true;\",\"std::string m_fileDialogPurpose;\"],\"statement\":\"std::string m_fileDialogPath;\",\"after\":[\"bool m_fileDialogAccepted = false;\",\"uint64_t m_fileDialogResponsesConsumed = 0;\"]}",
         "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"uint32_t m_stepFramesRemaining = 0;\",\"uint32_t m_renderFramesRemaining = 0;\"],\"statement\":\"std::string m_stepRequestId;\",\"after\":[\"std::string m_renderStepRequestId;\",\"std::string m_untilRequestId;\"]}",
@@ -2796,7 +2785,9 @@
         "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::string m_stepRequestId;\",\"std::string m_renderStepRequestId;\"],\"statement\":\"std::string m_untilRequestId;\",\"after\":[\"std::string m_untilCondition;\",\"std::string m_stopRequestId;\"]}",
         "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::string m_renderStepRequestId;\",\"std::string m_untilRequestId;\"],\"statement\":\"std::string m_untilCondition;\",\"after\":[\"std::string m_stopRequestId;\",\"std::string m_subscriptionRequestId;\"]}",
         "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::string m_untilRequestId;\",\"std::string m_untilCondition;\"],\"statement\":\"std::string m_stopRequestId;\",\"after\":[\"std::string m_subscriptionRequestId;\",\"bool m_stepCompletesAfterFrame = false;\"]}",
-        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::string m_untilCondition;\",\"std::string m_stopRequestId;\"],\"statement\":\"std::string m_subscriptionRequestId;\",\"after\":[\"bool m_stepCompletesAfterFrame = false;\",\"uint32_t m_untilLimit = 0;\"]}"
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::string m_untilCondition;\",\"std::string m_stopRequestId;\"],\"statement\":\"std::string m_subscriptionRequestId;\",\"after\":[\"bool m_stepCompletesAfterFrame = false;\",\"uint32_t m_untilLimit = 0;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::deque<PendingCapture> m_pendingCaptures;\",\"std::deque<std::string> m_recentRequestIds;\"],\"statement\":\"std::deque<CompletedRequest> m_completedRequests;\",\"after\":[\"PendingSceneTransition m_pendingSceneTransition;\",\"std::string m_pendingSceneRequestId;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::deque<CompletedRequest> m_completedRequests;\",\"PendingSceneTransition m_pendingSceneTransition;\"],\"statement\":\"std::string m_pendingSceneRequestId;\",\"after\":[\"uint64_t m_sceneRequestToken = 0;\",\"PendingPointerDrag m_pendingPointerDrag;\"]}"
       ],
       "owner": "Skarness diagnostic transport",
       "phase": "startup_and_Diagnostics",
@@ -2849,7 +2840,7 @@
         "{\"symbol\":\"BuildVisualPacket\",\"before\":[\"for ( const ReplayPredictionGhostDrawRequest& ghost : packet.ghostRequests )\",\"{\"],\"statement\":\"ghosts.push_back( { { \\\"modelRow\\\", ghost.modelRow.value },\",\"after\":[\"{ , Vec3( ghost.position ) },\",\"{ , Quaternion( ghost.orientation ) },\"]}",
         "{\"symbol\":\"BuildPositionGates\",\"before\":[\"for ( const auto& gate : gates )\",\"{\"],\"statement\":\"rows.push_back( { { \\\"sceneObjectId\\\", gate.sceneObjectId }, { \\\"frame\\\", gate.frame }, { \\\"center\\\", gate.center }, { \\\"visible\\\", gate.visible } } );\",\"after\":[\"}\",\"return rows;\"]}",
         "{\"symbol\":\"BuildDivergenceFrame\",\"before\":[\"for ( const auto& body : frame->bodies )\",\"{\"],\"statement\":\"bodies.push_back( { { \\\"id\\\", body.id.value }, { \\\"modelRow\\\", body.modelRow.value }, { \\\"position\\\", Vec3( body.position ) }, { \\\"velocity\\\", Vec3( body.linearVelocity ) } } );\",\"after\":[\"}\",\"}\"]}",
-        "{\"symbol\":\"BuildDivergence\",\"before\":[\"for ( const auto& ghost : replay.divergenceGhosts )\",\"{\"],\"statement\":\"ghosts.push_back( { { \\\"modelRow\\\", ghost.modelRow.value }, { \\\"position\\\", Vec3( ghost.position ) }, { \\\"tint\\\", { ghost.tintR, ghost.tintG, ghost.tintB } }, { \\\"alpha\\\", ghost.alpha } } );\",\"after\":[\"}\",\"return { { , replay.divergenceAllocatedBytes },\"]}",
+        "{\"symbol\":\"BuildDivergence\",\"before\":[\"for ( const auto& ghost : replay.divergenceGhosts )\",\"{\"],\"statement\":\"ghosts.push_back( { { \\\"modelRow\\\", ghost.modelRow.value }, { \\\"position\\\", Vec3( ghost.position ) }, { \\\"tint\\\", { ghost.tintR, ghost.tintG, ghost.tintB } }, { \\\"alpha\\\", ghost.alpha } } );\",\"after\":[\"}\",\"}\"]}",
         "{\"symbol\":\"BuildVisualPacket\",\"before\":[\"for ( const auto& range : packet.retainedPredictionRibbonRanges )\",\"{\"],\"statement\":\"ranges.push_back( { { \\\"identity\\\", range.identity }, { \\\"firstRecord\\\", range.firstRecord }, { \\\"recordCount\\\", range.recordCount } } );\",\"after\":[\"}\",\"payload[ ] = std::move( ranges );\"]}"
       ],
       "owner": "Skarness diagnostic snapshot serialization",
@@ -3135,6 +3126,18 @@
       "reason": "ReserveSceneCapacity commits the incoming point-joint count. Each valid joint contributes at most one key before sorting/unique, and PhysicsFixedList rejects capacity overflow without heap growth.",
       "cap": "At most the scene-reserved point-joint count, bounded by PHYSICS_MAX_BODY_ROWS (8,192 pairs, 65,536 bytes).",
       "removal_or_wrapper_plan": "Retain exact-site metadata while the checked PhysicsFixedList emplace_back API constructs the per-pass key set.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Scene/AuthoredScene.cpp",
+      "patterns": [
+        "{\"symbol\":\"AuthoredScene::CreateEditableStarter\",\"before\":[\"camera.up = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );\",\"strcpy_s( camera.name, );\"],\"statement\":\"scene.m_cameras.push_back( camera );\",\"after\":[\"return scene;\",\"}\"]}"
+      ],
+      "owner": "AuthoredScene editable starter definition",
+      "phase": "scene_load",
+      "reason": "Explicit New builds an in-memory scene definition under the SceneLoad scope; its single default camera is instantiated before gameplay.",
+      "cap": "Exactly one camera descriptor per new editable draft; no gameplay growth.",
+      "removal_or_wrapper_plan": "Retain cold scene-definition construction until authored camera descriptors use fixed or arena storage.",
       "match_mode": "exact_finding"
     }
   ]

@@ -19,7 +19,7 @@ from skarness import SkarnessConnection
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_SCENE = REPO / "SkullbonezData" / "scenes" / "interaction_replay_prediction_harness.scene.json"
 EXPECTED_COMMANDS = {
-    "editor.set_terrain_brush", "scene.save",
+    "editor.set_terrain_brush", "scene.save", "scene.create",
     "capabilities.get", "session.stop", "capture.screenshot", "scene.load", "scene.reset", "scene.load_demo",
     "scene.object.list", "scene.object.resolve", "scene.object.select", "scene.object.clear_selection", "run.pause",
     "run.resume", "run.step", "run.step_frames", "run.until", "replay.set_recording_enabled",

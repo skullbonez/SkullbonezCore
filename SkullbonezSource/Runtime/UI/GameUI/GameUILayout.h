@@ -29,6 +29,8 @@ namespace SkullbonezCore::UI::GameLayout
 inline constexpr float EDITOR_CONTROLS_HEIGHT = 470.0f;
 inline constexpr float EDITOR_PALETTE_TOP = EDITOR_CONTROLS_HEIGHT + 22.0f;
 float EditorContentHeight( float width );
+std::array<UIRect, 4> EditorViewGizmoRects( const UIRect& viewport );
+std::array<UIRect, 4> EditorPaneRects( const UIRect& viewport );
 
 std::array<char, 64> HeaderTitle( const char* sceneName );
 
@@ -119,6 +121,7 @@ struct HeaderRects
     UIRect scene;
     UIRect scenes;
     UIRect camera;
+    UIRect fourViews;
     UIRect workspace;
     UIRect layout;
     UIRect tools;

@@ -45,6 +45,7 @@ struct SceneRequest
 {
     SceneRequestType type = SceneRequestType::LoadBrowserIndex;
     int index = -1;
+    uint64_t completionToken = 0; // Optional caller receipt; zero means no completion is requested.
     char text[SCENE_REQUEST_TEXT_CAPACITY] = {};
     bool importHeightMap = false;
     bool preserveUIState = true;
@@ -67,6 +68,7 @@ struct SceneRequestBatch
     SceneRequest requests[SCENE_REQUEST_QUEUE_CAPACITY];
     std::size_t count = 0;
     std::size_t rejectedTransitionCount = 0;
+    uint64_t rejectedCompletionTokens[SCENE_REQUEST_QUEUE_CAPACITY] = {};
 };
 
 constexpr bool SceneRequestIsTransition( SceneRequestType type )
@@ -91,6 +93,7 @@ class SceneRequestQueue
     // Lets App cancel scene-local sibling state before request execution begins a
     // queued transition; the queue and request values remain owned here.
     bool HasTransition() const;
+    bool HasReplacement() const;
     std::size_t Size() const;
 
   private:

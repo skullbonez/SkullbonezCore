@@ -81,14 +81,23 @@ def run(session: Path) -> None:
         assert latest[cause_topic]["window"] == [int(value) for value in bounds]
         capture("canvas-causes")
         x, y, width, height = bounds
-        # Outline controls keep their existing meanings and data colours.
+        # The old Cause footer no longer owns outline visibility.
         before = latest[cause_topic]["blueOutlinesVisible"]
         click(x + 90, y + height - 66)
-        sample("outline-toggled")
-        assert latest[cause_topic]["blueOutlinesVisible"] != before
-        click(x + 90, y + height - 66)
-        sample("outline-restored")
+        sample("cause-does-not-toggle-outlines")
         assert latest[cause_topic]["blueOutlinesVisible"] == before
+        middle(ui["detailsReplayTabBounds"])
+        ui = sample("replay-outlines")
+        rx, ry, rw, rh = ui["replayControlsBounds"]
+        send("input.pointer_wheel", x=int(rx+rw/2), y=int(ry+rh/2), wheelDelta=-12000)
+        sample("replay-scrolled")
+        for expected in (not before, before):
+            click(rx+30, ry+382-max(0,434-rh))
+            sample("replay-outline-toggled")
+            assert latest[cause_topic]["blueOutlinesVisible"] == expected
+        capture("replay-outline-controls")
+        middle(ui["detailsCausesTabBounds"])
+        ui = sample("causes-restored")
         click(x + width * 0.85, y + 88)
         sample("contacts-filter")
         assert latest[cause_topic]["filter"] == 2
