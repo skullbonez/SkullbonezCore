@@ -563,18 +563,30 @@ TEST_CASE( "Editor camera panes preserve full-screen pose and independent plane 
         const auto projection = cameras.EditorPaneProjection( pane, perspective );
         CHECK( projection.m[15] == 1 );
         CHECK( projection.m[11] == 0 );
-        // An elevated object can be behind the zoomed eye and still belongs
-        // to the editor's fitted scene volume. Zoom must preserve its depth.
+        // Top retains elevated objects behind its zoomed eye. Side panes clip
+        // foreground obstacles once the eye has passed them.
         const auto view = SkullbonezCore::Math::Transformation::Matrix4::LookAt( zoomed.eye, zoomed.focus, zoomed.up );
         const auto clip = projection * view;
         const auto elevated = zoomed.focus + normal * 190;
         const float depth = clip.m[2] * elevated.x + clip.m[6] * elevated.y + clip.m[10] * elevated.z + clip.m[14];
-        CHECK( depth > 0 );
+        CHECK( ( pane == 0 ? depth > 0 : depth < 0 ) );
         CHECK( depth < 1 );
         cameras.ZoomEditorView( -2 );
         const auto close = cameras.EditorPane( pane );
         const auto closeClip = cameras.EditorPaneProjection( pane, perspective ) * SkullbonezCore::Math::Transformation::Matrix4::LookAt( close.eye, close.focus, close.up );
-        CHECK( closeClip.m[2] * elevated.x + closeClip.m[6] * elevated.y + closeClip.m[10] * elevated.z + closeClip.m[14] == doctest::Approx( depth ) );
+        const float closeDepth = closeClip.m[2] * elevated.x + closeClip.m[6] * elevated.y + closeClip.m[10] * elevated.z + closeClip.m[14];
+
+        if ( pane == 0 )
+        {
+            CHECK( closeDepth == doctest::Approx( depth ) );
+        }
+        else
+        {
+            CHECK( closeDepth < 0 );
+            const float focusDepth = closeClip.m[2] * close.focus.x + closeClip.m[6] * close.focus.y + closeClip.m[10] * close.focus.z + closeClip.m[14];
+            CHECK( focusDepth > 0 );
+            CHECK( focusDepth < 1 );
+        }
         cameras.SelectEditorPane( 3 );
         CHECK( cameras.GetCameraTranslation() == eye );
         cameras.SelectEditorPane( pane );

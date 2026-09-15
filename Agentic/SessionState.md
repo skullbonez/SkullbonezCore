@@ -1,8 +1,38 @@
 # Session State
 
-Date: 2026-09-14
+Date: 2026-09-15
 Branch: `codex/prediction-speed-editor-views`
 Status: Four-view editor, camera clipping, Replay controls and authored reset/explicit-save fixes implemented; PR #170 is open. The original cute skull is restored with black-backed Windows icons. The textured-mark and camera-playback follow-up passes final native validation. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
+
+## Four-view sky and foreground-wall navigation - 2026-09-15
+
+X Side and Z Side now clip geometry behind their eye, allowing zoom to pass
+the catcher wall and inspect the destruction wall in the 200-body prediction
+scene. Top retains the fitted full-height depth volume so elevated objects
+remain visible and pickable when zooming. Rendering and picking consume the
+same pane projection.
+
+Authored and cinematic skies use an angular background projection independent
+of orthographic scene scale. Orthographic cube skies follow eye height and
+write far depth, keeping them visible through pane zoom and vertical panning.
+Perspective sky behavior is unchanged.
+
+The native four-view regression first picks the catcher from outside it, then
+zooms through it and picks the named destruction-wall brick. Both side panes
+pass sky pixel checks. Existing Top, prediction overlay, workspace retention,
+comparison picking, compact resize and cinematic checks pass, with zero
+allocation-guard violations. Evidence is under
+`TestOutput/skarness/four-wall-fixed`, including `wall-past-catcher.png` and
+the state snapshot showing the selected object's identity. Compiler-backed
+design passes three sources and ten contexts with no findings. No scene or
+golden was changed.
+
+The final fast gate passes, including 1,058 tests / 3,733,914 assertions.
+DX12 visual baselines and the deterministic 44,401-line Physics worker matrix
+pass unchanged. The one-minute graphics stress run completed without a crash;
+PID-scoped timeout cleanup brought its total duration to 70.9 seconds.
+Profile and Debug are rebuilt in the original workspace.
+Logs use the `TestOutput/four-wall-` prefix.
 
 ## Profile F5 build readiness - 2026-09-14
 

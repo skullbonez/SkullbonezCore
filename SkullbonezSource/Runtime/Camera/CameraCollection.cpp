@@ -858,10 +858,12 @@ Matrix4 CameraCollection::EditorPaneProjection( int pane, const Matrix4& perspec
     const float distance = Distance( pose.eye, pose.focus );
     const float halfWidth = distance / perspective.m[0];
     const float halfHeight = distance / perspective.m[5];
-    // Orthographic zoom moves the eye, but must not slice elevated objects as
-    // it passes them. Keep the fitted depth volume centered on the focus.
+    // Top keeps the full fitted height so zooming cannot hide elevated objects.
+    // Side views advance their near plane with the eye, allowing navigation
+    // through foreground walls. Picking uses this same projection.
     const float halfDepth = m_fourViews[m_editorViewWorkspace ? 1 : 0].halfDepth;
-    return Matrix4::OrthoZeroToOne( -halfWidth, halfWidth, -halfHeight, halfHeight, distance - halfDepth, distance + halfDepth );
+    const float nearPlane = pane == 0 ? distance - halfDepth : (std::max)( 0.01f, distance - halfDepth );
+    return Matrix4::OrthoZeroToOne( -halfWidth, halfWidth, -halfHeight, halfHeight, nearPlane, distance + halfDepth );
 }
 
 void CameraCollection::PanEditorView( float horizontal, float vertical )

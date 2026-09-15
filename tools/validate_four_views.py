@@ -142,6 +142,44 @@ def run(session: Path) -> None:
         sample()
         assert latest['ui.presentation']['editorSelectedObjectId'] == 1, latest['ui.presentation']['editorSelectedObjectId']
         checks.append('top-zoom-keeps-elevated-ball-visible-and-pickable')
+        send('scene.load', name='prediction_ragdoll_wall_200.scene.json')
+        ui = sample()
+        if ui['layout'] != 'Editor': ui = click(ui['headerLayoutBounds'])
+        if not ui['fourViews']: ui = click(ui['headerFourViewsBounds'])
+        wall = send('scene.object.resolve', name='prediction_wall_brick_r03_c10')['result']['objects'][0]
+        catcher = send('scene.object.resolve', name='prediction_striker_catcher_wall')['result']['objects'][0]
+        x, y, w, h = ui['editorPaneBounds'][1]
+        px, py = round(x+w/2), round(y+h/2)
+        # Begin outside the catcher, then cross it while retaining a visible,
+        # pickable destruction-wall brick farther along the same viewing ray.
+        send('input.pointer_wheel', x=px, y=py, wheelDelta=-720)
+        ui = sample()
+
+        def pick_wall():
+            eye, focus = ui['editorPaneEyes'][1], ui['editorPaneFocus'][1]
+            scale = h / (2*math.dist(eye, focus)*math.tan(math.pi/8))
+            position = wall['position']
+            return click((x+w/2-(position[2]-focus[2])*scale,
+                          y+h/2-(position[1]-focus[1])*scale, 0, 0))
+
+        assert ui['editorPaneEyes'][1][0] > catcher['position'][0]+2
+        ui = pick_wall()
+        assert ui['editorSelectedObjectId'] == catcher['sceneObjectId'], ui['editorSelectedObjectId']
+        for _ in range(8):
+            send('input.pointer_wheel', x=px, y=py, wheelDelta=120)
+            ui = sample()
+            if ui['editorPaneEyes'][1][0] < catcher['position'][0]-2: break
+        assert wall['position'][0]+2 < ui['editorPaneEyes'][1][0] < catcher['position'][0]-2
+        ui = pick_wall()
+        assert ui['editorSelectedObjectId'] == wall['sceneObjectId'], (ui['editorSelectedObjectId'], wall)
+        send('capture.screenshot', path=str(session/'wall-past-catcher.png'))
+        with Image.open(session/'wall-past-catcher.png').convert('RGB') as image:
+            for pane in (1, 2):
+                sx, sy, sw, sh = ui['editorPaneBounds'][pane]
+                pixels = list(image.crop((round(sx+sw*.2), round(sy+sh*.15), round(sx+sw*.75), round(sy+sh*.3))).getdata())
+                assert sum(max(c)>30 for c in pixels) > len(pixels)*.9, ('missing sky', pane)
+        (session/'wall-past-catcher.json').write_text(json.dumps(latest, indent=2))
+        checks.append('side-zoom-crosses-catcher-and-picks-destruction-wall-with-sky')
         send('scene.load', name='space_field_200.scene.json')
         ui = sample()
         if ui['layout'] != 'Editor': ui = click(ui['headerLayoutBounds'])
