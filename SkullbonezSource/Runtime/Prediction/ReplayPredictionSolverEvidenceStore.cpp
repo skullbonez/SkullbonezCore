@@ -503,6 +503,15 @@ void ReplayPredictionSolverEvidenceBanks::ReleaseCapacity() noexcept
     ++m_releaseCheckpointCount;
 }
 
+void ReplayPredictionSolverEvidenceBanks::ResumeCommittedBuild() noexcept
+{
+    // Lifetime: the caller has joined the worker. The same generation and bank
+    // epoch stay attached to every sealed row while new tail frames append.
+    const uint8_t committed = m_committedIndex.load( std::memory_order_acquire );
+    m_committedIndex.store( m_buildIndex, std::memory_order_release );
+    m_buildIndex = committed;
+}
+
 void ReplayPredictionSolverEvidenceBanks::ReleaseBuildCapacity() noexcept
 {
     m_lastReleaseBeforeCapacityBytes = CollectMemoryStats().currentCapacityBytes;

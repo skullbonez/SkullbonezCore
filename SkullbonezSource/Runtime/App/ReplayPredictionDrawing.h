@@ -35,6 +35,7 @@ Related:
 #include "../Replay/ReplayTrajectoryPackets.h"
 #include "../../Rendering/RenderInstanceStore.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -58,6 +59,23 @@ class SceneEntityStore;
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
+inline bool ReplayPredictionPathChordFits( std::span<const ReplayTrajectoryPoint> points, std::size_t first, std::size_t last ) noexcept
+{
+    const auto delta = points[last].position - points[first].position;
+    const float lengthSquared = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
+    for ( std::size_t i = first + 1u; i < last; ++i )
+    {
+        const auto offset = points[i].position - points[first].position;
+        const float t = std::clamp( ( offset.x * delta.x + offset.y * delta.y + offset.z * delta.z ) / (std::max)( lengthSquared, 1.0e-20f ), 0.0f, 1.0f );
+        const auto error = offset - delta * t;
+        if ( error.x * error.x + error.y * error.y + error.z * error.z > 0.1f * 0.1f )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 struct ReplayPredictionDrawRecordCursor
 {
     ReplayTrajectoryRecordKey key;
@@ -155,20 +173,19 @@ struct ReplayPredictionDrawListUpdate
     bool stable = false;
 };
 
-constexpr bool IsReplayPredictionDrawListPublicationStable( bool reset, uint64_t retainedPublicationVersion,
+constexpr bool IsReplayPredictionDrawListPublicationStable( bool reset,
+                                                            uint64_t retainedPublicationVersion,
                                                             ReplayFrameIndex retainedRevealFrame,
                                                             uint64_t incomingPublicationVersion,
                                                             ReplayFrameIndex incomingRevealFrame,
                                                             uint32_t retainedMarkerVersion = 0,
                                                             uint32_t incomingMarkerVersion = 0 ) noexcept
 {
-    return !reset && retainedPublicationVersion == incomingPublicationVersion &&
-           retainedRevealFrame == incomingRevealFrame && retainedMarkerVersion == incomingMarkerVersion;
+    return !reset && retainedPublicationVersion == incomingPublicationVersion && retainedRevealFrame == incomingRevealFrame && retainedMarkerVersion == incomingMarkerVersion;
 }
 
-constexpr bool ReplayPredictionCanSkipSaturatedDrawList( bool saturated, uint32_t retainedMarkerVersion,
-                                                         uint32_t incomingMarkerVersion, std::size_t retainedMarkerCount,
-                                                         std::size_t incomingMarkerCount ) noexcept
+constexpr bool
+ReplayPredictionCanSkipSaturatedDrawList( bool saturated, uint32_t retainedMarkerVersion, uint32_t incomingMarkerVersion, std::size_t retainedMarkerCount, std::size_t incomingMarkerCount ) noexcept
 {
     // Saturated path ranges are stable, but marker lines own separate capacity.
     // A new collision or endpoint must still reach the retained marker tracer.
@@ -181,26 +198,24 @@ constexpr std::size_t ReplayPredictionFirstUnconsumedPoint( std::size_t consumed
 }
 
 constexpr bool ReplayPredictionDrawsAllBodyRecord( ReplayPredictionPathPresentation pathPresentation,
-                                                   const ReplayTrajectoryRecordKey& key, uint16_t activeRootBranch,
+                                                   const ReplayTrajectoryRecordKey& key,
+                                                   uint16_t activeRootBranch,
                                                    Physics::PhysicsSceneObjectId selectedId ) noexcept
 {
-    return ReplayPredictionPathPresentationShowsAllBodies( pathPresentation ) &&
-           key.lane == ReplayTrajectoryLane::FutureRoot && key.branchOrdinal == activeRootBranch &&
+    return ReplayPredictionPathPresentationShowsAllBodies( pathPresentation ) && key.lane == ReplayTrajectoryLane::FutureRoot && key.branchOrdinal == activeRootBranch &&
            key.bodyId.value != selectedId.value;
 }
 
 constexpr bool ReplayPredictionDrawsCausalChildRecord( ReplayPredictionPathPresentation pathPresentation,
-                                                       const ReplayTrajectoryRecordKey& key, uint16_t activeChildBranchBase,
+                                                       const ReplayTrajectoryRecordKey& key,
+                                                       uint16_t activeChildBranchBase,
                                                        uint16_t activeChildBranchEnd ) noexcept
 {
-    return !ReplayPredictionPathPresentationShowsAllBodies( pathPresentation ) &&
-           ( key.lane == ReplayTrajectoryLane::FutureChildIncoming ||
-             key.lane == ReplayTrajectoryLane::FutureChildOutgoing ) &&
+    return !ReplayPredictionPathPresentationShowsAllBodies( pathPresentation ) && ( key.lane == ReplayTrajectoryLane::FutureChildIncoming || key.lane == ReplayTrajectoryLane::FutureChildOutgoing ) &&
            key.branchOrdinal >= activeChildBranchBase && key.branchOrdinal < activeChildBranchEnd;
 }
 
-constexpr bool ReplayPredictionUsesAuthoredBodyColor( ReplayPredictionPathPresentation pathPresentation,
-                                                      ReplayTrajectoryLane lane ) noexcept
+constexpr bool ReplayPredictionUsesAuthoredBodyColor( ReplayPredictionPathPresentation pathPresentation, ReplayTrajectoryLane lane ) noexcept
 {
     return ReplayPredictionPathPresentationShowsAllBodies( pathPresentation ) && lane == ReplayTrajectoryLane::FutureRoot;
 }
@@ -221,7 +236,8 @@ void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationV
                                              const RunReplayPathVisualizerState& pathVisualizer,
                                              const ReplayPredictionDrawListState& state,
                                              const Physics::ColliderStore& colliderStore,
-                                             const ReplayPredictionPathFocus& focus, EditorTracer& tracer );
+                                             const ReplayPredictionPathFocus& focus,
+                                             EditorTracer& tracer );
 
 // Every participant and present-sample flag must belong to one published
 // Prediction generation. The explicit operands keep this synchronous App
@@ -229,7 +245,10 @@ void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationV
 ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPredictionPresentationView& prediction,
                                                              const RunReplayPathVisualizerState& pathVisualizer,
                                                              Physics::PhysicsEngine& physics,
-                                                             const SceneEntityStore& entities, EditorTracer& tracer,
-                                                             Core::Profiler* profiler, ReplayFrameIndex presentFrame,
-                                                             bool hasPresentSample, bool drawPredictionOverlay );
+                                                             const SceneEntityStore& entities,
+                                                             EditorTracer& tracer,
+                                                             Core::Profiler* profiler,
+                                                             ReplayFrameIndex presentFrame,
+                                                             bool hasPresentSample,
+                                                             bool drawPredictionOverlay );
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

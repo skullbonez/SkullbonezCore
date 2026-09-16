@@ -79,9 +79,7 @@ struct ReplayPredictionDrawFrameWindow
 };
 
 
-ReplayPredictionDrawFrameWindow PrepareReplayPredictionDrawFrameWindow( RunReplayPredictionState& prediction,
-                                                                        const std::vector<RunReplayPredictionFrame>& frames,
-                                                                        std::size_t frameCount )
+ReplayPredictionDrawFrameWindow PrepareReplayPredictionDrawFrameWindow( RunReplayPredictionState& prediction, const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount )
 {
     ReplayPredictionDrawFrameWindow window;
     frameCount = (std::min)( frameCount, frames.size() );
@@ -109,9 +107,13 @@ const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* co
 // with a contact-derived child. These helpers keep that policy at the wrapper
 // edge instead of duplicating the contact traversal.
 template <typename NodeRange>
-bool TryGetReplayFutureDepthInNodes( const NodeRange& nodes, Physics::PhysicsSceneObjectId rootId,
-                                     ReplayFrameIndex rootFrame, bool requireRootFrame, Physics::PhysicsSceneObjectId id,
-                                     ReplayFrameIndex frame, int& outDepth )
+bool TryGetReplayFutureDepthInNodes( const NodeRange& nodes,
+                                     Physics::PhysicsSceneObjectId rootId,
+                                     ReplayFrameIndex rootFrame,
+                                     bool requireRootFrame,
+                                     Physics::PhysicsSceneObjectId id,
+                                     ReplayFrameIndex frame,
+                                     int& outDepth )
 {
     if ( id.value == 0 )
     {
@@ -136,8 +138,7 @@ bool TryGetReplayFutureDepthInNodes( const NodeRange& nodes, Physics::PhysicsSce
     return false;
 }
 
-template <typename NodeRange>
-RunReplayPathTraceNode* FindReplayFutureNodeInNodes( NodeRange& nodes, Physics::PhysicsSceneObjectId id )
+template <typename NodeRange> RunReplayPathTraceNode* FindReplayFutureNodeInNodes( NodeRange& nodes, Physics::PhysicsSceneObjectId id )
 {
     for ( RunReplayPathTraceNode& node : nodes )
     {
@@ -178,14 +179,12 @@ void AssignReplayFutureNode( RunReplayPathTraceNode& node, const ReplayPredictio
 
 bool ReplayFutureNodeTopologyEquals( const RunReplayPathTraceNode& a, const RunReplayPathTraceNode& b )
 {
-    return a.id.value == b.id.value && a.parentId.value == b.parentId.value && a.modelRow.value == b.modelRow.value &&
-           a.parentModelRow.value == b.parentModelRow.value && a.firstFrame == b.firstFrame && a.depth == b.depth &&
-           a.contactDerived == b.contactDerived;
+    return a.id.value == b.id.value && a.parentId.value == b.parentId.value && a.modelRow.value == b.modelRow.value && a.parentModelRow.value == b.parentModelRow.value &&
+           a.firstFrame == b.firstFrame && a.depth == b.depth && a.contactDerived == b.contactDerived;
 }
 
 
-bool ReplayFutureNodeTopologyEquals( const std::vector<RunReplayPathTraceNode>& a,
-                                     const std::vector<RunReplayPathTraceNode>& b )
+bool ReplayFutureNodeTopologyEquals( const std::vector<RunReplayPathTraceNode>& a, const std::vector<RunReplayPathTraceNode>& b )
 {
     if ( a.size() != b.size() )
     {
@@ -246,7 +245,8 @@ const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* co
     return collider;
 }
 
-void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction, ReplayFrameIndex revealFrame,
+void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction,
+                                            ReplayFrameIndex revealFrame,
                                             const std::vector<RunReplayPredictionFrame>& completeFrames,
                                             std::size_t completeFrameCount )
 {
@@ -276,8 +276,7 @@ void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction
         Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
         Quaternion restOrientation = IDENTITY_QUATERNION;
 
-        if ( ReplayPredictionBodyRestingPose( completeFrames, completeFrameCount, marker.id, marker.modelRow.value,
-                                              restPosition, restOrientation ) )
+        if ( ReplayPredictionBodyRestingPose( completeFrames, completeFrameCount, marker.id, marker.modelRow.value, restPosition, restOrientation ) )
         {
             RetainReplayPredictionRestMarker( prediction, marker.id, marker.modelRow.value, restPosition, restOrientation );
             markersChanged = true;
@@ -285,23 +284,19 @@ void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction
             continue;
         }
 
-        const RunReplayPredictionBodySample*
-            finalBody = FindReplayPredictionBodyByIdWithHint( completeFrames[completeFrameCount - 1], marker.id,
-                                                              marker.modelRow.value );
+        const RunReplayPredictionBodySample* finalBody = FindReplayPredictionBodyByIdWithHint( completeFrames[completeFrameCount - 1], marker.id, marker.modelRow.value );
 
         if ( !finalBody )
         {
             continue;
         }
 
-        if ( VectorMagSquared( finalBody->position - marker.entryPosition ) <= REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ &&
-             !ReplayPredictionBodyHasVisibleLinearMotion( *finalBody ) )
+        if ( VectorMagSquared( finalBody->position - marker.entryPosition ) <= REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ && !ReplayPredictionBodyHasVisibleLinearMotion( *finalBody ) )
         {
             continue;
         }
 
-        RetainReplayPredictionHorizonMarker( prediction, marker.id, finalBody->modelRow.value, finalBody->position,
-                                             finalBody->orientation );
+        RetainReplayPredictionHorizonMarker( prediction, marker.id, finalBody->modelRow.value, finalBody->position, finalBody->orientation );
         markersChanged = true;
     }
 
@@ -312,8 +307,10 @@ void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction
 }
 
 ReplayFrameIndex ReplayPredictionVisibleRootMotionFrame( const std::vector<RunReplayPredictionFrame>& frames,
-                                                         std::size_t frameCount, ReplayFrameIndex revealFrame,
-                                                         Physics::PhysicsSceneObjectId rootId, int rootModelIndex )
+                                                         std::size_t frameCount,
+                                                         ReplayFrameIndex revealFrame,
+                                                         Physics::PhysicsSceneObjectId rootId,
+                                                         int rootModelIndex )
 {
     frameCount = (std::min)( frameCount, frames.size() );
     ReplayFrameIndex rootLastMotionFrame = 0;
@@ -339,9 +336,12 @@ ReplayFrameIndex ReplayPredictionVisibleRootMotionFrame( const std::vector<RunRe
 }
 
 void RetainReplayPredictionRootEndMarker( RunReplayPredictionState& prediction,
-                                          const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
-                                          ReplayFrameIndex revealFrame, Physics::PhysicsSceneObjectId rootId,
-                                          int rootModelIndex, const ColliderStore& colliderStore )
+                                          const std::vector<RunReplayPredictionFrame>& frames,
+                                          std::size_t frameCount,
+                                          ReplayFrameIndex revealFrame,
+                                          Physics::PhysicsSceneObjectId rootId,
+                                          int rootModelIndex,
+                                          const ColliderStore& colliderStore )
 {
     frameCount = (std::min)( frameCount, frames.size() );
 
@@ -372,8 +372,7 @@ void RetainReplayPredictionRootEndMarker( RunReplayPredictionState& prediction,
 
     const ReplayFrameIndex finalFrame = frames[frameCount - 1u].frameIndex;
     const bool finalReveal = revealFrame >= finalFrame;
-    const ReplayFrameIndex rootLastMotionFrame = ReplayPredictionVisibleRootMotionFrame( frames, frameCount, revealFrame,
-                                                                                         rootId, rootModelIndex );
+    const ReplayFrameIndex rootLastMotionFrame = ReplayPredictionVisibleRootMotionFrame( frames, frameCount, revealFrame, rootId, rootModelIndex );
 
     if ( !finalReveal && revealFrame < rootLastMotionFrame + REPLAY_PREDICTION_REST_GRACE_FRAMES )
     {
@@ -383,8 +382,7 @@ void RetainReplayPredictionRootEndMarker( RunReplayPredictionState& prediction,
     Vector3 rootRestPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     Quaternion rootRestOrientation = IDENTITY_QUATERNION;
 
-    if ( ReplayPredictionBodyRestingPose( frames, frameCount, rootId, rootModelIndex, rootRestPosition,
-                                          rootRestOrientation ) )
+    if ( ReplayPredictionBodyRestingPose( frames, frameCount, rootId, rootModelIndex, rootRestPosition, rootRestOrientation ) )
     {
         RetainReplayPredictionRestMarker( prediction, rootId, rootModelIndex, rootRestPosition, rootRestOrientation );
 
@@ -401,15 +399,13 @@ void RetainReplayPredictionRootEndMarker( RunReplayPredictionState& prediction,
         return;
     }
 
-    const RunReplayPredictionBodySample* finalBody = FindReplayPredictionBodyByIdWithHint( frames[frameCount - 1u], rootId,
-                                                                                           rootModelIndex );
+    const RunReplayPredictionBodySample* finalBody = FindReplayPredictionBodyByIdWithHint( frames[frameCount - 1u], rootId, rootModelIndex );
 
     if ( finalBody )
     {
         // The selected root has no collision-entry marker of its own. A cyan
         // horizon wireframe keeps its moving endpoint explicit at the final reveal.
-        RetainReplayPredictionHorizonMarker( prediction, rootId, finalBody->modelRow.value, finalBody->position,
-                                             finalBody->orientation );
+        RetainReplayPredictionHorizonMarker( prediction, rootId, finalBody->modelRow.value, finalBody->position, finalBody->orientation );
 
         if ( rootEndMarkerPublished() )
         {
@@ -422,14 +418,15 @@ void RetainReplayPredictionRootEndMarker( RunReplayPredictionState& prediction,
 class ReplayPredictionFutureTopologyBuilder
 {
   public:
-    ReplayPredictionFutureTopologyBuilder( std::vector<RunReplayPathTraceNode>& nodes, ReplayPredictionSceneView scene,
-                                           Physics::PhysicsSceneObjectId rootId, bool includeRagdollVisuals )
+    ReplayPredictionFutureTopologyBuilder( std::vector<RunReplayPathTraceNode>& nodes, ReplayPredictionSceneView scene, Physics::PhysicsSceneObjectId rootId, bool includeRagdollVisuals )
         : m_nodes( nodes ), m_scene( scene ), m_rootId( rootId ), m_includeRagdollVisuals( includeRagdollVisuals )
     {
     }
 
-    bool BuildFrameContacts( const RunReplayPredictionFrame& frame, std::size_t startContactIndex,
-                             const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds,
+    bool BuildFrameContacts( const RunReplayPredictionFrame& frame,
+                             std::size_t startContactIndex,
+                             const std::chrono::steady_clock::time_point& budgetStart,
+                             double budgetMilliseconds,
                              std::size_t& outNextContactIndex );
     bool Full() const noexcept
     {
@@ -448,8 +445,7 @@ class ReplayPredictionFutureTopologyBuilder
     bool m_includeRagdollVisuals = true;
 };
 
-bool ReplayPredictionFutureTopologyBuilder::TryGetDepth( Physics::PhysicsSceneObjectId id, ReplayFrameIndex frame,
-                                                         int& outDepth ) const
+bool ReplayPredictionFutureTopologyBuilder::TryGetDepth( Physics::PhysicsSceneObjectId id, ReplayFrameIndex frame, int& outDepth ) const
 {
     return TryGetReplayFutureDepthInNodes( m_nodes, m_rootId, 0, false, id, frame, outDepth );
 }
@@ -487,7 +483,8 @@ void ReplayPredictionFutureTopologyBuilder::Add( const ReplayPredictionFutureNod
 bool ReplayPredictionFutureTopologyBuilder::BuildFrameContacts( const RunReplayPredictionFrame& frame,
                                                                 std::size_t startContactIndex,
                                                                 const std::chrono::steady_clock::time_point& budgetStart,
-                                                                double budgetMilliseconds, std::size_t& outNextContactIndex )
+                                                                double budgetMilliseconds,
+                                                                std::size_t& outNextContactIndex )
 {
     outNextContactIndex = (std::min)( startContactIndex, frame.debugContacts.size() );
 
@@ -514,13 +511,11 @@ bool ReplayPredictionFutureTopologyBuilder::BuildFrameContacts( const RunReplayP
 
         if ( activeA && !activeB && ( m_includeRagdollVisuals || !ragdollB ) )
         {
-            Add( ReplayPredictionFutureNodeCandidate { idA, modelIndexA, idB, modelIndexB, frame.frameIndex, contact.point,
-                                                       contact.normal, depthA + 1, true } );
+            Add( ReplayPredictionFutureNodeCandidate { idA, modelIndexA, idB, modelIndexB, frame.frameIndex, contact.point, contact.normal, depthA + 1, true } );
         }
         else if ( activeB && !activeA && ( m_includeRagdollVisuals || !ragdollA ) )
         {
-            Add( ReplayPredictionFutureNodeCandidate { idB, modelIndexB, idA, modelIndexA, frame.frameIndex, contact.point,
-                                                       contact.normal * -1.0f, depthB + 1, true } );
+            Add( ReplayPredictionFutureNodeCandidate { idB, modelIndexB, idA, modelIndexA, frame.frameIndex, contact.point, contact.normal * -1.0f, depthB + 1, true } );
         }
 
         outNextContactIndex = contactIndex + 1;
@@ -531,8 +526,10 @@ bool ReplayPredictionFutureTopologyBuilder::BuildFrameContacts( const RunReplayP
 }
 
 void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction,
-                                            const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
-                                            bool usingBuildFrames, ReplayPredictionSceneView scene,
+                                            const std::vector<RunReplayPredictionFrame>& frames,
+                                            std::size_t frameCount,
+                                            bool usingBuildFrames,
+                                            ReplayPredictionSceneView scene,
                                             Physics::PhysicsSceneObjectId rootId,
                                             const std::chrono::steady_clock::time_point& budgetStart,
                                             double budgetMilliseconds )
@@ -550,20 +547,16 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
     // building would scan empty rows and mark the future-node cache complete
     // before contacts have been captured.
     frameCount = (std::min)( frameCount, frames.size() );
-    const bool completingBuildFrames = !usingBuildFrames && prediction.futureNodeCache.futureNodesBuiltFromBuildFrames &&
-                                       prediction.futureNodeCache.futureNodesBuiltFrameCount <= frameCount;
+    const bool completingBuildFrames = !usingBuildFrames && prediction.futureNodeCache.futureNodesBuiltFromBuildFrames && prediction.futureNodeCache.futureNodesBuiltFrameCount <= frameCount;
 
-    const bool sourceMismatch = prediction.futureNodeCache.futureNodesBuiltFromBuildFrames != usingBuildFrames &&
-                                !completingBuildFrames;
+    const bool sourceMismatch = prediction.futureNodeCache.futureNodesBuiltFromBuildFrames != usingBuildFrames && !completingBuildFrames;
 
     // Invariant: these inputs define the meaning of the cached tree. Any change
     // means old future nodes may point at the wrong root or include the wrong
     // ragdoll aggregation policy.
-    const bool cacheMismatch = !prediction.futureNodeCache.futureNodesCacheValid ||
-                               prediction.futureNodeCache.futureNodesBuiltTargetId.value != rootId.value ||
-                               prediction.futureNodeCache.futureNodesBuiltRagdollVisuals !=
-                                   prediction.ragdollVisualsEnabled ||
-                               sourceMismatch || prediction.futureNodeCache.futureNodesBuiltFrameCount > frameCount;
+    const bool cacheMismatch = !prediction.futureNodeCache.futureNodesCacheValid || prediction.futureNodeCache.futureNodesBuiltTargetId.value != rootId.value ||
+                               prediction.futureNodeCache.futureNodesBuiltRagdollVisuals != prediction.ragdollVisualsEnabled || sourceMismatch ||
+                               prediction.futureNodeCache.futureNodesBuiltFrameCount > frameCount;
 
     if ( cacheMismatch )
     {
@@ -588,8 +581,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
         // Why: the renderer reads futureNodes only after this builder returns.
         // Copying the scratch prefix here lets cause/effect paths grow over
         // frames without exposing a vector while it is being mutated.
-        const bool topologyChanged = !ReplayFutureNodeTopologyEquals( prediction.futureNodeCache.futureNodes,
-                                                                      prediction.futureNodeCache.futureNodeBuildScratch );
+        const bool topologyChanged = !ReplayFutureNodeTopologyEquals( prediction.futureNodeCache.futureNodes, prediction.futureNodeCache.futureNodeBuildScratch );
 
         prediction.futureNodeCache.futureNodes = prediction.futureNodeCache.futureNodeBuildScratch;
 
@@ -600,14 +592,11 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
                 // Invariant: this cache is hidden behind the completed-build
                 // snapshot. Every budget slice shares one replacement token;
                 // only the coherent-ready flip makes it reader-visible.
-                prediction.futureNodeCache
-                    .futureNodesTopologyVersion = prediction.committedPublication.AcquireReplacementTopologyVersion(
-                    [&prediction]() { return AllocateReplayFutureNodeTopologyVersion( prediction.futureNodeCache ); } );
+                prediction.futureNodeCache.futureNodesTopologyVersion = prediction.committedPublication.AcquireReplacementTopologyVersion( [&prediction]() { return AllocateReplayFutureNodeTopologyVersion( prediction.futureNodeCache ); } );
             }
             else
             {
-                prediction.futureNodeCache.futureNodesTopologyVersion = AllocateReplayFutureNodeTopologyVersion(
-                    prediction.futureNodeCache );
+                prediction.futureNodeCache.futureNodesTopologyVersion = AllocateReplayFutureNodeTopologyVersion( prediction.futureNodeCache );
             }
         }
     };
@@ -620,17 +609,14 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
         return;
     }
 
-    ReplayPredictionFutureTopologyBuilder topologyBuilder( prediction.futureNodeCache.futureNodeBuildScratch, scene, rootId,
-                                                           prediction.ragdollVisualsEnabled );
+    ReplayPredictionFutureTopologyBuilder topologyBuilder( prediction.futureNodeCache.futureNodeBuildScratch, scene, rootId, prediction.ragdollVisualsEnabled );
 
     while ( prediction.futureNodeCache.futureNodesBuiltFrameCount < frameCount )
     {
         const std::size_t frameIndex = prediction.futureNodeCache.futureNodesBuiltFrameCount;
         std::size_t nextContactIndex = prediction.futureNodeCache.futureNodesBuiltContactIndex;
 
-        if ( !topologyBuilder.BuildFrameContacts( frames[frameIndex],
-                                                  prediction.futureNodeCache.futureNodesBuiltContactIndex, budgetStart,
-                                                  budgetMilliseconds, nextContactIndex ) )
+        if ( !topologyBuilder.BuildFrameContacts( frames[frameIndex], prediction.futureNodeCache.futureNodesBuiltContactIndex, budgetStart, budgetMilliseconds, nextContactIndex ) )
         {
             prediction.futureNodeCache.futureNodesBuiltContactIndex = nextContactIndex;
             publishScratch();
@@ -668,13 +654,14 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 }
 
 
-void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, ReplayPredictionSceneView scene,
-                                     const ColliderStore& colliderStore, const ReplayPredictionOverlayRequest& request,
+void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction,
+                                     ReplayPredictionSceneView scene,
+                                     const ColliderStore& colliderStore,
+                                     const ReplayPredictionOverlayRequest& request,
                                      ReplayPredictionUpdateResult& result )
 {
     if ( prediction.committedPublication.pending &&
-         ( prediction.committedPublication.generation != prediction.build.generationBeginCount ||
-           prediction.committedPublication.sourceFrameCount != prediction.CommittedFrameCount() ) )
+         ( prediction.committedPublication.generation != prediction.build.generationBeginCount || prediction.committedPublication.sourceFrameCount != prediction.CommittedFrameCount() ) )
     {
         // Hazard: an explicit restart may supersede a pending duplicate. Its
         // visible-bank facts belong to the prior generation and must never be
@@ -688,22 +675,13 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, Repla
     // Lifetime: a target click is allowed to queue the next generation while
     // the promoted prediction is still being duplicated. Every hidden phase
     // must nevertheless use the promoted snapshot's source through the flip.
-    const Physics::PhysicsSceneObjectId publicationTargetId = prediction.committedPublication.PublicationTargetId(
-        request.targetId );
-    const ModelRowHint publicationTargetModelRow = prediction.committedPublication.PublicationTargetModelRow(
-        request.targetModelRow );
-    const bool publicationTargetAvailable = prediction.committedPublication.PublicationTargetAvailable(
-        request.targetAvailable );
-    const bool publicationUsingBuildFrames = committedPublicationPending
-                                                 ? prediction.committedPublication.ReplacementTrajectoryBank() ==
-                                                       ReplayPredictionTrajectoryBank::Build
-                                                 : presentingBuildPrefix;
-    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = presentingBuildPrefix
-                                                                              ? prediction.build.buildFrames
-                                                                              : prediction.simulation.frames;
+    const Physics::PhysicsSceneObjectId publicationTargetId = prediction.committedPublication.PublicationTargetId( request.targetId );
+    const ModelRowHint publicationTargetModelRow = prediction.committedPublication.PublicationTargetModelRow( request.targetModelRow );
+    const bool publicationTargetAvailable = prediction.committedPublication.PublicationTargetAvailable( request.targetAvailable );
+    const bool publicationUsingBuildFrames = committedPublicationPending ? prediction.committedPublication.ReplacementTrajectoryBank() == ReplayPredictionTrajectoryBank::Build : presentingBuildPrefix;
+    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = presentingBuildPrefix ? prediction.build.buildFrames : prediction.simulation.frames;
 
-    std::size_t activePredictionFrameCount = presentingBuildPrefix ? activePredictionFrames.size()
-                                                                   : prediction.CommittedFrameCount();
+    std::size_t activePredictionFrameCount = presentingBuildPrefix ? activePredictionFrames.size() : prediction.CommittedFrameCount();
 
     if ( presentingBuildPrefix )
     {
@@ -713,8 +691,7 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, Repla
         // next preparation pass.
         const std::size_t workerPublishedCount = prediction.PublishedBuildFrameCount();
         prediction.build.presentationPublication.Prepare( workerPublishedCount, activePredictionFrames.size() );
-        activePredictionFrameCount = prediction.build.presentationPublication
-                                         .PresentedCount( workerPublishedCount, activePredictionFrames.size() );
+        activePredictionFrameCount = prediction.build.presentationPublication.PresentedCount( workerPublishedCount, activePredictionFrames.size() );
     }
 
     if ( activePredictionFrameCount < 2 )
@@ -742,19 +719,18 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, Repla
 
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/DrawWindow" );
-        drawWindow = PrepareReplayPredictionDrawFrameWindow( prediction, activePredictionFrames,
-                                                             activePredictionFrameCount );
+        drawWindow = PrepareReplayPredictionDrawFrameWindow( prediction, activePredictionFrames, activePredictionFrameCount );
     }
 
     const bool bufferComplete = !presentingBuildPrefix;
+    const std::size_t horizonFrameCount = (std::min)( activePredictionFrameCount, prediction.HorizonFrameCount() );
 
     if ( !publicationTargetAvailable || publicationTargetId.value == 0 )
     {
         return;
     }
 
-    if ( presentingBuildPrefix && !prediction.revealClock.deterministicFrameEnabled &&
-         !PublishReplayPredictionBuildRootTrajectoryPrefix( prediction, activePredictionFrameCount ) )
+    if ( presentingBuildPrefix && !prediction.revealClock.deterministicFrameEnabled && !PublishReplayPredictionBuildRootTrajectoryPrefix( prediction, activePredictionFrameCount ) )
     {
         return;
     }
@@ -762,34 +738,38 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, Repla
     if ( bufferComplete )
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/RootEndMarker" );
-        RetainReplayPredictionRootEndMarker( prediction, activePredictionFrames, activePredictionFrameCount,
-                                             drawWindow.revealFrame, publicationTargetId, publicationTargetModelRow.value,
-                                             colliderStore );
+        RetainReplayPredictionRootEndMarker( prediction, activePredictionFrames, horizonFrameCount, drawWindow.revealFrame, publicationTargetId, publicationTargetModelRow.value, colliderStore );
     }
 
     if ( prediction.enabled )
     {
         {
             PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/FutureNodeCache" );
-            UpdateReplayPredictionFutureNodeCache( prediction, activePredictionFrames, activePredictionFrameCount,
-                                                   publicationUsingBuildFrames, scene, publicationTargetId,
-                                                   overlayBudgetStart, request.budgetMilliseconds );
+            UpdateReplayPredictionFutureNodeCache( prediction,
+                                                   activePredictionFrames,
+                                                   activePredictionFrameCount,
+                                                   publicationUsingBuildFrames,
+                                                   scene,
+                                                   publicationTargetId,
+                                                   overlayBudgetStart,
+                                                   request.budgetMilliseconds );
         }
 
         {
             PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/TrajectoryStore" );
-            UpdateReplayPredictionTrajectoryStore( prediction, activePredictionFrames, activePredictionFrameCount,
-                                                   publicationUsingBuildFrames, publicationTargetId, overlayBudgetStart,
+            UpdateReplayPredictionTrajectoryStore( prediction,
+                                                   activePredictionFrames,
+                                                   activePredictionFrameCount,
+                                                   publicationUsingBuildFrames,
+                                                   publicationTargetId,
+                                                   overlayBudgetStart,
                                                    request.budgetMilliseconds );
         }
 
-        (void)ReplayPredictionBudgetExpiredForPass( result,
-                                                    SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBuildTree,
-                                                    overlayBudgetStart, request.budgetMilliseconds );
+        (void)ReplayPredictionBudgetExpiredForPass( result, SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBuildTree, overlayBudgetStart, request.budgetMilliseconds );
     }
 
-    const bool futureTreeReady = prediction.FutureTreeReadyForDraw( publicationTargetId, publicationUsingBuildFrames,
-                                                                    activePredictionFrameCount );
+    const bool futureTreeReady = prediction.FutureTreeReadyForDraw( publicationTargetId, publicationUsingBuildFrames, activePredictionFrameCount );
 
     // Why: the scan cache is the resume token. Skipping the block leaves
     // markerScan.Matches false, so the next frame retries the whole rebuild
@@ -799,22 +779,23 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, Repla
         ReplayPredictionChildMarkerScanState& markerScan = prediction.futureNodeCache.childMarkerScan;
         const uint32_t generation = prediction.build.generationBeginCount;
         const uint32_t topologyVersion = prediction.futureNodeCache.futureNodesTopologyVersion;
-        const std::size_t markerNodeCount = (std::min)( prediction.futureNodeCache.futureNodes.size(),
-                                                        static_cast<std::size_t>( REPLAY_PATH_MAX_FUTURE_NODES ) );
+        const std::size_t markerNodeCount = (std::min)( prediction.futureNodeCache.futureNodes.size(), static_cast<std::size_t>( REPLAY_PATH_MAX_FUTURE_NODES ) );
 
-        if ( !markerScan.Matches( generation, topologyVersion, markerNodeCount, publicationTargetId,
-                                  activePredictionFrameCount, drawWindow.revealFrame, publicationUsingBuildFrames,
-                                  bufferComplete ) )
+        if ( !markerScan.Matches( generation, topologyVersion, markerNodeCount, publicationTargetId, activePredictionFrameCount, drawWindow.revealFrame, publicationUsingBuildFrames, bufferComplete ) )
         {
             bool markerScanComplete = false;
 
             {
                 PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/BuildChildMarkerContext" );
-                markerScanComplete = AdvanceReplayPredictionChildMarkerScan( markerScan, prediction, activePredictionFrames,
+                markerScanComplete = AdvanceReplayPredictionChildMarkerScan( markerScan,
+                                                                             prediction,
+                                                                             activePredictionFrames,
                                                                              activePredictionFrameCount,
-                                                                             drawWindow.revealFrame, generation,
+                                                                             drawWindow.revealFrame,
+                                                                             generation,
                                                                              publicationTargetId,
-                                                                             publicationUsingBuildFrames, bufferComplete,
+                                                                             publicationUsingBuildFrames,
+                                                                             bufferComplete,
                                                                              overlayBudgetStart,
                                                                              request.budgetMilliseconds );
             }
@@ -826,9 +807,7 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, Repla
             {
                 {
                     PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/RetainCausalMarkers" );
-                    RetainReplayPredictionCausalMarkers( prediction, markerScan, drawWindow.revealFrame,
-                                                         bufferComplete ? &activePredictionFrames : nullptr,
-                                                         bufferComplete ? activePredictionFrameCount : 0 );
+                    RetainReplayPredictionCausalMarkers( prediction, markerScan, drawWindow.revealFrame, bufferComplete ? &activePredictionFrames : nullptr, bufferComplete ? horizonFrameCount : 0 );
                     prediction.futureNodeCache.MarkRetainedMarkersChanged();
                 }
             }
@@ -840,15 +819,12 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, Repla
         // Hazard: this uncached phase runs only once the buffer is complete, so
         // it is present exactly on the idle frames an operator is accounting for.
         PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/EndStateMarkers" );
-        RetainReplayPredictionEndStateMarkers( prediction, drawWindow.revealFrame, activePredictionFrames,
-                                               activePredictionFrameCount );
+        RetainReplayPredictionEndStateMarkers( prediction, drawWindow.revealFrame, activePredictionFrames, horizonFrameCount );
     }
 
     if ( committedPublicationPending )
     {
-        (void)TryFlipReplayPredictionCommittedPublication( prediction, publicationTargetId, activePredictionFrameCount,
-                                                           drawWindow.revealFrame, overlayBudgetStart,
-                                                           request.budgetMilliseconds );
+        (void)TryFlipReplayPredictionCommittedPublication( prediction, publicationTargetId, activePredictionFrameCount, drawWindow.revealFrame, overlayBudgetStart, request.budgetMilliseconds );
     }
 }
 

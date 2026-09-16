@@ -92,6 +92,10 @@ def run(session: Path, executable: Path, count: int) -> None:
         records = [values[index * 19:(index + 1) * 19]
                    for span in packet["retainedRanges"]
                    for index in range(span["firstRecord"], span["firstRecord"] + span["recordCount"])]
+        # Expanded heads are drawn too; each ribbon repeats its record six times.
+        for lane in ("expandedRibbonVertices", "priorityExpandedRibbonVertices"):
+            values = packet[lane]["values"]
+            records.extend(values[index:index + 19] for index in range(0, len(values), 6 * 19))
         for lane in ("originalOrdinaryRecords", "originalPriorityRecords"):
             values = packet[lane]["values"]
             records.extend(values[index:index + 19] for index in range(0, len(values), 19))

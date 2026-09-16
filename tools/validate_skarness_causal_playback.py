@@ -161,9 +161,10 @@ def verify_manifold_flash(connection: SkarnessConnection, session: Path) -> None
         result = connection.wait(connection.send(command, arguments))
         assert result.get("status") == "applied", result
 
-    def sample() -> dict:
+    def sample(advance: bool = True) -> dict:
         nonlocal offset
-        send("run.step_frames", count=1)
+        if advance:
+            send("run.step_frames", count=1)
         with (session / "runtime.skarness.ndjson").open(encoding="utf-8") as trace:
             trace.seek(offset)
             for line in trace:
@@ -200,7 +201,9 @@ def verify_manifold_flash(connection: SkarnessConnection, session: Path) -> None
         else:
             raise AssertionError("crossing the selected force frame did not flash")
         send("input.set_arrows", left=False, right=False)
-        current = sample()
+        current = sample(advance=False)
+        # Capture the observed crossing without another command/step round trip:
+        # the 0.4-second flash keeps fading while the client reads state.
         assert current["contactFlashSequence"] == sequence + 1
         assert current["contactFlashAlpha"] > 0.0
         (session / f"contact-flash-{index}.json").write_text(json.dumps(current, indent=2), encoding="utf-8")
@@ -218,7 +221,10 @@ def verify_manifold_flash(connection: SkarnessConnection, session: Path) -> None
         send("capture.screenshot", path=str(faded_path.resolve()))
         with Image.open(flash_path) as flashed, Image.open(faded_path) as settled:
             diff = ImageChops.difference(flashed.convert("RGB"), settled.convert("RGB"))
-            center_x, center_y = diff.width // 2, diff.height // 2
+            # The inspection camera is centered in the scene viewport. Editor
+            # docks can move it well away from the full window's midpoint.
+            x, y, width, height = latest["ui.presentation"]["viewport"]
+            center_x, center_y = round(x + width / 2), round(y + height / 2)
             crop = diff.crop((center_x - 200, center_y - 150, center_x + 200, center_y + 150))
             changed = sum(1 for y in range(crop.height) for x in range(crop.width)
                           if max(crop.getpixel((x, y))) > 40)
@@ -433,7 +439,8 @@ def run(session: Path, executable: Path) -> None:
         radius = vector_distance(orbit["cameraPrimaryEye"], orbit["inspectionPivot"])
         assert abs(radius - vector_distance(before["cameraPrimaryEye"], before["inspectionPivot"])) > 0.01
         send("input.set_arrows", left=False, right=True)
-        send("run.step_frames", count=60)
+        # Exercise transport within the selected contact camera's visible interval.
+        send("run.step_frames", count=20)
         forward = state("forward")
         send("input.set_arrows", left=False, right=False)
         send("capture.screenshot", path=str((session / "forward.png").resolve()))
@@ -444,7 +451,7 @@ def run(session: Path, executable: Path) -> None:
         send("input.set_arrows", left=True, right=True)
         both = state("both")
         send("input.set_arrows", left=True, right=False)
-        send("run.step_frames", count=30)
+        send("run.step_frames", count=10)
         reverse = state("reverse")
         send("input.set_arrows", left=False, right=False)
         stopped = state("stopped")
@@ -452,6 +459,7 @@ def run(session: Path, executable: Path) -> None:
         verify_position_gate(session / "playback.png")
         verify_retained_geometry(session)
         verify_inspector_controls(connection, session)
+        before_exit = state("before-exit")
         send("replay.return_from_cause")
         exited = state("exited")
         send("input.set_arrows", left=True, right=False)
@@ -459,7 +467,7 @@ def run(session: Path, executable: Path) -> None:
         assert forward["causePresentedFrame"] > before["causePresentedFrame"]
         assert held["causePresentedFrame"] == paused["causePresentedFrame"] == both["causePresentedFrame"]
         assert reverse["causePresentedFrame"] < held["causePresentedFrame"]
-        assert exited["presentedReplayFrame"] == stopped["presentedReplayFrame"] == after_exit["presentedReplayFrame"]
+        assert exited["presentedReplayFrame"] == before_exit["presentedReplayFrame"] == after_exit["presentedReplayFrame"]
         assert after_exit["causeInspectionMode"] == 0
         for sample in (forward, paused, held, reverse, stopped):
             assert sample["selectedCausePrimaryId"] == before["selectedCausePrimaryId"]

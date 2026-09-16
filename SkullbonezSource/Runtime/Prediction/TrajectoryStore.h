@@ -120,6 +120,9 @@ struct ReplayTrajectoryStore
     // replacement to committed keys. Non-prediction lanes remain untouched.
     std::size_t CommitPredictionReplacementBank( ReplayPredictionTrajectoryBank replacementBank, uint16_t futureRootBuildBranch, uint16_t firstChildBuildBranch ) noexcept;
 
+    // Reopens the committed future for append, preserving every point and version.
+    void ResumePredictionCommittedBank( uint16_t futureRootBuildBranch, uint16_t firstChildBuildBranch ) noexcept;
+
     // Removes expired published points without replacing the record/version, so
     // the renderer always sees one continuous retained-path publication.
     std::size_t TrimPublishedPointsBeforeFrame( ReplayTrajectoryRecord& record, ReplayFrameIndex firstRetainedFrame ) noexcept;

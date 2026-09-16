@@ -568,7 +568,7 @@ bool EnsureReplayRetainedRangeChunk( ReplayPredictionRetainedGeometry& drawList,
     const bool priority = retainedTrail;
     const std::size_t laneRemaining = priority ? drawList.PriorityCapacityRemaining() : drawList.OrdinaryCapacityRemaining();
 
-    const std::size_t chunkCapacity = (std::min)( REPLAY_RETAINED_RANGE_CHUNK_SEGMENTS, laneRemaining );
+    const std::size_t chunkCapacity = (std::min)( retainedTrail ? REPLAY_RETAINED_RANGE_CHUNK_SEGMENTS : 16u, laneRemaining );
 
     if ( chunkCapacity == 0u )
     {
@@ -2034,27 +2034,17 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
         return update;
     }
 
-    // Invariant: publication growth cannot change path density. The full
-    // horizon fixes the stride before the first retained chunk is emitted, so
-    // later worker prefixes append instead of invalidating earlier geometry.
+    // Space paths keep a fixed geometric error, independent of the requested
+    // horizon. Existing segments remain stable while longer futures append.
+    const bool adaptivePaths = ReplayPredictionPathPresentationShowsAllBodies( prediction.pathPresentation );
     const std::size_t horizonFrameCapacity = static_cast<std::size_t>( std::ceil( prediction.controls.horizonSeconds / static_cast<double>( PHYSICS_FIXED_DT ) ) ) + 1u;
-
-    std::size_t sampleStride = ReplayPredictionPathStrideForSampleCount( (std::max)( prediction.timeline.frames.size(), horizonFrameCapacity ) );
-    if ( ReplayPredictionPathPresentationShowsAllBodies( prediction.pathPresentation ) )
-    {
-        // Reserve a fair number of complete chunks per body before revealing.
-        // Otherwise early bodies consume the arena before later paths appear.
-        const std::size_t bodyCount = (std::max)( std::size_t { 1u }, (std::min)( prediction.timeline.frames.front().bodies.size(), static_cast<std::size_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY ) ) );
-        const std::size_t chunksPerBody = (std::max)( std::size_t { 1u }, PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY / ( bodyCount * REPLAY_RETAINED_RANGE_CHUNK_SEGMENTS ) );
-        const std::size_t segmentsPerBody = chunksPerBody * REPLAY_RETAINED_RANGE_CHUNK_SEGMENTS;
-        sampleStride = (std::max)( sampleStride, ( horizonFrameCapacity - 1u + segmentsPerBody - 1u ) / segmentsPerBody );
-    }
+    const std::size_t sampleStride = adaptivePaths ? 1u : ReplayPredictionPathStrideForSampleCount( (std::max)( prediction.timeline.frames.size(), horizonFrameCapacity ) );
 
     bool reset = !state.valid || state.generation != prediction.timeline.generation || state.targetId.value != presentedTargetId.value || state.colorMode != pathVisualizer.colorMode ||
                  state.velocityPreviewActive != prediction.dragPreview.active || state.velocityPreviewTargetId.value != prediction.dragPreview.targetId.value ||
                  state.usingBuildFrames != prediction.timeline.usingBuildFrames || state.pathPresentation != prediction.pathPresentation ||
                  state.recordCursorCount > prediction.trajectory.records.size() || state.retainedMarkerCount > prediction.markers.retainedMarkers.size() ||
-                 state.baselinePoseCount != prediction.baseline.bodyPoses.size() || state.sampleStride != sampleStride;
+                 state.baselinePoseCount != prediction.baseline.bodyPoses.size() || state.sampleStride != sampleStride || state.revealFrame > prediction.timeline.revealFrame;
 
     const bool publicationUnchanged = IsReplayPredictionDrawListPublicationStable( reset,
                                                                                    state.trajectoryPublicationVersion,
@@ -2209,13 +2199,27 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
 
         for ( ; pointIndex < publishedCount; ++pointIndex )
         {
-            const ReplayTrajectoryPoint& point = record.points[pointIndex];
-
-            if ( !baselineLane && point.frameIndex > prediction.timeline.revealFrame )
+            if ( !baselineLane && record.points[pointIndex].frameIndex > prediction.timeline.revealFrame )
             {
                 break;
             }
 
+            if ( adaptivePaths && !baselineLane )
+            {
+                // Keep the open tail provisional. Commit its previous sample
+                // when the next tick would exceed the chord error, or after two
+                // second. This decision is identical across worker partitions
+                // and horizon edits, including edits at completed endpoints.
+                if ( pointIndex - cursor.lastSelectedPointIndex < 240u && ReplayPredictionPathChordFits( record.points, cursor.lastSelectedPointIndex, pointIndex ) )
+                {
+                    continue;
+                }
+                if ( pointIndex > cursor.lastSelectedPointIndex + 1u )
+                {
+                    --pointIndex;
+                }
+            }
+            const ReplayTrajectoryPoint& point = record.points[pointIndex];
             const bool finalPoint = pointIndex + 1u == publishedCount && prediction.timeline.complete;
             const std::size_t recordStride = baselineLane ? 1u : sampleStride;
 
@@ -2327,7 +2331,8 @@ void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationV
 
     AppendReplayVelocityDragPreview( prediction, pathVisualizer, state, tracer );
 
-    if ( prediction.timeline.complete && prediction.timeline.revealFrame >= prediction.timeline.frames.back().frameIndex )
+    if ( !ReplayPredictionPathPresentationShowsAllBodies( prediction.pathPresentation ) && prediction.timeline.complete &&
+         prediction.timeline.revealFrame >= prediction.timeline.frames.back().frameIndex )
     {
         return;
     }

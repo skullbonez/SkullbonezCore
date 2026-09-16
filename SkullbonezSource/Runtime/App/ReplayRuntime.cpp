@@ -310,12 +310,14 @@ const std::vector<RunReplayPredictionFrame>& ReplayRuntimeTimelinePredictionFram
 {
     if ( prediction.BuildPrefixShouldBePresented() )
     {
-        outFrameCount = prediction.PublishedBuildFrameCount();
+        outFrameCount = (std::min)( prediction.PublishedBuildFrameCount(), prediction.HorizonFrameCount() );
         return prediction.build.buildFrames;
     }
 
     const std::vector<RunReplayPredictionFrame>& frames = ReplayRuntimeActivePredictionFrames( prediction );
-    outFrameCount = prediction.CommittedFrameCount();
+    // The cache may retain a longer solved future for later extension. Timeline
+    // normalization must use the same visible horizon as ActiveFrames().
+    outFrameCount = (std::min)( prediction.CommittedFrameCount(), prediction.HorizonFrameCount() );
     return frames;
 }
 

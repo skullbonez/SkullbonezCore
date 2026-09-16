@@ -124,12 +124,18 @@ ReplayTrajectoryRecord* BeginReplayPastRootTrajectoryRecord( ReplayTrajectorySto
 bool AppendReplayTrajectoryPoint( ReplayTrajectoryStore& store, ReplayTrajectoryRecord& record, ReplayFrameIndex frameIndex, const Math::Vector::Vector3& position );
 const ReplaySolverBodySample* FindReplayBodyByIdWithHint( const ReplaySolverFrameSample& sample, Physics::PhysicsSceneObjectId id, int modelIndex );
 
+bool ReserveReplayPredictionTrajectoryCapacity( RunReplayPredictionState& prediction,
+                                                std::size_t frameCapacity,
+                                                std::size_t bodyCount,
+                                                ReplayPredictionPathPresentation pathPresentation,
+                                                bool reservePublication );
 bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& prediction,
                                              Physics::PhysicsSceneObjectId rootId,
                                              std::size_t frameCapacity,
                                              std::size_t bodyCount,
                                              ReplayPredictionPathPresentation pathPresentation,
                                              bool reservePublication = false );
+bool ResumeReplayPredictionTrajectoryBuild( RunReplayPredictionState& prediction, std::size_t frameCapacity, bool wasBuilding );
 bool PublishReplayPredictionRootTrajectoryFrame( RunReplayPredictionState& prediction, const RunReplayPredictionFrame& frame, std::size_t frameSlot );
 bool PublishReplayPredictionBuildRootTrajectoryPrefix( RunReplayPredictionState& prediction, std::size_t presentedFrameCount );
 bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& prediction );

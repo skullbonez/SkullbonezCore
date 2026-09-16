@@ -171,25 +171,11 @@ void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activati
     {
         const SceneUIOptions& options = activation.authoredOptions;
 
-        if ( !options.hasVisible )
+        // Omitted scene UI settings preserve the operator's restored Tools
+        // state. Explicit authored settings retain their activation policy.
+        if ( !options.hasVisible && options.hasSettings && !ui.IsVisible() )
         {
-            if ( activation.automationScene && !options.hasSettings )
-            {
-                ui.SetVisible( false, activation.nowSeconds );
-            }
-            else if ( !options.hasSettings )
-            {
-                if ( !ui.IsVisible() )
-                {
-                    ui.SetVisible( true, activation.nowSeconds );
-                }
-
-                ui.SetMinimized( true, activation.nowSeconds );
-            }
-            else if ( !ui.IsVisible() )
-            {
-                ui.SetVisible( true, activation.nowSeconds );
-            }
+            ui.SetVisible( true, activation.nowSeconds );
         }
 
         if ( options.hasWindowRect )

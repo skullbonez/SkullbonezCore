@@ -45,13 +45,11 @@ namespace Threading
 template <typename WorkFunctionT> class AmortizedTask
 {
     using WorkResult = std::invoke_result_t<WorkFunctionT&, int, int>;
-    static_assert( std::is_void_v<WorkResult> || std::is_same_v<WorkResult, int>,
-                   "AmortizedTask work must return void or a completed-prefix int." );
+    static_assert( std::is_void_v<WorkResult> || std::is_same_v<WorkResult, int>, "AmortizedTask work must return void or a completed-prefix int." );
 
   public:
     AmortizedTask( int totalItems, int itemsPerTick, WorkFunctionT work )
-        : m_totalItems( (std::max)( 0, totalItems ) ), m_itemsPerTick( (std::max)( 1, itemsPerTick ) ), m_cursor( 0 ),
-          m_complete( totalItems <= 0 ), m_inFlight( false ), m_work( std::move( work ) )
+        : m_totalItems( (std::max)( 0, totalItems ) ), m_itemsPerTick( (std::max)( 1, itemsPerTick ) ), m_cursor( 0 ), m_complete( totalItems <= 0 ), m_inFlight( false ), m_work( std::move( work ) )
     {
     }
 
@@ -104,6 +102,20 @@ template <typename WorkFunctionT> class AmortizedTask
 
         m_cursor.store( 0, std::memory_order_release );
         m_complete.store( m_totalItems <= 0, std::memory_order_release );
+        return true;
+    }
+
+    // Retarget an idle task without replaying its completed prefix. A shorter
+    // limit pauses at the current cursor; later growth resumes from that cursor.
+    bool Retarget( int totalItems )
+    {
+        if ( IsInFlight() )
+        {
+            return false;
+        }
+
+        m_totalItems = (std::max)( 0, totalItems );
+        m_complete.store( m_cursor.load( std::memory_order_acquire ) >= m_totalItems, std::memory_order_release );
         return true;
     }
 

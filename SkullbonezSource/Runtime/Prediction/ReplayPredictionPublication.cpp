@@ -290,6 +290,34 @@ uint16_t ReplayPredictionChildTrajectoryBranch( std::size_t nodeIndex, bool usin
     return static_cast<uint16_t>( (std::min)( branchBase + nodeIndex, static_cast<std::size_t>( ( std::numeric_limits<uint16_t>::max )() ) ) );
 }
 
+bool ReserveReplayPredictionTrajectoryCapacity( RunReplayPredictionState& prediction,
+                                                std::size_t frameCapacity,
+                                                std::size_t bodyCount,
+                                                ReplayPredictionPathPresentation pathPresentation,
+                                                bool reservePublication )
+{
+    const std::size_t recordCapacity = (std::max)( prediction.trajectoryStore.RecordCount(), ReplayPredictionTrajectoryRecordCapacity( bodyCount ) );
+
+    if ( !prediction.trajectoryStore.ReserveRecords( recordCapacity, 0 ) )
+    {
+        return false;
+    }
+
+    // Why: optional solver evidence can consume the shared budget while a
+    // worker runs. Reserve both path banks before that capture starts so a
+    // completed future can always finish its root and child publication.
+    // Each causal body needs incoming/outgoing records in both banks. Reserve
+    // the additional all-body lanes only for a presentation that consumes them.
+    const std::size_t recordsPerBody = ReplayPredictionPathPresentationShowsAllBodies( pathPresentation ) ? 6u : 4u;
+    const std::size_t publicationRecords = 2u + REPLAY_PATH_MAX_ROOT_TARGETS + (std::min)( bodyCount, REPLAY_PATH_MAX_FUTURE_NODES ) * recordsPerBody;
+    if ( reservePublication && !prediction.trajectoryStore.ReservePointCapacity( publicationRecords, frameCapacity ) )
+    {
+        return false;
+    }
+
+    return true;
+}
+
 bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& prediction,
                                              Physics::PhysicsSceneObjectId rootId,
                                              std::size_t frameCapacity,
@@ -305,20 +333,7 @@ bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& predictio
         return true;
     }
 
-    const std::size_t recordCapacity = (std::max)( prediction.trajectoryStore.RecordCount(), ReplayPredictionTrajectoryRecordCapacity( bodyCount ) );
-
-    if ( !prediction.trajectoryStore.ReserveRecords( recordCapacity, 0 ) )
-    {
-        return false;
-    }
-
-    // Why: optional solver evidence can consume the shared budget while a
-    // worker runs. Reserve both path banks before that capture starts so a
-    // completed future can always finish its root and child publication.
-    // Each causal node has a unique body ID; six records per visible body cover
-    // incoming/outgoing and all-body paths in both banks, plus root/past slots.
-    const std::size_t publicationRecords = 2u + REPLAY_PATH_MAX_ROOT_TARGETS + (std::min)( bodyCount, REPLAY_PATH_MAX_FUTURE_NODES ) * 6u;
-    if ( reservePublication && !prediction.trajectoryStore.ReservePointCapacity( publicationRecords, frameCapacity ) )
+    if ( !ReserveReplayPredictionTrajectoryCapacity( prediction, frameCapacity, bodyCount, pathPresentation, reservePublication ) )
     {
         return false;
     }
@@ -345,6 +360,27 @@ bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& predictio
     prediction.trajectoryBuild.rootId = rootId;
     prediction.trajectoryBuild.usingBuildFrames = true;
     prediction.trajectoryBuild.valid = true;
+    return true;
+}
+
+bool ResumeReplayPredictionTrajectoryBuild( RunReplayPredictionState& prediction, std::size_t frameCapacity, bool wasBuilding )
+{
+    if ( !wasBuilding )
+    {
+        prediction.trajectoryStore.ResumePredictionCommittedBank( REPLAY_TRAJECTORY_BUILD_BRANCH, static_cast<uint16_t>( REPLAY_PATH_MAX_FUTURE_NODES ) );
+        prediction.trajectoryBuild.usingBuildFrames = true;
+        prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = true;
+    }
+
+    // Lifetime: the joined worker resumes the same root and all-body records.
+    // Only the root uses indexed writes; other lanes append at their preserved
+    // cursors. No visible prefix is cleared or rediscovered for a horizon edit.
+    ReplayTrajectoryRecord* rootRecord = prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( prediction.simulation.targetId, ReplayTrajectoryLane::FutureRoot, REPLAY_TRAJECTORY_BUILD_BRANCH ) );
+    if ( !rootRecord || rootRecord->points.capacity() < frameCapacity )
+    {
+        return false;
+    }
+    rootRecord->points.resize( frameCapacity );
     return true;
 }
 

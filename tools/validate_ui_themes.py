@@ -51,12 +51,14 @@ def run(root: Path) -> None:
             deadline = time.monotonic() + .2
             while time.monotonic() < deadline:
                 send('run.step_frames', count=3)
-            with (directory/'runtime.skarness.ndjson').open() as stream:
+            with (directory/'runtime.skarness.ndjson').open('rb') as stream:
                 stream.seek(offset)
                 for line in stream:
+                    if not line.endswith(b'\n'):
+                        break
+                    offset += len(line)
                     row = json.loads(line)
                     if 'topic' in row: latest[row['topic']] = row['payload']
-                offset = stream.tell()
             (directory/(name+'.json')).write_text(json.dumps(latest, indent=2))
             return latest['ui.presentation']
         def click(x: float, y: float) -> None:
@@ -84,7 +86,7 @@ def run(root: Path) -> None:
             send('state.subscribe', topics=[], detail='normal')
             ui = sample('initial')
             assert ui['theme'] == expected and ui['layout'] == 'Editor' and ui['activeTool'] == 4, ui
-            assert not ui['toolsVisible']
+            assert ui['toolsVisible'] == (label not in ('live', 'version-4-summary-defaults'))
             if not exercise:
                 capture('restored')
                 if label == 'reload':
@@ -140,11 +142,11 @@ def run(root: Path) -> None:
     session('live', 0, True)
     saved = prefs.read_text()
     assert 'folded 7\n' in saved, saved
-    assert 'version 5\n' in saved and 'theme 2\n' in saved and 'drawer 480\n' in saved, saved
+    assert 'version 6\n' in saved and 'theme 2\n' in saved and 'drawer 480\n' in saved, saved
     session('reload', 2)
-    prefs.write_text(saved.replace('version 5', 'version 4').replace('folded 7\n', 'folded 0\n'))
+    prefs.write_text(saved.replace('version 6', 'version 4').replace('toolsOpen 1\n', '').replace('folded 7\n', 'folded 0\n'))
     session('version-4-summary-defaults', 2)
-    assert 'version 5\n' in prefs.read_text() and 'folded 7\n' in prefs.read_text()
+    assert 'version 6\n' in prefs.read_text() and 'folded 7\n' in prefs.read_text()
     prefs.write_text(saved.replace('folded 7\n', 'folded 0\n'))
     session('current-summary-choice', 2)
     assert 'folded 0\n' in prefs.read_text()
