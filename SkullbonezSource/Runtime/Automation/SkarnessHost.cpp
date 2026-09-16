@@ -453,6 +453,16 @@ CommandParseStatus ParseValueCommand( const std::string& name, const Json& argum
         const bool valid = ReadNumber( arguments, "seconds", command.number ) && command.number >= 0 && ReadBoolean( arguments, "enabled", command.enabled );
         return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
     }
+    if ( name == "window.set_maximized" )
+    {
+        command.type = SkarnessCommandType::WindowSetMaximized;
+        return ReadBoolean( arguments, "maximized", command.enabled ) ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+    if ( name == "window.close" )
+    {
+        command.type = SkarnessCommandType::WindowClose;
+        return CommandParseStatus::Valid;
+    }
     if ( name == "window.resize" )
     {
         command.type = SkarnessCommandType::WindowResize;

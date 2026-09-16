@@ -251,6 +251,13 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
         routedFrame.middleDown = false;
     }
 
+    // Hazard: a completed camera or tool drag must not retain HWND capture and
+    // redirect later title-bar clicks into the client. Continuous free-look
+    // may renew its capture request later in this same input turn.
+    if ( !routedFrame.leftDown && !routedFrame.rightDown && !routedFrame.middleDown )
+    {
+        ReleaseNativeCapture();
+    }
     m_deviceFrame = routedFrame;
     if ( !routedFrame.appFocused || !routedFrame.leftDown )
     {

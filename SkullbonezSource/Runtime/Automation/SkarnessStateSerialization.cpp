@@ -105,7 +105,10 @@ Json BuildSelection( const SkarnessFrameState& state )
 
 Json BuildInput( const SkarnessFrameState& state )
 {
-    return { { "captureEnabled", state.replayCaptureEnabled },
+    return { { "nativeCaptureRequested", state.nativeCaptureRequested },
+             { "nativeMouseCaptured", state.nativeMouseCaptured },
+             { "windowMaximized", state.windowMaximized },
+             { "captureEnabled", state.replayCaptureEnabled },
              { "scrubPaused", state.replayScrubPaused },
              { "playbackPaused", state.replayPlaybackPaused },
              { "predictionEnabled", state.predictionEnabled },

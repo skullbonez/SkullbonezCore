@@ -1251,6 +1251,14 @@ void Run::ApplySkarnessSceneLifecycleCommand( const SkarnessCommand& command, Sk
         application.applied = true;
         return;
     }
+    case SkarnessCommandType::WindowSetMaximized:
+        application.applied = PostMessage( m_window.NativeWindowHandle(), WM_SYSCOMMAND, command.enabled ? SC_MAXIMIZE : SC_RESTORE, 0 ) != FALSE;
+        application.reason = application.applied ? nullptr : "native window rejected system command";
+        return;
+    case SkarnessCommandType::WindowClose:
+        application.applied = PostMessage( m_window.NativeWindowHandle(), WM_SYSCOMMAND, SC_CLOSE, 0 ) != FALSE;
+        application.reason = application.applied ? nullptr : "native window rejected close command";
+        return;
     case SkarnessCommandType::WindowResize:
         application.applied = m_window.RequestClientSize( command.integer, command.secondInteger );
         application.reason = application.applied ? nullptr : "native window rejected client resize";

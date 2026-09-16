@@ -55,6 +55,8 @@ enum class SkarnessCommandType : uint8_t
 {
     CaptureScreenshot,
     WindowResize,
+    WindowSetMaximized,
+    WindowClose,
     UiAnimationClock,
     PhysicsSpeculativeValidation,
     EditorSetTerrainBrush,
@@ -270,6 +272,8 @@ inline constexpr std::array SKARNESS_CAPABILITIES = { SkarnessCapability { "edit
                                                       SkarnessCapability { "session.stop", "Automation", "{}" },
                                                       SkarnessCapability { "capture.screenshot", "Capture", "{path:string}" },
                                                       SkarnessCapability { "window.resize", "Startup", "{width:int[320..8192],height:int[240..8192]}" },
+                                                      SkarnessCapability { "window.set_maximized", "Startup", "{maximized:bool}" },
+                                                      SkarnessCapability { "window.close", "Startup", "{}" },
                                                       SkarnessCapability { "scene.load", "Scene", "{name:string}|{path:string}" },
                                                       SkarnessCapability { "scene.reset", "Scene", "{}" },
                                                       SkarnessCapability { "scene.load_demo", "Scene", "{}" },
@@ -542,6 +546,9 @@ struct SkarnessFrameState
     int sceneManualResetCount = 0;
     double simulationSeconds = 0.0;
     bool paused = true;
+    bool nativeCaptureRequested = false;
+    bool nativeMouseCaptured = false;
+    bool windowMaximized = false;
     bool replayCaptureEnabled = false;
     bool replayScrubPaused = false;
     bool replayPlaybackPaused = false;
