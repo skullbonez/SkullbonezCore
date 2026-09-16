@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name rock_slab_flat
 source_hash 0xdced04db48a29d35
 
@@ -39,7 +39,8 @@ default_density 0.9
 default_mass 1764.045
 bounding_radius 15.8496603
 inertia_half_extents 15 3 10
-unit_inertia 36.3333333 108.333333 78
+unit_inertia 20.9969224 58.9753521 43.7837027
+unit_inertia_products -0.348046118 -1.46129251 -0.131348356
 projected_surface_area 300
 
 # Baked centered vertices.

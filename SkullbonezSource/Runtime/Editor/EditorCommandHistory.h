@@ -94,6 +94,7 @@ struct EditorPrimitiveBodySnapshot
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rotationalInertiaProducts = Math::Vector::ZERO_VECTOR;
     float mass = 0.0f;
     float boundingRadius = 0.0f;
     float volume = 0.0f;

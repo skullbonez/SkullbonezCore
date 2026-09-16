@@ -146,8 +146,7 @@ const ColliderRecord* ColliderRecordForModelIndex( const ColliderStore& collider
 // Boxes and hulls should be lifted only by their deepest actual vertex
 // penetration. A center-height clamp would make tilted or uneven-terrain bodies
 // visibly float and would change the deterministic physics baseline.
-std::optional<float> FindClosestBoxTerrainGap( SkullbonezCore::Core::Profiler*, const PhysicsTerrainView& terrain,
-                                               const PhysicsBodyHotState& hot, const BoundingBox& box )
+std::optional<float> FindClosestBoxTerrainGap( SkullbonezCore::Core::Profiler*, const PhysicsTerrainView& terrain, const PhysicsBodyHotState& hot, const BoundingBox& box )
 {
     PROFILE_SCOPED( "Frame/Physics/Terrain/BoxClosestVertexProbe" );
 
@@ -186,8 +185,7 @@ std::optional<float> FindClosestBoxTerrainGap( SkullbonezCore::Core::Profiler*, 
     return bestGap;
 }
 
-std::optional<float> FindClosestHullTerrainGap( SkullbonezCore::Core::Profiler*, const PhysicsTerrainView& terrain,
-                                                const PhysicsBodyHotState& hot, const ConvexHullShape& hull )
+std::optional<float> FindClosestHullTerrainGap( SkullbonezCore::Core::Profiler*, const PhysicsTerrainView& terrain, const PhysicsBodyHotState& hot, const ConvexHullShape& hull )
 {
     PROFILE_SCOPED( "Frame/Physics/Terrain/HullClosestVertexProbe" );
 
@@ -226,8 +224,7 @@ std::optional<float> FindClosestHullTerrainGap( SkullbonezCore::Core::Profiler*,
     return bestGap;
 }
 
-void ClampBodyToTerrainSurface( SkullbonezCore::Core::Profiler* profiler, const PhysicsTerrainView& terrain,
-                                PhysicsBodyHotState& hot, const ColliderRecord& collider )
+void ClampBodyToTerrainSurface( SkullbonezCore::Core::Profiler* profiler, const PhysicsTerrainView& terrain, PhysicsBodyHotState& hot, const ColliderRecord& collider )
 {
     if ( !terrain.IsValid() )
     {
@@ -241,8 +238,7 @@ void ClampBodyToTerrainSurface( SkullbonezCore::Core::Profiler* profiler, const 
 
     if ( HoldsShape<BoundingBox>( collider.shape ) )
     {
-        const std::optional<float> gap = FindClosestBoxTerrainGap( profiler, terrain, hot,
-                                                                   *GetShapeIf<BoundingBox>( &collider.shape ) );
+        const std::optional<float> gap = FindClosestBoxTerrainGap( profiler, terrain, hot, *GetShapeIf<BoundingBox>( &collider.shape ) );
 
         if ( gap && *gap < 0.0f )
         {
@@ -254,8 +250,7 @@ void ClampBodyToTerrainSurface( SkullbonezCore::Core::Profiler* profiler, const 
 
     if ( HoldsShape<ConvexHullShape>( collider.shape ) )
     {
-        const std::optional<float> gap = FindClosestHullTerrainGap( profiler, terrain, hot,
-                                                                    *GetShapeIf<ConvexHullShape>( &collider.shape ) );
+        const std::optional<float> gap = FindClosestHullTerrainGap( profiler, terrain, hot, *GetShapeIf<ConvexHullShape>( &collider.shape ) );
 
         if ( gap && *gap < 0.0f )
         {
@@ -280,8 +275,7 @@ uint32_t NextHandleGeneration( uint32_t generation )
     return generation == 0u ? PHYSICS_HANDLE_INITIAL_GENERATION : generation;
 }
 
-void CapturePreservedRefreshState( const PhysicsBodyRecordList& bodies, const PhysicsBodyHotFieldsConstView& hotFields,
-                                   std::size_t handleSlotCount, PreservedRefreshStateList& preserved )
+void CapturePreservedRefreshState( const PhysicsBodyRecordList& bodies, const PhysicsBodyHotFieldsConstView& hotFields, std::size_t handleSlotCount, PreservedRefreshStateList& preserved )
 {
     preserved.clear();
     preserved.resize( handleSlotCount );
@@ -317,8 +311,7 @@ const PreservedRefreshState* PreservedStateForHandle( const PreservedRefreshStat
 
 void ThrottleAngularVelocity( const PhysicsBodyRecord& record, PhysicsBodyHotState& hot )
 {
-    const float magSq = hot.angularVelocity.x * hot.angularVelocity.x + hot.angularVelocity.y * hot.angularVelocity.y +
-                        hot.angularVelocity.z * hot.angularVelocity.z;
+    const float magSq = hot.angularVelocity.x * hot.angularVelocity.x + hot.angularVelocity.y * hot.angularVelocity.y + hot.angularVelocity.z * hot.angularVelocity.z;
 
     const float limitSq = record.angularVelocityLimit * record.angularVelocityLimit;
 
@@ -342,28 +335,35 @@ float ClampAngularDragTorqueAxis( float torque, float angularVelocity, float ine
     return (std::clamp)( torque, -maxDampingTorque, maxDampingTorque );
 }
 
-Vector3 ClampAngularDragTorque( const PhysicsBodyRecord& record, const PhysicsBodyHotState& hot, const Vector3& worldTorque,
-                                float deltaSeconds )
+Vector3 ClampAngularDragTorque( const PhysicsBodyRecord& record, const PhysicsBodyHotState& hot, const Vector3& worldTorque, float deltaSeconds )
 {
+    const SkullbonezCore::Math::Transformation::SymmetricMatrix3 inverse( hot.inverseRotationalInertia, hot.inverseRotationalInertiaProducts );
+    if ( !inverse.IsDiagonal() && deltaSeconds > 0.0f )
+    {
+        const RotationMatrix rotation = hot.orientation.GetOrientationMatrix();
+        const Vector3 omega = record.usesWorldInertia ? rotation.TransposeMultiply( hot.angularVelocity ) : hot.angularVelocity;
+        const Vector3 torque = record.usesWorldInertia ? rotation.TransposeMultiply( worldTorque ) : worldTorque;
+        const float power = Dot( omega, torque );
+        const float curvature = deltaSeconds * Dot( torque, inverse * torque );
+        // Limit damping at the minimum of rotational kinetic energy along this
+        // torque. Independent axis clamps are incorrect for coupled inertia.
+        if ( power >= 0.0f )
+        {
+            return ZERO_VECTOR;
+        }
+        const float fraction = curvature > 0.0f ? (std::min)( 1.0f, -power / curvature ) : 1.0f;
+        return worldTorque * fraction;
+    }
+
     if ( !record.usesWorldInertia )
     {
-        return Vector3( ClampAngularDragTorqueAxis( worldTorque.x, hot.angularVelocity.x, record.rotationalInertia.x,
-                                                    deltaSeconds ),
-                        ClampAngularDragTorqueAxis( worldTorque.y, hot.angularVelocity.y, record.rotationalInertia.y,
-                                                    deltaSeconds ),
-                        ClampAngularDragTorqueAxis( worldTorque.z, hot.angularVelocity.z, record.rotationalInertia.z,
-                                                    deltaSeconds ) );
+        return Vector3( ClampAngularDragTorqueAxis( worldTorque.x, hot.angularVelocity.x, record.rotationalInertia.x, deltaSeconds ), ClampAngularDragTorqueAxis( worldTorque.y, hot.angularVelocity.y, record.rotationalInertia.y, deltaSeconds ), ClampAngularDragTorqueAxis( worldTorque.z, hot.angularVelocity.z, record.rotationalInertia.z, deltaSeconds ) );
     }
 
     const RotationMatrix rotation = hot.orientation.GetOrientationMatrix();
     const Vector3 bodyAngularVelocity = rotation.TransposeMultiply( hot.angularVelocity );
     const Vector3 bodyTorque = rotation.TransposeMultiply( worldTorque );
-    const Vector3 clampedBodyTorque( ClampAngularDragTorqueAxis( bodyTorque.x, bodyAngularVelocity.x,
-                                                                 record.rotationalInertia.x, deltaSeconds ),
-                                     ClampAngularDragTorqueAxis( bodyTorque.y, bodyAngularVelocity.y,
-                                                                 record.rotationalInertia.y, deltaSeconds ),
-                                     ClampAngularDragTorqueAxis( bodyTorque.z, bodyAngularVelocity.z,
-                                                                 record.rotationalInertia.z, deltaSeconds ) );
+    const Vector3 clampedBodyTorque( ClampAngularDragTorqueAxis( bodyTorque.x, bodyAngularVelocity.x, record.rotationalInertia.x, deltaSeconds ), ClampAngularDragTorqueAxis( bodyTorque.y, bodyAngularVelocity.y, record.rotationalInertia.y, deltaSeconds ), ClampAngularDragTorqueAxis( bodyTorque.z, bodyAngularVelocity.z, record.rotationalInertia.z, deltaSeconds ) );
 
     // Invariant: the no-clamp path returns the original world value so the
     // body/world round trip cannot perturb an otherwise unaffected artifact.
@@ -387,8 +387,7 @@ float CalculateBuoyancyForce( const PhysicsWorldForces& worldForces, float subme
     return worldForces.gravity * worldForces.fluidDensity * submergedObjectVolume * -1.0f;
 }
 
-Vector3 CalculateViscousDrag( const PhysicsWorldForces& worldForces, Vector3 velocityVector, float submergedVolumePercent,
-                              float dragCoefficient, float projectedSurfaceArea )
+Vector3 CalculateViscousDrag( const PhysicsWorldForces& worldForces, Vector3 velocityVector, float submergedVolumePercent, float dragCoefficient, float projectedSurfaceArea )
 {
     if ( velocityVector.IsCloseToZero() )
     {
@@ -398,14 +397,11 @@ Vector3 CalculateViscousDrag( const PhysicsWorldForces& worldForces, Vector3 vel
     const float distanceSquared = VectorMagSquared( velocityVector );
     velocityVector.Normalise();
     velocityVector *= -1.0f;
-    return velocityVector * 0.5f *
-           ( ( worldForces.gasDensity * ( 1.0f - submergedVolumePercent ) ) +
-             ( worldForces.fluidDensity * submergedVolumePercent ) ) *
-           distanceSquared * dragCoefficient * projectedSurfaceArea;
+    return velocityVector * 0.5f * ( ( worldForces.gasDensity * ( 1.0f - submergedVolumePercent ) ) + ( worldForces.fluidDensity * submergedVolumePercent ) ) * distanceSquared * dragCoefficient *
+           projectedSurfaceArea;
 }
 
-float TerrainWaterScale( const PhysicsTerrainView& terrain, const PhysicsWorldForces& worldForces, const Vector3& worldPoint,
-                         float sampleBand )
+float TerrainWaterScale( const PhysicsTerrainView& terrain, const PhysicsWorldForces& worldForces, const Vector3& worldPoint, float sampleBand )
 {
     if ( !terrain.IsValid() || !terrain.IsInBounds( worldPoint.x, worldPoint.z ) )
     {
@@ -429,8 +425,7 @@ float TerrainWaterScale( const PhysicsTerrainView& terrain, const PhysicsWorldFo
     return (std::clamp)( clearanceAboveTerrain / (std::max)( sampleBand, TOLERANCE ), 0.0f, 1.0f );
 }
 
-PhysicsBuoyancySample CalculateBuoyancySample( const PhysicsBodyHotState& hot, const ColliderRecord& collider,
-                                               const PhysicsTerrainView& terrain, const PhysicsWorldForces& worldForces )
+PhysicsBuoyancySample CalculateBuoyancySample( const PhysicsBodyHotState& hot, const ColliderRecord& collider, const PhysicsTerrainView& terrain, const PhysicsWorldForces& worldForces )
 {
     const Vector3 bodyPosition = hot.position;
     auto orientation = hot.orientation;
@@ -496,14 +491,11 @@ PhysicsBuoyancySample CalculateBuoyancySample( const PhysicsBodyHotState& hot, c
             {
                 for ( float sz : SAMPLE_COORDS )
                 {
-                    const Vector3 local = localCenter +
-                                          Vector3( halfExtents.x * sx, halfExtents.y * sy, halfExtents.z * sz );
+                    const Vector3 local = localCenter + Vector3( halfExtents.x * sx, halfExtents.y * sy, halfExtents.z * sz );
 
                     const Vector3 worldPoint = bodyPosition + ( rotMat * local );
                     const float depth = worldForces.fluidSurfaceHeight - worldPoint.y;
-                    const float waterWetness = worldForces.fluidSurfaceHeight >= center.y + verticalExtent
-                                                   ? 1.0f
-                                                   : (std::clamp)( 0.5f + depth / sampleBand, 0.0f, 1.0f );
+                    const float waterWetness = worldForces.fluidSurfaceHeight >= center.y + verticalExtent ? 1.0f : (std::clamp)( 0.5f + depth / sampleBand, 0.0f, 1.0f );
 
                     const float wetness = waterWetness * TerrainWaterScale( terrain, worldForces, worldPoint, sampleBand );
 
@@ -515,8 +507,7 @@ PhysicsBuoyancySample CalculateBuoyancySample( const PhysicsBodyHotState& hot, c
         finishWeightedSample( weightedSum, wetWeight, center );
     };
 
-    VisitCollisionShape( collider.shape,
-                         [&]( const auto& shape )
+    VisitCollisionShape( collider.shape, [&]( const auto& shape )
                          {
                              using ShapeT = std::decay_t<decltype( shape )>;
 
@@ -540,11 +531,7 @@ PhysicsBuoyancySample CalculateBuoyancySample( const PhysicsBodyHotState& hot, c
                                  }
 
                                  const float yValue = fluidHeightRelativeToCenter + radius;
-                                 sample.submergedVolumePercent = (std::clamp)( ( ONE_OVER_THREE * _PI *
-                                                                                 ( ( 3.0f * radius ) - yValue ) * yValue *
-                                                                                 yValue ) /
-                                                                                   shape.GetVolume(),
-                                                                               0.0f, 1.0f );
+                                 sample.submergedVolumePercent = (std::clamp)( ( ONE_OVER_THREE * _PI * ( ( 3.0f * radius ) - yValue ) * yValue * yValue ) / shape.GetVolume(), 0.0f, 1.0f );
                              }
                              else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
                              {
@@ -559,8 +546,10 @@ PhysicsBuoyancySample CalculateBuoyancySample( const PhysicsBodyHotState& hot, c
     return sample;
 }
 
-float CalculateTerrainSupportFactor( const BuoyancyBodyFacts& buoyancyFacts, const PhysicsBodyHotState& hot,
-                                     const ColliderRecord& collider, const PhysicsTerrainView& terrain,
+float CalculateTerrainSupportFactor( const BuoyancyBodyFacts& buoyancyFacts,
+                                     const PhysicsBodyHotState& hot,
+                                     const ColliderRecord& collider,
+                                     const PhysicsTerrainView& terrain,
                                      const RotationMatrix& rotMat )
 {
     if ( !terrain.IsValid() )
@@ -572,8 +561,7 @@ float CalculateTerrainSupportFactor( const BuoyancyBodyFacts& buoyancyFacts, con
     int terrainSamples = 0;
     const Vector3 position = hot.position;
     const float supportGap = buoyancyFacts.contactEpsilon + SkullbonezCore::Physics::BOX_TERRAIN_VERTEX_SUPPORT_SLACK;
-    VisitCollisionShape( collider.shape,
-                         [&]( const auto& shape )
+    VisitCollisionShape( collider.shape, [&]( const auto& shape )
                          {
                              using ShapeT = std::decay_t<decltype( shape )>;
 
@@ -587,9 +575,7 @@ float CalculateTerrainSupportFactor( const BuoyancyBodyFacts& buoyancyFacts, con
 
                                  for ( int corner = 0; corner < 8; ++corner )
                                  {
-                                     const Vector3 local = shape.GetPosition() +
-                                                           SkullbonezCore::Physics::GetBoxTerrainLocalCorner( halfExtents,
-                                                                                                              corner );
+                                     const Vector3 local = shape.GetPosition() + SkullbonezCore::Physics::GetBoxTerrainLocalCorner( halfExtents, corner );
 
                                      const Vector3 worldPoint = position + ( rotMat * local );
 
@@ -640,13 +626,16 @@ float CalculateTerrainSupportFactor( const BuoyancyBodyFacts& buoyancyFacts, con
     return (std::clamp)( static_cast<float>( closeSamples ) / 3.0f, 0.0f, 1.0f );
 }
 
-Vector3 CalculateBuoyancyRightingTorque( const PhysicsBodyRecord& record, const BuoyancyBodyFacts& buoyancyFacts,
-                                         const PhysicsBodyHotState& hot, const ColliderRecord& collider,
-                                         const PhysicsTerrainView& terrain, const PhysicsWorldForces& worldForces,
-                                         float buoyancyForce, float submergedVolumePercent )
+Vector3 CalculateBuoyancyRightingTorque( const PhysicsBodyRecord& record,
+                                         const BuoyancyBodyFacts& buoyancyFacts,
+                                         const PhysicsBodyHotState& hot,
+                                         const ColliderRecord& collider,
+                                         const PhysicsTerrainView& terrain,
+                                         const PhysicsWorldForces& worldForces,
+                                         float buoyancyForce,
+                                         float submergedVolumePercent )
 {
-    if ( hot.fixed || collider.shapeKind == ColliderShapeKind::Sphere || buoyancyForce <= TOLERANCE ||
-         submergedVolumePercent <= TOLERANCE )
+    if ( hot.fixed || collider.shapeKind == ColliderShapeKind::Sphere || buoyancyForce <= TOLERANCE || submergedVolumePercent <= TOLERANCE )
     {
         return ZERO_VECTOR;
     }
@@ -673,8 +662,7 @@ Vector3 CalculateBuoyancyRightingTorque( const PhysicsBodyRecord& record, const 
     const RotationMatrix rotMat = orientation.GetOrientationMatrix();
     Vector3 stableHalfExtents( 1.0f, 1.0f, 1.0f );
     bool hasStableHalfExtents = false;
-    VisitCollisionShape( collider.shape,
-                         [&]( const auto& shape )
+    VisitCollisionShape( collider.shape, [&]( const auto& shape )
                          {
                              using ShapeT = std::decay_t<decltype( shape )>;
 
@@ -710,11 +698,7 @@ Vector3 CalculateBuoyancyRightingTorque( const PhysicsBodyRecord& record, const 
 
     Vector3 stableWorldAxis = ZERO_VECTOR;
     float bestAxisScore = -1.0f;
-    const Vector3 localAxes[3] = {
-        Vector3( 1.0f, 0.0f, 0.0f ),
-        Vector3( 0.0f, 1.0f, 0.0f ),
-        Vector3( 0.0f, 0.0f, 1.0f ),
-    };
+    const Vector3 localAxes[3] = { Vector3( 1.0f, 0.0f, 0.0f ), Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, 0.0f, 1.0f ), };
 
     const float localInertia[3] = { inertia.x, inertia.y, inertia.z };
 
@@ -784,8 +768,7 @@ Vector3 CalculateBuoyancyRightingTorque( const PhysicsBodyRecord& record, const 
     return correctionAxis * torqueMagnitude;
 }
 
-void ApplyWorldImpulse( const PhysicsBodyRecord& record, PhysicsBodyHotState& hot, const Vector3& worldImpulse,
-                        const Vector3& worldTorqueImpulse )
+void ApplyWorldImpulse( const PhysicsBodyRecord& record, PhysicsBodyHotState& hot, const Vector3& worldImpulse, const Vector3& worldTorqueImpulse )
 {
     // Why: malformed zero mass/inertia is caller-reachable authored data, not
     // fatal invariant. On failure the invalid component absorbs the impulse, and no
@@ -800,7 +783,20 @@ void ApplyWorldImpulse( const PhysicsBodyRecord& record, PhysicsBodyHotState& ho
     const RotationMatrix orientation = hot.orientation.GetOrientationMatrix();
     Vector3 angularImpulseDelta;
     const auto tryDivideByBodyInertia = [&]( const Vector3& bodyImpulse, Vector3& outBodyDelta )
-    { return bodyImpulse.TryDivided( record.rotationalInertia, outBodyDelta ); };
+    {
+        const SkullbonezCore::Math::Transformation::SymmetricMatrix3 inertia( record.rotationalInertia, record.rotationalInertiaProducts );
+        if ( inertia.IsDiagonal() )
+        {
+            return bodyImpulse.TryDivided( record.rotationalInertia, outBodyDelta );
+        }
+        SkullbonezCore::Math::Transformation::SymmetricMatrix3 inverse;
+        if ( !inertia.TryInversePositiveDefinite( inverse ) )
+        {
+            return false;
+        }
+        outBodyDelta = inverse * bodyImpulse;
+        return true;
+    };
 
     // Invariant: the world-force path historically rotates every shape. Passing
     // true preserves its byte-exact baseline arithmetic while sharing the frame
@@ -834,10 +830,22 @@ void ApplyPendingImpulse( PhysicsBodyRecord& record, PhysicsBodyHotState& hot )
     Vector3 angularImpulseDelta;
     const RotationMatrix orientation = hot.orientation.GetOrientationMatrix();
     const auto tryDivideByBodyInertia = [&]( const Vector3& bodyImpulse, Vector3& outBodyDelta )
-    { return bodyImpulse.TryDivided( record.rotationalInertia, outBodyDelta ); };
+    {
+        const SkullbonezCore::Math::Transformation::SymmetricMatrix3 inertia( record.rotationalInertia, record.rotationalInertiaProducts );
+        if ( inertia.IsDiagonal() )
+        {
+            return bodyImpulse.TryDivided( record.rotationalInertia, outBodyDelta );
+        }
+        SkullbonezCore::Math::Transformation::SymmetricMatrix3 inverse;
+        if ( !inertia.TryInversePositiveDefinite( inverse ) )
+        {
+            return false;
+        }
+        outBodyDelta = inverse * bodyImpulse;
+        return true;
+    };
 
-    if ( TryApplyWorldInertiaResponse( orientation, record.usesWorldInertia, worldTorqueImpulse, tryDivideByBodyInertia,
-                                       angularImpulseDelta ) )
+    if ( TryApplyWorldInertiaResponse( orientation, record.usesWorldInertia, worldTorqueImpulse, tryDivideByBodyInertia, angularImpulseDelta ) )
     {
         hot.angularVelocity += angularImpulseDelta;
     }
@@ -853,9 +861,13 @@ void ApplyPendingImpulse( PhysicsBodyRecord& record, PhysicsBodyHotState& hot )
 // and PhysicsWorldForces carries scene-wide fluid/gravity scalars. Keeping all
 // force math here prevents hot physics paths from borrowing authoring owners to
 // mutate velocities.
-void ApplyWorldForces( PhysicsBodyRecord& record, const BuoyancyBodyFacts& buoyancyFacts, PhysicsBodyHotState& hot,
-                       const ColliderRecord& collider, const PhysicsTerrainView& terrain,
-                       const PhysicsWorldForces& worldForces, float deltaSeconds,
+void ApplyWorldForces( PhysicsBodyRecord& record,
+                       const BuoyancyBodyFacts& buoyancyFacts,
+                       PhysicsBodyHotState& hot,
+                       const ColliderRecord& collider,
+                       const PhysicsTerrainView& terrain,
+                       const PhysicsWorldForces& worldForces,
+                       float deltaSeconds,
                        const Vector3* precomputedMutualGravityForce )
 {
     Vector3 worldForce = ZERO_VECTOR;
@@ -878,8 +890,7 @@ void ApplyWorldForces( PhysicsBodyRecord& record, const BuoyancyBodyFacts& buoya
     const Vector3 buoyancyArm = buoyancySample.centerOfBuoyancy - hot.position;
     worldForce += buoyancyForceVector;
     worldTorque += CrossProduct( buoyancyArm, buoyancyForceVector );
-    worldTorque += CalculateBuoyancyRightingTorque( record, buoyancyFacts, hot, collider, terrain, worldForces,
-                                                    buoyancyForce, submergedVolumePercent );
+    worldTorque += CalculateBuoyancyRightingTorque( record, buoyancyFacts, hot, collider, terrain, worldForces, buoyancyForce, submergedVolumePercent );
 
     if ( deltaSeconds > TOLERANCE && buoyancyForce > TOLERANCE && submergedVolumePercent > TOLERANCE )
     {
@@ -930,37 +941,24 @@ void ApplyWorldForces( PhysicsBodyRecord& record, const BuoyancyBodyFacts& buoya
 
             if ( sphereSpinDampingRate > TOLERANCE && !hot.angularVelocity.IsCloseToZero() )
             {
-                Vector3 sphereAngularDampingTorque( -hot.angularVelocity.x * record.rotationalInertia.x *
-                                                        sphereSpinDampingRate,
-                                                    -hot.angularVelocity.y * record.rotationalInertia.y *
-                                                        sphereSpinDampingRate,
-                                                    -hot.angularVelocity.z * record.rotationalInertia.z *
-                                                        sphereSpinDampingRate );
-                sphereAngularDampingTorque.x = ClampAngularDragTorqueAxis( sphereAngularDampingTorque.x,
-                                                                           hot.angularVelocity.x, record.rotationalInertia.x,
-                                                                           deltaSeconds );
+                Vector3 sphereAngularDampingTorque( -hot.angularVelocity.x * record.rotationalInertia.x * sphereSpinDampingRate, -hot.angularVelocity.y * record.rotationalInertia.y * sphereSpinDampingRate, -hot.angularVelocity.z * record.rotationalInertia.z * sphereSpinDampingRate );
+                sphereAngularDampingTorque.x = ClampAngularDragTorqueAxis( sphereAngularDampingTorque.x, hot.angularVelocity.x, record.rotationalInertia.x, deltaSeconds );
 
-                sphereAngularDampingTorque.y = ClampAngularDragTorqueAxis( sphereAngularDampingTorque.y,
-                                                                           hot.angularVelocity.y, record.rotationalInertia.y,
-                                                                           deltaSeconds );
+                sphereAngularDampingTorque.y = ClampAngularDragTorqueAxis( sphereAngularDampingTorque.y, hot.angularVelocity.y, record.rotationalInertia.y, deltaSeconds );
 
-                sphereAngularDampingTorque.z = ClampAngularDragTorqueAxis( sphereAngularDampingTorque.z,
-                                                                           hot.angularVelocity.z, record.rotationalInertia.z,
-                                                                           deltaSeconds );
+                sphereAngularDampingTorque.z = ClampAngularDragTorqueAxis( sphereAngularDampingTorque.z, hot.angularVelocity.z, record.rotationalInertia.z, deltaSeconds );
 
                 worldTorque += sphereAngularDampingTorque;
             }
         }
     }
 
-    worldForce += CalculateViscousDrag( worldForces, hot.linearVelocity, submergedVolumePercent,
-                                        buoyancyFacts.dragCoefficient, buoyancyFacts.projectedSurfaceArea );
+    worldForce += CalculateViscousDrag( worldForces, hot.linearVelocity, submergedVolumePercent, buoyancyFacts.dragCoefficient, buoyancyFacts.projectedSurfaceArea );
 
     if ( !hot.angularVelocity.IsCloseToZero() )
     {
         const float radius = hot.boundingRadius;
-        const float avgDensity = ( worldForces.gasDensity * ( 1.0f - submergedVolumePercent ) ) +
-                                 ( worldForces.fluidDensity * submergedVolumePercent * worldForces.angularDragMultiplier );
+        const float avgDensity = ( worldForces.gasDensity * ( 1.0f - submergedVolumePercent ) ) + ( worldForces.fluidDensity * submergedVolumePercent * worldForces.angularDragMultiplier );
 
         const float angularDragCoeff = buoyancyFacts.dragCoefficient * avgDensity * radius * radius * radius;
         const Vector3 angularDragTorque = hot.angularVelocity * ( -angularDragCoeff );
@@ -977,9 +975,23 @@ void ApplyBodyDescriptorState( const PhysicsBodyCreateDesc& desc, PhysicsBodyRec
     hot.linearVelocity = desc.linearVelocity;
     hot.angularVelocity = desc.angularVelocity;
     cold.rotationalInertia = desc.rotationalInertia;
-    hot.inverseRotationalInertia = desc.motionKind == PhysicsBodyMotionKind::Fixed
-                                       ? ZERO_VECTOR
-                                       : PositiveComponentInverseOrZero( desc.rotationalInertia );
+    cold.rotationalInertiaProducts = desc.rotationalInertiaProducts;
+    hot.inverseRotationalInertia = desc.motionKind == PhysicsBodyMotionKind::Fixed ? ZERO_VECTOR : PositiveComponentInverseOrZero( desc.rotationalInertia );
+    hot.inverseRotationalInertiaProducts = ZERO_VECTOR;
+    const SkullbonezCore::Math::Transformation::SymmetricMatrix3 inertia( desc.rotationalInertia, desc.rotationalInertiaProducts );
+    if ( desc.motionKind != PhysicsBodyMotionKind::Fixed && !inertia.IsDiagonal() )
+    {
+        SkullbonezCore::Math::Transformation::SymmetricMatrix3 inverse;
+        if ( inertia.TryInversePositiveDefinite( inverse ) )
+        {
+            hot.inverseRotationalInertia = inverse.diagonal;
+            hot.inverseRotationalInertiaProducts = inverse.offDiagonal;
+        }
+        else
+        {
+            hot.inverseRotationalInertia = ZERO_VECTOR;
+        }
+    }
 
     cold.mass = desc.mass;
     hot.inverseMass = desc.motionKind == PhysicsBodyMotionKind::Fixed || desc.mass <= 0.0f ? 0.0f : 1.0f / desc.mass;
@@ -1037,6 +1049,9 @@ void PhysicsBodyStore::CloneReplayPredictionStorageFrom( const PhysicsBodyStore&
     CLONE_REPLAY_PREDICTION_BODY_LIST( m_inverseInertiaX );
     CLONE_REPLAY_PREDICTION_BODY_LIST( m_inverseInertiaY );
     CLONE_REPLAY_PREDICTION_BODY_LIST( m_inverseInertiaZ );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_inverseInertiaXY );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_inverseInertiaXZ );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_inverseInertiaYZ );
     CLONE_REPLAY_PREDICTION_BODY_LIST( m_boundingRadius );
     CLONE_REPLAY_PREDICTION_BODY_LIST( m_fixed );
     CLONE_REPLAY_PREDICTION_BODY_LIST( m_awake );
@@ -1072,6 +1087,9 @@ void PhysicsBodyStore::ReserveCapacity( std::size_t capacity )
     m_inverseInertiaX.Reserve( capacity );
     m_inverseInertiaY.Reserve( capacity );
     m_inverseInertiaZ.Reserve( capacity );
+    m_inverseInertiaXY.Reserve( capacity );
+    m_inverseInertiaXZ.Reserve( capacity );
+    m_inverseInertiaYZ.Reserve( capacity );
     m_boundingRadius.Reserve( capacity );
     m_fixed.Reserve( capacity );
     m_awake.Reserve( capacity );
@@ -1105,6 +1123,9 @@ void PhysicsBodyStore::ClearHotFields()
     m_inverseInertiaX.clear();
     m_inverseInertiaY.clear();
     m_inverseInertiaZ.clear();
+    m_inverseInertiaXY.clear();
+    m_inverseInertiaXZ.clear();
+    m_inverseInertiaYZ.clear();
     m_boundingRadius.clear();
     m_fixed.clear();
     m_awake.clear();
@@ -1130,6 +1151,9 @@ void PhysicsBodyStore::ResizeHotFields( std::size_t count )
     m_inverseInertiaX.resize( count );
     m_inverseInertiaY.resize( count );
     m_inverseInertiaZ.resize( count );
+    m_inverseInertiaXY.resize( count );
+    m_inverseInertiaXZ.resize( count );
+    m_inverseInertiaYZ.resize( count );
     m_boundingRadius.resize( count );
     m_fixed.resize( count );
     m_awake.resize( count );
@@ -1142,13 +1166,13 @@ PhysicsBodyHotState PhysicsBodyStore::HotStateForModelIndex( int modelIndex ) co
     const std::size_t index = static_cast<std::size_t>( modelIndex );
     PhysicsBodyHotState state;
     state.position = Vector3( m_positionX[index], m_positionY[index], m_positionZ[index] );
-    state.orientation = Math::Orientation::Quaternion( m_orientationX[index], m_orientationY[index], m_orientationZ[index],
-                                                       m_orientationW[index] );
+    state.orientation = Math::Orientation::Quaternion( m_orientationX[index], m_orientationY[index], m_orientationZ[index], m_orientationW[index] );
 
     state.linearVelocity = Vector3( m_linearVelocityX[index], m_linearVelocityY[index], m_linearVelocityZ[index] );
     state.angularVelocity = Vector3( m_angularVelocityX[index], m_angularVelocityY[index], m_angularVelocityZ[index] );
     state.inverseMass = m_inverseMass[index];
     state.inverseRotationalInertia = Vector3( m_inverseInertiaX[index], m_inverseInertiaY[index], m_inverseInertiaZ[index] );
+    state.inverseRotationalInertiaProducts = Vector3( m_inverseInertiaXY[index], m_inverseInertiaXZ[index], m_inverseInertiaYZ[index] );
 
     state.boundingRadius = m_boundingRadius[index];
     state.fixed = m_fixed[index] != 0u;
@@ -1164,8 +1188,7 @@ void PhysicsBodyStore::StoreHotStateAt( int modelIndex, const PhysicsBodyHotStat
     m_positionX[index] = state.position.x;
     m_positionY[index] = state.position.y;
     m_positionZ[index] = state.position.z;
-    state.orientation.GetComponents( m_orientationX[index], m_orientationY[index], m_orientationZ[index],
-                                     m_orientationW[index] );
+    state.orientation.GetComponents( m_orientationX[index], m_orientationY[index], m_orientationZ[index], m_orientationW[index] );
 
     m_linearVelocityX[index] = state.linearVelocity.x;
     m_linearVelocityY[index] = state.linearVelocity.y;
@@ -1177,6 +1200,9 @@ void PhysicsBodyStore::StoreHotStateAt( int modelIndex, const PhysicsBodyHotStat
     m_inverseInertiaX[index] = state.inverseRotationalInertia.x;
     m_inverseInertiaY[index] = state.inverseRotationalInertia.y;
     m_inverseInertiaZ[index] = state.inverseRotationalInertia.z;
+    m_inverseInertiaXY[index] = state.inverseRotationalInertiaProducts.x;
+    m_inverseInertiaXZ[index] = state.inverseRotationalInertiaProducts.y;
+    m_inverseInertiaYZ[index] = state.inverseRotationalInertiaProducts.z;
     m_boundingRadius[index] = state.boundingRadius;
     m_fixed[index] = state.fixed ? 1u : 0u;
     m_awake[index] = state.awake ? 1u : 0u;
@@ -1187,9 +1213,7 @@ void PhysicsBodyStore::RequireModelIndex( int modelIndex, const char* operation 
 {
     if ( modelIndex < 0 || modelIndex >= Count() )
     {
-        SB_FATAL( "Physics/PhysicsBodyStore",
-                  "Hot-state model index is outside the live body set. operation=%s index=%d count=%d.", operation,
-                  modelIndex, Count() );
+        SB_FATAL( "Physics/PhysicsBodyStore", "Hot-state model index is outside the live body set. operation=%s index=%d count=%d.", operation, modelIndex, Count() );
     }
 }
 
@@ -1219,14 +1243,20 @@ static uint32_t NextSceneObjectIdValueAfter( const PhysicsBodyRecordList& bodies
 void ReportSceneObjectIdReloadCapacityExceeded( int requested, std::size_t capacity, int currentCount )
 {
     std::fprintf( stderr,
-                  "FATAL: PhysicsBodyStore scene object id reload capacity exceeded owner=%s requested=%d "
-                  "capacity=%zu count=%d phase=%s.\n",
-                  "PhysicsBodyStore.sceneObjectIds", requested, capacity, currentCount, "descriptor-reload" );
+                  "FATAL: PhysicsBodyStore scene object id reload capacity exceeded owner=%s requested=%d " "capacity=%zu count=%d phase=%s.\n",
+                  "PhysicsBodyStore.sceneObjectIds",
+                  requested,
+                  capacity,
+                  currentCount,
+                  "descriptor-reload" );
 
     std::fprintf( stdout,
-                  "FATAL: PhysicsBodyStore scene object id reload capacity exceeded owner=%s requested=%d "
-                  "capacity=%zu count=%d phase=%s.\n",
-                  "PhysicsBodyStore.sceneObjectIds", requested, capacity, currentCount, "descriptor-reload" );
+                  "FATAL: PhysicsBodyStore scene object id reload capacity exceeded owner=%s requested=%d " "capacity=%zu count=%d phase=%s.\n",
+                  "PhysicsBodyStore.sceneObjectIds",
+                  requested,
+                  capacity,
+                  currentCount,
+                  "descriptor-reload" );
 
     std::fflush( stderr );
     std::fflush( stdout );
@@ -1267,8 +1297,7 @@ std::vector<PhysicsSceneObjectId> PhysicsBodyStore::BuildSceneObjectIdsForReload
         {
             if ( nextSceneObjectIdValue == ( std::numeric_limits<uint32_t>::max )() )
             {
-                SB_FATAL( "PhysicsBodyStore", "Scene object id scratch range exhausted while rebuilding %d scene rows.",
-                          sceneEntityCount );
+                SB_FATAL( "PhysicsBodyStore", "Scene object id scratch range exhausted while rebuilding %d scene rows.", sceneEntityCount );
             }
 
             sceneObjectId = MakePhysicsSceneObjectId( nextSceneObjectIdValue++ );
@@ -1286,8 +1315,7 @@ std::vector<PhysicsSceneObjectId> PhysicsBodyStore::BuildSceneObjectIdsForReload
 // Scene object ids let the store preserve identity when a compatible scene refresh
 // shifts a body to a different model slot. Retired slots bump generation before
 // reuse so stale handles fail Contains/ModelIndexForHandle deterministically.
-PhysicsBodyHandle PhysicsBodyStore::ResolveHandleForModelIndex( int modelIndex, PhysicsSceneObjectId sceneObjectId,
-                                                                PhysicsHandleAssignmentMask& assignedHandleSlots )
+PhysicsBodyHandle PhysicsBodyStore::ResolveHandleForModelIndex( int modelIndex, PhysicsSceneObjectId sceneObjectId, PhysicsHandleAssignmentMask& assignedHandleSlots )
 {
     auto assignSlot = [&]( uint32_t slot ) -> PhysicsBodyHandle
     {
@@ -1311,12 +1339,9 @@ PhysicsBodyHandle PhysicsBodyStore::ResolveHandleForModelIndex( int modelIndex, 
     {
         const PhysicsBodyHandle previous = m_modelBodyHandles[static_cast<std::size_t>( modelIndex )];
 
-        if ( previous.IsValid() && previous.index < m_handleGenerations.size() &&
-             previous.generation == m_handleGenerations[static_cast<std::size_t>( previous.index )] &&
-             m_handleAlive[static_cast<std::size_t>( previous.index )] != 0 &&
-             m_handleSceneObjectIds[static_cast<std::size_t>( previous.index )] == sceneObjectId &&
-             ( previous.index >= assignedHandleSlots.size() ||
-               assignedHandleSlots[static_cast<std::size_t>( previous.index )] == 0 ) )
+        if ( previous.IsValid() && previous.index < m_handleGenerations.size() && previous.generation == m_handleGenerations[static_cast<std::size_t>( previous.index )] &&
+             m_handleAlive[static_cast<std::size_t>( previous.index )] != 0 && m_handleSceneObjectIds[static_cast<std::size_t>( previous.index )] == sceneObjectId &&
+             ( previous.index >= assignedHandleSlots.size() || assignedHandleSlots[static_cast<std::size_t>( previous.index )] == 0 ) )
         {
             return assignSlot( previous.index );
         }
@@ -1326,8 +1351,7 @@ PhysicsBodyHandle PhysicsBodyStore::ResolveHandleForModelIndex( int modelIndex, 
     {
         for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleSceneObjectIds.size() ); ++slot )
         {
-            if ( m_handleAlive[slot] != 0 && m_handleSceneObjectIds[slot] == sceneObjectId &&
-                 slot < m_handleGenerations.size() &&
+            if ( m_handleAlive[slot] != 0 && m_handleSceneObjectIds[slot] == sceneObjectId && slot < m_handleGenerations.size() &&
                  ( slot >= assignedHandleSlots.size() || assignedHandleSlots[slot] == 0 ) )
             {
                 return assignSlot( slot );
@@ -1408,8 +1432,7 @@ void PhysicsBodyStore::Clear()
 }
 
 
-void PhysicsBodyStore::LoadFromDescriptors( std::span<const PhysicsBodyCreateDesc> bodyDescs,
-                                            std::span<const uint8_t> sleepStates )
+void PhysicsBodyStore::LoadFromDescriptors( std::span<const PhysicsBodyCreateDesc> bodyDescs, std::span<const uint8_t> sleepStates )
 {
     CapturePreservedRefreshState( m_bodies, HotFields(), m_handleGenerations.size(), m_preservedRefreshStateByHandle );
     const PreservedRefreshStateList& preservedStateByHandle = m_preservedRefreshStateByHandle;
@@ -1426,8 +1449,7 @@ void PhysicsBodyStore::LoadFromDescriptors( std::span<const PhysicsBodyCreateDes
         PhysicsBodyRecord& record = m_bodies[i];
         PhysicsBodyHotState hot;
         const PhysicsSceneObjectId sceneObjectId = desc.sceneObjectId;
-        const PhysicsBodyHandle handle = ResolveHandleForModelIndex( static_cast<int>( i ), sceneObjectId,
-                                                                     assignedHandleSlots );
+        const PhysicsBodyHandle handle = ResolveHandleForModelIndex( static_cast<int>( i ), sceneObjectId, assignedHandleSlots );
 
         // Why: refresh copies descriptor state at cold repair edges, but a
         // pending tool impulse and sleep seed are physics-owned one-shot state.
@@ -1451,8 +1473,7 @@ void PhysicsBodyStore::LoadFromDescriptors( std::span<const PhysicsBodyCreateDes
             record.hasPendingImpulse = false;
         }
 
-        hot.awake = !( ( preservedState && preservedState->isSleeping ) ||
-                       ( i < sleepStates.size() && sleepStates[i] != 0 ) );
+        hot.awake = !( ( preservedState && preservedState->isSleeping ) || ( i < sleepStates.size() && sleepStates[i] != 0 ) );
 
         StoreHotStateAt( static_cast<int>( i ), hot );
         m_modelBodyHandles[i] = record.handle;
@@ -1618,7 +1639,7 @@ bool PhysicsBodyStore::RestoreReplayBodyState( const PhysicsBodyRestoreState& re
 {
     PhysicsBodyRecord* record = MutableRecordForHandle( restore.body );
 
-    if ( !record || record->sceneObjectId != restore.sceneObjectId )
+    if ( !record || record->sceneObjectId != restore.sceneObjectId || !ValidPhysicsBodyRestoreInertia( restore ) )
     {
         return false;
     }
@@ -1632,7 +1653,9 @@ bool PhysicsBodyStore::RestoreReplayBodyState( const PhysicsBodyRestoreState& re
     record->mass = restore.mass;
     hot.inverseMass = restore.fixed ? 0.0f : restore.inverseMass;
     record->rotationalInertia = restore.rotationalInertia;
+    record->rotationalInertiaProducts = restore.rotationalInertiaProducts;
     hot.inverseRotationalInertia = restore.fixed ? ZERO_VECTOR : restore.inverseRotationalInertia;
+    hot.inverseRotationalInertiaProducts = restore.fixed ? ZERO_VECTOR : restore.inverseRotationalInertiaProducts;
     hot.fixed = restore.fixed;
     record->pendingImpulse = ZERO_VECTOR;
     record->pendingImpulseWorldOffset = ZERO_VECTOR;
@@ -1664,10 +1687,7 @@ void PhysicsBodyStore::CopySleepStatesFrom( std::span<const uint8_t> sleepStates
 
     for ( int i = 0; i < bodyCount; ++i )
     {
-        hotFields.awake[static_cast<std::size_t>( i )] = i < static_cast<int>( sleepStates.size() ) &&
-                                                                 sleepStates[static_cast<std::size_t>( i )] != 0
-                                                             ? 0u
-                                                             : 1u;
+        hotFields.awake[static_cast<std::size_t>( i )] = i < static_cast<int>( sleepStates.size() ) && sleepStates[static_cast<std::size_t>( i )] != 0 ? 0u : 1u;
     }
 }
 
@@ -1678,8 +1698,7 @@ void PhysicsBodyStore::CopySleepStatesTo( std::span<uint8_t> sleepStates ) const
 
     if ( sleepStates.size() != hotFields.awake.size() )
     {
-        SB_FATAL( "Physics/PhysicsBodyStore", "Sleep-state destination size mismatch. provided=%zu required=%zu.",
-                  sleepStates.size(), hotFields.awake.size() );
+        SB_FATAL( "Physics/PhysicsBodyStore", "Sleep-state destination size mismatch. provided=%zu required=%zu.", sleepStates.size(), hotFields.awake.size() );
     }
 
     for ( std::size_t i = 0; i < hotFields.awake.size(); ++i )
@@ -1692,8 +1711,7 @@ void PhysicsBodyStore::CopySleepStatesTo( std::span<uint8_t> sleepStates ) const
 // Why: fixed records keep their authored mass and inertia even while solver
 // reciprocals are zero. Release paths must restore those reciprocals in-place
 // so they do not need a full body-store reload.
-bool PhysicsBodyStore::ReleaseFixedBody( int modelIndex, const Vector3& seedLinearVelocity,
-                                         const Vector3& seedAngularVelocity )
+bool PhysicsBodyStore::ReleaseFixedBody( int modelIndex, const Vector3& seedLinearVelocity, const Vector3& seedAngularVelocity )
 {
     PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
 
@@ -1707,6 +1725,21 @@ bool PhysicsBodyStore::ReleaseFixedBody( int modelIndex, const Vector3& seedLine
     hot.awake = true;
     hot.inverseMass = PositiveInverseOrZero( record->mass );
     hot.inverseRotationalInertia = PositiveComponentInverseOrZero( record->rotationalInertia );
+    const SkullbonezCore::Math::Transformation::SymmetricMatrix3 inertia( record->rotationalInertia, record->rotationalInertiaProducts );
+    hot.inverseRotationalInertiaProducts = ZERO_VECTOR;
+    if ( !inertia.IsDiagonal() )
+    {
+        SkullbonezCore::Math::Transformation::SymmetricMatrix3 inverse;
+        if ( inertia.TryInversePositiveDefinite( inverse ) )
+        {
+            hot.inverseRotationalInertia = inverse.diagonal;
+            hot.inverseRotationalInertiaProducts = inverse.offDiagonal;
+        }
+        else
+        {
+            hot.inverseRotationalInertia = ZERO_VECTOR;
+        }
+    }
     hot.linearVelocity = seedLinearVelocity;
     hot.angularVelocity = seedAngularVelocity;
     StoreHotStateAt( modelIndex, hot );
@@ -1714,8 +1747,7 @@ bool PhysicsBodyStore::ReleaseFixedBody( int modelIndex, const Vector3& seedLine
 }
 
 
-void PhysicsBodyStore::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event,
-                                                      PhysicsBodyIndexList& outReleasedBodyIndices )
+void PhysicsBodyStore::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event, PhysicsBodyIndexList& outReleasedBodyIndices )
 {
     outReleasedBodyIndices.clear();
     const int sourceIndex = event.sourceIndex;
@@ -1810,8 +1842,7 @@ PhysicsBodyHandle PhysicsBodyStore::HandleForSceneObjectId( PhysicsSceneObjectId
         }
     }
 
-    const std::size_t slotCount = (std::min)( m_handleGenerations.size(),
-                                              (std::min)( m_handleAlive.size(), m_handleSceneObjectIds.size() ) );
+    const std::size_t slotCount = (std::min)( m_handleGenerations.size(), (std::min)( m_handleAlive.size(), m_handleSceneObjectIds.size() ) );
 
     for ( std::size_t slot = 0; slot < slotCount; ++slot )
     {
@@ -1875,8 +1906,7 @@ bool PhysicsBodyStore::Contains( PhysicsBodyHandle handle ) const
     }
 
     const int modelIndex = m_handleModelIndices[slot];
-    return modelIndex >= 0 && modelIndex < static_cast<int>( m_bodies.size() ) &&
-           m_bodies[static_cast<std::size_t>( modelIndex )].handle == handle;
+    return modelIndex >= 0 && modelIndex < static_cast<int>( m_bodies.size() ) && m_bodies[static_cast<std::size_t>( modelIndex )].handle == handle;
 }
 
 
@@ -1911,14 +1941,16 @@ SkullbonezCore::Physics::PhysicsBodyHotFieldsConstView PhysicsBodyStore::HotFiel
                                                  { m_inverseInertiaX.data(), m_inverseInertiaX.size() },
                                                  { m_inverseInertiaY.data(), m_inverseInertiaY.size() },
                                                  { m_inverseInertiaZ.data(), m_inverseInertiaZ.size() },
+                                                 { m_inverseInertiaXY.data(), m_inverseInertiaXY.size() },
+                                                 { m_inverseInertiaXZ.data(), m_inverseInertiaXZ.size() },
+                                                 { m_inverseInertiaYZ.data(), m_inverseInertiaYZ.size() },
                                                  { m_boundingRadius.data(), m_boundingRadius.size() },
                                                  { m_fixed.data(), m_fixed.size() },
                                                  { m_awake.data(), m_awake.size() } };
 
     if ( !fields.IsAligned() || fields.RowCount() != m_bodies.size() )
     {
-        SB_FATAL( "Physics/PhysicsBodyStore", "Const hot-field rows are misaligned: records=%zu position=%zu.",
-                  m_bodies.size(), fields.RowCount() );
+        SB_FATAL( "Physics/PhysicsBodyStore", "Const hot-field rows are misaligned: records=%zu position=%zu.", m_bodies.size(), fields.RowCount() );
     }
 
     return fields;
@@ -1944,14 +1976,16 @@ SkullbonezCore::Physics::PhysicsBodyHotFieldsView PhysicsBodyStore::MutableHotFi
                                       { m_inverseInertiaX.data(), m_inverseInertiaX.size() },
                                       { m_inverseInertiaY.data(), m_inverseInertiaY.size() },
                                       { m_inverseInertiaZ.data(), m_inverseInertiaZ.size() },
+                                      { m_inverseInertiaXY.data(), m_inverseInertiaXY.size() },
+                                      { m_inverseInertiaXZ.data(), m_inverseInertiaXZ.size() },
+                                      { m_inverseInertiaYZ.data(), m_inverseInertiaYZ.size() },
                                       { m_boundingRadius.data(), m_boundingRadius.size() },
                                       { m_fixed.data(), m_fixed.size() },
                                       { m_awake.data(), m_awake.size() } };
 
     if ( !fields.IsAligned() || fields.RowCount() != m_bodies.size() )
     {
-        SB_FATAL( "Physics/PhysicsBodyStore", "Mutable hot-field rows are misaligned: records=%zu position=%zu.",
-                  m_bodies.size(), fields.RowCount() );
+        SB_FATAL( "Physics/PhysicsBodyStore", "Mutable hot-field rows are misaligned: records=%zu position=%zu.", m_bodies.size(), fields.RowCount() );
     }
 
     return fields;
@@ -1984,6 +2018,9 @@ uint64_t PhysicsBodyStore::CollectRuntimeCapacityMemoryBytes() const
     bytes += m_inverseInertiaX.committed_bytes();
     bytes += m_inverseInertiaY.committed_bytes();
     bytes += m_inverseInertiaZ.committed_bytes();
+    bytes += m_inverseInertiaXY.committed_bytes();
+    bytes += m_inverseInertiaXZ.committed_bytes();
+    bytes += m_inverseInertiaYZ.committed_bytes();
     bytes += m_boundingRadius.committed_bytes();
     bytes += m_fixed.committed_bytes();
     bytes += m_awake.committed_bytes();
@@ -2064,8 +2101,7 @@ bool PhysicsBodyStore::SeedBodyAsleep( PhysicsBodyHandle body )
 }
 
 
-bool PhysicsBodyStore::SetBodyVelocity( PhysicsBodyHandle body, const Vector3& linearVelocity,
-                                        const Vector3& angularVelocity )
+bool PhysicsBodyStore::SetBodyVelocity( PhysicsBodyHandle body, const Vector3& linearVelocity, const Vector3& angularVelocity )
 {
     const int modelIndex = ModelIndexForHandle( body );
 
@@ -2085,8 +2121,7 @@ bool PhysicsBodyStore::SetBodyVelocity( PhysicsBodyHandle body, const Vector3& l
 }
 
 
-bool PhysicsBodyStore::SetPendingBodyImpulse( PhysicsBodyHandle body, const Vector3& impulse,
-                                              const Vector3& worldApplicationOffset )
+bool PhysicsBodyStore::SetPendingBodyImpulse( PhysicsBodyHandle body, const Vector3& impulse, const Vector3& worldApplicationOffset )
 {
     PhysicsBodyRecord* record = MutableRecordForHandle( body );
 
@@ -2109,9 +2144,12 @@ bool PhysicsBodyStore::SetPendingBodyImpulse( PhysicsBodyHandle body, const Vect
 // row. Stages never retain a pointer into the independently allocated arrays.
 
 
-bool PhysicsBodyStore::IntegrateBodyPose( Core::Profiler* profiler, const ColliderStore& colliderStore,
-                                          const PhysicsTerrainView& terrain, BuoyancyBodyFacts& buoyancyFacts,
-                                          int modelIndex, float deltaSeconds )
+bool PhysicsBodyStore::IntegrateBodyPose( Core::Profiler* profiler,
+                                          const ColliderStore& colliderStore,
+                                          const PhysicsTerrainView& terrain,
+                                          BuoyancyBodyFacts& buoyancyFacts,
+                                          int modelIndex,
+                                          float deltaSeconds )
 {
     PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
     const ColliderRecord* collider = ColliderRecordForModelIndex( colliderStore, modelIndex );
@@ -2124,13 +2162,11 @@ bool PhysicsBodyStore::IntegrateBodyPose( Core::Profiler* profiler, const Collid
     const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
     PhysicsBodyHotState hot;
     hot.position = Vector3( m_positionX[bodyIndex], m_positionY[bodyIndex], m_positionZ[bodyIndex] );
-    hot.orientation = Math::Orientation::Quaternion( m_orientationX[bodyIndex], m_orientationY[bodyIndex],
-                                                     m_orientationZ[bodyIndex], m_orientationW[bodyIndex] );
+    hot.orientation = Math::Orientation::Quaternion( m_orientationX[bodyIndex], m_orientationY[bodyIndex], m_orientationZ[bodyIndex], m_orientationW[bodyIndex] );
 
     hot.linearVelocity = Vector3( m_linearVelocityX[bodyIndex], m_linearVelocityY[bodyIndex], m_linearVelocityZ[bodyIndex] );
 
-    hot.angularVelocity = Vector3( m_angularVelocityX[bodyIndex], m_angularVelocityY[bodyIndex],
-                                   m_angularVelocityZ[bodyIndex] );
+    hot.angularVelocity = Vector3( m_angularVelocityX[bodyIndex], m_angularVelocityY[bodyIndex], m_angularVelocityZ[bodyIndex] );
 
     hot.fixed = m_fixed[bodyIndex] != 0u;
     hot.awake = m_awake[bodyIndex] != 0u;
@@ -2152,8 +2188,7 @@ bool PhysicsBodyStore::IntegrateBodyPose( Core::Profiler* profiler, const Collid
     m_positionX[bodyIndex] = hot.position.x;
     m_positionY[bodyIndex] = hot.position.y;
     m_positionZ[bodyIndex] = hot.position.z;
-    hot.orientation.GetComponents( m_orientationX[bodyIndex], m_orientationY[bodyIndex], m_orientationZ[bodyIndex],
-                                   m_orientationW[bodyIndex] );
+    hot.orientation.GetComponents( m_orientationX[bodyIndex], m_orientationY[bodyIndex], m_orientationZ[bodyIndex], m_orientationW[bodyIndex] );
 
     m_linearVelocityX[bodyIndex] = hot.linearVelocity.x;
     m_linearVelocityY[bodyIndex] = hot.linearVelocity.y;
@@ -2165,9 +2200,13 @@ bool PhysicsBodyStore::IntegrateBodyPose( Core::Profiler* profiler, const Collid
 }
 
 
-bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces, const ColliderStore& colliderStore,
-                                    const PhysicsTerrainView& terrain, const BuoyancyBodyFacts& buoyancyFacts,
-                                    int modelIndex, float deltaSeconds, const Vector3* precomputedMutualGravityForce )
+bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
+                                    const ColliderStore& colliderStore,
+                                    const PhysicsTerrainView& terrain,
+                                    const BuoyancyBodyFacts& buoyancyFacts,
+                                    int modelIndex,
+                                    float deltaSeconds,
+                                    const Vector3* precomputedMutualGravityForce )
 {
     PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
     const ColliderRecord* collider = ColliderRecordForModelIndex( colliderStore, modelIndex );
@@ -2180,13 +2219,11 @@ bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces, const
     const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
     PhysicsBodyHotState hot;
     hot.position = Vector3( m_positionX[bodyIndex], m_positionY[bodyIndex], m_positionZ[bodyIndex] );
-    hot.orientation = Math::Orientation::Quaternion( m_orientationX[bodyIndex], m_orientationY[bodyIndex],
-                                                     m_orientationZ[bodyIndex], m_orientationW[bodyIndex] );
+    hot.orientation = Math::Orientation::Quaternion( m_orientationX[bodyIndex], m_orientationY[bodyIndex], m_orientationZ[bodyIndex], m_orientationW[bodyIndex] );
 
     hot.linearVelocity = Vector3( m_linearVelocityX[bodyIndex], m_linearVelocityY[bodyIndex], m_linearVelocityZ[bodyIndex] );
 
-    hot.angularVelocity = Vector3( m_angularVelocityX[bodyIndex], m_angularVelocityY[bodyIndex],
-                                   m_angularVelocityZ[bodyIndex] );
+    hot.angularVelocity = Vector3( m_angularVelocityX[bodyIndex], m_angularVelocityY[bodyIndex], m_angularVelocityZ[bodyIndex] );
 
     hot.boundingRadius = m_boundingRadius[bodyIndex];
     hot.fixed = m_fixed[bodyIndex] != 0u;
@@ -2203,8 +2240,7 @@ bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces, const
     }
 
     ThrottleAngularVelocity( *record, hot );
-    ApplyWorldForces( *record, buoyancyFacts, hot, *collider, terrain, worldForces, deltaSeconds,
-                      precomputedMutualGravityForce );
+    ApplyWorldForces( *record, buoyancyFacts, hot, *collider, terrain, worldForces, deltaSeconds, precomputedMutualGravityForce );
 
     ApplyPendingImpulse( *record, hot );
 

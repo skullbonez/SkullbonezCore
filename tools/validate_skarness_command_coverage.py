@@ -40,7 +40,8 @@ EXPECTED_COMMANDS = {
     "input.set_prediction_key", "physics.speculative_validation",
     # UI migration routes are exercised by the native unified UI control suites.
     "input.file_dialog_response", "input.pointer_position", "window.resize", "input.set_focus", "input.set_key",
-    "ui.animation_clock",
+    # Native capture/maximize/close behavior is covered by validate_native_window.py.
+    "window.set_maximized", "window.close", "ui.animation_clock",
     "comparison.setting", "comparison.step", "comparison.mode", "comparison.state", "comparison.seek",
     "comparison.select", "comparison.camera", "comparison.event", "comparison.focus", "comparison.finding.load",
     "comparison.loop", "comparison.next_difference", "comparison.finding.save", "comparison.close",

@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name rock_lump_large
 source_hash 0x1bf4ead11d10a287
 
@@ -39,7 +39,8 @@ default_density 0.9
 default_mass 2722.96875
 bounding_radius 14.4333668
 inertia_half_extents 12.5 5 11.5
-unit_inertia 52.4166667 96.1666667 60.4166667
+unit_inertia 31.4440858 50.1071543 34.9724184
+unit_inertia_products -0.765864217 0.777665345 0.459674352
 projected_surface_area 351.666667
 
 # Baked centered vertices.

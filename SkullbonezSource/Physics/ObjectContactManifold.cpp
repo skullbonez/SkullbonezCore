@@ -1188,9 +1188,16 @@ uint32_t EncodeSphereHullFeature( bool hullIsA, SphereHullFeatureKind kind, uint
     return ( FEATURE_KIND_SPHERE_HULL << 28 ) | ( ( hullIsA ? 1u : 0u ) << 27 ) | ( ( static_cast<uint32_t>( kind ) & 0x3u ) << 24 ) | ( sourceId & 0xffffu );
 }
 
-uint32_t EncodeHullFaceFeature( bool referenceIsA, uint32_t referenceFace, uint32_t incidentFace, uint32_t pointId )
+// Each feature names one source vertex, edge or face on each shape. Eight
+// source bits cover all supported hull topology; the two kind bits distinguish
+// an edge from a numerically equal vertex or face. Reference-face changes do
+// not change the shape order in this key.
+static_assert( ConvexHullShape::MAX_VERTICES <= 256 && ConvexHullShape::MAX_EDGES <= 256 && ConvexHullShape::MAX_FACES <= 256 );
+uint32_t EncodeHullContactFeatures( bool referenceIsA, uint32_t reference, uint32_t incident )
 {
-    return ( FEATURE_KIND_HULL_FACE << 28 ) | ( ( referenceIsA ? 1u : 0u ) << 27 ) | ( ( referenceFace & 0x7fu ) << 20 ) | ( ( incidentFace & 0x7fu ) << 13 ) | ( pointId & 0x1ffu );
+    const uint32_t a = referenceIsA ? reference : incident;
+    const uint32_t b = referenceIsA ? incident : reference;
+    return ( FEATURE_KIND_HULL_FACE << 28 ) | ( a << 10 ) | b;
 }
 
 uint32_t EncodeHullEdgeFeature( uint32_t edgeA, uint32_t edgeB )
@@ -1415,7 +1422,9 @@ bool AcceptPolyAxis( const PolytopeWorld& a, const PolytopeWorld& b, const Vecto
         return false;
     }
 
-    constexpr float tieEpsilon = 1.0e-4f;
+    // Units: a relative fraction of the smaller projected body width.
+    // World translation must not enlarge a geometric tie tolerance.
+    const float tieEpsilon = (std::max)( 1.0e-8f, 1.0e-5f * (std::min)( maxA - minA, maxB - minB ) );
     bool better = overlap < best.overlap - tieEpsilon;
 
     if ( !better && fabsf( overlap - best.overlap ) <= tieEpsilon )
@@ -1424,7 +1433,7 @@ bool AcceptPolyAxis( const PolytopeWorld& a, const PolytopeWorld& b, const Vecto
         {
             better = true;
         }
-        else if ( axisType == best.axisType && axisA >= 0 && best.axisA >= 0 && axisA < best.axisA )
+        else if ( axisType == best.axisType && ( axisA < best.axisA || ( axisA == best.axisA && axisB < best.axisB ) ) )
         {
             better = true;
         }
@@ -1474,7 +1483,13 @@ bool PolytopeSat( const PolytopeWorld& a, const PolytopeWorld& b, float contactS
         for ( uint16_t j = 0; j < b.edgeCount; ++j )
         {
             const Vector3 edgeB = b.vertices[b.edges[j].vertexB] - b.vertices[b.edges[j].vertexA];
-            const Vector3 edgeAxis = CrossProduct( edgeA, edgeB );
+            const float lengthA = sqrtf( VectorMagSquared( edgeA ) );
+            const float lengthB = sqrtf( VectorMagSquared( edgeB ) );
+            if ( lengthA <= 0.0f || lengthB <= 0.0f )
+            {
+                continue;
+            }
+            const Vector3 edgeAxis = CrossProduct( edgeA / lengthA, edgeB / lengthB );
 
             if ( !IsUsefulPolyEdgeAxis( a, b, a.edges[i], b.edges[j], edgeAxis ) )
             {
@@ -1501,12 +1516,26 @@ bool PolytopeSat( const PolytopeWorld& a, const PolytopeWorld& b, float contactS
     return out.overlap < FLT_MAX;
 }
 
-uint16_t EncodeClippedPolyVertexId( uint16_t prevId, uint16_t curId )
+// Invariant: every clipped vertex is the intersection of two polygon
+// boundaries. Incident edges occupy 0..15 and reference edges 16..31. Carry
+// both boundaries without hashing, including an edge created by earlier clips.
+// Box-only clipping keeps its existing representation and response sequence.
+struct HullClipVertex
 {
-    return static_cast<uint16_t>( 0x100u | ( ( prevId & 0x0fu ) << 4 ) | ( curId & 0x0fu ) );
-}
+    Vector3 point = ZERO_VECTOR;
+    uint8_t boundary0 = 0;
+    uint8_t boundary1 = 0;
+    uint8_t incomingBoundary = 0;
+};
 
-int ClipPolyAgainstPlaneLimited( const ClipVertex* input, int inputCount, const Vector3& planePoint, const Vector3& inwardNormal, float contactSkin, ClipVertex* output, int maxOutput )
+int ClipPolyAgainstPlaneLimited( const HullClipVertex* input,
+                                 int inputCount,
+                                 const Vector3& planePoint,
+                                 const Vector3& inwardNormal,
+                                 float contactSkin,
+                                 uint8_t boundary,
+                                 HullClipVertex* output,
+                                 int maxOutput )
 {
     if ( inputCount <= 0 )
     {
@@ -1514,41 +1543,74 @@ int ClipPolyAgainstPlaneLimited( const ClipVertex* input, int inputCount, const 
     }
 
     int outputCount = 0;
-    ClipVertex prev = input[inputCount - 1];
+    HullClipVertex prev = input[inputCount - 1];
     float prevDist = Dot( ( prev.point - planePoint ), inwardNormal );
     bool prevInside = prevDist >= -contactSkin;
-
     for ( int i = 0; i < inputCount; ++i )
     {
-        ClipVertex cur = input[i];
-        float curDist = Dot( ( cur.point - planePoint ), inwardNormal );
-        bool curInside = curDist >= -contactSkin;
-
-        if ( curInside != prevInside )
+        const HullClipVertex cur = input[i];
+        const float curDist = Dot( ( cur.point - planePoint ), inwardNormal );
+        const bool curInside = curDist >= -contactSkin;
+        if ( curInside != prevInside && outputCount < maxOutput )
         {
-            float denom = prevDist - curDist;
-            float t = ( fabsf( denom ) > TOLERANCE ) ? ( prevDist / denom ) : 0.0f;
-            t = ClampFloat( t, 0.0f, 1.0f );
-
-            if ( outputCount < maxOutput )
-            {
-                output[outputCount].point = prev.point + ( cur.point - prev.point ) * t;
-                output[outputCount].id = EncodeClippedPolyVertexId( prev.id, cur.id );
-                ++outputCount;
-            }
+            const float denom = prevDist - curDist;
+            const float t = ClampFloat( fabsf( denom ) > TOLERANCE ? prevDist / denom : 0.0f, 0.0f, 1.0f );
+            HullClipVertex& clipped = output[outputCount++];
+            clipped.point = prev.point + ( cur.point - prev.point ) * t;
+            clipped.boundary0 = cur.incomingBoundary;
+            clipped.boundary1 = boundary;
+            // Entering joins the preceding exit along the new clip boundary;
+            // exiting still follows the old polygon edge.
+            clipped.incomingBoundary = curInside ? boundary : cur.incomingBoundary;
         }
-
         if ( curInside && outputCount < maxOutput )
         {
             output[outputCount++] = cur;
         }
-
         prev = cur;
         prevDist = curDist;
         prevInside = curInside;
     }
-
     return outputCount;
+}
+
+uint16_t PolyFaceEdgeSource( const PolytopeWorld& poly, const PolyFaceWorld& face, uint8_t boundary )
+{
+    const uint16_t a = poly.faceIndices[face.firstIndex + boundary];
+    const uint16_t b = poly.faceIndices[face.firstIndex + ( boundary + 1 ) % face.indexCount];
+    for ( uint16_t i = 0; i < poly.edgeCount; ++i )
+    {
+        const PolyEdgeWorld& edge = poly.edges[i];
+        if ( ( edge.vertexA == a && edge.vertexB == b ) || ( edge.vertexA == b && edge.vertexB == a ) )
+        {
+            return edge.sourceId;
+        }
+    }
+    // Every face edge belongs to the validated closed hull topology.
+    assert( false && "missing source edge for hull face" );
+    return 0;
+}
+
+uint16_t PolyFaceCornerSource( const PolytopeWorld& poly, const PolyFaceWorld& face, uint8_t edge0, uint8_t edge1 )
+{
+    const uint8_t vertex = ( edge0 + 1 ) % face.indexCount == edge1 ? edge1 : edge0;
+    assert( ( edge0 + 1 ) % face.indexCount == edge1 || ( edge1 + 1 ) % face.indexCount == edge0 );
+    return poly.faceIndices[face.firstIndex + vertex];
+}
+
+uint32_t HullClipFeature( const PolytopeWorld& ref, const PolyFaceWorld& refFace, const PolytopeWorld& inc, const PolyFaceWorld& incFace, const HullClipVertex& vertex, bool referenceIsA )
+{
+    const uint8_t lo = (std::min)( vertex.boundary0, vertex.boundary1 );
+    const uint8_t hi = (std::max)( vertex.boundary0, vertex.boundary1 );
+    if ( hi < 16 )
+    {
+        return EncodeHullContactFeatures( referenceIsA, 0x200u | refFace.sourceId, PolyFaceCornerSource( inc, incFace, lo, hi ) );
+    }
+    if ( lo >= 16 )
+    {
+        return EncodeHullContactFeatures( referenceIsA, PolyFaceCornerSource( ref, refFace, lo - 16, hi - 16 ), 0x200u | incFace.sourceId );
+    }
+    return EncodeHullContactFeatures( referenceIsA, 0x100u | PolyFaceEdgeSource( ref, refFace, hi - 16 ), 0x100u | PolyFaceEdgeSource( inc, incFace, lo ) );
 }
 
 int ChooseIncidentPolyFace( const PolytopeWorld& incident, const Vector3& refNormal )
@@ -1730,15 +1792,17 @@ bool BuildPolyFaceContact( const ObjectContactBodyView& aBody,
     const int incidentFaceIndex = ChooseIncidentPolyFace( inc, refNormal );
     const PolyFaceWorld& incFace = inc.faces[incidentFaceIndex];
 
-    ClipVertex workA[MAX_POLY_CLIP_VERTS];
-    ClipVertex workB[MAX_POLY_CLIP_VERTS];
+    HullClipVertex workA[MAX_POLY_CLIP_VERTS];
+    HullClipVertex workB[MAX_POLY_CLIP_VERTS];
     int count = 0;
 
     for ( uint8_t i = 0; i < incFace.indexCount && count < MAX_POLY_CLIP_VERTS; ++i )
     {
         const uint16_t vertexIndex = inc.faceIndices[incFace.firstIndex + i];
         workA[count].point = inc.vertices[vertexIndex];
-        workA[count].id = static_cast<uint8_t>( i );
+        workA[count].boundary0 = static_cast<uint8_t>( ( i + incFace.indexCount - 1 ) % incFace.indexCount );
+        workA[count].boundary1 = i;
+        workA[count].incomingBoundary = workA[count].boundary0;
         ++count;
     }
 
@@ -1770,7 +1834,7 @@ bool BuildPolyFaceContact( const ObjectContactBodyView& aBody,
             inward = -inward;
         }
 
-        count = ClipPolyAgainstPlaneLimited( workA, count, a, inward, contactSkin, workB, MAX_POLY_CLIP_VERTS );
+        count = ClipPolyAgainstPlaneLimited( workA, count, a, inward, contactSkin, static_cast<uint8_t>( 16 + i ), workB, MAX_POLY_CLIP_VERTS );
 
         if ( count == 0 )
         {
@@ -1800,7 +1864,7 @@ bool BuildPolyFaceContact( const ObjectContactBodyView& aBody,
         {
             candidates[candidateCount].point = workA[i].point - refNormal * ( separation * 0.5f );
             candidates[candidateCount].penetration = -separation;
-            candidates[candidateCount].featureId = EncodeHullFaceFeature( referenceIsA, refFace.sourceId, incFace.sourceId, workA[i].id );
+            candidates[candidateCount].featureId = HullClipFeature( ref, refFace, inc, incFace, workA[i], referenceIsA );
 
             ++candidateCount;
         }
@@ -1907,7 +1971,9 @@ bool BuildPolyPoly( const ObjectContactBodyView& aBody, const PolytopeWorld& pol
 
     if ( sat.axisType == 2 && sat.hasFaceAxis )
     {
-        const float faceAxisTolerance = (std::max)( contactSkin * 2.0f, sat.overlap * 0.10f );
+        // A real edge-axis minimum remains authoritative. Only numerical
+        // ties may prefer a face patch; penetration depth is not a tolerance.
+        const float faceAxisTolerance = (std::max)( 1.0e-7f, contactSkin * 0.001f );
 
         if ( sat.faceOverlap <= sat.overlap + faceAxisTolerance )
         {

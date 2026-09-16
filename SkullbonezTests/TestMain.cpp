@@ -28,6 +28,11 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include <cstring>
+#include <cstdlib>
+
+#if defined( _MSC_VER ) && defined( _DEBUG )
+#include <crtdbg.h>
+#endif
 
 #if defined( SKULLBONEZ_RUNTIME_FATAL_TESTS )
 #include "TestFatalCases.h"
@@ -49,6 +54,17 @@ int main( int argc, char** argv )
 #if defined( SKULLBONEZ_RUNTIME_FATAL_TESTS )
     if ( argc == 3 && std::strcmp( argv[1], "--fatal-case" ) == 0 )
     {
+        // Fatal probes must terminate unattended. CRT dialogs and Windows
+        // crash reporting can otherwise hold an intentional assertion alive
+        // past the parent's timeout, or break the coverage debugger.
+#if defined( _MSC_VER )
+        _set_error_mode( _OUT_TO_STDERR );
+        _set_abort_behavior( 0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT );
+#if defined( _DEBUG )
+        _CrtSetReportMode( _CRT_ASSERT, _CRTDBG_MODE_FILE );
+        _CrtSetReportFile( _CRT_ASSERT, _CRTDBG_FILE_STDERR );
+#endif
+#endif
         // A normal return means the named invariant failed to terminate.
         return RunRuntimeFatalCase( argv[2] ) ? 0 : 2;
     }

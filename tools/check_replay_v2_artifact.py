@@ -81,7 +81,7 @@ def remove_if_exists(path):
 
 
 def validate_snapshot_query_versions():
-    # Synthetic v1-v8 payloads pin every nested solver-snapshot width change
+    # Synthetic v1-v9 payloads pin every nested solver-snapshot width change
     # without launching the runtime. The v6 row exceeds the retired byte limit.
     def make_fixture(version, point_joint_count, motion_eligibility_state, sleep_counters=()):
         raw = bytearray()
@@ -100,7 +100,12 @@ def validate_snapshot_query_versions():
 
         # Contact/cache counts, two counted contact-stat vectors,
         # debug/pipeline counts, and collision-cell keys.
-        raw.extend(U32.pack(0) * 2)
+        raw.extend(U32.pack(0))
+        raw.extend(U32.pack(1 if version >= 9 else 0))
+        if version >= 9:
+            # Serialized geometry adds five vectors, a distance and a lifetime
+            # after the existing key and three impulses (20 + 68 bytes).
+            raw.extend(struct.pack("<Q19fI", 123, *([0.25] * 19), 7))
         raw.extend(bytes(SOLVER_STATS.size))
         raw.extend(U32.pack(0) * 5)
 
@@ -118,6 +123,9 @@ def validate_snapshot_query_versions():
             raw.extend(bytes(motion_eligibility_state))
         if version >= 6:
             raw.extend(U32.pack(0) * 3)
+        if version >= 9:
+            raw.extend(U32.pack(1))
+            raw.extend(struct.pack("<II6f", 0, 501, 1, 2, 3, -0.1, -0.2, -0.3))
         return bytes(raw)
 
     fixtures = (
@@ -129,6 +137,7 @@ def validate_snapshot_query_versions():
         (6, 1, (0, 1, 1), (1000,)),
         (7, 2, (0, 1, 1), (1000,)),
         (8, 2, (0, 1, 1), (1000,)),
+        (9, 2, (0, 1, 1), (1000,)),
     )
     for version, expected_joint_count, expected_motion_state, expected_sleep_counters in fixtures:
         raw = make_fixture(version, expected_joint_count, expected_motion_state, expected_sleep_counters)
@@ -145,13 +154,23 @@ def validate_snapshot_query_versions():
         if int(summary.get("sleepCounterCount") or 0) != len(expected_sleep_counters):
             raise RuntimeError(f"snapshot v{version} fixture reported the wrong sleep-counter count")
 
-    future_reader = ChunkReader(make_fixture(9, 1, (1,), (1000,)), "snapshot-v9-fixture")
+        if summary['bodyInertiaCount'] != (1 if version >= 9 else 0):
+            raise RuntimeError('snapshot tensor count drifted')
+        if version >= 9:
+            try:
+                ReplayV2._parse_snapshot_summary(ChunkReader(raw[:-1], 'truncated-tensor'))
+            except ReplayQueryError:
+                pass
+            else:
+                raise RuntimeError('truncated tensor tail was accepted')
+
+    future_reader = ChunkReader(make_fixture(10, 1, (1,), (1000,)), "snapshot-v10-fixture")
     try:
         ReplayV2._parse_snapshot_summary(future_reader)
     except ReplayQueryError:
         pass
     else:
-        raise RuntimeError("future solver snapshot v9 fixture was accepted")
+        raise RuntimeError("future solver snapshot v10 fixture was accepted")
 
 
 def run_checked(args, cwd):
@@ -1111,7 +1130,7 @@ def query_artifact():
 
 def main():
     try:
-        print("  Checking replay query snapshot v1-v8 fixtures...")
+        print("  Checking replay query snapshot v1-v9 fixtures...")
         validate_snapshot_query_versions()
         print("  Generating replay v2 artifact...")
         generate_artifact()

@@ -1,30 +1,6 @@
-/*
-File: SkullbonezSource/Physics/ConvexHullShape.h
-Purpose:
-  Defines immutable authored convex hull collision geometry.
-
-Summary:
-  Physics is deterministic fixed-step state update. Convex hull data is built
-  and validated at load time. Canonical authored scaling produces a cold
-  scene-load copy before ColliderStore identity binding; stored rows are then
-  read without heap allocation or mutation by narrowphase.
-
-Glossary:
-  Face: One planar polygon on the hull boundary.
-  Edge: Undirected segment shared by exactly two faces.
-
-Invariants:
-  - Stored hull topology is immutable after scene-load scaling and validation.
-  - Face, edge, and vertex ordering is deterministic and becomes feature ID
-    input for persistent contact warm starting.
-  - Hull copies share a fixed-capacity centered-difference SAT axis cache built
-    only at load or copy-scale time for cheap motion eligibility.
-
-Related:
-  - SkullbonezSource/Physics/ConvexHullShape.cpp
-  - SkullbonezSource/Physics/ObjectContactManifold.cpp
-  - Agentic/Reference/engine-glossary.md
-*/
+// Immutable authored hull topology and complete center-of-mass inertia.
+// Load and copy-scale run before collider identity binding; narrowphase only
+// reads those rows. Version 3 mass properties come from closed-volume integrals.
 #pragma once
 
 #include <array>
@@ -35,6 +11,7 @@ Related:
 #include "../Core/SbResult.h"
 #include "../Maths/GeometricStructures.h"
 #include "../Maths/Matrix4.h"
+#include "../Maths/SymmetricMatrix3.h"
 #include "PhysicsMass.h"
 #include "../Maths/Vector3.h"
 
@@ -87,6 +64,11 @@ class ConvexHullShape
     };
 
     bool RefreshMotionAxes();
+    SkullbonezCore::Core::SbResult ValidateBakedTopology( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path ) const;
+    SkullbonezCore::Core::SbResult ReadBakedFace( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, char*& context, const char* path, int lineNumber );
+    SkullbonezCore::Core::SbResult ReadBakedEdge( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, char*& context, const char* path, int lineNumber );
+    SkullbonezCore::Core::SbResult ReadBakedVertex( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, char*& context, const char* path, int lineNumber );
+
 
     std::array<Vector::Vector3, MAX_VERTICES> m_vertices = {};
     std::array<ConvexHullFace, MAX_FACES> m_faces = {};
@@ -96,7 +78,7 @@ class ConvexHullShape
     Vector::Vector3 m_position = Vector::ZERO_VECTOR;
     Vector::Vector3 m_authoredCenterOfMass = Vector::ZERO_VECTOR;
     Vector::Vector3 m_inertiaHalfExtents = Vector::Vector3( 1.0f, 1.0f, 1.0f );
-    Vector::Vector3 m_unitInertia = Vector::Vector3( 0.6666667f, 0.6666667f, 0.6666667f );
+    Transformation::SymmetricMatrix3 m_unitInertia;
     uint16_t m_vertexCount = 0;
     uint16_t m_faceCount = 0;
     uint16_t m_edgeCount = 0;
@@ -113,8 +95,7 @@ class ConvexHullShape
     // Recoverable error: hull assets are external input. Callers that load scene/editor
     // data should use this overload so malformed files report recoverable
     // diagnostics instead of escaping through runtime code.
-    static SkullbonezCore::Core::SbResult TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                           const char* path, ConvexHullShape& outHull );
+    static SkullbonezCore::Core::SbResult TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, ConvexHullShape& outHull );
 
     Transformation::Matrix4 GetModelMatrix( const Vector::Vector3& worldPos, const Transformation::Matrix4& rotation ) const;
     float GetVolume() const;
@@ -125,7 +106,7 @@ class ConvexHullShape
     const Vector::Vector3& GetPosition() const;
     const Vector::Vector3& GetAuthoredCenterOfMass() const;
     const Vector::Vector3& GetInertiaHalfExtents() const;
-    Vector::Vector3 ComputeBoxApproxInertia( float mass ) const;
+    Transformation::SymmetricMatrix3 ComputeInertia( float mass ) const;
     void ScaleAxis( int axis, float factor ); // Editor/runtime copy scale; authored asset files remain unchanged.
 
     uint16_t GetVertexCount() const;
@@ -140,8 +121,7 @@ class ConvexHullShape
 
     float TestCollision( const BoundingSphere& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
     float TestCollision( const BoundingBox& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
-    float TestCollision( const ConvexHullShape& target, const Geometry::Ray& targetRay,
-                         const Geometry::Ray& focusRay ) const;
+    float TestCollision( const ConvexHullShape& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
 };
 } // namespace CollisionDetection
 } // namespace Math

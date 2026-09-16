@@ -71,6 +71,7 @@ using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::CrossProduct;
 using SkullbonezCore::Math::Vector::Dot;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Math::Vector::ZERO_VECTOR;
 using SkullbonezCore::Physics::BuildObjectContactManifold;
 using SkullbonezCore::Physics::ConstraintSolveTransaction;
 using SkullbonezCore::Physics::ObjectContactBodyView;
@@ -96,12 +97,10 @@ CollisionShape MakeBox( const Vector3& halfExtents = Vector3( 1.0f, 1.0f, 1.0f )
 
 std::array<Vector3, 4> UnitBoxFacePatch( float contactPlaneX )
 {
-    return { Vector3( contactPlaneX, -1.0f, -1.0f ), Vector3( contactPlaneX, -1.0f, 1.0f ),
-             Vector3( contactPlaneX, 1.0f, -1.0f ), Vector3( contactPlaneX, 1.0f, 1.0f ) };
+    return { Vector3( contactPlaneX, -1.0f, -1.0f ), Vector3( contactPlaneX, -1.0f, 1.0f ), Vector3( contactPlaneX, 1.0f, -1.0f ), Vector3( contactPlaneX, 1.0f, 1.0f ) };
 }
 
-ObjectContactBodyView MakeBody( const Vector3& position, Vector3 rotationAxis = Vector3( 1.0f, 0.0f, 0.0f ),
-                                float rotationRadians = 0.0f )
+ObjectContactBodyView MakeBody( const Vector3& position, Vector3 rotationAxis = Vector3( 1.0f, 0.0f, 0.0f ), float rotationRadians = 0.0f )
 {
     ObjectContactBodyView body;
     body.position = position;
@@ -118,9 +117,7 @@ ObjectContactBodyView MakeBody( const Vector3& position, Vector3 rotationAxis = 
     return body;
 }
 
-ObjectContactManifold BuildManifold( const ObjectContactBodyView& a, const CollisionShape& shapeA,
-                                     const ObjectContactBodyView& b, const CollisionShape& shapeB,
-                                     float contactSkin = kContactSkin )
+ObjectContactManifold BuildManifold( const ObjectContactBodyView& a, const CollisionShape& shapeA, const ObjectContactBodyView& b, const CollisionShape& shapeB, float contactSkin = kContactSkin )
 {
     ObjectContactManifold manifold;
     const bool hit = BuildObjectContactManifold( a, shapeA, b, shapeB, 11, 29, contactSkin, manifold );
@@ -130,8 +127,7 @@ ObjectContactManifold BuildManifold( const ObjectContactBodyView& a, const Colli
 
 bool VectorNear( const Vector3& actual, const Vector3& expected, float tolerance = 2.0e-4f )
 {
-    return fabsf( actual.x - expected.x ) <= tolerance && fabsf( actual.y - expected.y ) <= tolerance &&
-           fabsf( actual.z - expected.z ) <= tolerance;
+    return fabsf( actual.x - expected.x ) <= tolerance && fabsf( actual.y - expected.y ) <= tolerance && fabsf( actual.z - expected.z ) <= tolerance;
 }
 
 void CheckVectorNear( const Vector3& actual, const Vector3& expected, float tolerance = 2.0e-4f )
@@ -139,9 +135,7 @@ void CheckVectorNear( const Vector3& actual, const Vector3& expected, float tole
     CHECK( VectorNear( actual, expected, tolerance ) );
 }
 
-template <std::size_t PointCount>
-bool PointSetMatches( const ObjectContactManifold& manifold, const std::array<Vector3, PointCount>& expected,
-                      float tolerance = 2.0e-4f )
+template <std::size_t PointCount> bool PointSetMatches( const ObjectContactManifold& manifold, const std::array<Vector3, PointCount>& expected, float tolerance = 2.0e-4f )
 {
 
     if ( static_cast<std::size_t>( manifold.pointCount ) != PointCount )
@@ -175,9 +169,7 @@ bool PointSetMatches( const ObjectContactManifold& manifold, const std::array<Ve
     return true;
 }
 
-template <std::size_t PointCount>
-void CheckPointSet( const ObjectContactManifold& manifold, const std::array<Vector3, PointCount>& expected,
-                    float tolerance = 2.0e-4f )
+template <std::size_t PointCount> void CheckPointSet( const ObjectContactManifold& manifold, const std::array<Vector3, PointCount>& expected, float tolerance = 2.0e-4f )
 {
     CHECK( PointSetMatches( manifold, expected, tolerance ) );
 }
@@ -234,20 +226,16 @@ void CheckFeatureIdsEqual( const ObjectContactManifold& first, const ObjectConta
 
 std::array<ObjectContactCandidate, 6> MakeSpreadReductionCandidates()
 {
-    return {
-        ObjectContactCandidate { Vector3( 0.0f, 0.0f, 0.0f ), 0.40f, 100u },
-        ObjectContactCandidate { Vector3( 2.0f, 0.0f, 0.0f ), 0.20f, 20u },
-        ObjectContactCandidate { Vector3( -2.0f, 0.0f, 0.0f ), 0.20f, 30u },
-        ObjectContactCandidate { Vector3( 0.0f, 2.0f, 0.0f ), 0.20f, 40u },
-        ObjectContactCandidate { Vector3( 0.0f, -2.0f, 0.0f ), 0.20f, 50u },
-        ObjectContactCandidate { Vector3( 1.9f, 0.1f, 0.0f ), 0.30f, 10u },
-    };
+    return { ObjectContactCandidate { Vector3( 0.0f, 0.0f, 0.0f ), 0.40f, 100u },
+             ObjectContactCandidate { Vector3( 2.0f, 0.0f, 0.0f ), 0.20f, 20u },
+             ObjectContactCandidate { Vector3( -2.0f, 0.0f, 0.0f ), 0.20f, 30u },
+             ObjectContactCandidate { Vector3( 0.0f, 2.0f, 0.0f ), 0.20f, 40u },
+             ObjectContactCandidate { Vector3( 0.0f, -2.0f, 0.0f ), 0.20f, 50u },
+             ObjectContactCandidate { Vector3( 1.9f, 0.1f, 0.0f ), 0.30f, 10u }, };
 }
 
 template <std::size_t CandidateCount>
-bool SelectionMatchesFeatureIds( const std::array<ObjectContactCandidate, CandidateCount>& candidates,
-                                 const ObjectContactCandidateSelection& selection,
-                                 const std::array<uint32_t, 4>& expectedFeatureIds )
+bool SelectionMatchesFeatureIds( const std::array<ObjectContactCandidate, CandidateCount>& candidates, const ObjectContactCandidateSelection& selection, const std::array<uint32_t, 4>& expectedFeatureIds )
 {
 
     if ( static_cast<std::size_t>( selection.count ) != expectedFeatureIds.size() )
@@ -259,8 +247,7 @@ bool SelectionMatchesFeatureIds( const std::array<ObjectContactCandidate, Candid
     {
         const int candidateIndex = selection.indices[selectedIndex];
 
-        if ( candidateIndex < 0 || candidateIndex >= static_cast<int>( CandidateCount ) ||
-             candidates[static_cast<std::size_t>( candidateIndex )].featureId != expectedFeatureIds[selectedIndex] )
+        if ( candidateIndex < 0 || candidateIndex >= static_cast<int>( CandidateCount ) || candidates[static_cast<std::size_t>( candidateIndex )].featureId != expectedFeatureIds[selectedIndex] )
         {
             return false;
         }
@@ -272,8 +259,7 @@ bool SelectionMatchesFeatureIds( const std::array<ObjectContactCandidate, Candid
 std::array<Vector3, 3> WorldAxes( const ObjectContactBodyView& body )
 {
     const auto rotation = body.orientation.GetOrientationMatrix();
-    return { rotation * Vector3( 1.0f, 0.0f, 0.0f ), rotation * Vector3( 0.0f, 1.0f, 0.0f ),
-             rotation * Vector3( 0.0f, 0.0f, 1.0f ) };
+    return { rotation * Vector3( 1.0f, 0.0f, 0.0f ), rotation * Vector3( 0.0f, 1.0f, 0.0f ), rotation * Vector3( 0.0f, 0.0f, 1.0f ) };
 }
 
 float ExtentComponent( const Vector3& halfExtents, int axis )
@@ -317,8 +303,7 @@ Vector3 SupportVertexOffset( const std::array<Vector3, 3>& axes, const Vector3& 
     return offset;
 }
 
-Vector3 SupportEdgeCenterOffset( const std::array<Vector3, 3>& axes, const Vector3& halfExtents, int edgeAxis,
-                                 const Vector3& direction )
+Vector3 SupportEdgeCenterOffset( const std::array<Vector3, 3>& axes, const Vector3& halfExtents, int edgeAxis, const Vector3& direction )
 {
     Vector3 offset( 0.0f, 0.0f, 0.0f );
 
@@ -337,8 +322,7 @@ Vector3 SupportEdgeCenterOffset( const std::array<Vector3, 3>& axes, const Vecto
     return offset;
 }
 
-void ClosestSegmentPoints( const Vector3& p1, const Vector3& q1, const Vector3& p2, const Vector3& q2, Vector3& closestA,
-                           Vector3& closestB )
+void ClosestSegmentPoints( const Vector3& p1, const Vector3& q1, const Vector3& p2, const Vector3& q2, Vector3& closestA, Vector3& closestB )
 {
 
     // Invariant: the positive edge fixture uses non-parallel, interior-intersection
@@ -362,10 +346,7 @@ void ClosestSegmentPoints( const Vector3& p1, const Vector3& q1, const Vector3& 
 const ConvexHullShape& BrickHull()
 {
     static ConvexHullShape hull;
-    static const bool
-        loaded = SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics,
-                                                                         "SkullbonezData/hulls/building_brick_unit.hull",
-                                                                         hull );
+    static const bool loaded = SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/building_brick_unit.hull", hull );
 
     REQUIRE( loaded );
     return hull;
@@ -380,8 +361,7 @@ Vector3 BrickHalfExtents()
     return Vector3( 1.45f, 0.72f, 0.34f );
 }
 
-void CheckDerivedEdgeEdgeConfiguration( const CollisionShape& shapeA, const CollisionShape& shapeB,
-                                        const Vector3& halfExtents )
+void CheckDerivedEdgeEdgeConfiguration( const CollisionShape& shapeA, const CollisionShape& shapeB, const Vector3& halfExtents )
 {
     constexpr float overlap = 0.05f;
     ObjectContactBodyView bodyA = MakeBody( Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 1.0f, 0.0f, 0.0f ), 0.35f );
@@ -405,8 +385,7 @@ void CheckDerivedEdgeEdgeConfiguration( const CollisionShape& shapeA, const Coll
     const Vector3 edgeHalfB = axesB[0] * halfExtents.x;
     Vector3 closestA;
     Vector3 closestB;
-    ClosestSegmentPoints( edgeCenterA - edgeHalfA, edgeCenterA + edgeHalfA, edgeCenterB - edgeHalfB, edgeCenterB + edgeHalfB,
-                          closestA, closestB );
+    ClosestSegmentPoints( edgeCenterA - edgeHalfA, edgeCenterA + edgeHalfA, edgeCenterB - edgeHalfB, edgeCenterB + edgeHalfB, closestA, closestB );
 
     const ObjectContactManifold manifold = BuildManifold( bodyA, shapeA, bodyB, shapeB );
     CheckVectorNear( manifold.normal, expectedNormal );
@@ -414,8 +393,7 @@ void CheckDerivedEdgeEdgeConfiguration( const CollisionShape& shapeA, const Coll
     CheckPointSet( manifold, std::array<Vector3, 1> { ( closestA + closestB ) * 0.5f } );
 }
 
-void CheckContactPair( const ObjectContactBodyView& a, const CollisionShape& shapeA, const ObjectContactBodyView& b,
-                       const CollisionShape& shapeB )
+void CheckContactPair( const ObjectContactBodyView& a, const CollisionShape& shapeA, const ObjectContactBodyView& b, const CollisionShape& shapeB )
 {
     ObjectContactManifold manifold;
     REQUIRE( BuildObjectContactManifold( a, shapeA, b, shapeB, 3, 7, 0.02f, manifold ) );
@@ -492,11 +470,7 @@ TEST_CASE( "Object contact manifold: reduced tilted face starts with deepest ret
     // These deterministic poses exercise clipped face polygons whose depths are
     // not uniform. A first-four truncation leaves a shallower row at index zero;
     // deepest-first reduction makes the solver's most important row explicit.
-    const ObjectContactBodyView tilted[] = {
-        MakeBody( Vector3( 0.10f, 1.55f, -0.10f ), Vector3( 1.0f, 0.0f, 1.0f ), 0.22f ),
-        MakeBody( Vector3( -0.15f, 1.60f, 0.12f ), Vector3( 1.0f, 0.0f, -0.5f ), 0.28f ),
-        MakeBody( Vector3( 0.05f, 1.50f, 0.08f ), Vector3( 0.7f, 0.0f, 1.0f ), 0.18f ),
-    };
+    const ObjectContactBodyView tilted[] = { MakeBody( Vector3( 0.10f, 1.55f, -0.10f ), Vector3( 1.0f, 0.0f, 1.0f ), 0.22f ), MakeBody( Vector3( -0.15f, 1.60f, 0.12f ), Vector3( 1.0f, 0.0f, -0.5f ), 0.28f ), MakeBody( Vector3( 0.05f, 1.50f, 0.08f ), Vector3( 0.7f, 0.0f, 1.0f ), 0.18f ), };
 
     bool observedFourPointDepthVariation = false;
 
@@ -580,8 +554,7 @@ TEST_CASE( "Object contact manifold geometry: sphere pairs and sphere-box bounda
 {
     const CollisionShape unitSphere = SphereShape( 1.0f );
     const ObjectContactBodyView origin = MakeBody( Vector3( 0.0f, 0.0f, 0.0f ) );
-    const ObjectContactManifold spherePair = BuildManifold( origin, unitSphere, MakeBody( Vector3( 1.5f, 0.0f, 0.0f ) ),
-                                                            unitSphere );
+    const ObjectContactManifold spherePair = BuildManifold( origin, unitSphere, MakeBody( Vector3( 1.5f, 0.0f, 0.0f ) ), unitSphere );
 
     CheckVectorNear( spherePair.normal, Vector3( 1.0f, 0.0f, 0.0f ) );
     CheckUniformPenetration( spherePair, 0.5f );
@@ -597,8 +570,7 @@ TEST_CASE( "Object contact manifold geometry: sphere pairs and sphere-box bounda
         float penetration;
         float pointX;
     };
-    const SphereBoxCase cases[] = {
-        { 1.4f, kContactSkin, 0.1f, 0.95f }, // Overlapping outside face.
+    const SphereBoxCase cases[] = { { 1.4f, kContactSkin, 0.1f, 0.95f }, // Overlapping outside face.
         { 1.5f, kContactSkin, 0.0f, 1.0f },  // Exact surface contact.
         { 1.5005f, 0.001f, 0.0f, 1.00025f }, // Separated, but inside contact skin.
         { 0.8f, kContactSkin, 0.7f, 0.3f },  // Center inside; nearest +X face owns escape.
@@ -634,8 +606,7 @@ TEST_CASE( "Object contact manifold geometry: sphere-hull inside surface and ski
         float penetration;
         float pointX;
     };
-    const SphereHullCase cases[] = {
-        { 1.65f, kContactSkin, 0.05f, 1.425f }, // Outside overlap against +X face.
+    const SphereHullCase cases[] = { { 1.65f, kContactSkin, 0.05f, 1.425f }, // Outside overlap against +X face.
         { 1.70f, kContactSkin, 0.0f, 1.45f },   // Exact surface contact.
         { 1.7005f, 0.001f, 0.0f, 1.45025f },    // Skin-only near contact.
         { 1.30f, kContactSkin, 0.40f, 1.25f },  // Inside, nearest +X hull face.
@@ -739,8 +710,7 @@ TEST_CASE( "Object contact manifold geometry: mixed box-hull face contact preser
     const CollisionShape hull = BrickHull();
     const ObjectContactBodyView bodyA = MakeBody( Vector3( 0.0f, 0.0f, 0.0f ) );
     const ObjectContactBodyView bodyB = MakeBody( Vector3( 2.80f, 0.0f, 0.0f ) );
-    const std::array<Vector3, 4> expected = { Vector3( 1.40f, -0.72f, -0.34f ), Vector3( 1.40f, -0.72f, 0.34f ),
-                                              Vector3( 1.40f, 0.72f, -0.34f ), Vector3( 1.40f, 0.72f, 0.34f ) };
+    const std::array<Vector3, 4> expected = { Vector3( 1.40f, -0.72f, -0.34f ), Vector3( 1.40f, -0.72f, 0.34f ), Vector3( 1.40f, 0.72f, -0.34f ), Vector3( 1.40f, 0.72f, 0.34f ) };
 
     const ObjectContactManifold boxHull = BuildManifold( bodyA, box, bodyB, hull );
     CheckVectorNear( boxHull.normal, Vector3( 1.0f, 0.0f, 0.0f ) );
@@ -773,8 +743,7 @@ TEST_CASE( "Object contact manifold geometry: mixed box-hull edge and vertex pla
     // Mixed polytope clipping makes the same deliberate reference choice as
     // hull/hull: retain the four-row clipped box face rather than the legal
     // two-row incident hull edge alternative.
-    CheckPointSet( edge, std::array<Vector3, 4> { Vector3( 1.425f, -0.72f, -0.34f ), Vector3( 1.425f, -0.72f, 0.0f ),
-                                                  Vector3( 1.425f, 0.72f, -0.34f ), Vector3( 1.425f, 0.72f, 0.0f ) } );
+    CheckPointSet( edge, std::array<Vector3, 4> { Vector3( 1.425f, -0.72f, -0.34f ), Vector3( 1.425f, -0.72f, 0.0f ), Vector3( 1.425f, 0.72f, -0.34f ), Vector3( 1.425f, 0.72f, 0.0f ) } );
 
     ObjectContactBodyView vertex = MakeBody( Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 1.0f, 1.0f, 1.0f ), 0.50f );
     const auto vertexAxes = WorldAxes( vertex );
@@ -798,16 +767,14 @@ TEST_CASE( "Object contact manifold geometry: hull face patches and deep overlap
     const ObjectContactManifold face = BuildManifold( bodyA, hull, bodyB, hull );
     CheckVectorNear( face.normal, Vector3( 1.0f, 0.0f, 0.0f ) );
     CheckUniformPenetration( face, 0.10f );
-    CheckPointSet( face, std::array<Vector3, 4> { Vector3( 1.40f, -0.72f, -0.34f ), Vector3( 1.40f, -0.72f, 0.34f ),
-                                                  Vector3( 1.40f, 0.72f, -0.34f ), Vector3( 1.40f, 0.72f, 0.34f ) } );
+    CheckPointSet( face, std::array<Vector3, 4> { Vector3( 1.40f, -0.72f, -0.34f ), Vector3( 1.40f, -0.72f, 0.34f ), Vector3( 1.40f, 0.72f, -0.34f ), Vector3( 1.40f, 0.72f, 0.34f ) } );
 
     // The authored brick's thinnest axis is Z. Coincident hulls therefore tie
     // on the two Z faces; source face order selects -Z and centers the patch.
     const ObjectContactManifold deep = BuildManifold( bodyA, hull, bodyA, hull );
     CheckVectorNear( deep.normal, Vector3( 0.0f, 0.0f, -1.0f ) );
     CheckUniformPenetration( deep, halfExtents.z * 2.0f );
-    CheckPointSet( deep, std::array<Vector3, 4> { Vector3( -1.45f, -0.72f, 0.0f ), Vector3( -1.45f, 0.72f, 0.0f ),
-                                                  Vector3( 1.45f, -0.72f, 0.0f ), Vector3( 1.45f, 0.72f, 0.0f ) } );
+    CheckPointSet( deep, std::array<Vector3, 4> { Vector3( -1.45f, -0.72f, 0.0f ), Vector3( -1.45f, 0.72f, 0.0f ), Vector3( 1.45f, -0.72f, 0.0f ), Vector3( 1.45f, 0.72f, 0.0f ) } );
 }
 
 
@@ -832,8 +799,7 @@ TEST_CASE( "Object contact manifold geometry: hull face-edge vertex-face and edg
     // at the support-edge plane, all projected halfway in X. That
     // policy-derived patch distinguishes this path from the two-row box
     // face/edge fixture above.
-    CheckPointSet( edge, std::array<Vector3, 4> { Vector3( 1.425f, -0.72f, -0.34f ), Vector3( 1.425f, -0.72f, 0.0f ),
-                                                  Vector3( 1.425f, 0.72f, -0.34f ), Vector3( 1.425f, 0.72f, 0.0f ) } );
+    CheckPointSet( edge, std::array<Vector3, 4> { Vector3( 1.425f, -0.72f, -0.34f ), Vector3( 1.425f, -0.72f, 0.0f ), Vector3( 1.425f, 0.72f, -0.34f ), Vector3( 1.425f, 0.72f, 0.0f ) } );
 
     ObjectContactBodyView vertex = MakeBody( Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 1.0f, 1.0f, 1.0f ), 0.50f );
     const auto vertexAxes = WorldAxes( vertex );
@@ -862,8 +828,7 @@ TEST_CASE( "Object contact manifold identity: resting box and hull rows survive 
 
     const CollisionShape hull = BrickHull();
     const ObjectContactManifold hullFrameN = BuildManifold( lower, hull, MakeBody( Vector3( 0.0f, 1.40f, 0.0f ) ), hull );
-    const ObjectContactManifold hullFrameN1 = BuildManifold( lower, hull, MakeBody( Vector3( 0.0f, 1.40001f, 0.0f ) ),
-                                                             hull );
+    const ObjectContactManifold hullFrameN1 = BuildManifold( lower, hull, MakeBody( Vector3( 0.0f, 1.40001f, 0.0f ) ), hull );
 
     CheckFeatureIdsEqual( hullFrameN, hullFrameN1 );
 }
@@ -881,8 +846,7 @@ TEST_CASE( "Object contact manifold identity: the 45-degree incident-face bounda
     for ( int sweepStep = -20; sweepStep <= 20; ++sweepStep )
     {
         CAPTURE( sweepStep );
-        const ObjectContactBodyView incident = MakeBody( Vector3( 1.60f, 0.0f, 0.0f ), Vector3( 0.0f, 1.0f, 0.0f ),
-                                                         quarterTurn + quarterDegree * sweepStep );
+        const ObjectContactBodyView incident = MakeBody( Vector3( 1.60f, 0.0f, 0.0f ), Vector3( 0.0f, 1.0f, 0.0f ), quarterTurn + quarterDegree * sweepStep );
 
         const ObjectContactManifold manifold = BuildManifold( reference, box, incident, box );
         REQUIRE( manifold.pointCount > 0 );
@@ -928,31 +892,17 @@ TEST_CASE( "Object contact manifold reduction: deepest feature tie spread and pe
     const Vector3 normal( 0.0f, 0.0f, 1.0f );
     CHECK( SelectObjectContactCandidateIndices( nullptr, 0, normal ).count == 0 );
 
-    const std::array<ObjectContactCandidate, 2> depthCandidates = {
-        ObjectContactCandidate { Vector3( -1.0f, 0.0f, 0.0f ), 0.20f, 1u },
-        ObjectContactCandidate { Vector3( 1.0f, 0.0f, 0.0f ), 0.30f, 90u },
-    };
+    const std::array<ObjectContactCandidate, 2> depthCandidates = { ObjectContactCandidate { Vector3( -1.0f, 0.0f, 0.0f ), 0.20f, 1u }, ObjectContactCandidate { Vector3( 1.0f, 0.0f, 0.0f ), 0.30f, 90u }, };
 
-    const ObjectContactCandidateSelection depthSelection = SelectObjectContactCandidateIndices( depthCandidates.data(),
-                                                                                                static_cast<int>(
-                                                                                                    depthCandidates.size() ),
-                                                                                                normal );
+    const ObjectContactCandidateSelection depthSelection = SelectObjectContactCandidateIndices( depthCandidates.data(), static_cast<int>( depthCandidates.size() ), normal );
 
     REQUIRE( depthSelection.count == 2 );
     CHECK( depthCandidates[depthSelection.indices[0]].featureId == 90u );
-    CHECK( SelectObjectContactCandidateIndices( depthCandidates.data(),
-                                                SkullbonezCore::Physics::MAX_OBJECT_CONTACT_CANDIDATES + 1, normal )
-               .count == 0 );
+    CHECK( SelectObjectContactCandidateIndices( depthCandidates.data(), SkullbonezCore::Physics::MAX_OBJECT_CONTACT_CANDIDATES + 1, normal ).count == 0 );
 
-    const std::array<ObjectContactCandidate, 2> tieCandidates = {
-        ObjectContactCandidate { Vector3( -1.0f, 0.0f, 0.0f ), 0.30f, 41u },
-        ObjectContactCandidate { Vector3( 1.0f, 0.0f, 0.0f ), 0.30f, 7u },
-    };
+    const std::array<ObjectContactCandidate, 2> tieCandidates = { ObjectContactCandidate { Vector3( -1.0f, 0.0f, 0.0f ), 0.30f, 41u }, ObjectContactCandidate { Vector3( 1.0f, 0.0f, 0.0f ), 0.30f, 7u }, };
 
-    const ObjectContactCandidateSelection tieSelection = SelectObjectContactCandidateIndices( tieCandidates.data(),
-                                                                                              static_cast<int>(
-                                                                                                  tieCandidates.size() ),
-                                                                                              normal );
+    const ObjectContactCandidateSelection tieSelection = SelectObjectContactCandidateIndices( tieCandidates.data(), static_cast<int>( tieCandidates.size() ), normal );
 
     REQUIRE( tieSelection.count == 2 );
     CHECK( tieCandidates[tieSelection.indices[0]].featureId == 7u );
@@ -975,10 +925,7 @@ TEST_CASE( "Object contact manifold reduction: deepest feature tie spread and pe
             permuted[candidateIndex] = candidates[static_cast<std::size_t>( order[candidateIndex] )];
         }
 
-        const ObjectContactCandidateSelection selection = SelectObjectContactCandidateIndices( permuted.data(),
-                                                                                               static_cast<int>(
-                                                                                                   permuted.size() ),
-                                                                                               normal );
+        const ObjectContactCandidateSelection selection = SelectObjectContactCandidateIndices( permuted.data(), static_cast<int>( permuted.size() ), normal );
 
         CHECK( SelectionMatchesFeatureIds( permuted, selection, kSpreadReductionFeatureIds ) );
         ++permutationCount;
@@ -1003,8 +950,7 @@ TEST_CASE( "Object contact manifold identity: a changed narrowphase feature miss
     // feature. Holding body ids constant isolates feature identity as the only
     // reason the +Y manifold misses.
     RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
-    PersistentContactCacheList cache( "unit.object-manifold-feature-cache",
-                                      SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
+    PersistentContactCacheList cache( "unit.object-manifold-feature-cache", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
     cache.Reserve( 1u );
     PersistentContactCacheEntry cached;
     cached.key = ConstraintSolveTransaction::MakeKey( faceX.bodyA, faceX.bodyB, faceX.points[0].featureId );
@@ -1012,10 +958,8 @@ TEST_CASE( "Object contact manifold identity: a changed narrowphase feature miss
     cache.push_back( cached );
 
     const std::span<const PersistentContactCacheEntry> cacheRows( cache.data(), cache.size() );
-    CHECK( SkullbonezCore::Physics::PersistentContactCacheHasImpulse( cacheRows, faceX.bodyA, faceX.bodyB,
-                                                                      faceX.points[0].featureId ) );
-    CHECK_FALSE( SkullbonezCore::Physics::PersistentContactCacheHasImpulse( cacheRows, faceY.bodyA, faceY.bodyB,
-                                                                            faceY.points[0].featureId ) );
+    CHECK( SkullbonezCore::Physics::PersistentContactCacheHasImpulse( cacheRows, faceX.bodyA, faceX.bodyB, faceX.points[0].featureId ) );
+    CHECK_FALSE( SkullbonezCore::Physics::PersistentContactCacheHasImpulse( cacheRows, faceY.bodyA, faceY.bodyB, faceY.points[0].featureId ) );
 }
 
 
@@ -1052,8 +996,7 @@ TEST_CASE( "Object contact manifold oracles: planted geometry identity and reduc
     CHECK_FALSE( PointSetMatches( truncatedPatch, expectedPoints ) );
 
     const ObjectContactManifold stableFrame = BuildManifold( origin, box, MakeBody( Vector3( 0.0f, 1.50f, 0.0f ) ), box );
-    const ObjectContactManifold stableFrameN1 = BuildManifold( origin, box, MakeBody( Vector3( 0.0f, 1.50001f, 0.0f ) ),
-                                                               box );
+    const ObjectContactManifold stableFrameN1 = BuildManifold( origin, box, MakeBody( Vector3( 0.0f, 1.50001f, 0.0f ) ), box );
 
     REQUIRE( FeatureIdsEqual( stableFrame, stableFrameN1 ) );
     ObjectContactManifold unstableFeature = stableFrameN1;
@@ -1062,10 +1005,7 @@ TEST_CASE( "Object contact manifold oracles: planted geometry identity and reduc
 
     const Vector3 reductionNormal( 0.0f, 0.0f, 1.0f );
     const std::array<ObjectContactCandidate, 6> candidates = MakeSpreadReductionCandidates();
-    const ObjectContactCandidateSelection productionSelection = SelectObjectContactCandidateIndices( candidates.data(),
-                                                                                                     static_cast<int>(
-                                                                                                         candidates.size() ),
-                                                                                                     reductionNormal );
+    const ObjectContactCandidateSelection productionSelection = SelectObjectContactCandidateIndices( candidates.data(), static_cast<int>( candidates.size() ), reductionNormal );
 
     REQUIRE( SelectionMatchesFeatureIds( candidates, productionSelection, kSpreadReductionFeatureIds ) );
 
@@ -1087,8 +1027,7 @@ TEST_CASE( "Coverage floor contract: every object manifold shape pair publishes 
     const CollisionShape sphere = SphereShape( 2.0f );
     const CollisionShape box = BoxShape( Vector3( 2.0f, 2.0f, 2.0f ) );
     SkullbonezCore::Math::CollisionDetection::ConvexHullShape hullShape;
-    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/pyramid.hull",
-                                                                     hullShape ) );
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/pyramid.hull", hullShape ) );
 
     const CollisionShape hull = hullShape;
 
@@ -1116,8 +1055,7 @@ TEST_CASE( "Coverage floor contract: every object manifold shape pair publishes 
     ObjectContactBodyView moving = a;
     moving.position = Vector3( -5.0f, 0.0f, 0.0f );
     ObjectContactBodyView target = a;
-    const auto sweep = SweepObjectContact( moving, sphere, Vector3( 10.0f, 0.0f, 0.0f ), target, sphere,
-                                           Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    const auto sweep = SweepObjectContact( moving, sphere, Vector3( 10.0f, 0.0f, 0.0f ), target, sphere, Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
 
     CHECK( sweep.hit );
     CHECK( sweep.collisionTime >= 0.0f );
@@ -1131,14 +1069,8 @@ TEST_CASE( "Object CCD: rotated local centres determine sphere and box sweep ori
     const Vector3 localOffset( 4.0f, 0.0f, 0.0f );
     const Vector3 desiredMovingCenter( -5.0f, 0.0f, 0.0f );
     const Vector3 movingBodyPosition = desiredMovingCenter - orientation.GetOrientationMatrix() * localOffset;
-    const CollisionShape movingShapes[] = {
-        BoundingSphere( 1.0f, localOffset ),
-        BoundingBox( Vector3( 1.0f, 1.0f, 1.0f ), localOffset ),
-    };
-    const CollisionShape targetShapes[] = {
-        BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) ),
-        BoundingBox( Vector3( 1.0f, 1.0f, 1.0f ), Vector3( 0.0f, 0.0f, 0.0f ) ),
-    };
+    const CollisionShape movingShapes[] = { BoundingSphere( 1.0f, localOffset ), BoundingBox( Vector3( 1.0f, 1.0f, 1.0f ), localOffset ), };
+    const CollisionShape targetShapes[] = { BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) ), BoundingBox( Vector3( 1.0f, 1.0f, 1.0f ), Vector3( 0.0f, 0.0f, 0.0f ) ), };
 
     for ( int shapeIndex = 0; shapeIndex < 2; ++shapeIndex )
     {
@@ -1148,8 +1080,7 @@ TEST_CASE( "Object CCD: rotated local centres determine sphere and box sweep ori
         ObjectContactBodyView target;
         target.position = Vector3( 0.0f, 0.0f, 0.0f );
 
-        const auto sweep = SweepObjectContact( moving, movingShapes[shapeIndex], Vector3( 10.0f, 0.0f, 0.0f ), target,
-                                               targetShapes[shapeIndex], Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+        const auto sweep = SweepObjectContact( moving, movingShapes[shapeIndex], Vector3( 10.0f, 0.0f, 0.0f ), target, targetShapes[shapeIndex], Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
         REQUIRE( sweep.hit );
         CHECK( sweep.collisionTime >= 0.0f );
         CHECK( sweep.collisionTime <= 1.0f );
@@ -1191,8 +1122,7 @@ TEST_CASE( "Object CCD: shallow oblique sphere motion reaches a box face" )
     movingSphere.position = Vector3( 1.1005f, 0.0f, 0.0f );
     ObjectContactBodyView stationaryBox;
 
-    const auto sweep = SweepObjectContact( movingSphere, sphere, shallowObliqueVelocity, stationaryBox, box, stationary,
-                                           1.0f );
+    const auto sweep = SweepObjectContact( movingSphere, sphere, shallowObliqueVelocity, stationaryBox, box, stationary, 1.0f );
 
     REQUIRE( sweep.hit );
     CHECK( sweep.collisionTime == doctest::Approx( 0.5f ).epsilon( 0.0001f ) );
@@ -1277,8 +1207,7 @@ TEST_CASE( "Convex distance: rotated collider offsets and hull core preserve geo
 {
     RuntimeAllocationScope allocationScope( RuntimeAllocationPhase::SceneLoad );
     ConvexHullShape hull;
-    REQUIRE(
-        ConvexHullShape::TryLoadFromFile( diagnostics, "SkullbonezData/hulls/test_scaled_normals_box.hull", hull ).Ok() );
+    REQUIRE( ConvexHullShape::TryLoadFromFile( diagnostics, "SkullbonezData/hulls/test_scaled_normals_box.hull", hull ).Ok() );
     const CollisionShape hullShape = hull;
     const CollisionShape sphere = BoundingSphere( 0.5f, Vector3( 2.0f, 0.0f, 0.0f ) );
     const auto a = MakeBody( Vector3( 0.0f, 4.0f, 0.0f ), Vector3( 0.0f, 0.0f, 1.0f ), 1.57079632679f );
@@ -1350,9 +1279,7 @@ TEST_CASE( "Convex distance: nearly touching parallel limb edges terminate witho
         // Equal orientations reduce the geometric reference to AABB distance
         // in their shared frame, including the rounded world-space centers.
         const Vector3 relative = rotation.TransposeMultiply( b.position - a.position );
-        const Vector3 gap( (std::max)( 0.0f, fabsf( relative.x ) - extentA.x - extentB.x ),
-                           (std::max)( 0.0f, fabsf( relative.y ) - extentA.y - extentB.y ),
-                           (std::max)( 0.0f, fabsf( relative.z ) - extentA.z - extentB.z ) );
+        const Vector3 gap( (std::max)( 0.0f, fabsf( relative.x ) - extentA.x - extentB.x ), (std::max)( 0.0f, fabsf( relative.y ) - extentA.y - extentB.y ), (std::max)( 0.0f, fabsf( relative.z ) - extentA.z - extentB.z ) );
         const auto result = SkullbonezCore::Physics::ComputeConvexDistance( a, legA, b, legB );
         CAPTURE( index );
         REQUIRE( result.converged );
@@ -1367,8 +1294,7 @@ TEST_CASE( "Convex motion bounds: finite endpoint encloses deterministic half-an
     hot.angularVelocity = Vector3( 0, 0, 1.2f );
     constexpr float duration = 1.0f / 120.0f;
     const CollisionShape shape = BoundingSphere( 0.0f, Vector3( 1, 0, 0 ) );
-    const float bound = MaximumRotatedProjection( hot.orientation, shape, hot.angularVelocity, Vector3( 0, 1, 0 ),
-                                                  duration );
+    const float bound = MaximumRotatedProjection( hot.orientation, shape, hot.angularVelocity, Vector3( 0, 1, 0 ), duration );
     IntegrateBodyRecordPose( hot, duration );
     const float actual = ( hot.orientation.GetOrientationMatrix() * Vector3( 1, 0, 0 ) ).y;
     // This endpoint lies beyond the ideal arc by more than float roundoff.
@@ -1380,12 +1306,9 @@ TEST_CASE( "Convex motion bounds: finite endpoint encloses deterministic half-an
 
 namespace
 {
-void CheckIntegratedShapeProjection( const CollisionShape& shape,
-                                     const SkullbonezCore::Math::Transformation::RotationMatrix& rotation,
-                                     const Vector3& normal, float bound )
+void CheckIntegratedShapeProjection( const CollisionShape& shape, const SkullbonezCore::Math::Transformation::RotationMatrix& rotation, const Vector3& normal, float bound )
 {
-    auto checkPoint = [&]( const Vector3& point, float radius )
-    { CHECK( Dot( normal, rotation * point ) + radius <= bound + 0.000002f ); };
+    auto checkPoint = [&]( const Vector3& point, float radius ) { CHECK( Dot( normal, rotation * point ) + radius <= bound + 0.000002f ); };
     if ( const auto* sphere = std::get_if<BoundingSphere>( &shape ) )
     {
         checkPoint( sphere->GetPosition(), sphere->GetRadius() );
@@ -1395,9 +1318,7 @@ void CheckIntegratedShapeProjection( const CollisionShape& shape,
         const Vector3 half = box->GetHalfExtents();
         for ( unsigned vertex = 0; vertex < 8; ++vertex )
         {
-            checkPoint( box->GetPosition() + Vector3( vertex & 1u ? half.x : -half.x, vertex & 2u ? half.y : -half.y,
-                                                      vertex & 4u ? half.z : -half.z ),
-                        0.0f );
+            checkPoint( box->GetPosition() + Vector3( vertex & 1u ? half.x : -half.x, vertex & 2u ? half.y : -half.y, vertex & 4u ? half.z : -half.z ), 0.0f );
         }
     }
     else
@@ -1410,8 +1331,7 @@ void CheckIntegratedShapeProjection( const CollisionShape& shape,
     }
 }
 
-void CheckIntegratedArcBound( const CollisionShape& shape, const Quaternion& orientation, const Vector3& omega,
-                              const Vector3& normal )
+void CheckIntegratedArcBound( const CollisionShape& shape, const Quaternion& orientation, const Vector3& omega, const Vector3& normal )
 {
     using namespace SkullbonezCore::Physics;
     constexpr float duration = 1.0f / 120.0f;
@@ -1430,9 +1350,7 @@ void CheckIntegratedArcBound( const CollisionShape& shape, const Quaternion& ori
 TEST_CASE( "Convex motion bounds: offset shapes enclose integrated arcs on varied axes" )
 {
     using namespace SkullbonezCore::Physics;
-    const std::array<CollisionShape, 3> shapes = { BoundingSphere( 0.3f, Vector3( 1, -2, 0.5f ) ),
-                                                   BoundingBox( Vector3( 0.3f, 2, 0.7f ), Vector3( -1, 0.5f, 0.2f ) ),
-                                                   BrickHull() };
+    const std::array<CollisionShape, 3> shapes = { BoundingSphere( 0.3f, Vector3( 1, -2, 0.5f ) ), BoundingBox( Vector3( 0.3f, 2, 0.7f ), Vector3( -1, 0.5f, 0.2f ) ), BrickHull() };
     const std::array<Vector3, 3> axes = { Vector3( 0, 0, 1 ), Vector3( 0.6f, 0.8f, 0 ), Vector3( -0.48f, 0.64f, 0.6f ) };
     const std::array<Vector3, 3> normals = { Vector3( 1, 0, 0 ), Vector3( 0, -1, 0 ), Vector3( 0.6f, 0, -0.8f ) };
     Quaternion orientation;
@@ -1447,6 +1365,114 @@ TEST_CASE( "Convex motion bounds: offset shapes enclose integrated arcs on varie
                 for ( const Vector3& normal : normals )
                 {
                     CheckIntegratedArcBound( shape, orientation, omega, normal );
+                }
+            }
+        }
+    }
+}
+
+TEST_CASE( "Convex cast: narrow hull contact windows and loose-radius misses are geometric" )
+{
+    RuntimeAllocationScope allocationScope( RuntimeAllocationPhase::SceneLoad );
+    ConvexHullShape hull;
+    REQUIRE( ConvexHullShape::TryLoadFromFile( diagnostics, "SkullbonezData/hulls/convex_quality_elongated_ordinary.hull", hull ).Ok() );
+    const CollisionShape mover = hull;
+    const CollisionShape wall = MakeBox( Vector3( 0.05f, 1.0f, 7.0f ) );
+    const Vector3 velocity( 50000, 0, 0 );
+    const auto a = MakeBody( Vector3( 480, 80, 400 ) );
+    const auto b = MakeBody( Vector3( 500, 80, 400 ) );
+    constexpr float dt = 1.0f / 120.0f;
+    for ( bool swapped : { false, true } )
+    {
+        const auto result = swapped ? SkullbonezCore::Physics::CastConvexContact( b, wall, ZERO_VECTOR, a, mover, velocity, dt, kContactSkin )
+                                    : SkullbonezCore::Physics::CastConvexContact( a, mover, velocity, b, wall, ZERO_VECTOR, dt, kContactSkin );
+        REQUIRE( result.converged );
+        REQUIRE( result.hit );
+        CHECK( result.iterations <= 64 );
+        CHECK( result.collisionTime == doctest::Approx( ( 20.0f - 0.4f - 0.05f ) / 50000.0f ).epsilon( 0.0001f ) );
+        auto atHit = a;
+        atHit.position += velocity * result.collisionTime;
+        ObjectContactManifold manifold;
+        CHECK( SkullbonezCore::Physics::BuildObjectContactManifold( atHit, mover, b, wall, 0, 1, kContactSkin, manifold ) );
+        auto miss = b;
+        miss.position.y += 3.0f;
+        const auto rejected = swapped ? SkullbonezCore::Physics::CastConvexContact( miss, wall, ZERO_VECTOR, a, mover, velocity, dt, kContactSkin )
+                                      : SkullbonezCore::Physics::CastConvexContact( a, mover, velocity, miss, wall, ZERO_VECTOR, dt, kContactSkin );
+        CHECK_FALSE( rejected.hit );
+        CHECK( rejected.converged );
+        CHECK( rejected.collisionTime == dt );
+        CHECK( a.position.x == 480.0f );
+    }
+}
+
+TEST_CASE( "Convex cast: sphere hull grazing opposing motion overlap and exhausted intervals" )
+{
+    RuntimeAllocationScope allocationScope( RuntimeAllocationPhase::SceneLoad );
+    ConvexHullShape hull;
+    REQUIRE( ConvexHullShape::TryLoadFromFile( diagnostics, "SkullbonezData/hulls/convex_quality_elongated_ordinary.hull", hull ).Ok() );
+    const CollisionShape target = hull;
+    const CollisionShape sphere = BoundingSphere( 0.5f, ZERO_VECTOR );
+    const auto a = MakeBody( Vector3( 480, 80, 400 ) );
+    const auto b = MakeBody( Vector3( 500, 80, 400 ) );
+    for ( float height : { 0.0f, 1.099f, 1.2f } )
+    {
+        auto moving = a;
+        moving.position.y += height;
+        const auto result = SkullbonezCore::Physics::CastConvexContact( moving, sphere, Vector3( 50000, 0, 0 ), b, target, Vector3( -1200, 0, 0 ), 1.0f / 120.0f, kContactSkin );
+        CHECK( result.converged );
+        CHECK( result.hit == ( height < 1.1f ) );
+        CHECK( result.iterations <= 64 );
+    }
+    const auto overlap = SkullbonezCore::Physics::CastConvexContact( b, sphere, ZERO_VECTOR, b, target, ZERO_VECTOR, 0.0f, kContactSkin );
+    CHECK( overlap.hit );
+    CHECK( overlap.collisionTime == 0.0f );
+    const auto exhausted = SkullbonezCore::Physics::CastConvexContact( a, sphere, Vector3( 50000, 0, 0 ), b, target, ZERO_VECTOR, 1.0e-9f, kContactSkin );
+    CHECK_FALSE( exhausted.hit );
+    CHECK( exhausted.converged );
+    CHECK( exhausted.collisionTime == 1.0e-9f );
+}
+
+TEST_CASE( "Object contact manifold: hull clipping keeps distinct source features during face crossings" )
+{
+    RuntimeAllocationScope allocationScope( RuntimeAllocationPhase::SceneLoad );
+    ConvexHullShape hull;
+    REQUIRE( ConvexHullShape::TryLoadFromFile( diagnostics, "SkullbonezData/hulls/convex_quality_box_hull_ordinary.hull", hull ).Ok() );
+    for ( float scale : { 0.5f, 1.0f, 2.0f } )
+    {
+        ConvexHullShape scaled = hull;
+        for ( int axis = 0; axis < 3; ++axis )
+        {
+            scaled.ScaleAxis( axis, scale );
+        }
+        const CollisionShape shape = scaled;
+        for ( int step = 1; step <= 90; ++step )
+        {
+            const auto a = MakeBody( ZERO_VECTOR );
+            const auto b = MakeBody( Vector3( 0.37f * scale, 3.99f * scale, -0.19f * scale ), Vector3( 0, 1, 0 ), 0.017f * step );
+            const auto manifold = BuildManifold( a, shape, b, shape );
+            const auto repeat = BuildManifold( a, shape, b, shape );
+            CAPTURE( scale );
+            CAPTURE( step );
+            REQUIRE( manifold.pointCount >= 3 );
+            REQUIRE( repeat.pointCount == manifold.pointCount );
+            for ( uint8_t i = 0; i < manifold.pointCount; ++i )
+            {
+                CHECK( manifold.points[i].featureId == repeat.points[i].featureId );
+                CheckVectorNear( manifold.points[i].point, repeat.points[i].point, 0.0f );
+                for ( uint8_t j = i + 1; j < manifold.pointCount; ++j )
+                {
+                    CHECK( manifold.points[i].featureId != manifold.points[j].featureId );
+                }
+                // Both 10-bit halves decode to a real source feature of that
+                // shape. A hash or truncated face-local ordinal cannot satisfy
+                // this vertex/edge/face provenance contract.
+                for ( unsigned shift : { 0u, 10u } )
+                {
+                    const unsigned feature = ( manifold.points[i].featureId >> shift ) & 0x3ffu;
+                    const unsigned kind = feature >> 8;
+                    const unsigned index = feature & 0xffu;
+                    REQUIRE( kind <= 2u );
+                    CHECK( index < ( kind == 0 ? scaled.GetVertexCount() : kind == 1 ? scaled.GetEdgeCount() : scaled.GetFaceCount() ) );
                 }
             }
         }

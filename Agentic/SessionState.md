@@ -1,9 +1,41 @@
 # Session State
 
-Date: 2026-09-16
-Branch: `main`
-Status: Causal detail docking and orthographic panning fixed and validated; direct main commit explicitly requested.
+Date: 2026-09-17
+Branch: `nightrunner-16th-SEP-26`
+Status: CONVEX_HULL CH0-CH6 complete at 7/8; CH7 acceptance pending; portfolio 145/152; PHYSICS_AB queued at 0/6.
 
+
+## Convex-hull implementation — 2026-09-17
+
+Production implementation and all 36 permanent hull scenes are complete. The
+matrix includes three-body, five-high and mixed stacks on varying terrain.
+Exact CCD, material/load friction, integrated full inertia, geometric contact
+persistence and support-area sleep are implemented. All 55 hulls are v3.
+Three-body hull stacks settle on flat/shallow/ridges; five-high box hulls hold on
+flat/steps. Tall sloped, elongated and mixed stacks remain measured solver-wide
+follow-up under the still-parked contact-stack plan. Sleeping collapse is rejected.
+
+Final two-process ragdoll state/events and replay bytes are exact. The mixed hull
+stack is exact across 0/1/4 workers and a repeated process. Independent production
+and harness reviews are clear. Full CPU tests/Debug coverage, deep Physics,
+immutable replay fidelity, DX12, allocation/dependency/source-design and staged
+Physics checks pass. The 1,090-test Profile suite passes 3,747,034 assertions.
+
+CH0-CH6 are complete (7/8; portfolio 145/152). CH7 remains open for owner
+visual/cost review. Required terminal lanes pass after harness repairs and fresh
+current-build UI captures: editor 40, four-view 23 and causal-view 45 checks.
+The shipped Solver Lab archive still pins its original assets and is unchanged;
+fresh UI fixtures do not alter its recordings or any golden baseline. Paired
+performance results and the failed informational frame-spike diagnostic are
+recorded in [the owning plan](Plans/TODO/convex-hull-collision-response-and-sleep.md).
+Tall sloped/mixed/elongated stacks remain the separate owner-parked solver task.
+
+Publish the complete implementation as a review PR on the named branch; do not
+merge it or claim whole-plan completion. MASTER retains the plan for the unmet
+owner visual/cost acceptance. Next binding task is CH7;
+PHYSICS_AB remains queued at 0/6.
+Default WORK_LEDGER belongs to another task and isolated accounting lacks verified
+gpt-6-astra pricing; no counters or prices were fabricated.
 
 ## Causal detail and orthographic panning - 2026-09-16
 
@@ -4120,3 +4152,23 @@ active. Remaining work includes the unchanged solar trip regression, narrow Lab
 event scroll and seek geometry findings, final visual inspection and mapped gates.
 See the owning plan's integrated-review checkpoint for exact artifacts and the
 unchanged live-ledger limitation. No UI completion commit or push exists yet.
+
+
+Hull task checkpoint (2026-09-17): continue the active eight-phase plan on
+nightrunner-16th-SEP-26, unattended; create a review PR and do not merge. Five-high
+and mixed hull stacks exist on varying terrain. Geometric cache/support changes
+repair the flat mixed tower and preserve both exact 2,400-tick ragdoll repeats.
+Tensor body/runtime/codec plumbing now builds; asset v3 rebake, tensor durability
+checks, remaining support/CCD checks and terminal gates are still pending. See
+the active hull plan's latest checkpoint. No hull commit or push yet; no phase
+accepted. Earlier material-cache diagnosis in the implementation-evidence note
+is superseded by the plan checkpoint.
+
+
+Hull continuation: exact v3 assets, tensor restore/clone/codec and bounded patch
+refresh are implemented. Native tensor and patch stacks expose remaining mixed
+and elongated tower collapse; box-hull towers hold. Both tensor ragdoll repeats
+remain byte exact. Latest active-plan checkpoint names all passing tests and
+supersedes earlier approximate-inertia tower stability. Finish corrected CCD
+wake check, full matrix and CH6 assessment, then terminal gates and independent
+review. User authorized a review PR, never merge it. No phase is accepted yet.

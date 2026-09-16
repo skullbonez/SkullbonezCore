@@ -114,6 +114,7 @@ MATH_PREFIXES = (
     "GeometricStructures",
     "MathsCommon",
     "Matrix4",
+    "SymmetricMatrix3",
     "OrbitalMechanics",
     "Quaternion",
     "RotationMatrix",
@@ -171,6 +172,8 @@ PHYSICS_FORCE_PREFIXES = (
 PHYSICS_SOLVER_PREFIXES = (
     "ConstraintIslandSchedule",
     "ContactSolverCommon",
+    "ContactSupportGeometry",
+    "PersistentContactGeometry",
     "DisjointSet",
     "PersistentContactSolver",
     "PhysicsBroadphaseStepValues",

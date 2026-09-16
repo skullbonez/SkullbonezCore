@@ -32,8 +32,7 @@ namespace ContactSolver
 // A "row" is one tiny rule such as "do not move into the wall along this normal"
 // or "slow sideways sliding along this tangent." Keeping the math here helps the
 // terrain and object paths agree about directions, effective mass, and friction.
-inline void BuildContactTangents( const Math::Vector::Vector3& normal, Math::Vector::Vector3& tangent1,
-                                  Math::Vector::Vector3& tangent2 )
+inline void BuildContactTangents( const Math::Vector::Vector3& normal, Math::Vector::Vector3& tangent1, Math::Vector::Vector3& tangent2 )
 {
     // Catto-style 3D contact solving treats friction as two scalar tangent rows
     // attached to the same contact point as the normal row. The tangent frame
@@ -66,6 +65,17 @@ inline void BuildContactTangents( const Math::Vector::Vector3& normal, Math::Vec
     tangent2 = Math::Vector::CrossProduct( normal, tangent1 );
 }
 
+// Symmetric material mixing preserves a frictionless participant. Invalid
+// coefficients fail frictionless instead of publishing a non-finite impulse.
+inline float MixMaterialFriction( float a, float b )
+{
+    if ( !std::isfinite( a ) || !std::isfinite( b ) || a <= 0.0f || b <= 0.0f )
+    {
+        return 0.0f;
+    }
+    return sqrtf( a ) * sqrtf( b );
+}
+
 inline void ClampFrictionVector( float& accT1, float& accT2, float limit )
 {
     // Catto 2005 presents two independent tangent bounds for the 2D examples.
@@ -86,9 +96,7 @@ inline void ClampFrictionVector( float& accT1, float& accT2, float limit )
     }
 }
 
-template <typename ApplyInvInertia>
-inline float ComputeStaticBodyEffectiveMass( float invMass, const Math::Vector::Vector3& axis,
-                                             const Math::Vector::Vector3& r, ApplyInvInertia applyInvInertia )
+template <typename ApplyInvInertia> inline float ComputeStaticBodyEffectiveMass( float invMass, const Math::Vector::Vector3& axis, const Math::Vector::Vector3& r, ApplyInvInertia applyInvInertia )
 {
     // Effective mass is the scalar denominator in Catto's row solve:
     //
@@ -105,9 +113,13 @@ inline float ComputeStaticBodyEffectiveMass( float invMass, const Math::Vector::
 }
 
 template <typename ApplyInvInertiaA, typename ApplyInvInertiaB>
-inline float ComputeTwoBodyEffectiveMass( float invMassA, float invMassB, const Math::Vector::Vector3& axis,
-                                          const Math::Vector::Vector3& rA, const Math::Vector::Vector3& rB,
-                                          ApplyInvInertiaA applyInvInertiaA, ApplyInvInertiaB applyInvInertiaB )
+inline float ComputeTwoBodyEffectiveMass( float invMassA,
+                                          float invMassB,
+                                          const Math::Vector::Vector3& axis,
+                                          const Math::Vector::Vector3& rA,
+                                          const Math::Vector::Vector3& rB,
+                                          ApplyInvInertiaA applyInvInertiaA,
+                                          ApplyInvInertiaB applyInvInertiaB )
 {
     // Same row denominator as ComputeStaticBodyEffectiveMass, but with both
     // dynamic bodies contributing linear and angular terms. Keeping the formula
@@ -116,8 +128,7 @@ inline float ComputeTwoBodyEffectiveMass( float invMassA, float invMassB, const 
     // and then be picked up by both solver families.
     const Math::Vector::Vector3 rAxAxis = Math::Vector::CrossProduct( rA, axis );
     const Math::Vector::Vector3 rBxAxis = Math::Vector::CrossProduct( rB, axis );
-    const float k = invMassA + invMassB + Dot( axis, Math::Vector::CrossProduct( applyInvInertiaA( rAxAxis ), rA ) ) +
-                    Dot( axis, Math::Vector::CrossProduct( applyInvInertiaB( rBxAxis ), rB ) );
+    const float k = invMassA + invMassB + Dot( axis, Math::Vector::CrossProduct( applyInvInertiaA( rAxAxis ), rA ) ) + Dot( axis, Math::Vector::CrossProduct( applyInvInertiaB( rBxAxis ), rB ) );
     return ( k > TOLERANCE ) ? ( 1.0f / k ) : 0.0f;
 }
 

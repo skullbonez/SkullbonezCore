@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name building_roof_plate
 source_hash 0x66aaf08149e76add
 
@@ -28,6 +28,7 @@ default_mass 364.9536
 bounding_radius 15.5397072
 inertia_half_extents 12.8 0.45 8.8
 unit_inertia 25.8808333 80.4266667 54.6808333
+unit_inertia_products 0 0 0
 projected_surface_area 163.146667
 
 # Baked centered vertices.

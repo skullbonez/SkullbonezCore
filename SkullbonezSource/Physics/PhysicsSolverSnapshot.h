@@ -41,6 +41,7 @@ Related:
 #pragma once
 
 #include "PhysicsDebugData.h"
+#include "PersistentContactSolver.h"
 #include "PhysicsHandles.h"
 #include "../Maths/Vector3.h"
 
@@ -52,7 +53,9 @@ Related:
 namespace SkullbonezCore::Physics
 {
 inline constexpr const char* PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER = "replay_solver_snapshot";
+// v8 remains the exact primitive encoding; v9 adds hull contact geometry.
 inline constexpr uint32_t PHYSICS_SOLVER_SNAPSHOT_VERSION = 8u;
+inline constexpr uint32_t PHYSICS_HULL_SOLVER_SNAPSHOT_VERSION = 9u;
 
 // Test probe: the strict two-generation prediction probe measured 3,401,552 bytes.
 // Eight MiB preserves 2.466112x measured headroom.
@@ -64,6 +67,7 @@ struct PhysicsSolverContactCacheSample
     float accN = 0.0f;
     float accT1 = 0.0f;
     float accT2 = 0.0f;
+    ContactAnchorGeometry geometry;
 };
 
 struct PhysicsSolverPointJointSample
@@ -132,11 +136,20 @@ struct PhysicsSolverStatsSample
     float positionCorrectionMax = 0.0f;
 };
 
+// Sparse body-local products preserve asymmetric inertia without adding bytes
+// to primitive-only v8 snapshots. Rows are sorted and tied to durable scene ids.
+struct PhysicsSolverInertiaSample
+{
+    uint32_t modelRow = 0;
+    PhysicsSceneObjectId sceneObjectId;
+    Math::Vector::Vector3 products = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 inverseProducts = Math::Vector::ZERO_VECTOR;
+};
+
 struct PhysicsSolverSnapshot
 {
-    // Snapshot payload for hidden physics state. Body poses live in
-    // ReplaySolverBodySample; this struct stores the caches that make the next
-    // fixed physics step match after restore.
+    // Physics-owned continuation state. The caller records body poses; this
+    // snapshot carries solver caches and optional full-inertia products.
     uint32_t version = PHYSICS_SOLVER_SNAPSHOT_VERSION;
     int modelCount = 0;
     int nextSleepIslandVisualId = 1;
@@ -164,6 +177,7 @@ struct PhysicsSolverSnapshot
     std::vector<uint8_t> sleepIslandCanSleep;
     std::vector<PhysicsSolverPersistentContactSample> persistentContacts;
     std::vector<PhysicsSolverContactCacheSample> persistentContactCache;
+    std::vector<PhysicsSolverInertiaSample> bodyInertia;
     std::vector<PhysicsSolverPointJointSample> pointJoints;
     PhysicsSolverStatsSample solverStats;
     std::vector<uint16_t> persistentContactCounts;
@@ -204,6 +218,7 @@ struct PhysicsSolverSnapshot
         sleepIslandCanSleep.clear();
         persistentContacts.clear();
         persistentContactCache.clear();
+        bodyInertia.clear();
         pointJoints.clear();
         solverStats = {};
         persistentContactCounts.clear();

@@ -1,0 +1,240 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 5,
+  "name": "convex_quality_shallow_x_stack",
+  "simulation": {
+    "seed": 62929,
+    "physics": true,
+    "text": false,
+    "timeScale": 1,
+    "world": {
+      "gravity": -32,
+      "fluidHeight": -1000,
+      "fluidDensity": 0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 2400,
+    "fixedStep": true,
+    "exitOnComplete": false
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -44.794195712,
+      "slopeX": 0.0874886635,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "cameras": [
+    {
+      "name": "diagnostic_overview",
+      "position": [
+        510,
+        170,
+        760
+      ],
+      "view": [
+        510,
+        5,
+        512
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fovDegrees": 58
+    }
+  ],
+  "objects": [
+    {
+      "type": "convexHull",
+      "name": "box_hull_0",
+      "position": [
+        430,
+        -4.9690930799999995,
+        512
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_box_hull_ordinary.hull",
+      "sceneObjectId": 1
+    },
+    {
+      "type": "convexHull",
+      "name": "box_hull_1",
+      "position": [
+        430,
+        -0.9390930799999992,
+        512
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_box_hull_ordinary.hull",
+      "sceneObjectId": 2
+    },
+    {
+      "type": "convexHull",
+      "name": "box_hull_2",
+      "position": [
+        430,
+        3.090906920000001,
+        512
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_box_hull_ordinary.hull",
+      "sceneObjectId": 3
+    },
+    {
+      "type": "box",
+      "name": "primitive_box_0",
+      "position": [
+        505,
+        1.5925566825,
+        512
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ],
+      "halfExtents": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "sceneObjectId": 4
+    },
+    {
+      "type": "box",
+      "name": "primitive_box_1",
+      "position": [
+        505,
+        5.6225566825,
+        512
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ],
+      "halfExtents": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "sceneObjectId": 5
+    },
+    {
+      "type": "box",
+      "name": "primitive_box_2",
+      "position": [
+        505,
+        9.6525566825,
+        512
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ],
+      "halfExtents": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "sceneObjectId": 6
+    },
+    {
+      "type": "convexHull",
+      "name": "rock_0",
+      "position": [
+        580,
+        7.948660686466827,
+        512
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_rock_ordinary.hull",
+      "sceneObjectId": 7
+    },
+    {
+      "type": "convexHull",
+      "name": "rock_1",
+      "position": [
+        580,
+        11.978660686466828,
+        512
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_rock_ordinary.hull",
+      "sceneObjectId": 8
+    },
+    {
+      "type": "convexHull",
+      "name": "rock_2",
+      "position": [
+        580,
+        16.008660686466825,
+        512
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_rock_ordinary.hull",
+      "sceneObjectId": 9
+    }
+  ]
+}

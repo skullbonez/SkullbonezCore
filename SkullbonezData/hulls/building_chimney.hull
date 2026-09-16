@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name building_chimney
 source_hash 0x1529608f9ca51f3d
 
@@ -28,6 +28,7 @@ default_mass 6.6825
 bounding_radius 1.96150452
 inertia_half_extents 0.75 1.65 0.75
 unit_inertia 1.095 0.375 1.095
+unit_inertia_products 0 0 0
 projected_surface_area 4.05
 
 # Baked centered vertices.

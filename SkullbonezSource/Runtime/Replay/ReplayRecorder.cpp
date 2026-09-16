@@ -404,6 +404,7 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     VISIT( sleepIslandCanSleep )                                                                                                                                                                       \
     VISIT( persistentContacts )                                                                                                                                                                        \
     VISIT( persistentContactCache )                                                                                                                                                                    \
+    VISIT( bodyInertia )                                                                                                                                                                               \
     VISIT( pointJoints )                                                                                                                                                                               \
     VISIT( motionEligibilityState )                                                                                                                                                                    \
     VISIT( persistentContactCounts )                                                                                                                                                                   \
@@ -458,6 +459,7 @@ uint64_t SolverWorldSnapshotMemoryBytes( const SkullbonezCore::Runtime::ReplaySo
     bytes += VectorCapacityBytes( physics.sleepIslandCanSleep );
     bytes += VectorCapacityBytes( physics.persistentContacts );
     bytes += VectorCapacityBytes( physics.persistentContactCache );
+    bytes += VectorCapacityBytes( physics.bodyInertia );
     bytes += VectorCapacityBytes( physics.pointJoints );
     bytes += VectorCapacityBytes( physics.motionEligibilityState );
     bytes += VectorCapacityBytes( physics.persistentContactCounts );
@@ -1470,12 +1472,22 @@ bool BuildReplaySolverBodySample( int modelIndex,
     return true;
 }
 
-uint64_t HashContactCache( uint64_t hash, const SkullbonezCore::Physics::PhysicsSolverContactCacheSample& cache )
+uint64_t HashContactCache( uint64_t hash, const SkullbonezCore::Physics::PhysicsSolverContactCacheSample& cache, uint32_t version )
 {
     hash = HashInt64( hash, cache.key );
     hash = HashFloat( hash, cache.accN );
     hash = HashFloat( hash, cache.accT1 );
     hash = HashFloat( hash, cache.accT2 );
+    if ( version >= 9u )
+    {
+        hash = HashVector( hash, cache.geometry.localAnchorA );
+        hash = HashVector( hash, cache.geometry.localAnchorB );
+        hash = HashVector( hash, cache.geometry.localNormalA );
+        hash = HashVector( hash, cache.geometry.localNormalB );
+        hash = HashVector( hash, cache.geometry.localTangentImpulseA );
+        hash = HashFloat( hash, cache.geometry.breakingDistance );
+        hash = HashUint32( hash, cache.geometry.lifetime );
+    }
     return hash;
 }
 
@@ -1586,7 +1598,19 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const SkullbonezCore::Runtime::
 
     for ( const SkullbonezCore::Physics::PhysicsSolverContactCacheSample& cache : physics.persistentContactCache )
     {
-        hash = HashContactCache( hash, cache );
+        hash = HashContactCache( hash, cache, physics.version );
+    }
+
+    if ( physics.version >= 9u )
+    {
+        hash = HashSize( hash, physics.bodyInertia.size() );
+        for ( const auto& tensor : physics.bodyInertia )
+        {
+            hash = HashUint32( hash, tensor.modelRow );
+            hash = HashUint32( hash, tensor.sceneObjectId.value );
+            hash = HashVector( hash, tensor.products );
+            hash = HashVector( hash, tensor.inverseProducts );
+        }
     }
 
     if ( physics.version >= 3u )

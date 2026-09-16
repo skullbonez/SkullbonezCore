@@ -330,6 +330,7 @@ struct ReplaySolverWorldDeltaFrame
     ReplaySolverVectorDelta<uint8_t> sleepIslandCanSleep;
     ReplaySolverVectorDelta<Physics::PhysicsSolverPersistentContactSample> persistentContacts;
     ReplaySolverVectorDelta<Physics::PhysicsSolverContactCacheSample> persistentContactCache;
+    ReplaySolverVectorDelta<Physics::PhysicsSolverInertiaSample> bodyInertia;
     ReplaySolverVectorDelta<Physics::PhysicsSolverPointJointSample> pointJoints;
     ReplaySolverVectorDelta<uint8_t> motionEligibilityState;
     ReplaySolverVectorDelta<uint16_t> persistentContactCounts;
@@ -444,9 +445,14 @@ class ReplayRecorder
   public:
     bool Configure( const ReplayRecorderConfig& config );
     void ResetTimeline( const char* sceneLabel );
-    void CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame, float physicsDt,
-                       const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera,
-                       Physics::PhysicsEngine& physics, std::span<const char* const> entityDisplayNames );
+    void CaptureFrame( const ReplayBranchInfo& branch,
+                       uint32_t eventCursor,
+                       int sceneFrame,
+                       float physicsDt,
+                       const ReplayWorldPresentationSample& world,
+                       const ReplayCameraSample& camera,
+                       Physics::PhysicsEngine& physics,
+                       std::span<const char* const> entityDisplayNames );
 
     // Records the presentation track from an already captured solver sample.
     // Use this when both tracks are enabled so frame capture does one model walk.
@@ -467,9 +473,7 @@ class ReplayRecorder
     friend class ReplayArtifactSource;
     std::size_t AcquireSampleSlotIndex();
     std::size_t FindOrAddVisualBodyMetadata( const ReplayBodyPresentationSample& body, ReplayFrameIndex frameIndex );
-    void StoreVisualFramePayload( std::size_t slotIndex, const ReplayPresentationSample& sample,
-                                  const std::vector<ReplayBodyPresentationSample>& bodies, bool forceKeyframe,
-                                  bool updateCarry );
+    void StoreVisualFramePayload( std::size_t slotIndex, const ReplayPresentationSample& sample, const std::vector<ReplayBodyPresentationSample>& bodies, bool forceKeyframe, bool updateCarry );
     bool ResolveSampleAtOffset( std::size_t offset, ReplayPresentationSample& outSample ) const;
     void PromoteVisualFrameToKeyframe( std::size_t offset );
     void StoreCheckpointSummary( const ReplayPresentationSample& sample, std::size_t bodyCount );
@@ -518,10 +522,16 @@ class ReplaySolverRecorder
   public:
     bool Configure( const ReplayRecorderConfig& config );
     void ResetTimeline( const char* sceneLabel );
-    void CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame, float physicsDt,
-                       const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera,
-                       const ReplayLauncherVisualSample& launcherVisual, Physics::PhysicsEngine& physics,
-                       const Gameplay::TornadoGameplay& tornadoGameplay, std::span<const char* const> entityDisplayNames );
+    void CaptureFrame( const ReplayBranchInfo& branch,
+                       uint32_t eventCursor,
+                       int sceneFrame,
+                       float physicsDt,
+                       const ReplayWorldPresentationSample& world,
+                       const ReplayCameraSample& camera,
+                       const ReplayLauncherVisualSample& launcherVisual,
+                       Physics::PhysicsEngine& physics,
+                       const Gameplay::TornadoGameplay& tornadoGameplay,
+                       std::span<const char* const> entityDisplayNames );
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
 
@@ -553,8 +563,7 @@ class ReplaySolverRecorder
     // Visits one body's compact position stream without reconstructing dense
     // solver frames or their world snapshots. Returns false when retained
     // delta data is internally inconsistent.
-    template <typename Visitor>
-    bool ForEachBodyPositionChronological( Physics::PhysicsSceneObjectId targetId, Visitor visitor ) const
+    template <typename Visitor> bool ForEachBodyPositionChronological( Physics::PhysicsSceneObjectId targetId, Visitor visitor ) const
     {
         if ( m_sampleCount == 0 || m_samples.empty() )
         {
@@ -617,8 +626,7 @@ class ReplaySolverRecorder
 
             activeMetadataIndex = frameMetadataIndex;
             activeStateValid = true;
-            visitor( m_samples[frameIndex].frameIndex, m_solverBodyMetadata[frameMetadataIndex].modelRow,
-                     activeState.position );
+            visitor( m_samples[frameIndex].frameIndex, m_solverBodyMetadata[frameMetadataIndex].modelRow, activeState.position );
         }
 
         return true;
@@ -631,9 +639,12 @@ class ReplaySolverRecorder
     friend class ReplayArtifactSource;
     std::size_t AcquireSampleSlotIndex();
     std::size_t FindOrAddSolverBodyMetadata( const ReplaySolverBodySample& body, ReplayFrameIndex frameIndex );
-    void StoreSolverFramePayload( std::size_t slotIndex, const ReplaySolverFrameSample& sample,
+    void StoreSolverFramePayload( std::size_t slotIndex,
+                                  const ReplaySolverFrameSample& sample,
                                   const std::vector<ReplaySolverBodySample>& bodies,
-                                  const ReplaySolverWorldSnapshot& worldSnapshot, bool forceKeyframe, bool updateCarry );
+                                  const ReplaySolverWorldSnapshot& worldSnapshot,
+                                  bool forceKeyframe,
+                                  bool updateCarry );
     bool ResolveSolverSampleAtOffset( std::size_t offset, ReplaySolverFrameSample& outSample ) const;
     void PromoteSolverFrameToKeyframe( std::size_t offset );
     void StoreCheckpointSummary( const ReplaySolverFrameSample& sample, std::size_t bodyCount );

@@ -1,0 +1,622 @@
+{
+  "version": 1,
+  "tickRate": 120,
+  "cases": [
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_flat_rest.scene.json",
+      "family": "rest",
+      "terrain": "flat",
+      "ticks": 2400,
+      "purpose": "Measure slip, rotation, support, impulses, sleep latency and wake cycles; steep sliding remains legitimate.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_flat_slide.scene.json",
+      "family": "slide",
+      "terrain": "flat",
+      "ticks": 2400,
+      "purpose": "Measure slip, rotation, support, impulses, sleep latency and wake cycles; steep sliding remains legitimate.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_shallow_x_rest.scene.json",
+      "family": "rest",
+      "terrain": "shallow_x",
+      "ticks": 2400,
+      "purpose": "Measure slip, rotation, support, impulses, sleep latency and wake cycles; steep sliding remains legitimate.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_shallow_x_slide.scene.json",
+      "family": "slide",
+      "terrain": "shallow_x",
+      "ticks": 2400,
+      "purpose": "Measure slip, rotation, support, impulses, sleep latency and wake cycles; steep sliding remains legitimate.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_shallow_z_rest.scene.json",
+      "family": "rest",
+      "terrain": "shallow_z",
+      "ticks": 2400,
+      "purpose": "Measure slip, rotation, support, impulses, sleep latency and wake cycles; steep sliding remains legitimate.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_shallow_z_slide.scene.json",
+      "family": "slide",
+      "terrain": "shallow_z",
+      "ticks": 2400,
+      "purpose": "Measure slip, rotation, support, impulses, sleep latency and wake cycles; steep sliding remains legitimate.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_compound_rest.scene.json",
+      "family": "rest",
+      "terrain": "compound",
+      "ticks": 2400,
+      "purpose": "Measure slip, rotation, support, impulses, sleep latency and wake cycles; steep sliding remains legitimate.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_compound_slide.scene.json",
+      "family": "slide",
+      "terrain": "compound",
+      "ticks": 2400,
+      "purpose": "Measure slip, rotation, support, impulses, sleep latency and wake cycles; steep sliding remains legitimate.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_steep_rest.scene.json",
+      "family": "rest",
+      "terrain": "steep",
+      "ticks": 2400,
+      "purpose": "Measure slip, rotation, support, impulses, sleep latency and wake cycles; steep sliding remains legitimate.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_steep_slide.scene.json",
+      "family": "slide",
+      "terrain": "steep",
+      "ticks": 2400,
+      "purpose": "Measure slip, rotation, support, impulses, sleep latency and wake cycles; steep sliding remains legitimate.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_basin_rest.scene.json",
+      "family": "rest",
+      "terrain": "basin",
+      "ticks": 2400,
+      "purpose": "Measure slip, rotation, support, impulses, sleep latency and wake cycles; steep sliding remains legitimate.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_basin_slide.scene.json",
+      "family": "slide",
+      "terrain": "basin",
+      "ticks": 2400,
+      "purpose": "Measure slip, rotation, support, impulses, sleep latency and wake cycles; steep sliding remains legitimate.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_ridges_rest.scene.json",
+      "family": "rest",
+      "terrain": "ridges",
+      "ticks": 2400,
+      "purpose": "Measure slip, rotation, support, impulses, sleep latency and wake cycles; steep sliding remains legitimate.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_ridges_slide.scene.json",
+      "family": "slide",
+      "terrain": "ridges",
+      "ticks": 2400,
+      "purpose": "Measure slip, rotation, support, impulses, sleep latency and wake cycles; steep sliding remains legitimate.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_steps_rest.scene.json",
+      "family": "rest",
+      "terrain": "steps",
+      "ticks": 2400,
+      "purpose": "Measure slip, rotation, support, impulses, sleep latency and wake cycles; steep sliding remains legitimate.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_steps_slide.scene.json",
+      "family": "slide",
+      "terrain": "steps",
+      "ticks": 2400,
+      "purpose": "Measure slip, rotation, support, impulses, sleep latency and wake cycles; steep sliding remains legitimate.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_flat_small.scene.json",
+      "family": "scale",
+      "terrain": "flat",
+      "ticks": 2400,
+      "purpose": "Check scale-sensitive settling and contact continuity.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_shallow_x_small.scene.json",
+      "family": "scale",
+      "terrain": "shallow_x",
+      "ticks": 2400,
+      "purpose": "Check scale-sensitive settling and contact continuity.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_ridges_small.scene.json",
+      "family": "scale",
+      "terrain": "ridges",
+      "ticks": 2400,
+      "purpose": "Check scale-sensitive settling and contact continuity.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_flat_large.scene.json",
+      "family": "scale",
+      "terrain": "flat",
+      "ticks": 2400,
+      "purpose": "Check scale-sensitive settling and contact continuity.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_shallow_x_large.scene.json",
+      "family": "scale",
+      "terrain": "shallow_x",
+      "ticks": 2400,
+      "purpose": "Check scale-sensitive settling and contact continuity.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_ridges_large.scene.json",
+      "family": "scale",
+      "terrain": "ridges",
+      "ticks": 2400,
+      "purpose": "Check scale-sensitive settling and contact continuity.",
+      "bodies": [
+        "box_hull",
+        "wedge",
+        "pyramid",
+        "elongated",
+        "rock",
+        "tetrahedron",
+        "primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_flat_stack.scene.json",
+      "family": "stack",
+      "terrain": "flat",
+      "ticks": 2400,
+      "purpose": "Measure three-body stack retention, creeping, energy and repeated waking.",
+      "bodies": [
+        "box_hull_0",
+        "box_hull_1",
+        "box_hull_2",
+        "primitive_box_0",
+        "primitive_box_1",
+        "primitive_box_2",
+        "rock_0",
+        "rock_1",
+        "rock_2"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_shallow_x_stack.scene.json",
+      "family": "stack",
+      "terrain": "shallow_x",
+      "ticks": 2400,
+      "purpose": "Measure three-body stack retention, creeping, energy and repeated waking.",
+      "bodies": [
+        "box_hull_0",
+        "box_hull_1",
+        "box_hull_2",
+        "primitive_box_0",
+        "primitive_box_1",
+        "primitive_box_2",
+        "rock_0",
+        "rock_1",
+        "rock_2"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_ridges_stack.scene.json",
+      "family": "stack",
+      "terrain": "ridges",
+      "ticks": 2400,
+      "purpose": "Measure three-body stack retention, creeping, energy and repeated waking.",
+      "bodies": [
+        "box_hull_0",
+        "box_hull_1",
+        "box_hull_2",
+        "primitive_box_0",
+        "primitive_box_1",
+        "primitive_box_2",
+        "rock_0",
+        "rock_1",
+        "rock_2"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_flat_tall_mixed_stack.scene.json",
+      "family": "stack",
+      "terrain": "flat",
+      "ticks": 2400,
+      "purpose": "Five-high hull towers and a mixed box-hull/slab/rock stack; compare a five-high primitive control and measure height retention.",
+      "bodies": [
+        "tower_0_0_box_hull",
+        "tower_0_1_box_hull",
+        "tower_0_2_box_hull",
+        "tower_0_3_box_hull",
+        "tower_0_4_box_hull",
+        "tower_1_0_elongated",
+        "tower_1_1_elongated",
+        "tower_1_2_elongated",
+        "tower_1_3_elongated",
+        "tower_1_4_elongated",
+        "tower_2_0_box_hull",
+        "tower_2_1_elongated",
+        "tower_2_2_box_hull",
+        "tower_2_3_rock",
+        "tower_3_0_primitive_box",
+        "tower_3_1_primitive_box",
+        "tower_3_2_primitive_box",
+        "tower_3_3_primitive_box",
+        "tower_3_4_primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_shallow_x_tall_mixed_stack.scene.json",
+      "family": "stack",
+      "terrain": "shallow_x",
+      "ticks": 2400,
+      "purpose": "Five-high hull towers and a mixed box-hull/slab/rock stack; compare a five-high primitive control and measure height retention.",
+      "bodies": [
+        "tower_0_0_box_hull",
+        "tower_0_1_box_hull",
+        "tower_0_2_box_hull",
+        "tower_0_3_box_hull",
+        "tower_0_4_box_hull",
+        "tower_1_0_elongated",
+        "tower_1_1_elongated",
+        "tower_1_2_elongated",
+        "tower_1_3_elongated",
+        "tower_1_4_elongated",
+        "tower_2_0_box_hull",
+        "tower_2_1_elongated",
+        "tower_2_2_box_hull",
+        "tower_2_3_rock",
+        "tower_3_0_primitive_box",
+        "tower_3_1_primitive_box",
+        "tower_3_2_primitive_box",
+        "tower_3_3_primitive_box",
+        "tower_3_4_primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_steps_tall_mixed_stack.scene.json",
+      "family": "stack",
+      "terrain": "steps",
+      "ticks": 2400,
+      "purpose": "Five-high hull towers and a mixed box-hull/slab/rock stack; compare a five-high primitive control and measure height retention.",
+      "bodies": [
+        "tower_0_0_box_hull",
+        "tower_0_1_box_hull",
+        "tower_0_2_box_hull",
+        "tower_0_3_box_hull",
+        "tower_0_4_box_hull",
+        "tower_1_0_elongated",
+        "tower_1_1_elongated",
+        "tower_1_2_elongated",
+        "tower_1_3_elongated",
+        "tower_1_4_elongated",
+        "tower_2_0_box_hull",
+        "tower_2_1_elongated",
+        "tower_2_2_box_hull",
+        "tower_2_3_rock",
+        "tower_3_0_primitive_box",
+        "tower_3_1_primitive_box",
+        "tower_3_2_primitive_box",
+        "tower_3_3_primitive_box",
+        "tower_3_4_primitive_box"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_flat_topple.scene.json",
+      "family": "topple",
+      "terrain": "flat",
+      "ticks": 2400,
+      "purpose": "Contrast balanced-awake point/edge poses with real gravitational toppling; do not accept arbitrary nudges.",
+      "bodies": [
+        "pyramid_balance",
+        "pyramid_topple",
+        "box_hull_balance",
+        "box_hull_topple",
+        "primitive_box_balance",
+        "primitive_box_topple",
+        "wedge_balance",
+        "wedge_topple"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_shallow_z_topple.scene.json",
+      "family": "topple",
+      "terrain": "shallow_z",
+      "ticks": 2400,
+      "purpose": "Contrast balanced-awake point/edge poses with real gravitational toppling; do not accept arbitrary nudges.",
+      "bodies": [
+        "pyramid_balance",
+        "pyramid_topple",
+        "box_hull_balance",
+        "box_hull_topple",
+        "primitive_box_balance",
+        "primitive_box_topple",
+        "wedge_balance",
+        "wedge_topple"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_steps_topple.scene.json",
+      "family": "topple",
+      "terrain": "steps",
+      "ticks": 2400,
+      "purpose": "Contrast balanced-awake point/edge poses with real gravitational toppling; do not accept arbitrary nudges.",
+      "bodies": [
+        "pyramid_balance",
+        "pyramid_topple",
+        "box_hull_balance",
+        "box_hull_topple",
+        "primitive_box_balance",
+        "primitive_box_topple",
+        "wedge_balance",
+        "wedge_topple"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_ccd_near_miss.scene.json",
+      "family": "ccd",
+      "terrain": "flat",
+      "ticks": 120,
+      "purpose": "Confirm exact swept contact or true miss without false wake or consumed time; compare shape order.",
+      "bodies": [
+        "mover_0",
+        "target_0",
+        "mover_1",
+        "target_1",
+        "mover_2",
+        "target_2"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_ccd_thin_target.scene.json",
+      "family": "ccd",
+      "terrain": "flat",
+      "ticks": 120,
+      "purpose": "Confirm exact swept contact or true miss without false wake or consumed time; compare shape order.",
+      "bodies": [
+        "mover_0",
+        "target_0",
+        "mover_1",
+        "target_1",
+        "mover_2",
+        "target_2"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_ccd_narrow_window.scene.json",
+      "family": "ccd",
+      "terrain": "flat",
+      "ticks": 120,
+      "purpose": "Confirm exact swept contact or true miss without false wake or consumed time; compare shape order.",
+      "bodies": [
+        "mover_0",
+        "target_0",
+        "mover_1",
+        "target_1",
+        "mover_2",
+        "target_2"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_ccd_opposing.scene.json",
+      "family": "ccd",
+      "terrain": "flat",
+      "ticks": 120,
+      "purpose": "Confirm exact swept contact or true miss without false wake or consumed time; compare shape order.",
+      "bodies": [
+        "mover_0",
+        "target_0",
+        "mover_1",
+        "target_1",
+        "mover_2",
+        "target_2"
+      ]
+    },
+    {
+      "scene": "SkullbonezData/scenes/convex_quality_ccd_swapped.scene.json",
+      "family": "ccd",
+      "terrain": "flat",
+      "ticks": 120,
+      "purpose": "Confirm exact swept contact or true miss without false wake or consumed time; compare shape order.",
+      "bodies": [
+        "target_0",
+        "mover_0",
+        "target_1",
+        "mover_1",
+        "target_2",
+        "mover_2"
+      ]
+    }
+  ]
+}

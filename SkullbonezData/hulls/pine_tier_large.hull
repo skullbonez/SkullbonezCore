@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name pine_tier_large
 source_hash 0xeb3c52878020854d
 
@@ -27,7 +27,8 @@ default_density 0.9
 default_mass 7378.8
 bounding_radius 24.472165
 inertia_half_extents 17 5.5 17
-unit_inertia 106.416667 192.666667 106.416667
+unit_inertia 76.8557139 134.920215 76.8557139
+unit_inertia_products 0 0 -5.54660129e-17
 projected_surface_area 634.666667
 
 # Baked centered vertices.

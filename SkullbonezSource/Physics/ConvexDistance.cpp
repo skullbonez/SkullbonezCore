@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <limits>
 #include <type_traits>
@@ -300,6 +301,78 @@ ConvexDistanceResult ComputeConvexDistance( const ObjectContactBodyView& a, cons
     result.separation = ( distance > 1.0e-6f ? distance : 0.0f ) - SphereMargin( shapeA ) - SphereMargin( shapeB );
     result.pointA += a.position;
     result.pointB += a.position;
+    return result;
+}
+
+ConvexCastResult CastConvexContact( const ObjectContactBodyView& a,
+                                    const CollisionShapeReference& shapeA,
+                                    const Vector3& velocityA,
+                                    const ObjectContactBodyView& b,
+                                    const CollisionShapeReference& shapeB,
+                                    const Vector3& velocityB,
+                                    float availableTime,
+                                    float contactSkin )
+{
+    ConvexCastResult result;
+    result.collisionTime = availableTime;
+    if ( !std::isfinite( availableTime ) || availableTime < 0.0f || !std::isfinite( contactSkin ) || contactSkin < 0.0f )
+    {
+        return result;
+    }
+    float time = 0.0f;
+    for ( int iteration = 0; iteration < 64; ++iteration )
+    {
+        result.iterations = iteration + 1;
+        ObjectContactBodyView poseA = a;
+        ObjectContactBodyView poseB = b;
+        poseA.position += velocityA * time;
+        poseB.position += velocityB * time;
+        ObjectContactManifold manifold;
+        if ( BuildObjectContactManifold( poseA, shapeA, poseB, shapeB, 0, 1, contactSkin, manifold ) )
+        {
+            result.hit = true;
+            result.converged = true;
+            result.collisionTime = time;
+            return result;
+        }
+        const ConvexDistanceResult distance = ComputeConvexDistance( poseA, shapeA, poseB, shapeB );
+        if ( !distance.converged )
+        {
+            return result;
+        }
+        // A GJK witness distance is an upper bound until exact convergence.
+        // Advance using its separating support plane, a lower bound, so numeric
+        // termination cannot step over a narrow contact window. Translation into
+        // A's frame avoids cancellation at large world coordinates.
+        poseB.position -= poseA.position;
+        poseA.position = ZERO_VECTOR;
+        const Vector3 supportA = WorldSupport( poseA, shapeA, distance.normal ).point;
+        const Vector3 supportB = WorldSupport( poseB, shapeB, -distance.normal ).point;
+        const float gap = Dot( supportB - supportA, distance.normal ) - SphereMargin( shapeA ) - SphereMargin( shapeB );
+        const float closingSpeed = Dot( velocityA - velocityB, distance.normal );
+        if ( closingSpeed <= 0.0f )
+        {
+            result.converged = gap > contactSkin;
+            return result;
+        }
+        // Aim inside the existing contact skin to tolerate float pose rounding;
+        // this introduces no extra collision inflation or response threshold.
+        const float advance = ( gap - contactSkin * 0.25f ) / closingSpeed;
+        if ( !std::isfinite( advance ) || advance <= 0.0f )
+        {
+            return result;
+        }
+        // Time is finite and nonnegative. IEEE-754 bit order gives the next
+        // representable value without a platform-libm dependency.
+        const float nextRepresentableTime = std::bit_cast<float>( std::bit_cast<uint32_t>( time ) + 1u );
+        const float nextTime = (std::max)( time + advance, nextRepresentableTime );
+        if ( nextTime > availableTime )
+        {
+            result.converged = true;
+            return result;
+        }
+        time = nextTime;
+    }
     return result;
 }
 } // namespace SkullbonezCore::Physics

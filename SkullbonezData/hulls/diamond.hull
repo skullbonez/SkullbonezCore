@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name diamond
 source_hash 0x4fb785f5131d3e7d
 
@@ -27,7 +27,8 @@ default_density 0.9
 default_mass 210
 bounding_radius 7
 inertia_half_extents 5 7 5
-unit_inertia 24.6666667 16.6666667 24.6666667
+unit_inertia 7.4 5 7.4
+unit_inertia_products 0 0 0
 projected_surface_area 126.666667
 
 # Baked centered vertices.

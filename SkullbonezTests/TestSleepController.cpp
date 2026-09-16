@@ -32,6 +32,10 @@
 
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestColliderStoreFixtures.h"
+#include "TestResultLoadFixtures.h"
+#include "../SkullbonezSource/Core/SbDiagnosticStore.h"
+#include "../SkullbonezSource/Physics/ConvexHullShape.h"
+#include "../SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h"
 
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "../SkullbonezSource/Physics/BoundingSphere.h"
@@ -108,7 +112,7 @@ class SleepTestOwners
 
         bodies.ReserveCapacity( kSleepTestBodyCapacity );
         colliders.ReserveCapacity( kSleepTestBodyCapacity );
-        colliders.ReserveShapeCapacity( kSleepTestBodyCapacity, 0u, 0u );
+        colliders.ReserveShapeCapacity( kSleepTestBodyCapacity, 0u, kSleepTestBodyCapacity );
         controller.ReserveBodyCapacity( kSleepTestBodyCapacity, kSleepTestBodyCapacity );
         cache.Reserve( kSleepTestBodyCapacity );
     }
@@ -580,4 +584,160 @@ TEST_CASE( "Physics sleep controller: joint wake scratch preserves retained cont
     fixture.owners.controller.WakePointJointConnectedBodies( fixture.owners.bodies, fixture.owners.colliders, {}, forces, buoyancy, remaining, fixture.WakeAccess(), joints, 1.0f / 120.0f );
     fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.WakeAccess(), 0 );
     CheckAwakeIndices( fixture.owners.controller, { 0, 1, 2 } );
+}
+
+TEST_CASE( "Sleep support geometry: projected area surrounds the center at every scale" )
+{
+    using SkullbonezCore::Math::Vector::Vector3;
+    using SkullbonezCore::Physics::ContactSupportGeometry;
+    for ( float scale : { 0.01f, 1.0f, 100.0f } )
+    {
+        ContactSupportGeometry point;
+        point.Add( Vector3( 0, -scale, 0 ) );
+        CHECK_FALSE( point.SupportsCenter() );
+        ContactSupportGeometry line;
+        for ( float x : { -scale, 0.0f, scale } )
+        {
+            line.Add( Vector3( x, -scale, 0 ) );
+        }
+        CHECK_FALSE( line.SupportsCenter() );
+        // Two independent supporting edges form an area even if neither
+        // individual manifold is a sleep-stable face.
+        ContactSupportGeometry bridge;
+        for ( const auto p : { Vector3( -scale, -scale, -scale ), Vector3( scale, -scale, -scale ), Vector3( scale, -2 * scale, scale ), Vector3( -scale, -2 * scale, scale ) } )
+        {
+            bridge.Add( p );
+        }
+        CHECK( bridge.SupportsCenter() );
+        ContactSupportGeometry outside;
+        for ( const auto p : { Vector3( scale, 0, -scale ), Vector3( 2 * scale, 0, -scale ), Vector3( 2 * scale, 0, scale ), Vector3( scale, 0, scale ) } )
+        {
+            outside.Add( p );
+        }
+        CHECK_FALSE( outside.SupportsCenter() );
+        ContactSupportGeometry balancedEdge;
+        for ( const auto p : { Vector3( 0, 0, -scale ), Vector3( scale, 0, -scale ), Vector3( scale, 0, scale ), Vector3( 0, 0, scale ) } )
+        {
+            balancedEdge.Add( p );
+        }
+        CHECK_FALSE( balancedEdge.SupportsCenter() );
+        bridge = ContactSupportGeometry {};
+        CHECK_FALSE( bridge.SupportsCenter() );
+    }
+}
+
+
+TEST_CASE( "Hull support geometry: dense contact row order does not change support" )
+{
+    using SkullbonezCore::Math::Vector::Vector3;
+    using SkullbonezCore::Physics::ContactSupportGeometry;
+    for ( float scale : { 0.01f, 1.0f, 100.0f } )
+    {
+        for ( int first = 0; first < 24; ++first )
+        {
+            ContactSupportGeometry supported;
+            ContactSupportGeometry outside;
+            for ( int offset = 0; offset < 24; ++offset )
+            {
+                const float angle = static_cast<float>( ( first + offset ) % 24 ) * 6.283185307f / 24.0f;
+                const Vector3 point( cosf( angle ) * scale, 0.0f, sinf( angle ) * scale );
+                supported.Add( point );
+                outside.Add( point + Vector3( 3 * scale, 0, 0 ) );
+            }
+            CHECK( supported.SupportsCenter() );
+            CHECK_FALSE( outside.SupportsCenter() );
+        }
+    }
+}
+
+
+TEST_CASE( "Physics sleep controller: hull support area and contact removal control deactivation" )
+{
+    for ( float gravity : { -9.8f, 9.8f } )
+    {
+        for ( bool swapped : { false, true } )
+        {
+            for ( bool terrain : { false, true } )
+            {
+                for ( int kind = 0; kind < 5; ++kind )
+                {
+                    SleepFixture fixture;
+                    fixture.AddSphere( Vector3( 0, 2, 0 ) );
+                    fixture.AddSphere( Vector3( -1, 0, 0 ), PhysicsBodyMotionKind::Fixed );
+                    fixture.AddSphere( Vector3( 1, 0, 0 ), PhysicsBodyMotionKind::Fixed );
+                    SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+                    SkullbonezCore::Math::CollisionDetection::ConvexHullShape hull;
+                    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/convex_quality_box_hull_ordinary.hull", hull ) );
+                    auto collider = fixture.owners.colliders.Records()[0];
+                    collider.shapeKind = SkullbonezCore::Physics::ColliderShapeKind::ConvexHull;
+                    REQUIRE( SkullbonezTests::ColliderStoreFixtures::UpdateRecordForHandle( fixture.owners.colliders, collider.handle, collider, CollisionShape( hull ) ) );
+                    fixture.Mirror();
+                    std::array<PersistentContact, 4> contacts {};
+                    const Vector3 corners[4] = { { -1, -2, -1 }, { -1, -2, 1 }, { 1, -2, -1 }, { 1, -2, 1 } };
+                    for ( int row = 0; row < 4; ++row )
+                    {
+                        auto& contact = contacts[row];
+                        contact.bodyA = 0;
+                        contact.bodyB = terrain ? -1 : 1 + row / 2;
+                        contact.isTerrain = terrain;
+                        contact.normal = Vector3( 0, -1, 0 );
+                        contact.rA = corners[row] + Vector3( kind == 2 ? 3.0f : 0.0f, 0, 0 );
+                        // Deliberately seed an opposite-shape resting claim: only
+                        // the sleep owner's actual footprint may admit this hull.
+                        contact.inhibitsSleep = false;
+                        contact.supportsRestingPolicy = true;
+                        if ( gravity > 0.0f )
+                        {
+                            contact.normal = -contact.normal;
+                            contact.rA.y = -contact.rA.y;
+                        }
+                        if ( swapped && !terrain )
+                        {
+                            std::swap( contact.bodyA, contact.bodyB );
+                            std::swap( contact.rA, contact.rB );
+                            contact.normal = -contact.normal;
+                        }
+                        contact.accN = 1.0f;
+                    }
+                    const int count = kind == 0 ? 1 : kind == 1 ? 2 : 4;
+                    SkullbonezCore::Physics::PhysicsSleepStepPolicy policy;
+                    policy.frameCount = 4;
+                    policy.linearSpeedSquared = policy.angularSpeedSquared = 0.01f;
+                    std::array<BuoyancyBodyFacts, 3> buoyancy {};
+                    std::array<float, 3> remaining {};
+                    std::array<uint16_t, 3> restingCounts {};
+                    SkullbonezCore::Physics::PhysicsPipelineTraceRecorder trace;
+                    PhysicsWorldForces forces;
+                    forces.gravity = gravity;
+                    for ( int tick = 0; tick < 7; ++tick )
+                    {
+                        trace.BeginStep( false );
+                        const bool removed = kind == 4 && tick >= 2;
+                        // Upstream terrain/object support propagation identifies the
+                        // fixed anchor. It must not bypass the hull's area requirement.
+                        fixture.owners.controller.MutableSupportedStatesForTerrain()[0] = removed ? 0u : 1u;
+                        fixture.owners.controller.RunIslandStage( fixture.owners.bodies,
+                                                                  fixture.owners.colliders,
+                                                                  forces,
+                                                                  buoyancy,
+                                                                  remaining,
+                                                                  std::span<const PersistentContact>( contacts.data(), removed ? 0 : count ),
+                                                                  restingCounts,
+                                                                  {},
+                                                                  trace,
+                                                                  policy );
+                    }
+                    CAPTURE( gravity );
+                    CAPTURE( swapped );
+                    CAPTURE( terrain );
+                    CAPTURE( kind );
+                    CHECK( fixture.owners.controller.GetSleepStates()[0] == ( kind == 3 ? 1u : 0u ) );
+                    if ( kind != 3 )
+                    {
+                        CHECK( fixture.owners.controller.GetSleepCounters()[0] == 0u );
+                    }
+                }
+            }
+        }
+    }
 }

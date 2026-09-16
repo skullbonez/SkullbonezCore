@@ -154,9 +154,9 @@ class CaptureSide:
         self.process_handle = None
 
     def start(self, *, worker_threads: int | None = None,
-              allocation_guard: str | None = None) -> set[str]:
+              allocation_guard: str | None = None, perf_log: Path | None = None) -> set[str]:
         launch(self.directory, self.executable, self.scene, hidden=True, fixed_step=True,
-               worker_threads=worker_threads, allocation_guard=allocation_guard)
+               worker_threads=worker_threads, allocation_guard=allocation_guard, perf_log=perf_log)
         self.connection = SkarnessConnection(self.directory)
         # Hold a query handle from launch through shutdown. Reopening only after
         # session.stop can lose the exit code when Windows destroys the process.

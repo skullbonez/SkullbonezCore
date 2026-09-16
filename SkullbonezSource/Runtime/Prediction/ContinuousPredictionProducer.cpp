@@ -49,8 +49,7 @@ double ContinuousPredictionElapsedMilliseconds( const std::chrono::steady_clock:
     return std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - start ).count();
 }
 
-bool ContinuousPredictionBudgetExpired( const std::chrono::steady_clock::time_point& start,
-                                        double budgetMilliseconds ) noexcept
+bool ContinuousPredictionBudgetExpired( const std::chrono::steady_clock::time_point& start, double budgetMilliseconds ) noexcept
 {
     return budgetMilliseconds > 0.0 && ContinuousPredictionElapsedMilliseconds( start ) >= budgetMilliseconds;
 }
@@ -58,13 +57,10 @@ bool ContinuousPredictionBudgetExpired( const std::chrono::steady_clock::time_po
 
 std::size_t ContinuousPredictionWindowRowCapacity() noexcept
 {
-    return static_cast<std::size_t>(
-               std::ceil( CONTINUOUS_PREDICTION_WINDOW_SECONDS / static_cast<double>( PHYSICS_FIXED_DT ) ) ) +
-           1u;
+    return static_cast<std::size_t>( std::ceil( CONTINUOUS_PREDICTION_WINDOW_SECONDS / static_cast<double>( PHYSICS_FIXED_DT ) ) ) + 1u;
 }
 
-void ContinuousPredictionWorkerTask::Configure( ContinuousPredictionProducer& producer,
-                                                Threading::WorkerPool& workerPool ) noexcept
+void ContinuousPredictionWorkerTask::Configure( ContinuousPredictionProducer& producer, Threading::WorkerPool& workerPool ) noexcept
 {
     WaitForIdle();
     m_producer = &producer;
@@ -107,6 +103,10 @@ void ContinuousPredictionWorkerTask::ExecuteWorkerTask() noexcept
     m_inFlight.store( false, std::memory_order_release );
 }
 
+ContinuousPredictionProducer::ContinuousPredictionProducer( Core::Profiler* profiler ) noexcept : m_profiler( profiler )
+{
+}
+
 ContinuousPredictionProducer::~ContinuousPredictionProducer()
 {
     Stop();
@@ -119,16 +119,14 @@ bool ContinuousPredictionProducer::CaptureSeed( const Physics::PhysicsEngine& li
     const auto hot = bodyStore.HotFields();
     m_modelCount = bodyStore.Count();
 
-    if ( m_modelCount <= 0 || records.size() < static_cast<std::size_t>( m_modelCount ) ||
-         hot.positionX.size() < static_cast<std::size_t>( m_modelCount ) )
+    if ( m_modelCount <= 0 || records.size() < static_cast<std::size_t>( m_modelCount ) || hot.positionX.size() < static_cast<std::size_t>( m_modelCount ) )
     {
         return false;
     }
 
     m_bodySeeds.clear();
 
-    if ( !ReserveReplayPredictionVector( m_bodySeeds, static_cast<std::size_t>( m_modelCount ), 0,
-                                         "ContinuousPredictionProducer::bodySeeds" ) )
+    if ( !ReserveReplayPredictionVector( m_bodySeeds, static_cast<std::size_t>( m_modelCount ), 0, "ContinuousPredictionProducer::bodySeeds" ) )
     {
         return false;
     }
@@ -150,17 +148,16 @@ bool ContinuousPredictionProducer::CaptureSeed( const Physics::PhysicsEngine& li
         seed.inverseMass = hot.inverseMass[index];
         seed.rotationalInertia = record.rotationalInertia;
         seed.inverseRotationalInertia = Physics::PhysicsBodyInverseInertia( hot, index );
+        seed.rotationalInertiaProducts = record.rotationalInertiaProducts;
+        seed.inverseRotationalInertiaProducts = Physics::PhysicsBodyInverseInertiaProducts( hot, index );
         seed.fixed = hot.fixed[index] != 0u;
     }
 
-    liveEngine.CaptureReplaySimulationSnapshot( m_solverSnapshot,
-                                                Physics::MakePhysicsBodyCountFromNonNegativeInt( m_modelCount ) );
+    liveEngine.CaptureReplaySimulationSnapshot( m_solverSnapshot, Physics::MakePhysicsBodyCountFromNonNegativeInt( m_modelCount ) );
     return true;
 }
 
-bool ContinuousPredictionProducer::SeedPrivateEngine( const Physics::PhysicsEngine& liveEngine,
-                                                      const Core::EngineConfig& config,
-                                                      const Physics::PhysicsWorldForces& worldForces )
+bool ContinuousPredictionProducer::SeedPrivateEngine( const Physics::PhysicsEngine& liveEngine, const Core::EngineConfig& config, const Physics::PhysicsWorldForces& worldForces )
 {
     int reservedBytes = 0;
 
@@ -187,22 +184,34 @@ bool ContinuousPredictionProducer::SeedPrivateEngine( const Physics::PhysicsEngi
         const Physics::PhysicsBodyRecord* record = privateBodies.RecordForHandle( handle );
 
         if ( !record || record->sceneObjectId != seed.id ||
-             !m_engine->RestoreReplayBodyState( { handle, seed.id, seed.fixed, seed.position, seed.orientation,
-                                                  seed.linearVelocity, seed.angularVelocity, seed.mass, seed.inverseMass,
-                                                  seed.rotationalInertia, seed.inverseRotationalInertia } ) )
+             !m_engine->RestoreReplayBodyState( { handle,
+                                                  seed.id,
+                                                  seed.fixed,
+                                                  seed.position,
+                                                  seed.orientation,
+                                                  seed.linearVelocity,
+                                                  seed.angularVelocity,
+                                                  seed.mass,
+                                                  seed.inverseMass,
+                                                  seed.rotationalInertia,
+                                                  seed.inverseRotationalInertia,
+                                                  seed.rotationalInertiaProducts,
+                                                  seed.inverseRotationalInertiaProducts } ) )
         {
             return false;
         }
     }
 
-    return m_engine->RestoreReplaySolverSnapshot( m_solverSnapshot,
-                                                  Physics::MakePhysicsBodyCountFromNonNegativeInt( m_modelCount ) );
+    return m_engine->RestoreReplaySolverSnapshot( m_solverSnapshot, Physics::MakePhysicsBodyCountFromNonNegativeInt( m_modelCount ) );
 }
 
 bool ContinuousPredictionProducer::Begin( const Physics::PhysicsEngine& liveEngine,
-                                          const Gameplay::TornadoGameplay& liveTornado, const Core::EngineConfig& config,
-                                          const Physics::PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool,
-                                          std::size_t rowCapacity, ContinuousPredictionTickObserver* tickObserver )
+                                          const Gameplay::TornadoGameplay& liveTornado,
+                                          const Core::EngineConfig& config,
+                                          const Physics::PhysicsWorldForces& worldForces,
+                                          Threading::WorkerPool& workerPool,
+                                          std::size_t rowCapacity,
+                                          ContinuousPredictionTickObserver* tickObserver )
 {
     if ( m_active.load( std::memory_order_acquire ) || m_workerTask.InFlight() )
     {
@@ -219,15 +228,16 @@ bool ContinuousPredictionProducer::Begin( const Physics::PhysicsEngine& liveEngi
     Core::Allocation::RuntimeAllocationScope replayAllocationScope( Core::Allocation::RuntimeAllocationPhase::Replay );
     Core::Allocation::RuntimeReserveOwnerScope ownerScope( ReplayPredictionReserveOwner() );
 
-    if ( !CaptureSeed( liveEngine ) || !m_samples.Prepare( rowCapacity, static_cast<std::size_t>( m_modelCount ) ) ||
-         !SeedPrivateEngine( liveEngine, config, worldForces ) )
+    if ( !CaptureSeed( liveEngine ) || !m_samples.Prepare( rowCapacity, static_cast<std::size_t>( m_modelCount ) ) || !SeedPrivateEngine( liveEngine, config, worldForces ) )
     {
         MarkFailed();
         return false;
     }
 
-    m_tornadoGameplay.SetReplayState( liveTornado.CaptureSeconds(), liveTornado.EjectCooldownSeconds(),
-                                      liveTornado.GetFieldConfig(), liveTornado.GetSystemConfig(),
+    m_tornadoGameplay.SetReplayState( liveTornado.CaptureSeconds(),
+                                      liveTornado.EjectCooldownSeconds(),
+                                      liveTornado.GetFieldConfig(),
+                                      liveTornado.GetSystemConfig(),
                                       liveTornado.GetSystemElapsedSeconds() );
     m_tornadoGameplay.SetParallelForceEvaluation( liveTornado.ParallelForceEvaluation() );
     m_tornadoGameplay.ReserveBodyCapacity( m_modelCount );
@@ -243,11 +253,9 @@ bool ContinuousPredictionProducer::Begin( const Physics::PhysicsEngine& liveEngi
     return true;
 }
 
-bool ContinuousPredictionProducer::AdvanceFrame( const std::chrono::steady_clock::time_point& frameBudgetStart,
-                                                 double frameBudgetMilliseconds ) noexcept
+bool ContinuousPredictionProducer::AdvanceFrame( const std::chrono::steady_clock::time_point& frameBudgetStart, double frameBudgetMilliseconds ) noexcept
 {
-    if ( !m_active.load( std::memory_order_acquire ) || m_failed.load( std::memory_order_acquire ) ||
-         m_cancelRequested.load( std::memory_order_acquire ) ||
+    if ( !m_active.load( std::memory_order_acquire ) || m_failed.load( std::memory_order_acquire ) || m_cancelRequested.load( std::memory_order_acquire ) ||
          ContinuousPredictionBudgetExpired( frameBudgetStart, frameBudgetMilliseconds ) )
     {
         return false;
@@ -273,8 +281,7 @@ ContinuousPredictionProducerView ContinuousPredictionProducer::View() const noex
     view.newestAbsoluteTick = m_newestAbsoluteTick.load( std::memory_order_acquire );
     view.simulatedSeconds = static_cast<double>( view.newestAbsoluteTick ) * static_cast<double>( PHYSICS_FIXED_DT );
     view.measuredTicksPerMillisecond = m_measuredTicksPerMillisecond.load( std::memory_order_acquire );
-    view.retainedBytes = m_samples.RetainedBytes() + static_cast<std::size_t>( (std::max)( 0, m_engineReserveBytes ) ) +
-                         m_bodySeeds.capacity() * sizeof( ContinuousPredictionBodySeed );
+    view.retainedBytes = m_samples.RetainedBytes() + static_cast<std::size_t>( (std::max)( 0, m_engineReserveBytes ) ) + m_bodySeeds.capacity() * sizeof( ContinuousPredictionBodySeed );
     view.active = m_active.load( std::memory_order_acquire );
     view.workerInFlight = m_workerTask.InFlight();
     view.failed = m_failed.load( std::memory_order_acquire ) || m_samples.Failed();
@@ -335,11 +342,8 @@ void ContinuousPredictionProducer::RunWorkerSlice( Threading::WorkerPool& worker
         }
 
         Core::Allocation::RuntimeAllocationScope replayAllocationScope( Core::Allocation::RuntimeAllocationPhase::Replay );
-        const Physics::ExternalForceFrameInput
-            externalForces = m_tornadoGameplay.BuildForceFrame( PHYSICS_FIXED_DT,
-                                                                Physics::PhysicsEngine::ReadBodies( *m_engine ).Count() );
-        m_engine->Step( PHYSICS_FIXED_DT, m_worldForces, externalForces, workerPool,
-                        Physics::PhysicsDiagnosticsCsvWriter {} );
+        const Physics::ExternalForceFrameInput externalForces = m_tornadoGameplay.BuildForceFrame( PHYSICS_FIXED_DT, Physics::PhysicsEngine::ReadBodies( *m_engine ).Count() );
+        m_engine->Step( PHYSICS_FIXED_DT, m_worldForces, externalForces, workerPool, Physics::PhysicsDiagnosticsCsvWriter {} );
 
         const std::uint64_t nextTick = currentTick + 1u;
 
@@ -360,9 +364,7 @@ void ContinuousPredictionProducer::RunWorkerSlice( Threading::WorkerPool& worker
 
         if ( m_tickObserver )
         {
-            m_tickObserver->ObserveCompleteContinuousPredictionTick( Physics::PhysicsEngine::ReadBodies( *m_engine ),
-                                                                     m_engine->GetDiagnosticsView().persistentContacts,
-                                                                     nextTick );
+            m_tickObserver->ObserveCompleteContinuousPredictionTick( Physics::PhysicsEngine::ReadBodies( *m_engine ), m_engine->GetDiagnosticsView().persistentContacts, nextTick );
         }
 
         m_newestAbsoluteTick.store( nextTick, std::memory_order_release );
@@ -382,8 +384,7 @@ void ContinuousPredictionProducer::RunWorkerSlice( Threading::WorkerPool& worker
     {
         const double sample = static_cast<double>( completedTicks ) / elapsedMilliseconds;
         const double previous = m_measuredTicksPerMillisecond.load( std::memory_order_relaxed );
-        m_measuredTicksPerMillisecond.store( previous > 0.0 ? previous + ( sample - previous ) * 0.25 : sample,
-                                             std::memory_order_release );
+        m_measuredTicksPerMillisecond.store( previous > 0.0 ? previous + ( sample - previous ) * 0.25 : sample, std::memory_order_release );
     }
 }
 

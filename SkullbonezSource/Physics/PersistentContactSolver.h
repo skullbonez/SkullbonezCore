@@ -136,6 +136,20 @@ struct PersistentContactSolverStepPolicy
     bool collectConvergenceDiagnostics = false;
 };
 
+// Hull contact geometry is retained in body-local coordinates. Lifetime zero
+// denotes the legacy primitive cache, whose byte encoding and solver remain
+// unchanged. Terrain's B anchor and normal are world-space because it is fixed.
+struct ContactAnchorGeometry
+{
+    Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 localNormalA = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 localNormalB = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 localTangentImpulseA = Math::Vector::ZERO_VECTOR;
+    float breakingDistance = 0.0f;
+    uint32_t lifetime = 0u;
+};
+
 struct PersistentContactCacheEntry
 {
     // Previous-frame impulse cache. The key encodes the bodies plus feature
@@ -145,6 +159,7 @@ struct PersistentContactCacheEntry
     float accN = 0.0f;
     float accT1 = 0.0f;
     float accT2 = 0.0f;
+    ContactAnchorGeometry geometry;
 };
 
 bool PersistentContactCacheHasImpulse( std::span<const PersistentContactCacheEntry> cache, int bodyA, int bodyB, uint32_t featureId );
@@ -157,6 +172,7 @@ struct SolverBodyState
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 invInertia = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 invInertiaProducts = Math::Vector::ZERO_VECTOR;
 
     // Invariant: per-solve positional cleanup accumulates every manifold
     // contribution here, then publishes one authoritative write per body.

@@ -681,6 +681,7 @@ bool PhysicsEngine::UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update )
     desc.linearVelocity = PhysicsBodyLinearVelocity( hotFields, hotIndex );
     desc.angularVelocity = PhysicsBodyAngularVelocity( hotFields, hotIndex );
     desc.rotationalInertia = body->rotationalInertia;
+    desc.rotationalInertiaProducts = body->rotationalInertiaProducts;
     desc.mass = body->mass;
     desc.motionKind = hotFields.fixed[hotIndex] != 0u ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
     desc.startsAsleep = hotFields.awake[hotIndex] == 0u;
@@ -701,6 +702,7 @@ bool PhysicsEngine::UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update )
     {
         desc.mass = update.mass;
         desc.rotationalInertia = update.rotationalInertia;
+        desc.rotationalInertiaProducts = update.rotationalInertiaProducts;
     }
 
     if ( update.updateMask & PHYSICS_BODY_UPDATE_MOTION_KIND )

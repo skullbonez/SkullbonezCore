@@ -138,6 +138,7 @@ bool CapturePrimitiveRecipe( const SceneWorld& world, int modelIndex, EditorPrim
     outRecipe.body.linearVelocity = hotState.linearVelocity;
     outRecipe.body.angularVelocity = hotState.angularVelocity;
     outRecipe.body.rotationalInertia = body->rotationalInertia;
+    outRecipe.body.rotationalInertiaProducts = body->rotationalInertiaProducts;
     outRecipe.body.mass = body->mass;
     outRecipe.body.boundingRadius = hotState.boundingRadius;
     const BuoyancyBodyFacts& fluidFacts = buoyancyFacts[static_cast<std::size_t>( modelIndex )];
@@ -183,6 +184,7 @@ bool RecreatePrimitive( SceneWorld& world, SceneSessionState& scene, const Edito
     bodyDesc.linearVelocity = recipe.body.linearVelocity;
     bodyDesc.angularVelocity = recipe.body.angularVelocity;
     bodyDesc.rotationalInertia = recipe.body.rotationalInertia;
+    bodyDesc.rotationalInertiaProducts = recipe.body.rotationalInertiaProducts;
     bodyDesc.mass = recipe.body.mass;
     bodyDesc.restitution = recipe.restitution;
     bodyDesc.friction = recipe.friction;

@@ -37,8 +37,8 @@ MAX_FACE_VERTICES = 16
 MAX_FACE_INDICES = MAX_FACES * MAX_FACE_VERTICES
 TOLERANCE = 0.00005
 DEFAULT_HULL_DENSITY = 0.90
-PREVIOUS_HULL_VERSION = 1
-CURRENT_HULL_VERSION = 2
+PREVIOUS_HULL_VERSION = 2
+CURRENT_HULL_VERSION = 3
 
 
 @dataclass
@@ -78,6 +78,7 @@ class BakedHull:
     bounding_radius: float
     inertia_half_extents: tuple[float, float, float]
     unit_inertia: tuple[float, float, float]
+    unit_inertia_tensor: tuple[float, float, float, float, float, float]
     projected_surface_area: float
 
 
@@ -165,7 +166,7 @@ def read_source_hull(path: Path, allow_unversioned: bool = False) -> SourceHull:
                 raise HullError(
                     f"{path}:{line_number}: hull version {version} is newer than current version {CURRENT_HULL_VERSION}"
                 )
-            if version < PREVIOUS_HULL_VERSION:
+            if version < PREVIOUS_HULL_VERSION and not allow_unversioned:
                 raise HullError(
                     f"{path}:{line_number}: hull version {version} is older than supported version {PREVIOUS_HULL_VERSION}"
                 )
@@ -257,6 +258,33 @@ def compute_mass_properties(source: SourceHull, faces: list[BakedFace]) -> tuple
     if volume <= 1.0e-5:
         raise HullError(f"{source.path}: hull has invalid volume")
     return (cx / signed_volume, cy / signed_volume, cz / signed_volume), volume
+
+
+def integrate_centered_inertia(vertices, faces):
+    """Return unit-mass (xx, yy, zz, xy, xz, yz) in the centered vertex frame."""
+    moments = [[0.0] * 3 for _ in range(3)]
+    volume = 0.0
+    for face in faces:
+        for corner in range(1, len(face) - 1):
+            triangle = [vertices[face[i]] for i in (0, corner, corner + 1)]
+            tetra = dot(triangle[0], cross(triangle[1], triangle[2])) / 6.0
+            volume += tetra
+            sums = [sum(v[axis] for v in triangle) for axis in range(3)]
+            # Integrate x_i*x_j over the signed tetrahedron (0,a,b,c).
+            # Centering first avoids subtracting two large origin tensors.
+            for i in range(3):
+                for j in range(i, 3):
+                    moments[i][j] += tetra * (sums[i] * sums[j] + sum(v[i] * v[j] for v in triangle)) / 20.0
+    if not math.isfinite(volume) or volume <= 0.0:
+        raise HullError('Centered inertia requires outward closed faces and positive volume')
+    xx, yy, zz = (moments[i][i] / volume for i in range(3))
+    result = (yy + zz, xx + zz, xx + yy, -moments[0][1] / volume,
+              -moments[0][2] / volume, -moments[1][2] / volume)
+    a, b, c, d, e, f = result
+    determinant = a*b*c + 2*d*e*f - a*f*f - b*e*e - c*d*d
+    if not all(math.isfinite(value) for value in result) or a <= 0 or a*b-d*d <= 0 or determinant <= 0:
+        raise HullError('Centered inertia tensor is not positive definite')
+    return result
 
 
 def bake_source_hull(source: SourceHull, default_density: float = DEFAULT_HULL_DENSITY) -> BakedHull:
@@ -357,6 +385,7 @@ def bake_source_hull(source: SourceHull, default_density: float = DEFAULT_HULL_D
         bounding_radius=bounding_radius,
         inertia_half_extents=inertia_half_extents,
         unit_inertia=unit_inertia,
+        unit_inertia_tensor=integrate_centered_inertia(centered_vertices, [face.indices for face in baked_faces]),
         projected_surface_area=projected_surface_area,
     )
 
@@ -396,7 +425,8 @@ def serialize_hull(baked: BakedHull) -> str:
             f"default_mass {fmt(baked.default_mass)}",
             f"bounding_radius {fmt(baked.bounding_radius)}",
             f"inertia_half_extents {fmt_vec(baked.inertia_half_extents)}",
-            f"unit_inertia {fmt_vec(baked.unit_inertia)}",
+            f"unit_inertia {fmt_vec(baked.unit_inertia_tensor[:3])}",
+            f"unit_inertia_products {fmt_vec(baked.unit_inertia_tensor[3:])}",
             f"projected_surface_area {fmt(baked.projected_surface_area)}",
             "",
             "# Baked centered vertices.",
@@ -452,7 +482,7 @@ def main() -> int:
 
     for path in paths:
         # The writer is the explicit migration boundary for pre-versioned v0
-        # source hulls; runtime itself keeps only the v1/v2 reader window.
+        # source hulls; runtime v3 requires rebaking approximate v2 metadata.
         source = read_source_hull(path, allow_unversioned=args.write)
         expected = serialize_hull(bake_source_hull(source, args.default_density))
         current = path.read_text(encoding="utf-8")

@@ -368,6 +368,8 @@ uint64_t PhysicsSleepController::CollectDynamicMemoryBytes() const
     bytes += ListCapacityBytes( m_sleepBodyEligible );
     bytes += ListCapacityBytes( m_sleepResetReason );
     bytes += ListCapacityBytes( m_sleepScratchFlags );
+    bytes += ListCapacityBytes( m_hullSupport );
+    bytes += ListCapacityBytes( m_hullSupported );
     bytes += ListCapacityBytes( m_sleepFirstBoxContactPartner );
     bytes += ListCapacityBytes( m_restingWakeQueueScratch );
     return bytes;

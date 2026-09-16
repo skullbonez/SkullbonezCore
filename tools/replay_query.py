@@ -278,6 +278,7 @@ class SolverCheckpointInfo:
     snapshot_model_count: int
     persistent_contact_count: int
     contact_cache_count: int
+    body_inertia_count: int
     debug_contact_count: int
     pipeline_trace_count: int
     collision_cell_key_count: int
@@ -806,7 +807,7 @@ class ReplayV2:
             struct.Struct("<IiiBB2s")
         )
         reader.unpack(TORNADO_CONFIG)
-        if version < 1 or version > 8:
+        if version < 1 or version > 9:
             raise ReplayQueryError(f"unsupported solver snapshot version {version}")
         tornado_system_vortex_count = 0
         if version >= 2:
@@ -836,7 +837,7 @@ class ReplayV2:
         persistent_contact_count = reader.u32()
         reader.skip(140 * persistent_contact_count)
         contact_cache_count = reader.u32()
-        reader.skip(20 * contact_cache_count)
+        reader.skip((88 if version >= 9 else 20) * contact_cache_count)
         reader.unpack(SOLVER_STATS)
         ReplayV2._skip_counted(reader, COUNTED_U16)
         ReplayV2._skip_counted(reader, COUNTED_U16)
@@ -851,11 +852,13 @@ class ReplayV2:
         sleep_pose_anchor_position_count = ReplayV2._skip_counted(reader, struct.Struct("<3f")) if version >= 6 else 0
         sleep_pose_anchor_orientation_count = ReplayV2._skip_counted(reader, struct.Struct("<4f")) if version >= 6 else 0
         sleep_pose_anchor_valid_count = ReplayV2._skip_counted(reader, COUNTED_U8) if version >= 6 else 0
+        body_inertia_count = ReplayV2._skip_counted(reader, struct.Struct("<II6f")) if version >= 9 else 0
         return {
             "version": int(version),
             "modelCount": int(model_count),
             "persistentContactCount": persistent_contact_count,
             "contactCacheCount": contact_cache_count,
+            "bodyInertiaCount": body_inertia_count,
             "debugContactCount": debug_contact_count,
             "pipelineTraceCount": pipeline_trace_count,
             "collisionCellKeyCount": collision_cell_key_count,
@@ -965,6 +968,7 @@ class ReplayV2:
                     snapshot_model_count=snapshot["modelCount"],
                     persistent_contact_count=snapshot["persistentContactCount"],
                     contact_cache_count=snapshot["contactCacheCount"],
+                    body_inertia_count=snapshot["bodyInertiaCount"],
                     debug_contact_count=snapshot["debugContactCount"],
                     pipeline_trace_count=snapshot["pipelineTraceCount"],
                     collision_cell_key_count=snapshot["collisionCellKeyCount"],
@@ -1466,6 +1470,7 @@ class ReplayV2:
                     },
                     "snapshot": {
                         "version": row.snapshot_version,
+                        "bodyInertiaCount": row.body_inertia_count,
                         "modelCount": row.snapshot_model_count,
                         "persistentContactCount": row.persistent_contact_count,
                         "contactCacheCount": row.contact_cache_count,

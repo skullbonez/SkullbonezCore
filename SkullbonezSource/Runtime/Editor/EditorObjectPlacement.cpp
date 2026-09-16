@@ -101,7 +101,7 @@ PhysicsBodyCreateDesc MakeEditorBodyDesc( const CollisionShape& shape,
                                           const Quaternion& orientation,
                                           const Vector3& linearVelocity,
                                           const Vector3& angularVelocity,
-                                          const Vector3& rotationalInertia,
+                                          const Math::Transformation::SymmetricMatrix3& rotationalInertia,
                                           float mass,
                                           float restitution )
 {
@@ -485,7 +485,7 @@ class EditorObjectPlacementBatch
         sprintf_s( name, sizeof( name ), "%s_%s_%03d", m_modePrefix, label, m_serial );
         model.SetName( name );
         AddModel( std::move( model ),
-                  MakeEditorBodyDesc( scaledHull, center, hullOrientation, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), scaledHull.ComputeBoxApproxInertia( mass ), mass, 0.25f ),
+                  MakeEditorBodyDesc( scaledHull, center, hullOrientation, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), scaledHull.ComputeInertia( mass ), mass, 0.25f ),
                   MakeEditorColliderDesc( scaledHull, 0.25f, MakeShareableHullShapeIdentity( path, m_placementScale ) ),
                   m_placementFixed );
     }
@@ -522,7 +522,7 @@ class EditorObjectPlacementBatch
 
             const Vector3 center = authoredOrigin + m_placementRotation * hull.GetAuthoredCenterOfMass();
             const float mass = hull.GetDefaultMass();
-            const Vector3 inertia = hull.ComputeBoxApproxInertia( mass );
+            const auto inertia = hull.ComputeInertia( mass );
             SceneEntityCreateDesc model;
             model.SetRenderMaterial( EditorTreePartMaterial( part ) );
             char name[64];
@@ -631,7 +631,7 @@ class EditorObjectPlacementBatch
                                                            ConvexHullShape hull = *sourceHull;
                                                            const float mass = EditorJsonFloatOr( part, "mass", hull.GetDefaultMass() );
                                                            const Vector3 center = authoredOrigin + partRotation * hull.GetAuthoredCenterOfMass();
-                                                           const Vector3 inertia = hull.ComputeBoxApproxInertia( mass );
+                                                           const auto inertia = hull.ComputeInertia( mass );
                                                            SceneEntityCreateDesc model;
                                                            finishPartModel( std::move( model ), MakeEditorBodyDesc( hull,
                                                                                                 center,

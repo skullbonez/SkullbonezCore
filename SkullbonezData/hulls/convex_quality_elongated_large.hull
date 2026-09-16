@@ -1,0 +1,64 @@
+# Convex hull asset.
+# source_* directives preserve editable geometry; runtime reads baked directives.
+hull_version 3
+name convex_quality_elongated_large
+source_hash 0x040348425ed3056d
+
+# Editable source geometry.
+source_vertex -0.8 -1.2 -12
+source_vertex 0.8 -1.2 -12
+source_vertex 0.8 1.2 -12
+source_vertex -0.8 1.2 -12
+source_vertex -0.8 -1.2 12
+source_vertex 0.8 -1.2 12
+source_vertex 0.8 1.2 12
+source_vertex -0.8 1.2 12
+source_face 0 1 2 3
+source_face 4 7 6 5
+source_face 0 4 5 1
+source_face 3 2 6 7
+source_face 0 3 7 4
+source_face 1 5 6 2
+
+# Baked runtime metadata.
+center_of_mass 0 0 0
+volume 92.16
+default_density 0.9
+default_mass 82.944
+bounding_radius 12.0863559
+inertia_half_extents 0.8 1.2 12
+unit_inertia 48.48 48.2133333 0.693333333
+unit_inertia_products 0 0 0
+projected_surface_area 33.28
+
+# Baked centered vertices.
+vertex -0.8 -1.2 -12
+vertex 0.8 -1.2 -12
+vertex 0.8 1.2 -12
+vertex -0.8 1.2 -12
+vertex -0.8 -1.2 12
+vertex 0.8 -1.2 12
+vertex 0.8 1.2 12
+vertex -0.8 1.2 12
+
+# Baked faces: normal.xyz planeOffset vertexIndices...
+face 0 0 -1 12 3 2 1 0
+face 0 0 1 12 5 6 7 4
+face 0 -1 0 1.2 1 5 4 0
+face 0 1 0 1.2 7 6 2 3
+face -1 0 0 0.8 4 7 3 0
+face 1 0 0 0.8 2 6 5 1
+
+# Baked edges: vertexA vertexB faceA faceB
+edge 2 3 0 3
+edge 1 2 0 5
+edge 0 1 0 2
+edge 0 3 0 4
+edge 5 6 1 5
+edge 6 7 1 3
+edge 4 7 1 4
+edge 4 5 1 2
+edge 1 5 2 5
+edge 0 4 2 4
+edge 2 6 3 5
+edge 3 7 3 4

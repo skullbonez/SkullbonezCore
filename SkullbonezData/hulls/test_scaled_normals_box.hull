@@ -1,8 +1,10 @@
-# Convex hull test asset with deliberately non-unit baked face normals.
-hull_version 2
+# Convex hull asset.
+# source_* directives preserve editable geometry; runtime reads baked directives.
+hull_version 3
 name test_scaled_normals_box
 source_hash 0xc69c15db1bbaa17d
 
+# Editable source geometry.
 source_vertex -1.45 -0.72 -0.34
 source_vertex 1.45 -0.72 -0.34
 source_vertex 1.45 0.72 -0.34
@@ -18,6 +20,7 @@ source_face 3 2 6 7
 source_face 0 3 7 4
 source_face 1 5 6 2
 
+# Baked runtime metadata.
 center_of_mass 1.95483826e-17 9.77419132e-18 0
 volume 2.83968
 default_density 0.9
@@ -25,8 +28,10 @@ default_mass 2.555712
 bounding_radius 1.65423698
 inertia_half_extents 1.45 0.72 0.34
 unit_inertia 0.211333333 0.739366667 0.873633333
+unit_inertia_products 0 -2.44354783e-18 1.22177392e-18
 projected_surface_area 2.37573333
 
+# Baked centered vertices.
 vertex -1.45 -0.72 -0.34
 vertex 1.45 -0.72 -0.34
 vertex 1.45 0.72 -0.34
@@ -36,14 +41,15 @@ vertex 1.45 -0.72 0.34
 vertex 1.45 0.72 0.34
 vertex -1.45 0.72 0.34
 
-# normal.xyz and planeOffset are scaled by two from the unit fixture.
-face 0 0 -2 0.68 3 2 1 0
-face 0 0 2 0.68 5 6 7 4
-face 0 -2 0 1.44 1 5 4 0
-face 0 2 0 1.44 7 6 2 3
-face -2 0 0 2.9 4 7 3 0
-face 2 0 0 2.9 2 6 5 1
+# Baked faces: normal.xyz planeOffset vertexIndices...
+face 0 0 -1 0.34 3 2 1 0
+face 0 0 1 0.34 5 6 7 4
+face 0 -1 0 0.72 1 5 4 0
+face 0 1 0 0.72 7 6 2 3
+face -1 0 0 1.45 4 7 3 0
+face 1 0 0 1.45 2 6 5 1
 
+# Baked edges: vertexA vertexB faceA faceB
 edge 2 3 0 3
 edge 1 2 0 5
 edge 0 1 0 2

@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name tree_root_small
 source_hash 0xca0d53ab39f1dfb1
 
@@ -39,7 +39,8 @@ default_density 0.9
 default_mass 41.934816
 bounding_radius 5.0221149
 inertia_half_extents 5 0.55 5
-unit_inertia 8.43416667 16.6666667 8.43416667
+unit_inertia 3.70816522 7.2246636 3.70816522
+unit_inertia_products 0 5.71859367e-17 -1.19137368e-18
 projected_surface_area 40.6666667
 
 # Baked centered vertices.

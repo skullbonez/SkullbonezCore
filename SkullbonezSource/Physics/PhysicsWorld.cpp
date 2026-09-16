@@ -64,8 +64,8 @@ namespace
 // chunk for the persistent worker pool to pay for itself.
 constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
 constexpr int PHYSICS_COLLISION_VISUAL_BODY_RESERVE = PHYSICS_CANDIDATE_PAIR_RESERVE * 2;
-constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_INITIAL_CAPACITY = 1024u;
-constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_GROWTH_CHUNK = 4096u;
+constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_INITIAL_CAPACITY = 64u;
+constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_GROWTH_CHUNK = 64u;
 
 // Runtime allocation policy: replay prediction visualization can discover
 // larger solver snapshots interactively. The hard byte cap is the memory bound;
@@ -157,8 +157,9 @@ void ReportReplaySolverSnapshotReserveFailure( const char* label, std::size_t re
 template <typename T> std::size_t ReplaySolverSnapshotReserveCapacity( const std::vector<T>& values, std::size_t requestedCapacity )
 {
     // Why: replay snapshots are diagnostics payloads, not steady gameplay
-    // storage. Chunking capacity here keeps prediction exploration from logging
-    // a chain of tiny reserve events as contact caches discover denser frames.
+    // storage. Small chunks keep sparse snapshots proportional to their live
+    // rows; doubling still bounds reallocations as contact caches grow. A
+    // 4,096-row minimum amplified each geometric cache even for two bodies.
     if ( requestedCapacity <= values.capacity() )
     {
         return values.capacity();
@@ -403,6 +404,15 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
 #define CLEAR_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label ) outSnapshot.snapshotField.clear();
     SB_REPLAY_SOLVER_VECTOR_FIELDS( CLEAR_REPLAY_SOLVER_VECTOR_FIELD )
 #undef CLEAR_REPLAY_SOLVER_VECTOR_FIELD
+    outSnapshot.bodyInertia.clear();
+    std::size_t tensorCount = 0;
+    for ( int index = 0; index < modelCount && index < bodyStore.Count(); ++index )
+    {
+        if ( !Math::Transformation::SymmetricMatrix3( bodyStore.Records()[index].rotationalInertia, bodyStore.Records()[index].rotationalInertiaProducts ).IsDiagonal() )
+        {
+            ++tensorCount;
+        }
+    }
     outSnapshot.solverStats = PhysicsSolverStatsSample();
 
     outSnapshot.version = PHYSICS_SOLVER_SNAPSHOT_VERSION;
@@ -436,12 +446,15 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
     SB_REPLAY_SOLVER_VECTOR_FIELDS( INCLUDE_REPLAY_SOLVER_VECTOR_RESERVE )
 #undef INCLUDE_REPLAY_SOLVER_VECTOR_RESERVE
 
+    includeSnapshotReserve( outSnapshot.bodyInertia, tensorCount );
+
     const auto reserveSnapshotVectors = [&]()
     {
 #define RESERVE_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label )                                                                                                                        \
     ReserveReplaySolverSnapshotVector( outSnapshot.snapshotField, (std::max)( worldValues.size(), static_cast<std::size_t>( (std::max)( 0, modelCount ) ) ), label );
         SB_REPLAY_SOLVER_VECTOR_FIELDS( RESERVE_REPLAY_SOLVER_VECTOR_FIELD )
 #undef RESERVE_REPLAY_SOLVER_VECTOR_FIELD
+        ReserveReplaySolverSnapshotVector( outSnapshot.bodyInertia, tensorCount, "bodyInertia" );
     };
 
     if ( snapshotNeedsGrowth )
@@ -501,6 +514,17 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
     // not a label attached to full live-world vectors. Normalize every body row
     // and remove references to trimmed bodies before restore preflight sees it.
     const std::size_t bodyRows = static_cast<std::size_t>( (std::max)( 0, modelCount ) );
+    const auto bodyHot = bodyStore.HotFields();
+    for ( int index = 0; index < modelCount && index < bodyStore.Count(); ++index )
+    {
+        const auto& body = bodyStore.Records()[index];
+        if ( !Math::Transformation::SymmetricMatrix3( body.rotationalInertia, body.rotationalInertiaProducts ).IsDiagonal() )
+        {
+            outSnapshot.bodyInertia.push_back( { static_cast<uint32_t>( index ), body.sceneObjectId, body.rotationalInertiaProducts, PhysicsBodyInverseInertiaProducts( bodyHot, index ) } );
+            outSnapshot.version = PHYSICS_HULL_SOLVER_SNAPSHOT_VERSION;
+        }
+    }
+
     const auto normalizeBodyRows = [bodyRows]( auto& values, const auto& defaultValue )
     {
         if ( values.size() > bodyRows )
@@ -612,7 +636,7 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
 
 bool PhysicsWorld::CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount, const PhysicsBodyStore& bodyStore ) const
 {
-    if ( snapshot.version < 1 || snapshot.version > PHYSICS_SOLVER_SNAPSHOT_VERSION || snapshot.modelCount != modelCount )
+    if ( snapshot.version < 1 || snapshot.version > PHYSICS_HULL_SOLVER_SNAPSHOT_VERSION || snapshot.modelCount != modelCount )
     {
         return false;
     }
@@ -628,6 +652,24 @@ bool PhysicsWorld::CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& 
         return false;
     }
 
+    if ( snapshot.bodyInertia.size() > static_cast<std::size_t>( modelCount ) || ( snapshot.version < 9u && !snapshot.bodyInertia.empty() ) )
+    {
+        return false;
+    }
+    uint32_t previousRow = 0;
+    bool firstTensor = true;
+    for ( const auto& tensor : snapshot.bodyInertia )
+    {
+        const auto finite = []( const Math::Vector::Vector3& v ) { return std::isfinite( v.x ) && std::isfinite( v.y ) && std::isfinite( v.z ); };
+        if ( tensor.modelRow >= static_cast<uint32_t>( modelCount ) || ( !firstTensor && tensor.modelRow <= previousRow ) ||
+             bodyStore.Records()[tensor.modelRow].sceneObjectId != tensor.sceneObjectId || !finite( tensor.products ) || !finite( tensor.inverseProducts ) )
+        {
+            return false;
+        }
+        previousRow = tensor.modelRow;
+        firstTensor = false;
+    }
+
     for ( uint8_t state : snapshot.motionEligibilityState )
     {
         if ( ( state & ~PHYSICS_MOTION_ELIGIBILITY_VALID_BITS ) != 0u )
@@ -636,7 +678,7 @@ bool PhysicsWorld::CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& 
         }
     }
 
-    uint64_t payloadBytes = 0u;
+    uint64_t payloadBytes = snapshot.bodyInertia.size() * sizeof( PhysicsSolverInertiaSample );
 #define REQUIRE_REPLAY_PAYLOAD_BYTES( snapshotField, worldValues, label )                                                                                                                              \
     if ( snapshot.snapshotField.size() > static_cast<std::size_t>( PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES ) / sizeof( typename decltype( snapshot.snapshotField )::value_type ) )                  \
     {                                                                                                                                                                                                  \
@@ -1290,7 +1332,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                 m_timeRemaining,
                                 m_sleepController.MutableSupportEdgesForContactSolver(),
                                 m_terrain.GetContactManifolds(),
-                                m_sleepController.MutableSupportedStatesForTerrain(),
                                 m_stepDiagnostics,
                                 m_pointJointConstraints );
 

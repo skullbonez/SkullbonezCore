@@ -228,6 +228,8 @@ bool CaptureReplayPredictionBodyState( const PhysicsBodyStore& bodyStore,
         backup.inverseMass = hotFields.inverseMass[bodyIndex];
         backup.rotationalInertia = body.rotationalInertia;
         backup.inverseRotationalInertia = PhysicsBodyInverseInertia( hotFields, bodyIndex );
+        backup.rotationalInertiaProducts = body.rotationalInertiaProducts;
+        backup.inverseRotationalInertiaProducts = PhysicsBodyInverseInertiaProducts( hotFields, bodyIndex );
         backup.fixed = hotFields.fixed[bodyIndex] != 0u;
         outBodies[static_cast<std::size_t>( i )] = backup;
     };
@@ -282,7 +284,9 @@ bool ApplyReplayPredictionBodyState( PhysicsEngine& physicsEngine, SkullbonezCor
                                                 backup.mass,
                                                 backup.inverseMass,
                                                 backup.rotationalInertia,
-                                                backup.inverseRotationalInertia };
+                                                backup.inverseRotationalInertia,
+                                                backup.rotationalInertiaProducts,
+                                                backup.inverseRotationalInertiaProducts };
 
         if ( !physicsEngine.RestoreReplayBodyState( restore ) )
         {

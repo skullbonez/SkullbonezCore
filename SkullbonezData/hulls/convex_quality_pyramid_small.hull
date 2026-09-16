@@ -1,0 +1,52 @@
+# Convex hull asset.
+# source_* directives preserve editable geometry; runtime reads baked directives.
+hull_version 3
+name convex_quality_pyramid_small
+source_hash 0xd6f03ac48b2e8c6b
+
+# Editable source geometry.
+source_vertex -1 -0.8 -1
+source_vertex 1 -0.8 -1
+source_vertex 1 -0.8 1
+source_vertex -1 -0.8 1
+source_vertex 0 1.2 0
+source_face 0 1 2 3
+source_face 0 4 1
+source_face 1 4 2
+source_face 2 4 3
+source_face 3 4 0
+
+# Baked runtime metadata.
+center_of_mass 0 -0.3 0
+volume 2.66666667
+default_density 0.9
+default_mass 2.4
+bounding_radius 1.5
+inertia_half_extents 1 1 1
+unit_inertia 0.35 0.4 0.35
+unit_inertia_products 0 0 0
+projected_surface_area 4
+
+# Baked centered vertices.
+vertex -1 -0.5 -1
+vertex 1 -0.5 -1
+vertex 1 -0.5 1
+vertex -1 -0.5 1
+vertex 0 1.5 0
+
+# Baked faces: normal.xyz planeOffset vertexIndices...
+face 0 -1 0 0.5 0 1 2 3
+face 0 0.447213595 -0.894427191 0.670820393 0 4 1
+face 0.894427191 0.447213595 0 0.670820393 1 4 2
+face 0 0.447213595 0.894427191 0.670820393 2 4 3
+face -0.894427191 0.447213595 0 0.670820393 3 4 0
+
+# Baked edges: vertexA vertexB faceA faceB
+edge 0 1 0 1
+edge 1 2 0 2
+edge 2 3 0 3
+edge 0 3 0 4
+edge 0 4 1 4
+edge 1 4 1 2
+edge 2 4 2 3
+edge 3 4 3 4

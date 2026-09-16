@@ -55,6 +55,7 @@ struct PhysicsDiagnosticsModelRecord
     Math::Vector::Vector3 velocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rotationalInertiaProducts = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 halfExtents = Math::Vector::ZERO_VECTOR;
     float qx = 0.0f;
     float qy = 0.0f;
@@ -70,7 +71,9 @@ struct PhysicsDiagnosticsModelRecord
 
 // Builds one serializable diagnostics row from store-owned physics state plus
 // an optional name overlay. The caller owns row ordering and baseline emission.
-bool TryBuildPhysicsDiagnosticsModelRecord( int index, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+bool TryBuildPhysicsDiagnosticsModelRecord( int index,
+                                            const PhysicsBodyStore& bodyStore,
+                                            const ColliderStore& colliderStore,
                                             const PhysicsDiagnosticsNameView& names,
                                             PhysicsDiagnosticsModelRecord& outRecord );
 } // namespace Physics

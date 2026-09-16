@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name rock_chipped_block
 source_hash 0xd38cb57cac2a641f
 
@@ -27,7 +27,8 @@ default_density 0.9
 default_mass 1208.736
 bounding_radius 11.5229301
 inertia_half_extents 8.5 4 7.5
-unit_inertia 24.0833333 42.8333333 29.4166667
+unit_inertia 17.9321249 29.2555385 21.6944715
+unit_inertia_products -0.0731735748 0.128240678 0.198490524
 projected_surface_area 170.333333
 
 # Baked centered vertices.

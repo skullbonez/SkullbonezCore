@@ -1,0 +1,205 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 5,
+  "name": "convex_quality_ccd_opposing",
+  "simulation": {
+    "seed": 62929,
+    "physics": true,
+    "text": false,
+    "timeScale": 1,
+    "world": {
+      "gravity": -32,
+      "fluidHeight": -1000,
+      "fluidDensity": 0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 120,
+    "fixedStep": true,
+    "exitOnComplete": false
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "cameras": [
+    {
+      "name": "diagnostic_overview",
+      "position": [
+        510,
+        170,
+        760
+      ],
+      "view": [
+        510,
+        5,
+        512
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fovDegrees": 58
+    }
+  ],
+  "objects": [
+    {
+      "type": "convexHull",
+      "name": "mover_0",
+      "position": [
+        480,
+        80,
+        400
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_elongated_ordinary.hull",
+      "velocity": [
+        6000,
+        0,
+        0
+      ],
+      "sceneObjectId": 1
+    },
+    {
+      "type": "box",
+      "name": "target_0",
+      "position": [
+        500,
+        80,
+        400
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ],
+      "halfExtents": [
+        0.05,
+        1,
+        7
+      ],
+      "velocity": [
+        -1200,
+        0,
+        0
+      ],
+      "sceneObjectId": 2
+    },
+    {
+      "type": "convexHull",
+      "name": "mover_1",
+      "position": [
+        480,
+        80,
+        500
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_elongated_ordinary.hull",
+      "velocity": [
+        6000,
+        0,
+        0
+      ],
+      "sceneObjectId": 3
+    },
+    {
+      "type": "convexHull",
+      "name": "target_1",
+      "position": [
+        500,
+        80,
+        500
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_box_hull_ordinary.hull",
+      "velocity": [
+        -1200,
+        0,
+        0
+      ],
+      "sceneObjectId": 4
+    },
+    {
+      "type": "convexHull",
+      "name": "mover_2",
+      "position": [
+        480,
+        80,
+        600
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_elongated_ordinary.hull",
+      "velocity": [
+        6000,
+        0,
+        0
+      ],
+      "sceneObjectId": 5
+    },
+    {
+      "type": "convexHull",
+      "name": "target_2",
+      "position": [
+        500,
+        80,
+        600
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_wedge_ordinary.hull",
+      "velocity": [
+        -1200,
+        0,
+        0
+      ],
+      "sceneObjectId": 6
+    }
+  ]
+}

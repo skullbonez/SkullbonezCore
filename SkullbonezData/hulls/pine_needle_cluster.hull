@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name pine_needle_cluster
 source_hash 0xff3ce785ec6700fd
 
@@ -27,7 +27,8 @@ default_density 0.9
 default_mass 0.85008
 bounding_radius 2.86251747
 inertia_half_extents 0.55 0.46 2.8
-unit_inertia 2.68386667 2.71416667 0.171366667
+unit_inertia 0.80752375 0.81659375 0.05143
+unit_inertia_products 0 -1.83659318e-18 0.000375
 projected_surface_area 4.108
 
 # Baked centered vertices.

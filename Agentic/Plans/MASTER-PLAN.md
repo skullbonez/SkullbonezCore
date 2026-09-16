@@ -1,9 +1,17 @@
 # MASTER PLAN
 
-Date: 2026-09-13
-Status: 138/144 tasks complete; BASELINE_REPAIR complete at 1/1; PHYSICS_SCALE complete at 7/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
+Date: 2026-09-16
+Status: 145/152 tasks complete; CONVEX_HULL active at 7/8; BASELINE_REPAIR complete at 1/1; PHYSICS_SCALE complete at 7/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
 
 ## Owner Direction
+
+- On 2026-09-16 the owner activated CONVEX_HULL after PR #172 and confirmed
+  implementation plus all permanent hull scenes with varying terrain. Start from
+  pushed main 060cd3acc on `nightrunner-16th-SEP-26`, ahead of PHYSICS_AB.
+  Preserve exact unchanged ragdoll body/event/joint/sleep output before Physics
+  changes, plus prediction/replay and performance. The independent terrain-response
+  part of CH2 may follow CH0 before CH1; all complete phase criteria remain.
+  Feature-branch commits/pushes and a review PR are authorized; do not merge it.
 
 - On 2026-09-13 the owner approved the six exact baseline replacements in
   `TestOutput/gate-repair-2026-09-13/approval-manifest.json` and requested a
@@ -529,6 +537,7 @@ returns the live inventory to 138/144. PHYSICS_AB remains queued at 0/6.
 
 | Plan | Code | Total | Complete | Next task | File |
 |---|---|---|---|---|---|
+| Convex Hull Collision Response And Sleep Quality | `CONVEX_HULL` | 8 | 7 | CH7: owner visual/cost review | `TODO/convex-hull-collision-response-and-sleep.md` |
 | Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
@@ -552,7 +561,6 @@ an owner decision, not a run decision.
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
 | Deterministic Trigonometry Adoption | Owner-parked 2026-08-18 | 0/8 | `WNF/deterministic-trigonometry-adoption.md` |
 | Persistent Simulation-Island Sleep | Owner-accepted scoped implementation 2026-08-31 | Archived scope | `WNF/persistent-simulation-island-sleep.md` |
-| Convex Hull Collision Response And Sleep Quality | Owner-parked 2026-08-30 | 0/8 | `WNF/convex-hull-collision-response-and-sleep.md` |
 | Debug Panel Reorganization And Sleep Policy Controls | Owner-parked 2026-08-30 | 0/6 | `WNF/debug-panel-reorganization-and-sleep-policy.md` |
 | Move Semantics And Resource Ownership Hardening | Owner-parked 2026-08-30 | 0/6 | `WNF/move-semantics-and-resource-ownership-hardening.md` |
 | Reversible GPU Fracture Replay | Backlog; blocked | 0/7 | `WNF/fracture-replay-feature.md` |
@@ -565,6 +573,12 @@ One detail in that table is recorded:
   disagree with the directory. A review decision should settle which it is.
 
 ## Binding Order
+
+CONVEX_HULL CH7 remains: obtain owner visual/cost review. Required mechanical
+lanes pass after harness repairs and fresh current-build UI captures. CH0-CH6 are complete. Retain the owning TODO plan for
+this unmet aggregate acceptance; do not mark the whole plan complete. Current portfolio
+is 145/152; CONVEX_HULL 7/8, PHYSICS_AB 0/6. This supersedes historical queue
+notes below for task selection.
 
 `BASELINE_REPAIR` BR0 is complete at 1/1 with all six owner-approved
 references applied and mapped gates passing. Its checklist is deleted; the
@@ -613,6 +627,9 @@ selection/transport commands, but it must not rebuild evidence, add a second
 selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
+
+Current live total: **145/152**, including CONVEX_HULL 7/8 and PHYSICS_AB 0/6.
+Activation adds eight incomplete phases to the prior 138/144 inventory.
 
 The prior portfolio remains 143/143 complete and all 126 bug-ledger rows are
 fixed. Skarness is complete at 7/7 phases.

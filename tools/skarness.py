@@ -217,6 +217,7 @@ def launch(
     render_defaults_file: Path | None = None,
     worker_threads: int | None = None,
     allocation_guard: str | None = None,
+    perf_log: Path | None = None,
 ) -> int:
     session.mkdir(parents=True, exist_ok=True)
     manifest = session / "session.json"
@@ -238,6 +239,8 @@ def launch(
         if allocation_guard not in ("measure", "gameplay"):
             raise ValueError("allocation_guard must be measure or gameplay")
         command.extend(("--allocation-guard", allocation_guard))
+    if perf_log is not None:
+        command.extend(("--perf-log", str(perf_log.resolve())))
     if model_capacity is not None:
         if model_capacity < 1:
             raise ValueError("model_capacity must be positive")
@@ -392,6 +395,7 @@ def build_parser() -> argparse.ArgumentParser:
     launch_parser.add_argument("--fixed-step", action="store_true", help="advance one fixed Physics tick per active frame")
     launch_parser.add_argument("--workers", type=int, help="explicit native worker count for validation")
     launch_parser.add_argument("--allocation-guard", choices=("measure", "gameplay"))
+    launch_parser.add_argument("--perf-log", type=Path, help="capture native frame timings without changing the scene")
     launch_parser.add_argument("--manual", action="store_true",
                                help="trace a player-controlled run without replacing native input or frame pacing")
 
@@ -468,7 +472,7 @@ def main() -> int:
             return run_command(args.session, "capabilities.get", {})
         if args.action == "launch":
             return launch(args.session, args.exe, args.scene, args.hidden, args.manual, args.detail, args.fixed_step,
-                          worker_threads=args.workers, allocation_guard=args.allocation_guard)
+                          worker_threads=args.workers, allocation_guard=args.allocation_guard, perf_log=args.perf_log)
         if args.action in {"command", "send"}:
             return run_command(args.session, args.command, parse_arguments(args.arguments))
         if args.action == "load-scene":

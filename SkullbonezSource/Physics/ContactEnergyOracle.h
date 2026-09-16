@@ -90,32 +90,22 @@ inline ContactEnergyMeasurement MeasureContactEnergy( const PhysicsBodyStore& bo
         const Math::Vector::Vector3 position = PhysicsBodyPosition( hot, bodyIndex );
         const Math::Vector::Vector3 linearVelocity = PhysicsBodyLinearVelocity( hot, bodyIndex );
         const Math::Vector::Vector3 angularVelocity = PhysicsBodyAngularVelocity( hot, bodyIndex );
-        const Math::Transformation::RotationMatrix orientation = PhysicsBodyOrientation( hot, bodyIndex )
-                                                                     .GetOrientationMatrix();
-        const Math::Vector::Vector3 bodyAngularVelocity = record.usesWorldInertia
-                                                              ? orientation.TransposeMultiply( angularVelocity )
-                                                              : angularVelocity;
-        const Math::Vector::Vector3 bodySpinMomentum = Math::Vector::VectorMultiply( record.rotationalInertia,
-                                                                                     bodyAngularVelocity );
-        const Math::Vector::Vector3 worldSpinMomentum = record.usesWorldInertia ? orientation * bodySpinMomentum
-                                                                                : bodySpinMomentum;
+        const Math::Transformation::RotationMatrix orientation = PhysicsBodyOrientation( hot, bodyIndex ).GetOrientationMatrix();
+        const Math::Vector::Vector3 bodyAngularVelocity = record.usesWorldInertia ? orientation.TransposeMultiply( angularVelocity ) : angularVelocity;
+        const Math::Vector::Vector3 bodySpinMomentum = Math::Transformation::SymmetricMatrix3( record.rotationalInertia, record.rotationalInertiaProducts ) * bodyAngularVelocity;
+        const Math::Vector::Vector3 worldSpinMomentum = record.usesWorldInertia ? orientation * bodySpinMomentum : bodySpinMomentum;
         const double mass = static_cast<double>( record.mass );
         const double momentumX = mass * static_cast<double>( linearVelocity.x );
         const double momentumY = mass * static_cast<double>( linearVelocity.y );
         const double momentumZ = mass * static_cast<double>( linearVelocity.z );
-        const double orbitalX = static_cast<double>( position.y ) * momentumZ -
-                                static_cast<double>( position.z ) * momentumY;
-        const double orbitalY = static_cast<double>( position.z ) * momentumX -
-                                static_cast<double>( position.x ) * momentumZ;
-        const double orbitalZ = static_cast<double>( position.x ) * momentumY -
-                                static_cast<double>( position.y ) * momentumX;
+        const double orbitalX = static_cast<double>( position.y ) * momentumZ - static_cast<double>( position.z ) * momentumY;
+        const double orbitalY = static_cast<double>( position.z ) * momentumX - static_cast<double>( position.x ) * momentumZ;
+        const double orbitalZ = static_cast<double>( position.x ) * momentumY - static_cast<double>( position.y ) * momentumX;
 
         result.translationalKineticEnergy += 0.5 * mass *
-                                             ( static_cast<double>( linearVelocity.x ) * linearVelocity.x +
-                                               static_cast<double>( linearVelocity.y ) * linearVelocity.y +
+                                             ( static_cast<double>( linearVelocity.x ) * linearVelocity.x + static_cast<double>( linearVelocity.y ) * linearVelocity.y +
                                                static_cast<double>( linearVelocity.z ) * linearVelocity.z );
-        result.rotationalKineticEnergy += 0.5 * ( static_cast<double>( bodyAngularVelocity.x ) * bodySpinMomentum.x +
-                                                  static_cast<double>( bodyAngularVelocity.y ) * bodySpinMomentum.y +
+        result.rotationalKineticEnergy += 0.5 * ( static_cast<double>( bodyAngularVelocity.x ) * bodySpinMomentum.x + static_cast<double>( bodyAngularVelocity.y ) * bodySpinMomentum.y +
                                                   static_cast<double>( bodyAngularVelocity.z ) * bodySpinMomentum.z );
         result.linearMomentum.x += momentumX;
         result.linearMomentum.y += momentumY;
@@ -155,9 +145,8 @@ inline double ContactBiasedEnergyTolerance( double referenceEnergy, double expli
 
 inline bool ContactEnergyIsFinite( const ContactEnergyMeasurement& measurement ) noexcept
 {
-    return std::isfinite( measurement.translationalKineticEnergy ) && std::isfinite( measurement.rotationalKineticEnergy ) &&
-           std::isfinite( measurement.linearMomentum.x ) && std::isfinite( measurement.linearMomentum.y ) &&
-           std::isfinite( measurement.linearMomentum.z ) && std::isfinite( measurement.angularMomentum.x ) &&
+    return std::isfinite( measurement.translationalKineticEnergy ) && std::isfinite( measurement.rotationalKineticEnergy ) && std::isfinite( measurement.linearMomentum.x ) &&
+           std::isfinite( measurement.linearMomentum.y ) && std::isfinite( measurement.linearMomentum.z ) && std::isfinite( measurement.angularMomentum.x ) &&
            std::isfinite( measurement.angularMomentum.y ) && std::isfinite( measurement.angularMomentum.z );
 }
 

@@ -24,4 +24,25 @@ ConvexDistanceResult ComputeConvexDistance( const ObjectContactBodyView& a,
                                             const Math::CollisionDetection::CollisionShapeReference& shapeA,
                                             const ObjectContactBodyView& b,
                                             const Math::CollisionDetection::CollisionShapeReference& shapeB );
+
+struct ConvexCastResult
+{
+    bool hit = false;
+    bool converged = false;
+    float collisionTime = 0.0f;
+    int iterations = 0;
+};
+
+// Constant-orientation translation only. Each advance uses a separating support
+// plane; only the complete discrete manifold can authorize a hit. Failure leaves
+// both input poses untouched. At most 64 distance queries, each bounded by 32
+// GJK iterations, run without allocation.
+ConvexCastResult CastConvexContact( const ObjectContactBodyView& a,
+                                    const Math::CollisionDetection::CollisionShapeReference& shapeA,
+                                    const Math::Vector::Vector3& velocityA,
+                                    const ObjectContactBodyView& b,
+                                    const Math::CollisionDetection::CollisionShapeReference& shapeB,
+                                    const Math::Vector::Vector3& velocityB,
+                                    float availableTime,
+                                    float contactSkin );
 } // namespace SkullbonezCore::Physics

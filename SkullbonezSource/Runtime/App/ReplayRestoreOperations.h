@@ -65,17 +65,14 @@ class ReplayRestoreOperations
   public:
     using ResolvedBodyTable = std::array<Physics::PhysicsBodyHandle, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 
-    static bool ValidateSolverContinuation( const Physics::PhysicsSolverSnapshot& snapshot, char* outReason,
-                                            std::size_t reasonSize )
+    static bool ValidateSolverContinuation( const Physics::PhysicsSolverSnapshot& snapshot, char* outReason, std::size_t reasonSize )
     {
         // Why: historical checkpoints remain readable for presentation and import,
         // but their hashes describe the historical solver, not a migrated simulation.
         // Reject before App rebuilds topology or changes any live owner.
-        if ( snapshot.version != Physics::PHYSICS_SOLVER_SNAPSHOT_VERSION )
+        if ( snapshot.version != Physics::PHYSICS_SOLVER_SNAPSHOT_VERSION && snapshot.version != Physics::PHYSICS_HULL_SOLVER_SNAPSHOT_VERSION )
         {
-            WriteReason( outReason, reasonSize,
-                         "saved solver version supports inspection only; authoritative continuation requires the current "
-                         "solver" );
+            WriteReason( outReason, reasonSize, "saved solver version supports inspection only; authoritative continuation requires the current " "solver" );
             return false;
         }
         return true;
@@ -93,8 +90,7 @@ class ReplayRestoreOperations
     // Resolves every retained body by stable scene object identity. modelRow is only
     // a cache hint; callers may deliberately pass stale hints to prove that a
     // restore cannot be redirected to another live body.
-    static bool ResolveBodiesForRestore( const Physics::PhysicsBodyStore& bodyStore, const ReplaySolverFrameSample& sample,
-                                         ResolvedBodyTable& outBodies, char* outReason, std::size_t reasonSize )
+    static bool ResolveBodiesForRestore( const Physics::PhysicsBodyStore& bodyStore, const ReplaySolverFrameSample& sample, ResolvedBodyTable& outBodies, char* outReason, std::size_t reasonSize )
     {
         const int liveModelCount = bodyStore.Count();
 
@@ -139,11 +135,9 @@ class ReplayRestoreOperations
         return true;
     }
 
-    static bool ApplySolverSampleState( SceneWorld& world, SceneSessionState& scene, OverlayDebugState& debug,
-                                        const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize )
+    static bool ApplySolverSampleState( SceneWorld& world, SceneSessionState& scene, OverlayDebugState& debug, const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize )
     {
-        if ( sample.worldSnapshot.physics.version < 1 ||
-             sample.worldSnapshot.physics.version > Physics::PHYSICS_SOLVER_SNAPSHOT_VERSION )
+        if ( sample.worldSnapshot.physics.version < 1 || sample.worldSnapshot.physics.version > Physics::PHYSICS_HULL_SOLVER_SNAPSHOT_VERSION )
         {
             WriteReason( outReason, reasonSize, "unsupported snapshot version" );
             return false;
@@ -159,8 +153,7 @@ class ReplayRestoreOperations
         ResolvedBodyTable resolvedBodies {};
         Physics::PhysicsEngine& physics = world.Physics();
 
-        if ( !ResolveBodiesForRestore( Physics::PhysicsEngine::ReadBodies( physics ), sample, resolvedBodies, outReason,
-                                       reasonSize ) )
+        if ( !ResolveBodiesForRestore( Physics::PhysicsEngine::ReadBodies( physics ), sample, resolvedBodies, outReason, reasonSize ) )
         {
             return false;
         }
@@ -168,12 +161,45 @@ class ReplayRestoreOperations
         // Invariant: this is the last recoverable check before trimming any
         // live topology. Physics validates the exact joint rows that will
         // survive the requested body-count trim, not the larger live set.
-        if ( !physics.CanRestoreReplaySolverSnapshot( sample.worldSnapshot.physics,
-                                                      Physics::MakePhysicsBodyCountFromNonNegativeInt(
-                                                          restoreModelCount ) ) )
+        if ( !physics.CanRestoreReplaySolverSnapshot( sample.worldSnapshot.physics, Physics::MakePhysicsBodyCountFromNonNegativeInt( restoreModelCount ) ) )
         {
             WriteReason( outReason, reasonSize, "snapshot solver topology mismatch" );
             return false;
+        }
+
+        const auto makeBodyRestore = [&]( std::size_t bodyIndex )
+        {
+            const ReplaySolverBodySample& body = sample.bodies[bodyIndex];
+            Math::Orientation::Quaternion orientation( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
+            Physics::PhysicsBodyRestoreState restore { resolvedBodies[bodyIndex],
+                                                       body.id,
+                                                       body.fixed,
+                                                       body.position,
+                                                       orientation,
+                                                       body.linearVelocity,
+                                                       body.angularVelocity,
+                                                       body.mass,
+                                                       body.inverseMass,
+                                                       body.rotationalInertia,
+                                                       body.inverseRotationalInertia };
+
+            const auto& tensors = sample.worldSnapshot.physics.bodyInertia;
+            const auto tensor = std::lower_bound( tensors.begin(), tensors.end(), bodyIndex, []( const auto& entry, std::size_t row ) { return entry.modelRow < row; } );
+            if ( tensor != tensors.end() && tensor->modelRow == bodyIndex )
+            {
+                restore.rotationalInertiaProducts = tensor->products;
+                restore.inverseRotationalInertiaProducts = tensor->inverseProducts;
+            }
+
+            return restore;
+        };
+        for ( std::size_t bodyIndex = 0; bodyIndex < sample.bodies.size(); ++bodyIndex )
+        {
+            if ( !Physics::ValidPhysicsBodyRestoreInertia( makeBodyRestore( bodyIndex ) ) )
+            {
+                WriteReason( outReason, reasonSize, "invalid full inertia tensor" );
+                return false;
+            }
         }
 
         if ( !world.TrimForReplayRestore( restoreModelCount ) )
@@ -186,42 +212,26 @@ class ReplayRestoreOperations
 
         for ( std::size_t bodyIndex = 0; bodyIndex < sample.bodies.size(); ++bodyIndex )
         {
-            const ReplaySolverBodySample& body = sample.bodies[bodyIndex];
-            Math::Orientation::Quaternion orientation( body.orientation[0], body.orientation[1], body.orientation[2],
-                                                       body.orientation[3] );
-            const Physics::PhysicsBodyRestoreState restore { resolvedBodies[bodyIndex],
-                                                             body.id,
-                                                             body.fixed,
-                                                             body.position,
-                                                             orientation,
-                                                             body.linearVelocity,
-                                                             body.angularVelocity,
-                                                             body.mass,
-                                                             body.inverseMass,
-                                                             body.rotationalInertia,
-                                                             body.inverseRotationalInertia };
-
+            const auto restore = makeBodyRestore( bodyIndex );
             if ( !physics.RestoreReplayBodyState( restore ) )
             {
-                SB_FATAL( "Runtime/ReplayRestore",
-                          "Replay body commit failed after stable-id preflight; live state may be partially restored" );
+                SB_FATAL( "Runtime/ReplayRestore", "Replay body commit failed after stable-id preflight; live state may be partially restored" );
             }
         }
 
         // Invariant: body rows restore first because each body mutation
         // invalidates topology-derived stage state. The solver snapshot is the
         // final Physics commit and makes v4 hysteresis bytes authoritative.
-        if ( !physics.RestoreReplaySolverSnapshot( sample.worldSnapshot.physics,
-                                                   Physics::MakePhysicsBodyCountFromNonNegativeInt( restoreModelCount ) ) )
+        if ( !physics.RestoreReplaySolverSnapshot( sample.worldSnapshot.physics, Physics::MakePhysicsBodyCountFromNonNegativeInt( restoreModelCount ) ) )
         {
-            SB_FATAL( "Runtime/ReplayRestore",
-                      "Replay solver commit rejected topology accepted by the pre-mutation preflight" );
+            SB_FATAL( "Runtime/ReplayRestore", "Replay solver commit rejected topology accepted by the pre-mutation preflight" );
         }
 
         physics.ClearPendingBodyImpulses();
 
         world.Tornado().SetReplayState( sample.worldSnapshot.tornadoCaptureSeconds,
-                                        sample.worldSnapshot.tornadoEjectCooldownSeconds, sample.worldSnapshot.tornadoConfig,
+                                        sample.worldSnapshot.tornadoEjectCooldownSeconds,
+                                        sample.worldSnapshot.tornadoConfig,
                                         sample.worldSnapshot.tornadoSystemConfig,
                                         sample.worldSnapshot.tornadoSystemElapsedSeconds );
 
@@ -240,8 +250,7 @@ class ReplayRestoreOperations
 
         if ( world.Tornado().VisualAutoEnableWithTornado() )
         {
-            world.Tornado().SetVisualEnabled( sample.worldSnapshot.tornadoConfig.enabled ||
-                                              sample.worldSnapshot.tornadoSystemConfig.enabled );
+            world.Tornado().SetVisualEnabled( sample.worldSnapshot.tornadoConfig.enabled || sample.worldSnapshot.tornadoSystemConfig.enabled );
         }
 
         ApplyCameraSample( world.Cameras(), sample.camera );
@@ -252,9 +261,12 @@ class ReplayRestoreOperations
 
     // Captures the live stores through a one-frame verifier recorder so hash
     // calculation uses the exact same field order as normal replay capture.
-    static bool CaptureCurrentSolverSample( SceneWorld& world, const SceneSessionState& scene,
-                                            const OverlayDebugState& debug, const ReplayLauncherVisualSample& launcherVisual,
-                                            const ReplaySolverFrameSample& reference, ReplaySolverFrameSample& outSample )
+    static bool CaptureCurrentSolverSample( SceneWorld& world,
+                                            const SceneSessionState& scene,
+                                            const OverlayDebugState& debug,
+                                            const ReplayLauncherVisualSample& launcherVisual,
+                                            const ReplaySolverFrameSample& reference,
+                                            ReplaySolverFrameSample& outSample )
     {
         ReplayRecorderConfig config;
         config.enabled = true;
@@ -285,8 +297,7 @@ class ReplayRestoreOperations
 
         std::array<const char*, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> entityDisplayNames = {};
         const SceneEntityStore& entities = world.Entities();
-        const std::size_t entityNameCount = (std::min)( static_cast<std::size_t>( entities.Count() ),
-                                                        entityDisplayNames.size() );
+        const std::size_t entityNameCount = (std::min)( static_cast<std::size_t>( entities.Count() ), entityDisplayNames.size() );
 
         for ( std::size_t entityIndex = 0; entityIndex < entityNameCount; ++entityIndex )
         {
@@ -294,9 +305,15 @@ class ReplayRestoreOperations
             entityDisplayNames[entityIndex] = entity ? entity->displayName : nullptr;
         }
 
-        verifier.CaptureFrame( reference.branch, reference.eventCursor, reference.sceneFrame,
-                               reference.physicsDt > 0.0f ? reference.physicsDt : PHYSICS_FIXED_DT, worldSample,
-                               cameraSample, launcherVisual, world.Physics(), world.Tornado(),
+        verifier.CaptureFrame( reference.branch,
+                               reference.eventCursor,
+                               reference.sceneFrame,
+                               reference.physicsDt > 0.0f ? reference.physicsDt : PHYSICS_FIXED_DT,
+                               worldSample,
+                               cameraSample,
+                               launcherVisual,
+                               world.Physics(),
+                               world.Tornado(),
                                std::span<const char* const>( entityDisplayNames.data(), entityNameCount ) );
 
         const ReplaySolverFrameSample* verified = verifier.LatestSample();
@@ -310,10 +327,14 @@ class ReplayRestoreOperations
         return true;
     }
 
-    static bool CaptureCurrentSolverHash( SceneWorld& world, const SceneSessionState& scene, const OverlayDebugState& debug,
+    static bool CaptureCurrentSolverHash( SceneWorld& world,
+                                          const SceneSessionState& scene,
+                                          const OverlayDebugState& debug,
                                           const ReplayLauncherVisualSample& launcherVisual,
-                                          const ReplaySolverFrameSample& reference, uint64_t& outSolverHash,
-                                          uint64_t& outPresentationHash, std::size_t& outBodyCount )
+                                          const ReplaySolverFrameSample& reference,
+                                          uint64_t& outSolverHash,
+                                          uint64_t& outPresentationHash,
+                                          std::size_t& outBodyCount )
     {
         ReplaySolverFrameSample verified;
 
