@@ -105,6 +105,12 @@ class ReplayPredictionWorkerSchedule
         m_task.reset();
     }
 
+    bool Retarget( int tickCount )
+    {
+        WaitForIdle();
+        return m_task && m_task->Retarget( tickCount );
+    }
+
     template <typename... Args> void Begin( Args&&... args )
     {
         m_task.emplace( std::forward<Args>( args )... );
@@ -153,17 +159,14 @@ double ReplayPredictionElapsedMilliseconds( const std::chrono::steady_clock::tim
 bool ReplayPredictionBudgetExpired( const std::chrono::steady_clock::time_point& start, double budgetMilliseconds );
 bool ReplayPredictionBudgetExpiredForPass( ReplayPredictionUpdateResult& result,
                                            SkullbonezCore::Core::MainMemoryReplayBudgetPass pass,
-                                           const std::chrono::steady_clock::time_point& start, double budgetMilliseconds );
-double ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::time_point& start,
-                                              double budgetMilliseconds );
+                                           const std::chrono::steady_clock::time_point& start,
+                                           double budgetMilliseconds );
+double ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::time_point& start, double budgetMilliseconds );
 double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& prediction );
-ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction,
-                                                   ReplayFrameIndex lastAvailableFrame );
-std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction,
-                                                                   Physics::PhysicsSceneObjectId requestedTargetId );
+ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction, ReplayFrameIndex lastAvailableFrame );
+std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction, Physics::PhysicsSceneObjectId requestedTargetId );
 
-inline ReplayPredictionBuildMode ChooseReplayPredictionBuildMode( double measuredTicksPerMs, int remainingTicks,
-                                                                  double instantBudgetMs, std::size_t bodyCount ) noexcept
+inline ReplayPredictionBuildMode ChooseReplayPredictionBuildMode( double measuredTicksPerMs, int remainingTicks, double instantBudgetMs, std::size_t bodyCount ) noexcept
 {
     if ( measuredTicksPerMs <= 0.0 || remainingTicks < 0 )
     {
@@ -182,12 +185,10 @@ inline ReplayPredictionBuildMode ChooseReplayPredictionBuildMode( double measure
     }
 
     const double projectedMilliseconds = static_cast<double>( remainingTicks ) / measuredTicksPerMs;
-    return projectedMilliseconds <= instantBudgetMs ? ReplayPredictionBuildMode::Instant
-                                                    : ReplayPredictionBuildMode::Amortized;
+    return projectedMilliseconds <= instantBudgetMs ? ReplayPredictionBuildMode::Instant : ReplayPredictionBuildMode::Amortized;
 }
 
-inline double UpdateReplayPredictionTicksPerMs( double measuredTicksPerMs, int completedTicks,
-                                                double elapsedMilliseconds ) noexcept
+inline double UpdateReplayPredictionTicksPerMs( double measuredTicksPerMs, int completedTicks, double elapsedMilliseconds ) noexcept
 {
     if ( completedTicks <= 0 || elapsedMilliseconds <= 0.0 || !std::isfinite( elapsedMilliseconds ) )
     {
@@ -209,10 +210,8 @@ inline double UpdateReplayPredictionTicksPerMs( double measuredTicksPerMs, int c
     return measuredTicksPerMs + ( sampleTicksPerMs - measuredTicksPerMs ) * SAMPLE_WEIGHT;
 }
 
-inline ReplayPredictionCoalescerAction ChooseReplayPredictionCoalescerAction( bool dirty, bool building,
-                                                                              ReplayPredictionBuildMode mode,
-                                                                              bool pendingLatestRestart,
-                                                                              bool replacementPrefixPresented ) noexcept
+inline ReplayPredictionCoalescerAction
+ChooseReplayPredictionCoalescerAction( bool dirty, bool building, ReplayPredictionBuildMode mode, bool pendingLatestRestart, bool replacementPrefixPresented ) noexcept
 {
     const bool restartRequested = dirty || pendingLatestRestart;
 
@@ -237,18 +236,17 @@ inline ReplayPredictionCoalescerAction ChooseReplayPredictionCoalescerAction( bo
     return ReplayPredictionCoalescerAction::PromoteAndBegin;
 }
 
-inline bool ReplayPredictionExplicitRestartRequested( bool dirty, Physics::PhysicsSceneObjectId activeTargetId,
-                                                      Physics::PhysicsSceneObjectId requestedTargetId ) noexcept
+inline bool ReplayPredictionExplicitRestartRequested( bool dirty, Physics::PhysicsSceneObjectId activeTargetId, Physics::PhysicsSceneObjectId requestedTargetId ) noexcept
 {
     // Why: selecting another body is an authored prediction request even when
     // a coherent future for the previous body is already visible.
     return dirty || activeTargetId.value != requestedTargetId.value;
 }
 
-inline ReplayPredictionPendingPublicationAction
-ChooseReplayPredictionPendingPublicationAction( bool pending, Physics::PhysicsSceneObjectId activeTargetId,
-                                                Physics::PhysicsSceneObjectId requestedTargetId,
-                                                Physics::PhysicsSceneObjectId visibleRootId ) noexcept
+inline ReplayPredictionPendingPublicationAction ChooseReplayPredictionPendingPublicationAction( bool pending,
+                                                                                                Physics::PhysicsSceneObjectId activeTargetId,
+                                                                                                Physics::PhysicsSceneObjectId requestedTargetId,
+                                                                                                Physics::PhysicsSceneObjectId visibleRootId ) noexcept
 {
     if ( !pending )
     {

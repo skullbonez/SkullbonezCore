@@ -50,7 +50,7 @@ enum class Workspace : uint8_t
 // simulation clock, comparison recording, or functional editor mode.
 struct PresentationPreferences
 {
-    static constexpr uint32_t VERSION = 5;
+    static constexpr uint32_t VERSION = 6;
     LayoutMode layout = LayoutMode::Canvas;
     Style::Theme theme = Style::Theme::Blue;
     float leftWidth = 280.0f;
@@ -63,6 +63,7 @@ struct PresentationPreferences
     bool leftFolded = true;
     bool replayFolded = true;
     bool rightFolded = true;
+    bool toolsOpen = false;
 };
 
 struct PresentationState

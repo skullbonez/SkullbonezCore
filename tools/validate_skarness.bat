@@ -63,6 +63,18 @@ echo [skarness] P shortcut pause, predict, clear and resume...
 "%PYTHON_EXE%" "%~dp0validate_skarness_prediction_shortcut.py" --session TestOutput\validation\skarness\prediction-shortcut
 if errorlevel 1 goto fail
 
+echo [skarness] Dense horizon continuation, trimming, and target selection...
+"%PYTHON_EXE%" "%~dp0validate_prediction_horizon.py" --session TestOutput/skarness/validation/prediction-horizon
+if errorlevel 1 goto fail
+
+echo [skarness] Space 200 continuous horizon drag and curve quality...
+"%PYTHON_EXE%" "%~dp0validate_space_prediction_horizon.py" --session TestOutput/skarness/validation/space-prediction-horizon
+if errorlevel 1 goto fail
+
+echo [skarness] Native capture release and window controls...
+"%PYTHON_EXE%" "%~dp0validate_native_window.py" --session "%REPO%\TestOutput\skarness\native-window-%RANDOM%"
+if errorlevel 1 goto fail
+
 echo [skarness] Persistent multi-scene prediction matrix...
 "%PYTHON_EXE%" "%~dp0validate_skarness_prediction_matrix.py" --self-test
 if errorlevel 1 goto fail

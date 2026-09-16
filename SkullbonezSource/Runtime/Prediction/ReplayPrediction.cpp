@@ -638,7 +638,8 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
     // completed build replaced the coherent snapshot captured at job start.
     const bool buildPrefixWasPresented = prediction.BuildPrefixHasBeenPresented();
 
-    prediction.build.schedule.Reset();
+    // Keep the idle schedule and its private-engine cursor for horizon growth.
+    // Cancellation still retires these borrows on a target or scene mutation.
     prediction.build.building = false;
     prediction.build.complete = true;
     prediction.build.lastBuildWallMs = std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - prediction.build.jobStart ).count();
@@ -791,13 +792,19 @@ ReplayPredictionSourcePreparation ReplayPrediction::BeginFrameSource( PhysicsEng
     // that bank because its publication root belongs to the previous request.
     predictionOwner.CancelJob( clearSamplesOnCancel, preserveCommittedFuture );
 
-    if ( m_sharesWorkingSetBudget )
+    if ( clearSamplesOnCancel || m_sharesWorkingSetBudget )
     {
-        // A new generation supersedes this owner's exact solver evidence.
-        // Keep its visible paths until replacement, but release diagnostic
-        // banks before reserving the next simulation. The separate original
-        // owner's committed evidence remains untouched.
+        // Lifetime: CancelJob joined the worker and retired the old target's
+        // publication. Its exact evidence is no longer readable. Reclaim both
+        // banks before a longer horizon competes for the same working-set cap.
+        // An additional owner retains its separate original's evidence.
         m_solverEvidence.ReleaseCapacity();
+    }
+    else
+    {
+        // Same-target refreshes still display committed evidence. Only the
+        // cancelled build bank is spare storage while its replacement starts.
+        m_solverEvidence.ReleaseBuildCapacity();
     }
 
     if ( clearSamplesOnCancel )
@@ -971,7 +978,7 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine,
         return false;
     }
 
-    if ( !PrepareReplayPredictionTrajectoryBuild( prediction, prediction.simulation.targetId, buildFrameCapacity, static_cast<std::size_t>( modelCount ), pathPresentation, m_sharesWorkingSetBudget ) )
+    if ( !PrepareReplayPredictionTrajectoryBuild( prediction, prediction.simulation.targetId, buildFrameCapacity, static_cast<std::size_t>( modelCount ), pathPresentation, true ) )
     {
         predictionOwner.CancelJob( clearSamplesOnCancel, !clearSamplesOnCancel );
         prediction.build.dirty = true;
@@ -1029,6 +1036,7 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine,
         prediction.build.schedule.SetBudget( 1 );
     }
     prediction.build.building = true;
+    prediction.build.horizonChanged = false;
     ++prediction.build.generationBeginCount;
 
     return !prediction.build.buildFrames.empty();
@@ -1329,6 +1337,14 @@ bool ReplayPrediction::AdvanceFrameWorker( SkullbonezCore::Threading::WorkerPool
 {
     RunReplayPredictionState& prediction = m_state;
     bool predictionCompletedThisPass = false;
+
+    if ( prediction.build.horizonChanged && !prediction.build.dirty && !prediction.build.pendingLatestRestart )
+    {
+        if ( !ApplyHorizonContinuation() )
+        {
+            return false;
+        }
+    }
 
     if ( prediction.build.building )
     {
@@ -1855,6 +1871,100 @@ bool ReplayPrediction::BuildArchive( const RunReplayPathVisualizerState& pathVis
     return BuildReplayPredictionArchive( pathVisualizer, m_state, m_detailMode, m_solverEvidence.Committed(), outBytes );
 }
 
+bool ReplayPrediction::ApplyHorizonContinuation()
+{
+    RunReplayPredictionState& prediction = m_state;
+
+    if ( !prediction.enabled || !m_generationPermitted || !prediction.simulation.predictionEngineReady || !prediction.build.schedule.Active() || prediction.committedPublication.pending )
+    {
+        return false;
+    }
+
+    WaitForJobIdle();
+    const bool wasBuilding = prediction.build.building;
+    const std::size_t retainedCount = wasBuilding ? prediction.PublishedBuildFrameCount() : prediction.CommittedFrameCount();
+
+    if ( retainedCount == 0u )
+    {
+        return false;
+    }
+
+    const int requestedTicks = (std::max)( 1, static_cast<int>( std::ceil( prediction.simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) );
+    const std::size_t frameCapacity = (std::max)( retainedCount, static_cast<std::size_t>( requestedTicks ) + 1u );
+
+    if ( !wasBuilding && frameCapacity == retainedCount )
+    {
+        prediction.build.horizonChanged = false;
+        return true;
+    }
+
+    // The old spare evidence bank has no readers. Required motion/path storage
+    // takes priority over optional diagnostics under the unchanged shared cap.
+    if ( !wasBuilding )
+    {
+        m_solverEvidence.ReleaseBuildCapacity();
+    }
+
+    std::vector<RunReplayPredictionFrame>& frames = wasBuilding ? prediction.build.buildFrames : prediction.simulation.frames;
+    const std::size_t bodyCount = prediction.simulation.predictionBodies.size();
+
+    if ( !ReserveReplayPredictionVector( frames, frameCapacity, 0, "prediction horizon frames" ) )
+    {
+        return false;
+    }
+
+    frames.resize( frameCapacity );
+
+    if ( !ReserveReplayPredictionFramePayloadVectors( frames, frameCapacity, bodyCount, 0, "prediction horizon bodies", &RunReplayPredictionFrame::bodies ) )
+    {
+        return false;
+    }
+
+    // Each body can enter the causal tree only once. Already activated bodies
+    // cannot require another retained edge in the appended time range.
+    const std::size_t activeBodies = static_cast<std::size_t>( std::count( prediction.build.causalContactActiveModels.begin(), prediction.build.causalContactActiveModels.end(), uint8_t { 1u } ) );
+    const std::size_t remainingContacts = (std::min)( bodyCount - (std::min)( bodyCount, activeBodies ), REPLAY_PATH_MAX_FUTURE_NODES - (std::min)( REPLAY_PATH_MAX_FUTURE_NODES, prediction.build.causalContactNodeCount ) );
+    (void)ReserveReplayPredictionFramePayloadVectors( frames, frameCapacity, remainingContacts, 0, "prediction horizon contacts", &RunReplayPredictionFrame::debugContacts );
+    const ReplayPredictionPathPresentation pathPresentation = prediction.trajectoryBuild.pathPresentation;
+
+    if ( !ReserveReplayPredictionTrajectoryCapacity( prediction, frameCapacity, bodyCount, pathPresentation, true ) )
+    {
+        return false;
+    }
+
+    if ( !wasBuilding )
+    {
+        prediction.build.buildFrames.swap( prediction.simulation.frames );
+        prediction.InvalidateCommittedFrames();
+        prediction.ResetBuildFramePublication();
+        prediction.committedPublication.Reset();
+        if ( m_detailMode == ReplayPredictionDetailMode::High )
+        {
+            m_solverEvidence.ResumeCommittedBuild();
+            if ( !m_solverEvidenceCaptureStats.capacityTruncated )
+            {
+                prediction.simulation.predictionEngine->SetPipelineTraceFullRecordConsumerActive( true );
+                m_solverEvidenceCaptureStats.consumerActive = true;
+                ++m_solverEvidenceCaptureStats.consumerAcquireCount;
+            }
+        }
+    }
+
+    if ( !ResumeReplayPredictionTrajectoryBuild( prediction, frameCapacity, wasBuilding ) )
+    {
+        return false;
+    }
+
+    prediction.PublishBuildFrameSlot( retainedCount - 1u );
+    prediction.build.presentationPublication.Prepare( retainedCount, frameCapacity );
+    prediction.build.targetTickCount = static_cast<int>( frameCapacity - 1u );
+    (void)prediction.build.schedule.Retarget( prediction.build.targetTickCount );
+    prediction.build.building = true;
+    prediction.build.complete = false;
+    prediction.build.horizonChanged = false;
+    return true;
+}
+
 void ReplayPrediction::SetHorizonSeconds( float horizonSeconds ) noexcept
 {
     if ( m_state.simulation.horizonSeconds == horizonSeconds )
@@ -1863,7 +1973,11 @@ void ReplayPrediction::SetHorizonSeconds( float horizonSeconds ) noexcept
     }
 
     m_state.simulation.horizonSeconds = horizonSeconds;
-    MarkDirty();
+    m_state.build.horizonChanged = true;
+    m_state.futureNodeCache.ResetRetainedMarkers();
+    // Presentation clips immediately; the frame owner joins and extends the
+    // existing worker only when more simulated frames are actually needed.
+    m_state.revealClock.presentedFrame = (std::min)( m_state.revealClock.presentedFrame, static_cast<ReplayFrameIndex>( std::ceil( horizonSeconds / PHYSICS_FIXED_DT ) ) );
 }
 
 bool ReplayPrediction::RevealProgress01( float& outProgress ) const noexcept
@@ -1871,7 +1985,7 @@ bool ReplayPrediction::RevealProgress01( float& outProgress ) const noexcept
     const bool usingBuildFrames = m_state.BuildPrefixShouldBePresented();
     const std::vector<RunReplayPredictionFrame>& frames = usingBuildFrames ? m_state.build.buildFrames : m_state.simulation.frames;
 
-    const std::size_t frameCount = usingBuildFrames ? m_state.PublishedBuildFrameCount() : m_state.CommittedFrameCount();
+    const std::size_t frameCount = (std::min)( m_state.HorizonFrameCount(), usingBuildFrames ? m_state.PublishedBuildFrameCount() : m_state.CommittedFrameCount() );
 
     if ( frameCount < 2u || !m_state.revealClock.anchorValid )
     {
@@ -1966,7 +2080,7 @@ void ReplayPrediction::CommitVelocityMutation() noexcept
 
 bool ReplayPrediction::ReadyForDeterministicReveal() const noexcept
 {
-    return !m_state.build.building && m_state.HasCommittedFramePrefix() && m_state.build.complete;
+    return !m_state.build.building && !m_state.build.horizonChanged && m_state.HasCommittedFramePrefix() && m_state.build.complete && m_state.CommittedFrameCount() >= m_state.HorizonFrameCount();
 }
 
 void ReplayPrediction::ArmDeterministicReveal( ReplayFrameIndex frame, bool resetPresentedFrame ) noexcept

@@ -198,6 +198,7 @@ class ReplayPredictionSolverEvidenceBanks
     void CancelBuild() noexcept;
     // Caller joins the build worker before releasing the non-committed bank.
     void ReleaseBuildCapacity() noexcept;
+    void ResumeCommittedBuild() noexcept;
     void ReleaseCapacity() noexcept;
 
     const ReplayPredictionSolverEvidenceStore& Build() const noexcept;

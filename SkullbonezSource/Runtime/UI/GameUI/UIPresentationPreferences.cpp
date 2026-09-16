@@ -1,5 +1,5 @@
-// Layout persistence is cold presentation work. Runtime state and drawer
-// visibility never enter the file; automation uses an explicit isolated path.
+// Layout and Tools visibility persist as presentation preferences. Simulation
+// state stays session-owned; automation uses an explicit isolated file.
 #include "UI.h"
 #include "../../../Core/AtomicTextFileWriter.h"
 #include "../../../Core/PlatformWin32.h"
@@ -81,6 +81,16 @@ GameLayout::PresentationPreferences ReadPreferences( const char* path )
         preferences.replayFolded = folded == 1;
         consumed += readBytes;
     }
+    if ( version >= 6 )
+    {
+        int open = 0, readBytes = 0;
+        if ( sscanf_s( bytes + consumed, "toolsOpen %d %n", &open, &readBytes ) != 1 || ( open != 0 && open != 1 ) )
+        {
+            return {};
+        }
+        preferences.toolsOpen = open == 1;
+        consumed += readBytes;
+    }
     if ( !complete || fields != 10 || consumed != static_cast<int>( count ) || ( version < 1 || version > GameLayout::PresentationPreferences::VERSION ) )
     {
         return {};
@@ -117,7 +127,7 @@ void InGameUI::LoadPresentationPreferences()
     m_windowInteraction.m_presentation.preferences = ReadPreferences( m_layoutPreferencesPath );
     Style::SelectTheme( m_windowInteraction.m_presentation.preferences.theme );
     SetActiveTab( static_cast<InGameUITab>( m_windowInteraction.m_presentation.preferences.lastTool ) );
-    SetMinimized( true );
+    SetVisible( m_windowInteraction.m_presentation.preferences.toolsOpen );
 }
 
 void InGameUI::SavePresentationPreferences( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) const
@@ -130,7 +140,7 @@ void InGameUI::SavePresentationPreferences( SkullbonezCore::Core::SbDiagnosticSt
     char bytes[512] {};
     const int count = std::snprintf( bytes,
                                      sizeof( bytes ),
-                                     "version %u\nlayout %d\nleft %.9g\nright %.9g\ndrawer %.9g\ndiagnostics %.9g\nfolded " "%u\ntool %d\nleftFolded %d\nrightFolded %d\ntheme %d\nreplayFolded %d\n",
+                                     "version %u\nlayout %d\nleft %.9g\nright %.9g\ndrawer %.9g\ndiagnostics %.9g\nfolded " "%u\ntool %d\nleftFolded %d\nrightFolded %d\ntheme %d\nreplayFolded %d\ntoolsOpen %d\n",
                                      GameLayout::PresentationPreferences::VERSION,
                                      static_cast<int>( preferences.layout ),
                                      preferences.leftWidth,
@@ -142,7 +152,8 @@ void InGameUI::SavePresentationPreferences( SkullbonezCore::Core::SbDiagnosticSt
                                      preferences.leftFolded ? 1 : 0,
                                      preferences.rightFolded ? 1 : 0,
                                      static_cast<int>( Style::CurrentTheme() ),
-                                     preferences.replayFolded ? 1 : 0 );
+                                     preferences.replayFolded ? 1 : 0,
+                                     IsVisible() && !IsMinimized() ? 1 : 0 );
     if ( count <= 0 || count >= static_cast<int>( sizeof( bytes ) ) )
     {
         return;

@@ -333,3 +333,26 @@ TEST_CASE( "Prediction path reserves: dormant points do not alter the visible pu
     }
     CHECK( store.CapacityBytes() == reservedBytes );
 }
+
+TEST_CASE( "Prediction evidence store: horizon continuation appends without replacing sealed identities" )
+{
+    ReplayPredictionSolverEvidenceBanks banks;
+    const std::array contacts = { ContactRow( 7u ) };
+    const std::array pipeline = { PipelineRow( 8u ) };
+    banks.BeginBuild( 4u, ReplayPredictionDetailMode::High );
+    REQUIRE( banks.AppendBuildFrame( 0u, 2u, 10u, contacts, pipeline, 0 ) );
+    REQUIRE( banks.PromoteBuild() );
+    const auto* first = banks.Committed().PublishedFrame( 0u );
+    REQUIRE( first );
+    const auto identity = first->identity;
+    banks.ReleaseBuildCapacity();
+    banks.ResumeCommittedBuild();
+    REQUIRE( banks.Build().FindPublishedFrame( identity ) == first );
+    REQUIRE( banks.AppendBuildFrame( 1u, 3u, 11u, contacts, pipeline, 1 ) );
+    REQUIRE( banks.PromoteBuild() );
+    REQUIRE( banks.Committed().FindPublishedFrame( identity ) == first );
+    CHECK( banks.Committed().PublishedFrameCount() == 2u );
+    CHECK( banks.Committed().Generation() == 4u );
+    CHECK( banks.Committed().PublishedFrame( 1u )->identity.bankEpoch == identity.bankEpoch );
+    CHECK( banks.Committed().Contact( first->contacts, 0u )->featureId == 7u );
+}

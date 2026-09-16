@@ -1876,7 +1876,8 @@
       "patterns": [
         "{\"symbol\":\"CaptureReplayPredictionBaselineSnapshot\",\"before\":[\"if ( prediction.baseline.rootPolyline.size() < REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY )\",\"{\"],\"statement\":\"prediction.baseline.rootPolyline.push_back( point );\",\"after\":[\"}\",\"else if ( endpointFrame && !prediction.baseline.rootPolyline.empty() )\"]}",
         "{\"symbol\":\"CaptureReplayPredictionBaselineSnapshot\",\"before\":[\"pose.restOrientation = restOrientation;\",\"pose.restOrientation.Normalise();\"],\"statement\":\"prediction.baseline.bodyPoses.push_back( pose );\",\"after\":[\"}\",\"prediction.baseline.valid = prediction.baseline.rootPolyline.size() >= 2 || !prediction.baseline.bodyPoses.empty();\"]}",
-        "{\"symbol\":\"PrepareReplayPredictionTrajectoryBuild\",\"before\":[\"return false;\",\"}\"],\"statement\":\"rootRecord->points.resize( frameCapacity );\",\"after\":[\"prediction.trajectoryBuild.rootId = rootId;\",\"prediction.trajectoryBuild.usingBuildFrames = true;\"]}"
+        "{\"symbol\":\"PrepareReplayPredictionTrajectoryBuild\",\"before\":[\"return false;\",\"}\"],\"statement\":\"rootRecord->points.resize( frameCapacity );\",\"after\":[\"prediction.trajectoryBuild.rootId = rootId;\",\"prediction.trajectoryBuild.usingBuildFrames = true;\"]}",
+        "{\"symbol\":\"ResumeReplayPredictionTrajectoryBuild\",\"before\":[\"return false;\",\"}\"],\"statement\":\"rootRecord->points.resize( frameCapacity );\",\"after\":[\"return true;\",\"}\"]}"
       ],
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
@@ -3138,6 +3139,18 @@
       "reason": "Explicit New builds an in-memory scene definition under the SceneLoad scope; its single default camera is instantiated before gameplay.",
       "cap": "Exactly one camera descriptor per new editable draft; no gameplay growth.",
       "removal_or_wrapper_plan": "Retain cold scene-definition construction until authored camera descriptors use fixed or arena storage.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp",
+      "patterns": [
+        "{\"symbol\":\"ReplayPrediction::ApplyHorizonContinuation\",\"before\":[\"return false;\",\"}\"],\"statement\":\"frames.resize( frameCapacity );\",\"after\":[\"if ( !ReserveReplayPredictionFramePayloadVectors( frames, frameCapacity, bodyCount, 0, , &RunReplayPredictionFrame::bodies ) )\",\"{\"]}"
+      ],
+      "owner": "replay_prediction_working_set",
+      "phase": "Replay",
+      "reason": "Horizon continuation joins the existing worker and calls ReserveReplayPredictionVector before resizing the retained frame bank within its granted capacity. It resumes the same simulation cursor and does not create an allocation owner or permit unregistered growth.",
+      "cap": "Existing 960 MiB shared prediction registration and reserve counters; resize stays within the capacity approved by the existing adapter.",
+      "removal_or_wrapper_plan": "Retain the registered reserve adapter while prediction uses vector frame banks.",
       "match_mode": "exact_finding"
     }
   ]

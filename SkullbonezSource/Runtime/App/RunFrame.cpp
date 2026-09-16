@@ -89,6 +89,20 @@ void PrintRuntimeExitReason( const char* reason )
     fflush( stdout );
 }
 
+#if defined( SKULLBONEZ_SKARNESS )
+// Capture belongs to InputRouter; observe the Win32 result on its owning thread.
+void ProjectSkarnessInputState( SkarnessFrameState& state, const ReplayInputView& input, const InputRouter& router, HWND window )
+{
+    state.nativeCaptureRequested = router.NativeCaptureRequested();
+    state.nativeMouseCaptured = GetCapture() == window;
+    state.windowMaximized = IsZoomed( window ) != FALSE;
+    state.replayCaptureEnabled = input.captureEnabled;
+    state.replayScrubPaused = input.scrubPaused;
+    state.replayPlaybackPaused = input.liveAdvanceHeld;
+    state.predictionEnabled = input.predictionEnabled;
+}
+#endif
+
 float ResolvePresentationAlpha( const SkullbonezCore::Core::EngineConfig& config, bool capturePresentationPinned, float simulationPresentationAlpha )
 {
     if ( !config.runtimeRender.presentationInterpolation || capturePresentationPinned )
@@ -1520,10 +1534,7 @@ void Run::PublishSkarnessFrameState()
     state.sceneManualResetCount = m_sceneController.State().manualResetCount;
     state.simulationSeconds = m_timers.SimulationTotalSeconds();
     state.paused = m_skarness.Paused();
-    state.replayCaptureEnabled = replay.input.captureEnabled;
-    state.replayScrubPaused = replay.input.scrubPaused;
-    state.replayPlaybackPaused = replay.input.liveAdvanceHeld;
-    state.predictionEnabled = replay.input.predictionEnabled;
+    ProjectSkarnessInputState( state, replay.input, m_inputRouter, m_window.NativeWindowHandle() );
     state.predictionBuilding = replay.predictionBuilding;
     state.predictionComplete = replay.predictionComplete;
     state.predictionDirty = replay.predictionDirty;

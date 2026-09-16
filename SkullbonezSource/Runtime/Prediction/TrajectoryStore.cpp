@@ -311,6 +311,23 @@ std::size_t ReplayTrajectoryStore::TrimPublishedPointsBeforeFrame( ReplayTraject
     return removedCount;
 }
 
+void ReplayTrajectoryStore::ResumePredictionCommittedBank( uint16_t futureRootBuildBranch, uint16_t firstChildBuildBranch ) noexcept
+{
+    RetirePredictionBankRecords( ReplayPredictionTrajectoryBank::Build, futureRootBuildBranch, firstChildBuildBranch );
+    for ( ReplayTrajectoryRecord& record : std::span<ReplayTrajectoryRecord>( records.data(), activeRecordCount ) )
+    {
+        if ( record.key.lane == ReplayTrajectoryLane::FutureRoot && record.key.branchOrdinal == 0u )
+        {
+            record.key.branchOrdinal = futureRootBuildBranch;
+        }
+        else if ( ( record.key.lane == ReplayTrajectoryLane::FutureChildIncoming || record.key.lane == ReplayTrajectoryLane::FutureChildOutgoing ) && record.key.branchOrdinal < firstChildBuildBranch )
+        {
+            record.key.branchOrdinal += firstChildBuildBranch;
+        }
+    }
+    ++publicationVersion;
+}
+
 bool ReplayTrajectoryStore::ReserveRecords( std::size_t requestedCapacity, int frameNumber )
 {
     if ( requestedCapacity <= records.capacity() )

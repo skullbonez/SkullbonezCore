@@ -105,7 +105,10 @@ Json BuildSelection( const SkarnessFrameState& state )
 
 Json BuildInput( const SkarnessFrameState& state )
 {
-    return { { "captureEnabled", state.replayCaptureEnabled },
+    return { { "nativeCaptureRequested", state.nativeCaptureRequested },
+             { "nativeMouseCaptured", state.nativeMouseCaptured },
+             { "windowMaximized", state.windowMaximized },
+             { "captureEnabled", state.replayCaptureEnabled },
              { "scrubPaused", state.replayScrubPaused },
              { "playbackPaused", state.replayPlaybackPaused },
              { "predictionEnabled", state.predictionEnabled },
@@ -571,6 +574,35 @@ Json BuildRenderGeometryEvidence( const ReplayVisualPacket& packet )
              { "spanMismatch", spanMismatch ? spanMismatch : "" } };
 }
 
+Json BuildPathPrefixEvidence( const ReplayVisualPacket& packet )
+{
+    uint64_t ordinaryCount = 0;
+    uint64_t firstSegmentCount = 0;
+    uint64_t firstSegmentHash = 14695981039346656037ull;
+    for ( const auto& range : packet.retainedPredictionRibbonRanges )
+    {
+        if ( range.lane != Rendering::RetainedGeometryLane::Ordinary )
+        {
+            continue;
+        }
+        ordinaryCount += range.recordCount;
+        // The first chunk of each path has no predecessor. Endpoints alone
+        // exclude adjacency repaired by later appends to the same curve.
+        if ( range.recordCount == 0u || range.continuationRange < packet.retainedPredictionRibbonRanges.size() )
+        {
+            continue;
+        }
+        ++firstSegmentCount;
+        const auto records = packet.retainedPredictionCompactRibbonRecords.subspan( range.firstRecord * 19u, 6u );
+        for ( float component : records )
+        {
+            firstSegmentHash ^= std::bit_cast<uint32_t>( component );
+            firstSegmentHash *= 1099511628211ull;
+        }
+    }
+    return { { "ordinaryRecords", ordinaryCount }, { "firstSegmentCount", firstSegmentCount }, { "firstSegmentHash", firstSegmentHash } };
+}
+
 Json BuildPathGeometryEvidence( const ReplayVisualPacket& packet, bool secondary )
 {
     uint64_t hash = 14695981039346656037ull;
@@ -612,9 +644,21 @@ Json BuildPathGeometryEvidence( const ReplayVisualPacket& packet, bool secondary
                     append( packet.retainedPredictionCompactRibbonRecords.subspan( range.firstRecord * 19u, range.recordCount * 19u ) );
                 }
             }
+            // Expanded tails are displayed alongside retained chunks. Count one
+            // camera-neutral record per ribbon, matching Original's snapshot.
+            const auto tails = lane == Rendering::RetainedGeometryLane::Ordinary ? packet.expandedRibbonVertices : packet.priorityExpandedRibbonVertices;
+            for ( std::size_t index = 0; index + 6u * 19u <= tails.size(); index += 6u * 19u )
+            {
+                append( tails.subspan( index, 19u ) );
+            }
         }
     }
-    return { { "records", count }, { "geometryHash", hash }, { "allRed", count > 0u && red }, { "allBlue", count > 0u && blue } };
+    Json result = { { "records", count }, { "geometryHash", hash }, { "allRed", count > 0u && red }, { "allBlue", count > 0u && blue } };
+    if ( !secondary )
+    {
+        result.update( BuildPathPrefixEvidence( packet ) );
+    }
+    return result;
 }
 
 Json BuildVisualPacket( const ReplayAutomationView& replay, SkarnessStateDetail detail )

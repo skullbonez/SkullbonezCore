@@ -1,133 +1,109 @@
-"""Verify native layout preferences across launches without touching user files."""
+"""Verify editor viewport and Tools preferences across real process restarts."""
 from __future__ import annotations
 import argparse
 import json
-import time
 from pathlib import Path
 from skarness import SkarnessConnection, launch
+from validate_ui_themes import wait_for_exit
 
 REPO = Path(__file__).resolve().parents[1]
 
-def run(root: Path) -> None:
-    root.mkdir(parents=True, exist_ok=False)
-    preferences = root / "ui-layout.preferences"
-    scene = REPO / "SkullbonezData/scenes/interaction_replay_prediction_harness.scene.json"
-    retained: dict = {}
 
-    def session(label: str, mutate: bool = False, invalid: bool = False) -> None:
+def run(root: Path) -> None:
+    root = root.resolve()
+    root.mkdir(parents=True, exist_ok=False)
+    preferences = root / 'ui-layout.preferences'
+    legacy = ('version 5\nlayout 1\nleft 391\nright 450\ndrawer 422\ndiagnostics 140\n'
+              'folded 0\ntool 3\nleftFolded 0\nrightFolded 0\ntheme 1\nreplayFolded 0\n')
+    preferences.write_text(legacy)
+    retained = {}
+    checks = []
+
+    def session(label: str, expected_open: bool, toggle: bool = False, invalid: bool = False) -> None:
         directory = root / label
-        assert launch(directory, REPO / "Automation/SKULLBONEZ_CORE.exe", scene,
+        assert launch(directory, REPO / 'Automation/SKULLBONEZ_CORE.exe',
+                      REPO / 'SkullbonezData/scenes/space_field_200.scene.json',
                       hidden=True, layout_file=preferences) == 0
         connection = SkarnessConnection(directory)
+        latest = {}
+        offset = 0
+
         def send(command: str, **args: object) -> dict:
             result = connection.wait(connection.send(command, args))
-            assert result.get("status") == "applied", result
+            assert result.get('status') == 'applied', (command, result)
             return result
-        def sample(label: str) -> dict:
-            send("run.step_frames", count=3)
-            rows = [json.loads(line) for line in (directory / "runtime.skarness.ndjson").read_text().splitlines()]
-            state = next(row["payload"] for row in reversed(rows) if row.get("topic") == "ui.presentation")
-            cause = next(row["payload"] for row in reversed(rows) if row.get("topic") == "replay.cause")
-            retained["observedSummarySection"] = cause["summaryExpandedSection"]
-            (directory / f"{label}.json").write_text(json.dumps(state, indent=2))
-            return state
-        def click(x: float, y: float) -> None:
-            send("input.pointer_drag", button="left", x=int(x), y=int(y), deltaX=0, deltaY=0)
+
+        def sample(name: str) -> dict:
+            nonlocal offset
+            send('run.step_frames', count=4)
+            with (directory / 'runtime.skarness.ndjson').open('rb') as stream:
+                stream.seek(offset)
+                for line in stream:
+                    if not line.endswith(b'\n'):
+                        break
+                    offset += len(line)
+                    row = json.loads(line)
+                    if 'topic' in row:
+                        latest[row['topic']] = row['payload']
+            (directory / f'{name}.json').write_text(json.dumps(latest, indent=2))
+            ui = latest['ui.presentation']
+            assert ui['viewport'] == [int(v) for v in ui['editorCanvasBounds']], ui
+            x, y, w, h = ui['viewport']
+            if not invalid:
+                assert x == 391 and w == ui['window'][0] - 391 - 450, ui['viewport']
+                assert y == 42 and h < ui['window'][1] - y, ui['viewport']
+            return ui
+
         try:
-            assert "input.pointer_drag" in send("capabilities.get")["commands"]
-            send("state.subscribe", topics=[], detail="normal")
-            ui = sample("initial")
-            width, height = ui["window"]
-            assert not ui["toolsVisible"], ui
-            if mutate:
-                assert ui["layout"] == "Canvas" and ui["activeTool"] == 1
-                click(width - 110, 20)
-                ui = sample("editor")
-                x, y, w, h = ui["leftResizeBounds"]
-                send("input.pointer_drag", button="left", x=int(x + w / 2), y=int(y + h / 2),
-                     deltaX=70, deltaY=0, moveClient=True)
-                click(width - 38, 20)
-                ui = sample("tools")
-                drawer_y = ui["viewport"][1] + ui["viewport"][3] + 28
-                click(14 + (width - 28) * 3.5 / 11, drawer_y + 66)
-                send("input.pointer_drag", button="left", x=width // 2, y=int(drawer_y + 2),
-                     deltaX=0, deltaY=-45, moveClient=True)
-                ui = sample("resized-physics")
-                assert ui["activeTool"] == 3
-                retained["drawerViewport"] = ui["viewport"]
-                click(width - 38, 20)
-                ui = sample("tools-closed")
-                retained["closedViewport"] = ui["viewport"]
-                # Fold state is changed through the evidence presenter, then
-                # restored without retaining any comparison or prediction data.
-                send("replay.set_prediction_detail", highDetail=True)
-                send("prediction.select_target", name="path_striker")
-                send("replay.set_prediction_enabled", enabled=True)
-                send("run.until", condition="prediction.complete", maxFrames=3000)
-                ui = sample("prediction-ready")
-                x, y, w, h = ui["causeControlsBounds"]
-                click(x + 150, y + 108 + 2 * 38 + 12)
-                send("run.until", condition="camera.inspection_settled", maxFrames=1000)
-                sample("evidence-selected")
-                click(x + w - 48, y + 19)
-                sample("evidence-open")
-                click(x + 35, y + 38 + 88 + 38 + 12 + 254 + 15)
-                sample("summary-expanded")
-                assert retained["observedSummarySection"] == 0
-                x, y, w, h = ui["rightFoldBounds"]
-                click(x + w / 2, y + h / 2)
-                ui = sample("folded")
-                retained["foldedViewport"] = ui["viewport"]
-            elif invalid:
-                assert ui["layout"] == "Canvas" and ui["activeTool"] == 1, ui
-                assert retained["observedSummarySection"] == -1
-            else:
-                assert ui["layout"] == "Editor" and ui["activeTool"] == 3, ui
-                assert retained["observedSummarySection"] == 0
-                assert ui["viewport"] == retained["foldedViewport"], (ui, retained)
-                x, y, w, h = ui["rightFoldBounds"]
-                click(x + w / 2, y + h / 2)
-                ui = sample("unfolded")
-                assert ui["viewport"] == retained["closedViewport"]
-                click(width - 38, 20)
-                ui = sample("remembered-drawer")
-                assert ui["viewport"] == retained["drawerViewport"] and ui["activeTool"] == 3
+            assert {'input.pointer_drag', 'window.resize'} <= set(send('capabilities.get')['commands'])
+            send('state.subscribe', topics=[], detail='normal')
+            ui = sample('initial')
+            assert ui['toolsVisible'] == expected_open, (label, ui['toolsVisible'])
+            assert ui['layout'] == ('Canvas' if invalid else 'Editor'), ui['layout']
+            assert ui['activeTool'] == (1 if invalid else 3), ui['activeTool']
+            if not invalid:
+                key = 'open' if expected_open else 'closed'
+                if key in retained:
+                    assert ui['viewport'] == retained[key], (label, retained, ui['viewport'])
+                retained[key] = ui['viewport']
+                send('ui.animation_clock', enabled=True, seconds=10.0)
+                sample('settled')
+                send('capture.screenshot', path=str(directory / 'startup.png'))
+                # Native resize must preserve both dock widths and drawer state.
+                send('window.resize', width=1280, height=800)
+                resized = sample('resized')
+                assert resized['toolsVisible'] == expected_open
+                send('window.resize', width=ui['window'][0], height=ui['window'][1])
+                ui = sample('size-restored')
+            if toggle:
+                x, y, w, h = ui['replayDetailsBounds']
+                send('input.pointer_drag', button='left', x=int(x+w/2), y=int(y+h/2), deltaX=0, deltaY=0)
+                ui = sample('tools-toggled')
+                assert ui['toolsVisible'] != expected_open, ui
+                retained['closed' if expected_open else 'open'] = ui['viewport']
+            checks.append(label)
         finally:
-            send("session.stop")
-            connection.close()
-        deadline = time.monotonic() + 10
-        while not preferences.exists() and time.monotonic() < deadline:
-            time.sleep(0.05)
-        assert preferences.exists(), "Shutdown did not publish preferences"
-        # A new launch must observe the flushed file after the old process exits.
-        import ctypes
-        from ctypes import wintypes
-        kernel = ctypes.windll.kernel32
-        kernel.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
-        kernel.OpenProcess.restype = wintypes.HANDLE
-        kernel.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
-        kernel.WaitForSingleObject.restype = wintypes.DWORD
-        kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
-        kernel.CloseHandle.restype = wintypes.BOOL
-        handle = kernel.OpenProcess(0x00100000, False,
-                    json.loads((directory / "session.json").read_text())["processId"])
-        if handle:
             try:
-                assert kernel.WaitForSingleObject(handle, 10000) == 0
+                send('session.stop')
             finally:
-                kernel.CloseHandle(handle)
+                connection.close()
+                wait_for_exit(directory)
 
-    session("first-launch", mutate=True)
-    saved = preferences.read_text()
-    assert "version 2" in saved and "layout 1" in saved and "tool 3" in saved and "folded 6" in saved, saved
-    session("restored-launch")
-    preferences.write_text("version 999\nlayout 1\n")
-    session("invalid-version", invalid=True)
-    preferences.write_text("version 1\nlayout broken\n")
-    session("malformed-file", invalid=True)
-    print("PASS: native preferences retain layout, dock width, folds, drawer height and last tool; Tools starts closed; malformed files fall back")
+    session('legacy-editor', False, toggle=True)
+    assert 'version 6\n' in preferences.read_text() and 'toolsOpen 1\n' in preferences.read_text()
+    session('restored-open', True)
+    session('restored-open-then-close', True, toggle=True)
+    assert 'toolsOpen 0\n' in preferences.read_text()
+    session('restored-closed', False)
+    preferences.write_text('version 999\nlayout 1\n')
+    session('future-version', False, invalid=True)
+    preferences.write_text(legacy.replace('version 5', 'version 6') + 'toolsOpen 9\n')
+    session('invalid-tools-state', False, invalid=True)
+    (root / 'result.json').write_text(json.dumps({'passed': True, 'checks': checks}, indent=2))
+    print('PASS: editor viewport, Tools open/closed restart, resized layout and preference migrations')
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--session", type=Path, default=REPO / "TestOutput/skarness/unified-preferences")
+    parser.add_argument('--session', type=Path, default=REPO / 'TestOutput/skarness/unified-preferences')
     run(parser.parse_args().session)

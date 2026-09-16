@@ -73,8 +73,7 @@ InputKeySnapshot SnapshotFromDownKeys( std::initializer_list<int> downKeys )
     {
         if ( virtualKey >= 0 && virtualKey < InputKeySnapshot::VIRTUAL_KEY_COUNT )
         {
-            words[static_cast<std::size_t>( virtualKey ) / 64u] |= uint64_t { 1 }
-                                                                   << ( static_cast<unsigned int>( virtualKey ) % 64u );
+            words[static_cast<std::size_t>( virtualKey ) / 64u] |= uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) % 64u );
         }
     }
 
@@ -117,10 +116,11 @@ TEST_CASE( "Device input frame does not fabricate a corner pointer when the samp
 
 TEST_CASE( "Input router: world pointer arbitration exhaustively preserves production precedence" )
 {
-    constexpr std::array<RuntimePointerRouteStage, 5> stages = {
-        RuntimePointerRouteStage::Editor, RuntimePointerRouteStage::MousePickup, RuntimePointerRouteStage::AttachedCamera,
-        RuntimePointerRouteStage::Replay, RuntimePointerRouteStage::Launcher,
-    };
+    constexpr std::array<RuntimePointerRouteStage, 5> stages = { RuntimePointerRouteStage::Editor,
+                                                                 RuntimePointerRouteStage::MousePickup,
+                                                                 RuntimePointerRouteStage::AttachedCamera,
+                                                                 RuntimePointerRouteStage::Replay,
+                                                                 RuntimePointerRouteStage::Launcher, };
 
     for ( unsigned int claimMask = 0; claimMask < ( 1u << stages.size() ); ++claimMask )
     {
@@ -202,9 +202,7 @@ TEST_CASE( "Runtime copies device levels and pointer edges into a detached UI sn
 
 TEST_CASE( "Input router: captured tool input requires release and repress before gameplay" )
 {
-    const RuntimeInputKeyBinding bindings[] = {
-        { 'A', RuntimeInputAction::ToggleEditor, Context( RuntimeInputBindingContext::KeyboardUnblocked ) },
-    };
+    const RuntimeInputKeyBinding bindings[] = { { 'A', RuntimeInputAction::ToggleEditor, Context( RuntimeInputBindingContext::KeyboardUnblocked ) }, };
 
     const RuntimeInputKeyBindingView view = BindingView( bindings );
     const RuntimeInputContextMask active = Context( RuntimeInputBindingContext::KeyboardUnblocked );
@@ -213,8 +211,7 @@ TEST_CASE( "Input router: captured tool input requires release and repress befor
     InputActions output;
 
     router.BeginFrame( FocusedFrame( {} ), view, output );
-    router.BeginFrame( FocusedFrame( { 'A' }, true ), view, output,
-                       SkullbonezCore::UI::InputCaptureIntent { true, true, true } );
+    router.BeginFrame( FocusedFrame( { 'A' }, true ), view, output, SkullbonezCore::UI::InputCaptureIntent { true, true, true } );
     router.RoutePhase( view, InputActionPhase::PreUi, active, output );
     CHECK( output.Count() == 0 );
     CHECK_FALSE( output.mouse.leftPressed );
@@ -256,10 +253,7 @@ TEST_CASE( "Input router: action storage belongs to the router" )
 
 TEST_CASE( "Input router: press hold and release preserve binding order" )
 {
-    const RuntimeInputKeyBinding bindings[] = {
-        { 'A', RuntimeInputAction::ToggleEditor, Context( RuntimeInputBindingContext::KeyboardUnblocked ) },
-        { 'B', RuntimeInputAction::CycleCameraMode, Context( RuntimeInputBindingContext::KeyboardUnblocked ) },
-    };
+    const RuntimeInputKeyBinding bindings[] = { { 'A', RuntimeInputAction::ToggleEditor, Context( RuntimeInputBindingContext::KeyboardUnblocked ) }, { 'B', RuntimeInputAction::CycleCameraMode, Context( RuntimeInputBindingContext::KeyboardUnblocked ) }, };
 
     const RuntimeInputKeyBindingView view = BindingView( bindings );
     const RuntimeInputContextMask active = Context( RuntimeInputBindingContext::KeyboardUnblocked );
@@ -292,10 +286,7 @@ TEST_CASE( "Input router: press hold and release preserve binding order" )
 
 TEST_CASE( "Input router: inactive context advances memory and prevents ghost presses" )
 {
-    const RuntimeInputKeyBinding bindings[] = {
-        { 'M', RuntimeInputAction::CycleLauncherFireMode,
-          Context( RuntimeInputBindingContext::KeyboardUnblocked ) | RuntimeInputBindingContext::Launcher },
-    };
+    const RuntimeInputKeyBinding bindings[] = { { 'M', RuntimeInputAction::CycleLauncherFireMode, Context( RuntimeInputBindingContext::KeyboardUnblocked ) | RuntimeInputBindingContext::Launcher }, };
 
     const RuntimeInputKeyBindingView view = BindingView( bindings );
     const RuntimeInputContextMask keyboard = Context( RuntimeInputBindingContext::KeyboardUnblocked );
@@ -325,10 +316,7 @@ TEST_CASE( "Input router: inactive context advances memory and prevents ghost pr
 
 TEST_CASE( "Input router: UI refusal requires release and repress" )
 {
-    const RuntimeInputKeyBinding bindings[] = {
-        { VK_ESCAPE, RuntimeInputAction::DismissOrExitUI,
-          Context( RuntimeInputBindingContext::AfterUIUpdate ) | RuntimeInputBindingContext::UINotInteracted },
-    };
+    const RuntimeInputKeyBinding bindings[] = { { VK_ESCAPE, RuntimeInputAction::DismissOrExitUI, Context( RuntimeInputBindingContext::AfterUIUpdate ) | RuntimeInputBindingContext::UINotInteracted }, };
 
     const RuntimeInputKeyBindingView view = BindingView( bindings );
     const RuntimeInputContextMask accepted = Context( RuntimeInputBindingContext::UINotInteracted );
@@ -358,11 +346,7 @@ TEST_CASE( "Input router: UI refusal requires release and repress" )
 
 TEST_CASE( "Input router: simultaneous actions cannot activate a sibling context mid-phase" )
 {
-    const RuntimeInputKeyBinding bindings[] = {
-        { 'N', RuntimeInputAction::ToggleLauncher, Context( RuntimeInputBindingContext::KeyboardUnblocked ) },
-        { 'M', RuntimeInputAction::CycleLauncherFireMode,
-          Context( RuntimeInputBindingContext::KeyboardUnblocked ) | RuntimeInputBindingContext::Launcher },
-    };
+    const RuntimeInputKeyBinding bindings[] = { { 'N', RuntimeInputAction::ToggleLauncher, Context( RuntimeInputBindingContext::KeyboardUnblocked ) }, { 'M', RuntimeInputAction::CycleLauncherFireMode, Context( RuntimeInputBindingContext::KeyboardUnblocked ) | RuntimeInputBindingContext::Launcher }, };
 
     const RuntimeInputKeyBindingView view = BindingView( bindings );
     const RuntimeInputContextMask preLauncher = Context( RuntimeInputBindingContext::KeyboardUnblocked );
@@ -394,9 +378,7 @@ TEST_CASE( "Input router: quick-repeat timing is action-owned" )
 
 TEST_CASE( "Input router: a skipped capture phase cannot replay a stale press" )
 {
-    const RuntimeInputKeyBinding bindings[] = {
-        { VK_F3, RuntimeInputAction::SaveScreenshot, Context( RuntimeInputBindingContext::Capture ) },
-    };
+    const RuntimeInputKeyBinding bindings[] = { { VK_F3, RuntimeInputAction::SaveScreenshot, Context( RuntimeInputBindingContext::Capture ) }, };
 
     const RuntimeInputKeyBindingView view = BindingView( bindings );
     SbDiagnosticStore diagnostics;
@@ -497,10 +479,7 @@ TEST_CASE( "Input router: cold start initializes cursor and focus loss restores 
 
 TEST_CASE( "Input router: context exit releases an accepted held action" )
 {
-    const RuntimeInputKeyBinding bindings[] = {
-        { 'M', RuntimeInputAction::CycleLauncherFireMode,
-          Context( RuntimeInputBindingContext::KeyboardUnblocked ) | RuntimeInputBindingContext::Launcher },
-    };
+    const RuntimeInputKeyBinding bindings[] = { { 'M', RuntimeInputAction::CycleLauncherFireMode, Context( RuntimeInputBindingContext::KeyboardUnblocked ) | RuntimeInputBindingContext::Launcher }, };
 
     const RuntimeInputKeyBindingView view = BindingView( bindings );
     const RuntimeInputContextMask keyboard = Context( RuntimeInputBindingContext::KeyboardUnblocked );
@@ -527,12 +506,7 @@ TEST_CASE( "Input router: context exit releases an accepted held action" )
 
 TEST_CASE( "Input router: phases append in explicit caller order" )
 {
-    const RuntimeInputKeyBinding bindings[] = {
-        { 'A', RuntimeInputAction::ToggleEditor, Context( RuntimeInputBindingContext::KeyboardUnblocked ) },
-        { VK_ESCAPE, RuntimeInputAction::DismissOrExitUI,
-          Context( RuntimeInputBindingContext::AfterUIUpdate ) | RuntimeInputBindingContext::UINotInteracted },
-        { VK_F3, RuntimeInputAction::SaveScreenshot, Context( RuntimeInputBindingContext::Capture ) },
-    };
+    const RuntimeInputKeyBinding bindings[] = { { 'A', RuntimeInputAction::ToggleEditor, Context( RuntimeInputBindingContext::KeyboardUnblocked ) }, { VK_ESCAPE, RuntimeInputAction::DismissOrExitUI, Context( RuntimeInputBindingContext::AfterUIUpdate ) | RuntimeInputBindingContext::UINotInteracted }, { VK_F3, RuntimeInputAction::SaveScreenshot, Context( RuntimeInputBindingContext::Capture ) }, };
 
     const RuntimeInputKeyBindingView view = BindingView( bindings );
     SbDiagnosticStore diagnostics;
@@ -557,11 +531,7 @@ TEST_CASE( "Input router: phases append in explicit caller order" )
 
 TEST_CASE( "Input router: malformed action values fail closed" )
 {
-    const RuntimeInputKeyBinding bindings[] = {
-        { 'A', static_cast<RuntimeInputAction>( -1 ), 0u },
-        { 'B', static_cast<RuntimeInputAction>( 9999 ), 0u },
-        { 'C', RuntimeInputAction::ToggleEditor, 0u },
-    };
+    const RuntimeInputKeyBinding bindings[] = { { 'A', static_cast<RuntimeInputAction>( -1 ), 0u }, { 'B', static_cast<RuntimeInputAction>( 9999 ), 0u }, { 'C', RuntimeInputAction::ToggleEditor, 0u }, };
 
     const RuntimeInputKeyBindingView view = BindingView( bindings );
     SbDiagnosticStore diagnostics;
@@ -578,9 +548,7 @@ TEST_CASE( "Input router: malformed action values fail closed" )
 
 TEST_CASE( "Input router: focus loss cancels once and refocus resynchronizes held input" )
 {
-    const RuntimeInputKeyBinding bindings[] = {
-        { 'A', RuntimeInputAction::ToggleEditor, Context( RuntimeInputBindingContext::KeyboardUnblocked ) },
-    };
+    const RuntimeInputKeyBinding bindings[] = { { 'A', RuntimeInputAction::ToggleEditor, Context( RuntimeInputBindingContext::KeyboardUnblocked ) }, };
 
     const RuntimeInputKeyBindingView view = BindingView( bindings );
     const RuntimeInputContextMask active = Context( RuntimeInputBindingContext::KeyboardUnblocked );
@@ -629,21 +597,17 @@ TEST_CASE( "Input router: focus loss cancels once and refocus resynchronizes hel
 
 TEST_CASE( "Input router: context predicate requires every binding bit" )
 {
-    const RuntimeInputContextMask required = Context( RuntimeInputBindingContext::KeyboardUnblocked ) |
-                                             RuntimeInputBindingContext::Launcher | RuntimeInputBindingContext::DebugOnly;
+    const RuntimeInputContextMask required = Context( RuntimeInputBindingContext::KeyboardUnblocked ) | RuntimeInputBindingContext::Launcher | RuntimeInputBindingContext::DebugOnly;
 
-    const RuntimeInputContextMask partial = Context( RuntimeInputBindingContext::KeyboardUnblocked ) |
-                                            RuntimeInputBindingContext::Launcher;
+    const RuntimeInputContextMask partial = Context( RuntimeInputBindingContext::KeyboardUnblocked ) | RuntimeInputBindingContext::Launcher;
 
     CHECK( InputRouter::ContextsSatisfied( 0u, 0u ) );
     CHECK_FALSE( InputRouter::ContextsSatisfied( required, partial ) );
     CHECK( InputRouter::ContextsSatisfied( required, partial | RuntimeInputBindingContext::DebugOnly ) );
 
-    const RuntimeInputKeyBinding afterBinding = { VK_ESCAPE, RuntimeInputAction::DismissOrExitUI,
-                                                  Context( RuntimeInputBindingContext::AfterUIUpdate ) };
+    const RuntimeInputKeyBinding afterBinding = { VK_ESCAPE, RuntimeInputAction::DismissOrExitUI, Context( RuntimeInputBindingContext::AfterUIUpdate ) };
 
-    const RuntimeInputKeyBinding captureBinding = { VK_F3, RuntimeInputAction::SaveScreenshot,
-                                                    Context( RuntimeInputBindingContext::Capture ) };
+    const RuntimeInputKeyBinding captureBinding = { VK_F3, RuntimeInputAction::SaveScreenshot, Context( RuntimeInputBindingContext::Capture ) };
 
     CHECK( InputRouter::PhaseForBinding( afterBinding ) == InputActionPhase::AfterUi );
     CHECK( InputRouter::PhaseForBinding( captureBinding ) == InputActionPhase::Capture );
@@ -796,4 +760,38 @@ TEST_CASE( "Input router: timeline drag keeps ownership outside its hit area unt
     CHECK( router.UpdateTimelineDrag( true ) );
     router.BeginFrame( UnfocusedFrame(), {}, actions );
     CHECK_FALSE( router.TimelineDragActive() );
+}
+
+TEST_CASE( "Input router: native drag capture ends when every mouse button is released" )
+{
+    SbDiagnosticStore diagnostics;
+    InputRouter router { diagnostics };
+    InputActions output;
+    PointerPresentationState presentation;
+    auto frame = FocusedFrame( {} );
+    frame.rightDown = true;
+    router.BeginFrame( frame, {}, output );
+    router.RequestNativeCapture();
+    REQUIRE( router.ConsumePointerPresentationChange( presentation ) );
+    REQUIRE( presentation.nativeCapture );
+
+    // A drag keeps capture across turns and while another button remains held.
+    router.BeginFrame( frame, {}, output );
+    CHECK( router.NativeCaptureRequested() );
+    frame.rightDown = false;
+    frame.leftDown = true;
+    router.BeginFrame( frame, {}, output );
+    CHECK( router.NativeCaptureRequested() );
+    frame.leftDown = false;
+    router.BeginFrame( frame, {}, output );
+    REQUIRE( router.ConsumePointerPresentationChange( presentation ) );
+    CHECK_FALSE( presentation.nativeCapture );
+
+    // Free-look renews intent before commit, without an intermediate OS release.
+    router.RequestNativeCapture();
+    REQUIRE( router.ConsumePointerPresentationChange( presentation ) );
+    router.BeginFrame( frame, {}, output );
+    router.RequestNativeCapture();
+    CHECK_FALSE( router.ConsumePointerPresentationChange( presentation ) );
+    CHECK( presentation.nativeCapture );
 }
