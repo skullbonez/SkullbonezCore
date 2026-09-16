@@ -123,6 +123,9 @@ class SkarnessHost
     {
         std::string requestId;
         bool moveClient = false;
+        bool rawInput = true;
+        int movementFrames = 1;
+        int completedMovementFrames = 0;
         int holdMilliseconds = 0;
         int holdAfterMoveMilliseconds = 0;
         double holdUntil = 0.0;

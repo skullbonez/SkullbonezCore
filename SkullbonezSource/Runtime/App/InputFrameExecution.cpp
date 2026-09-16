@@ -1167,6 +1167,19 @@ void Run::PublishInputRecordingDiagnostics( OverlayDebugState& debug )
 #endif
 }
 
+void Run::PanOrthographicCamera()
+{
+    auto& cameras = m_sceneController.Scene().Cameras();
+    const auto& projection = m_window.GetProjectionMatrix();
+    const RECT viewport = m_window.PresentationViewport();
+    // Units: orthographic projection maps world span 2 / scale to the
+    // pane's pixels. Use the normal camera sampler for raw/fallback input.
+    const float depth = cameras.FourViews() ? 1.0f : Math::Vector::Distance( cameras.GetCameraTranslation(), cameras.GetCameraView() );
+    const float horizontal = 2.0f * depth / ( projection.m[0] * (std::max)( 1L, viewport.right - viewport.left ) );
+    const float vertical = 2.0f * depth / ( projection.m[5] * (std::max)( 1L, viewport.bottom - viewport.top ) );
+    cameras.PanEditorView( -m_camera.inputXMove * horizontal, m_camera.inputYMove * vertical );
+}
+
 void Run::ApplyInputCameraControls( const UI::InputCaptureIntent& externalUiCapture, InputActions& inputActions, const RuntimeInputSnapshot& inputSnapshot )
 {
     if ( m_operatorUi->BlocksKeyboard() || externalUiCapture.keyboard || externalUiCapture.text )
@@ -1202,7 +1215,8 @@ void Run::ApplyInputCameraControls( const UI::InputCaptureIntent& externalUiCapt
         }
     }
 
-    const RuntimeInteractionFramePolicy policy = m_interaction.BuildFramePolicy( inputSnapshot.frameInput );
+    RuntimeInteractionFramePolicy policy = m_interaction.BuildFramePolicy( inputSnapshot.frameInput );
+    policy.cameraMouseLookActive = policy.cameraMouseLookActive || m_inputRouter.OrthographicPanActive();
     const bool mouseOwnsCursor = EvaluateRuntimePointerPresentation( m_inputRouter, m_editorTools.Editor(), m_replayRuntime.BuildInputView() ).mouseLookOwnsCursor;
     m_interaction.SyncCameraLookGesture( inputSnapshot, policy, mouseOwnsCursor );
     const bool mouseLook = policy.cameraMouseLookActive && mouseOwnsCursor && inputSnapshot.appFocused;
@@ -1216,7 +1230,12 @@ void Run::ApplyInputCameraControls( const UI::InputCaptureIntent& externalUiCapt
                                                                                          mouseLook,
                                                                                          mouseOwnsCursor,
                                                                                          policy.cameraKeyboardControlsActive,
-                                                                                         m_inputRouter.DeviceFrame() );
+                                                                                         m_inputRouter.DeviceFrame(),
+                                                                                         m_inputRouter.OrthographicPanActive() ? CameraMouseMotion::PlanePan : CameraMouseMotion::Rotation );
+    if ( m_inputRouter.OrthographicPanActive() )
+    {
+        PanOrthographicCamera();
+    }
     if ( result.applyCursorOwnership )
     {
         m_inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( m_inputRouter, m_editorTools.Editor(), m_replayRuntime.BuildInputView() ) );
@@ -1283,6 +1302,7 @@ void Run::ConfigureEditorViewport()
         }
         inputViewport = panes[paneCameras.ActiveEditorPane()];
     }
+    m_inputRouter.UpdateOrthographicPan( paneCameras.EditorView() != 0 && !m_comparisonPanel.HasOpenPopup() && inputViewport.Contains( presentationInput.mouseX, presentationInput.mouseY ) && !ui.BlocksCameraMouse() && !ui.HasOpenPopup() );
     m_window.SetPresentationViewport( { static_cast<LONG>( inputViewport.x ),
                                         static_cast<LONG>( inputViewport.y ),
                                         static_cast<LONG>( inputViewport.x + inputViewport.w ),
@@ -1442,6 +1462,8 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
         presentationInput.leftPressed = false;
         presentationInput.wheelDelta = 0;
     }
+    const auto causeDisplay = replayRuntime.CauseInspectionView().Display();
+    ui.SetCauseDetailOpen( !ComparisonUiActive() && causeDisplay.detailVisible && causeDisplay.drawerOpen );
     ui.UpdatePresentationInput( presentationInput, m_window.ClientWidth(), m_window.ClientHeight(), gameUiActive );
     const UI::UIRect sceneViewport = ui.PresentationBounds().viewport;
     ConfigureEditorViewport();

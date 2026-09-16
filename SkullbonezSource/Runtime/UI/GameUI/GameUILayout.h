@@ -75,6 +75,7 @@ struct PresentationState
     bool memoryWaterlineOpen = false;
     bool detailsOpen = false;
     bool detailsCauses = false;
+    bool causeDetailOpen = false;
     bool editorInTools = false;
     int focusedDiagnostic = 0;
     float replayScroll = 0.0f;
@@ -102,6 +103,7 @@ struct PresentationRects
     UIRect replayControls;
     UIRect replayDetails;
     UIRect causeControls;
+    UIRect causeDetail;
     UIRect detailsReplayTab;
     UIRect detailsCausesTab;
     UIRect editorTab;

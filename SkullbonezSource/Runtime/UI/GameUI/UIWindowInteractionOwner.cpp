@@ -649,7 +649,7 @@ bool UIWindowInteractionOwner::BlocksReplayMouse() const
 
 bool UIWindowInteractionOwner::BlocksCauseMouse() const
 {
-    const bool causeRegion = m_presentationEnabled && m_presentationRects.causeControls.Contains( m_mouseX, m_mouseY );
+    const bool causeRegion = m_presentationEnabled && ( m_presentationRects.causeControls.Contains( m_mouseX, m_mouseY ) || m_presentationRects.causeDetail.Contains( m_mouseX, m_mouseY ) );
     return m_blocksCameraMouse || ( m_presentationPointerBlocked && !causeRegion );
 }
 

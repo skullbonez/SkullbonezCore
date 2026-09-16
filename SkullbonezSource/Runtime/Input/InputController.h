@@ -293,6 +293,12 @@ class RuntimeInputContext
     int m_transitionCount = 0;
 };
 
+enum class CameraMouseMotion
+{
+    Rotation,
+    PlanePan
+};
+
 class InputController
 {
   public:
@@ -327,13 +333,18 @@ class InputController
     static RuntimeInputMode ResolveMode( const RuntimeInputModeState& state );
     static void ResetUnfocusedInput( CameraControlState& camera );
     static void ResetMouseLook( CameraControlState& camera );
-    static void SetMouseLookDelta( CameraControlState& camera, long rawX, long rawY );
+    static void SetMouseLookDelta( CameraControlState& camera, long rawX, long rawY, CameraMouseMotion motion = CameraMouseMotion::Rotation );
     static constexpr float ResolveMouseLookRadians( long screenDeltaPixels, float radiansPerPixel ) noexcept
     {
         return -static_cast<float>( screenDeltaPixels ) * radiansPerPixel;
     }
-    static RuntimeCameraInputFrameResult
-    ApplyCameraInputFrame( CameraControlState& camera, bool appFocused, bool cameraMouseLookActive, bool mouseLookOwnsCursor, bool cameraKeyboardControlsActive, const DeviceInputFrame& deviceFrame );
+    static RuntimeCameraInputFrameResult ApplyCameraInputFrame( CameraControlState& camera,
+                                                                bool appFocused,
+                                                                bool cameraMouseLookActive,
+                                                                bool mouseLookOwnsCursor,
+                                                                bool cameraKeyboardControlsActive,
+                                                                const DeviceInputFrame& deviceFrame,
+                                                                CameraMouseMotion motion = CameraMouseMotion::Rotation );
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -258,6 +258,10 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
     {
         ReleaseNativeCapture();
     }
+    if ( !routedFrame.appFocused || !routedFrame.rightDown )
+    {
+        m_orthographicPan = false;
+    }
     m_deviceFrame = routedFrame;
     if ( !routedFrame.appFocused || !routedFrame.leftDown )
     {
@@ -416,6 +420,7 @@ void InputRouter::Reset()
     m_lastTapSeconds.fill( -1000.0 );
     m_deviceFrame = {};
     m_timelineDrag = false;
+    m_orthographicPan = false;
     m_uiSnapshot = {};
     m_runtimeSnapshot = {};
     m_nativeCaptureRequested = false;
@@ -514,6 +519,12 @@ PointerPresentationPolicy InputRouter::EvaluatePointerPresentation( const Pointe
 {
     PointerPresentationPolicy policy;
 
+    if ( m_deviceFrame.appFocused && m_orthographicPan )
+    {
+        policy.mouseLookOwnsCursor = true;
+        policy.hideNativeCursor = true;
+        return policy;
+    }
     if ( !m_runtimeSnapshot.appFocused || m_uiSnapshot.blocksCameraMouse )
     {
         return policy;
@@ -561,6 +572,21 @@ bool InputRouter::ReleasePointerToUi( const PointerPresentationPolicy& policy )
 void InputRouter::RequestNativeCapture()
 {
     m_nativeCaptureRequested = true;
+}
+
+bool InputRouter::UpdateOrthographicPan( bool pressHitsViewport )
+{
+    // Ownership starts only on a viewport press and survives crossing panels.
+    // BeginFrame cancels it on release or focus loss, including native capture.
+    if ( m_deviceFrame.appFocused && m_actions.mouse.rightPressed && pressHitsViewport )
+    {
+        m_orthographicPan = true;
+    }
+    if ( m_orthographicPan )
+    {
+        RequestNativeCapture();
+    }
+    return m_orthographicPan;
 }
 
 bool InputRouter::UpdateTimelineDrag( bool pressHitsTimeline )

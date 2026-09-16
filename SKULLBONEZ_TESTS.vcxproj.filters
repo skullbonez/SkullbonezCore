@@ -425,6 +425,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\App\ApplicationExitState.cpp">
       <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Input\InputController.cpp">
+      <Filter>Source Files\Runtime\Input</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Input\InputController.Bindings.cpp">
       <Filter>Source Files\Runtime\Input</Filter>
     </ClCompile>

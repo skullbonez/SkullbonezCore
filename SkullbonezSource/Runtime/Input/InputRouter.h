@@ -449,6 +449,11 @@ class InputRouter
     void RecordTap( RuntimeInputAction action, double nowSeconds );
     bool ConsumeRepeatingAction( RuntimeInputAction action, double nowSeconds, double repeatSeconds );
     bool ConsumePressedAction( RuntimeInputAction action );
+    bool UpdateOrthographicPan( bool pressHitsViewport );
+    bool OrthographicPanActive() const noexcept
+    {
+        return m_orthographicPan;
+    }
     bool UpdateTimelineDrag( bool pressHitsTimeline );
     bool TimelineDragActive() const noexcept
     {
@@ -487,6 +492,7 @@ class InputRouter
     InputActions m_actions;               // Fixed per-frame semantic output; reset by BeginFrame.
     bool m_nativeCaptureRequested = false;
     bool m_timelineDrag = false;
+    bool m_orthographicPan = false;
     bool m_committedNativeCapture = false;
     bool m_cursorVisibleRequested = true;
     bool m_committedCursorVisible = true;

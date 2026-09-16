@@ -1980,3 +1980,38 @@ TEST_CASE( "Memory history never substitutes allocation capacity for private res
     MemoryTab::DrawOverlay( state, draw, frame->MemoryTabFrame(), 20.0f, 40.0f );
     CHECK( FindDrawTextIndex( list, "unavailable" ) >= 0 );
 }
+
+TEST_CASE( "Causal detail reserves scene space and restores it when folded" )
+{
+    using namespace SkullbonezCore::UI::GameLayout;
+    for ( const int width : { 640, 1280, 1920 } )
+    {
+        for ( const auto mode : { LayoutMode::Editor, LayoutMode::Canvas } )
+        {
+            PresentationState state;
+            state.preferences.layout = mode;
+            state.preferences.rightFolded = false;
+            state.preferences.leftFolded = false;
+            state.detailsOpen = state.detailsCauses = true;
+            const auto folded = ComputePresentationRects( state, width, 720 );
+            state.causeDetailOpen = true;
+            const auto open = ComputePresentationRects( state, width, 720 );
+            CHECK( open.viewport.w >= (std::min)( width * 0.2f, folded.viewport.w * 0.5f ) );
+            CHECK( open.viewport.w < folded.viewport.w );
+            CHECK( open.viewport.x + open.viewport.w < open.causeControls.x );
+            CHECK( open.statusContent.w == open.viewport.w );
+            CHECK( open.causeDetail.x == open.viewport.x + open.viewport.w );
+            CHECK( open.causeDetail.x + open.causeDetail.w == open.causeControls.x );
+            for ( const auto& pane : EditorPaneRects( open.viewport ) )
+            {
+                CHECK( pane.x + pane.w <= open.viewport.x + open.viewport.w );
+            }
+            state.causeDetailOpen = false;
+            CHECK( ComputePresentationRects( state, width, 720 ).viewport.w == folded.viewport.w );
+            state.causeDetailOpen = true;
+            state.preferences.rightFolded = true;
+            state.detailsOpen = false;
+            CHECK( ComputePresentationRects( state, width, 720 ).causeControls.w == 0.0f );
+        }
+    }
+}

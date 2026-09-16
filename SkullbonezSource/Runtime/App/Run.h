@@ -232,6 +232,7 @@ class Run
     void PickComparisonObject( int x, int y );
     void SelectEditorCameraView( int axis );
     void ConfigureEditorViewport();
+    void PanOrthographicCamera();
     std::array<bool, 4> m_editorPaneOverlayRendered {};
     void MoveComparisonCamera( float yaw, float pitch, float panX, float panY, float zoom );
     EditorToolsOwner m_editorTools; // Retains editor placement, selection, gizmo, and history authority.

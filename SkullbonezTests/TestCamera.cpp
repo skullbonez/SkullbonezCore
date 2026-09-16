@@ -549,6 +549,8 @@ TEST_CASE( "Editor camera panes preserve full-screen pose and independent plane 
         cameras.MovePrimary( Camera::TravelDirection::Forward, 20 );
         cameras.SetCamera();
         CHECK( cameras.EditorPane( pane ).eye == before.eye );
+        // Inspection can replace the primary pose between pane selection and input.
+        cameras.SetPrimaryPose( eye, focus, up );
         cameras.PanEditorView( 12, -8 );
         const auto panned = cameras.EditorPane( pane );
         CHECK( panned.eye - before.eye == panned.focus - before.focus );

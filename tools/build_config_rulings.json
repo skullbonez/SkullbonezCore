@@ -67,6 +67,10 @@
     "PreprocessorDefinitions": "The engine and doctest targets intentionally carry distinct executable-role macros; their exception and JSON policy macros are aligned and all other inventoried compiler contracts are compared separately."
   },
   "rulings": {
+    "skullbonezsource/runtime/input/inputcontroller.cpp": {
+      "ExceptionHandling": "d349f2e9e30a83745f22cf9ab291c5a55c19a5d7400fc4b76bc04b7804c9fc83",
+      "PreprocessorDefinitions": "542583fdb2cb89252da3e6deeba54dc268d30246bd0436f266649ea268c8439e"
+    },
     "skullbonezsource/assets/assetsystem.rendering.cpp": {
       "ExceptionHandling": "1656066a1df882776aca779368e5bbb0ca455a44ea2ae5aaaf7cced420b5b843",
       "PreprocessorDefinitions": "8569099d1ab295d1e6262c0c92bedc3172a6e45346d171fa405ec405f64ecc4e"

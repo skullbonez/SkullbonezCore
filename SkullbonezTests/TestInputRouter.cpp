@@ -19,6 +19,7 @@ Invariants:
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 #include "../SkullbonezSource/Runtime/App/SceneLoadApplication.h"
 #include "../SkullbonezSource/Runtime/Input/InputRouter.h"
+#include "../SkullbonezSource/Runtime/Camera/CameraControlState.h"
 #include "../SkullbonezSource/Runtime/Input/InputFrameValues.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneLifecycle.h"
@@ -794,4 +795,66 @@ TEST_CASE( "Input router: native drag capture ends when every mouse button is re
     router.RequestNativeCapture();
     CHECK_FALSE( router.ConsumePointerPresentationChange( presentation ) );
     CHECK( presentation.nativeCapture );
+}
+
+TEST_CASE( "Input router: orthographic pan retains the viewport press through panels" )
+{
+    SbDiagnosticStore diagnostics;
+    InputRouter router { diagnostics };
+    InputActions& output = router.Actions();
+    router.BeginFrame( FocusedFrame( {} ), {}, output );
+    router.BeginFrame( FocusedFrame( {}, false, true ), {}, output );
+    REQUIRE( router.UpdateOrthographicPan( true ) );
+    UiInputHitSnapshot blocked;
+    blocked.blocksCameraMouse = true;
+    blocked.wantsNativeCursor = true;
+    for ( int frame = 0; frame < 20; ++frame )
+    {
+        router.BeginFrame( FocusedFrame( {}, false, true ), {}, output );
+        router.PublishUiSnapshot( blocked );
+        CHECK( router.UpdateOrthographicPan( false ) );
+        const auto policy = router.EvaluatePointerPresentation( {} );
+        CHECK( policy.mouseLookOwnsCursor );
+        CHECK_FALSE( router.ReleasePointerToUi( policy ) );
+        CHECK( router.NativeCaptureRequested() );
+    }
+    router.BeginFrame( FocusedFrame( {} ), {}, output );
+    CHECK_FALSE( router.OrthographicPanActive() );
+    CHECK_FALSE( router.NativeCaptureRequested() );
+    router.BeginFrame( FocusedFrame( {}, false, true ), {}, output );
+    CHECK_FALSE( router.UpdateOrthographicPan( false ) );
+    router.BeginFrame( FocusedFrame( {}, false, true ), {}, output );
+    CHECK_FALSE( router.UpdateOrthographicPan( true ) );
+    router.BeginFrame( FocusedFrame( {} ), {}, output );
+    router.BeginFrame( FocusedFrame( {}, false, true ), {}, output );
+    REQUIRE( router.UpdateOrthographicPan( true ) );
+    auto unfocused = FocusedFrame( {}, false, true );
+    unfocused.appFocused = false;
+    router.BeginFrame( unfocused, {}, output );
+    CHECK_FALSE( router.OrthographicPanActive() );
+    CHECK_FALSE( router.EvaluatePointerPresentation( {} ).mouseLookOwnsCursor );
+}
+
+TEST_CASE( "Camera mouse sampling preserves fast pan distance and rotational spike protection" )
+{
+    CameraControlState camera;
+    InputController::SetMouseLookDelta( camera, 500, 200 );
+    CHECK( camera.inputXMove == 0 );
+    CHECK( camera.inputYMove == 0 );
+    for ( const bool raw : { true, false } )
+    {
+        InputController::ResetMouseLook( camera );
+        auto frame = FocusedFrame( {}, false, true );
+        frame.hasClientPosition = true;
+        frame.clientX = 20;
+        frame.clientY = 30;
+        InputController::ApplyCameraInputFrame( camera, true, true, true, true, frame, CameraMouseMotion::PlanePan );
+        frame.clientX += 500;
+        frame.clientY += 200;
+        frame.rawMouseX = raw ? 500 : 0;
+        frame.rawMouseY = raw ? 200 : 0;
+        InputController::ApplyCameraInputFrame( camera, true, true, true, true, frame, CameraMouseMotion::PlanePan );
+        CHECK( camera.inputXMove == 500 );
+        CHECK( camera.inputYMove == 200 );
+    }
 }

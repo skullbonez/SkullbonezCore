@@ -74,16 +74,13 @@ RuntimeInputMode RuntimeInputContext::CurrentMode() const
 }
 
 
-void InputController::BeginFrame( RuntimeInputContext& context, const RuntimeInputModeState& modeState, bool appFocused,
-                                  bool uiBlocksKeyboard, bool uiBlocksMouse )
+void InputController::BeginFrame( RuntimeInputContext& context, const RuntimeInputModeState& modeState, bool appFocused, bool uiBlocksKeyboard, bool uiBlocksMouse )
 {
     context.BeginFrame( appFocused, uiBlocksKeyboard, uiBlocksMouse );
-    context.SetMode( ResolveMode( modeState ), RuntimeInputAction::None,
-                     appFocused ? RuntimeInputActionSource::Runtime : RuntimeInputActionSource::FocusLost );
+    context.SetMode( ResolveMode( modeState ), RuntimeInputAction::None, appFocused ? RuntimeInputActionSource::Runtime : RuntimeInputActionSource::FocusLost );
 }
 
-void InputController::ApplyModeAction( RuntimeInputContext& context, RuntimeInputMode mode, RuntimeInputAction action,
-                                       RuntimeInputActionSource source )
+void InputController::ApplyModeAction( RuntimeInputContext& context, RuntimeInputMode mode, RuntimeInputAction action, RuntimeInputActionSource source )
 {
     context.SetMode( mode, action, source );
 }
@@ -166,8 +163,16 @@ void InputController::ResetMouseLook( CameraControlState& camera )
     camera.needsMouseLookReset = true;
 }
 
-void InputController::SetMouseLookDelta( CameraControlState& camera, long rawX, long rawY )
+void InputController::SetMouseLookDelta( CameraControlState& camera, long rawX, long rawY, CameraMouseMotion motion )
 {
+    // A fast pan remains pixel displacement; the angular spike/clamp policy
+    // would otherwise stop high-DPI drags or make speed depend on frame rate.
+    if ( motion == CameraMouseMotion::PlanePan )
+    {
+        camera.inputXMove = rawX;
+        camera.inputYMove = rawY;
+        return;
+    }
     const long absX = rawX < 0 ? -rawX : rawX;
     const long absY = rawY < 0 ? -rawY : rawY;
 
@@ -182,10 +187,13 @@ void InputController::SetMouseLookDelta( CameraControlState& camera, long rawX, 
     camera.inputYMove = std::clamp( rawY, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
 }
 
-RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraControlState& camera, bool appFocused,
-                                                                      bool cameraMouseLookActive, bool mouseLookOwnsCursor,
+RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraControlState& camera,
+                                                                      bool appFocused,
+                                                                      bool cameraMouseLookActive,
+                                                                      bool mouseLookOwnsCursor,
                                                                       bool cameraKeyboardControlsActive,
-                                                                      const DeviceInputFrame& deviceFrame )
+                                                                      const DeviceInputFrame& deviceFrame,
+                                                                      CameraMouseMotion motion )
 {
     RuntimeCameraInputFrameResult result;
     camera.mouseLookOwnsCursor = mouseLookOwnsCursor;
@@ -228,7 +236,7 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
             }
             else if ( hasRawDelta )
             {
-                SetMouseLookDelta( camera, deviceFrame.rawMouseX, deviceFrame.rawMouseY );
+                SetMouseLookDelta( camera, deviceFrame.rawMouseX, deviceFrame.rawMouseY, motion );
                 camera.mouseLookLastClient = currentClient;
                 camera.hasMouseLookLastClient = true;
             }
@@ -241,8 +249,7 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
             }
             else
             {
-                SetMouseLookDelta( camera, currentClient.x - camera.mouseLookLastClient.x,
-                                   currentClient.y - camera.mouseLookLastClient.y );
+                SetMouseLookDelta( camera, currentClient.x - camera.mouseLookLastClient.x, currentClient.y - camera.mouseLookLastClient.y, motion );
 
                 camera.mouseLookLastClient = currentClient;
             }

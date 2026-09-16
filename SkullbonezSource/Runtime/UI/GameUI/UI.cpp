@@ -1163,6 +1163,11 @@ void InGameUI::UpdatePresentationInput( const InputControl::UIInputSnapshot& inp
     }
 }
 
+void InGameUI::SetCauseDetailOpen( bool open )
+{
+    m_windowInteraction.m_presentation.causeDetailOpen = open;
+}
+
 PresentationRects InGameUI::PresentationBounds() const
 {
     return m_windowInteraction.m_presentationRects;

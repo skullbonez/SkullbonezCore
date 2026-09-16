@@ -468,6 +468,17 @@ bool Run::UpdateComparisonInput( bool textActive )
             const float strafe = ( device.keys.IsDown( 'D' ) ? 1.0f : 0 ) - ( device.keys.IsDown( 'A' ) ? 1.0f : 0 );
             FlyComparisonCamera( forward, strafe, static_cast<float>( elapsed ) * ( device.keys.IsDown( VK_SHIFT ) ? 3.0f : 1.0f ) );
         }
+        if ( m_sceneController.Scene().Cameras().EditorView() != 0 )
+        {
+            const bool pan = m_inputRouter.OrthographicPanActive() && !textActive;
+            InputController::ApplyCameraInputFrame( m_camera, device.appFocused, pan, pan, true, device, CameraMouseMotion::PlanePan );
+            if ( pan )
+            {
+                m_comparison.Settings().followA = false;
+                PanOrthographicCamera();
+                m_inputRouter.RequestCursorVisible( false );
+            }
+        }
         if ( device.appFocused && !dragging && !m_operatorUi->HasOpenPopup() && !m_operatorUi->BlocksCameraMouse() &&
              m_operatorUi->PresentationBounds().viewport.Contains( device.clientX, device.clientY ) && !m_comparisonPanel.Contains( device.clientX, device.clientY ) )
         {
@@ -477,8 +488,8 @@ bool Run::UpdateComparisonInput( bool textActive )
             }
             if ( device.rightDown || device.middleDown || device.wheelDelta )
             {
-                MoveComparisonCamera( device.rightDown ? InputController::ResolveMouseLookRadians( device.rawMouseX, 0.005f ) : 0,
-                                      device.rightDown ? device.rawMouseY * 0.005f : 0,
+                MoveComparisonCamera( device.rightDown && !m_inputRouter.OrthographicPanActive() ? InputController::ResolveMouseLookRadians( device.rawMouseX, 0.005f ) : 0,
+                                      device.rightDown && !m_inputRouter.OrthographicPanActive() ? device.rawMouseY * 0.005f : 0,
                                       device.middleDown ? -device.rawMouseX * 0.001f : 0,
                                       device.middleDown ? device.rawMouseY * 0.001f : 0,
                                       -device.wheelDelta * 0.001f );

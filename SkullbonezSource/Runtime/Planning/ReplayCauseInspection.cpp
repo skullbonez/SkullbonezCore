@@ -726,7 +726,7 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSol
                                                             const UI::UIRect& shellBounds,
                                                             const UI::UIRect& shellViewport ) noexcept
 {
-    PROFILE_SCOPED( "Frame/Replay/CauseInspection/PanelLayout" );
+    // Pure layout is also queried by diagnostics outside the profiled frame.
     (void)screenHeight;
     ReplayCauseInspectorLayout layout;
     int maximumIterations = 0;
@@ -740,7 +740,7 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSol
     layout.rowHeight = REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT + static_cast<float>( iterationLines ) * REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT;
 
     const float targetDrawerWidth = shellBounds.w > 0.0f
-                                        ? (std::min)( (std::max)( 0.0f, shellBounds.x - shellViewport.x ), (std::max)( 400.0f, shellBounds.w ) )
+                                        ? (std::max)( 0.0f, shellBounds.x - shellViewport.x - shellViewport.w )
                                         : ReplayOverlay::ReplayCauseWindowAttachedWidth( causeTree, screenWidth, REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH, REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
     layout.drawerProgress = std::clamp( drawerProgress, 0.0f, 1.0f );
     const float visibleDrawerWidth = targetDrawerWidth * layout.drawerProgress;

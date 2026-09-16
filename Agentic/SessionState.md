@@ -1,9 +1,36 @@
 # Session State
 
 Date: 2026-09-16
-Branch: `codex/prediction-editor-complete`
-Status: Combined PR branch contains all thirteen existing feature commits plus the pending Memory, camera, comparison and scene changes. Long-horizon demand allocation and retirement are implemented; all final closure checks pass.
+Branch: `main`
+Status: Causal detail docking and orthographic panning fixed and validated; direct main commit explicitly requested.
 
+
+## Causal detail and orthographic panning - 2026-09-16
+
+PR #172 is merged; the original checkout was verified identical to main and its
+91 duplicate pending files preserved in a recovery stash before switching to main.
+The fix reserves the Causal detail drawer in shared presentation geometry and
+routes its controls through that reserved region. InputRouter retains the right
+drag through panel crossings. Scene and Solver Lab use raw/client sampling and
+projection-based pixel scaling without the rotation spike filter. CameraCollection
+restores the fixed pane before pan math, including temporary Causal camera poses.
+Skarness supports bounded multi-frame and client-only drags.
+
+Native checks prove exact single-frame and 30-frame motion on all three planes
+in Scene, active Causal inspection and Solver Lab, unchanged sibling cameras,
+and detail containment at 640, 1280 and 1680 widths, including Tools open.
+Before: `TestOutput/skarness/causal-pan-repro/`.
+After: `TestOutput/skarness/causal-pane-basis-verified/` and
+`TestOutput/skarness/causal-four-views-basis-final/`.
+
+Fast validation passes 1,072 tests and 3,734,234 assertions (one skip).
+Compiler-backed design checks pass. The full UI case matrix, native title-bar
+controls, four views and replay visual fidelity pass; DX12 reports zero errors.
+Profile, Debug and Automation builds pass. The unchanged Physics worker matrix
+passes with staged fingerprint cda1c2bcc7a9. No golden or allocation-policy change.
+Logs: `TestOutput/causal-pan-fast-complete.log`, `causal-pan-ui-complete.log`,
+`causal-pan-physics-basis-final.log`, `causal-pan-replay-visual.log`,
+`causal-pan-dx12-final.log` and `causal-pan-ready-final.log`.
 
 ## Complete prediction and editor follow-up - 2026-09-16
 

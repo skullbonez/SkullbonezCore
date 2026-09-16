@@ -2169,13 +2169,6 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
 
     if ( sceneController.Scene().Cameras().EditorView() != 0 && !ui.BlocksCameraMouse() )
     {
-        const auto& device = inputRouter.DeviceFrame();
-        if ( device.rightDown )
-        {
-            const auto& cameras = sceneController.Scene().Cameras();
-            const float distance = Math::Vector::Distance( cameras.GetCameraTranslation(), cameras.GetCameraView() );
-            sceneController.Scene().Cameras().PanEditorView( -device.rawMouseX * distance * 0.001f, device.rawMouseY * distance * 0.001f );
-        }
         sceneController.Scene().Cameras().ZoomEditorView( -result.editorUnhandledWheelDelta * 0.001f );
         result.editorUnhandledWheelDelta = 0;
     }

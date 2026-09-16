@@ -2512,13 +2512,15 @@ TEST_CASE( "Short Causes panes scroll evidence controls inside the shell" )
     CHECK( inspection.View().shellScroll == 0.0f );
     inspection.SetShellPresentation( true, { 224, 66, 96, 500 } );
     CHECK( inspection.View().shellScroll == 0.0f );
-    inspection.SetShellPresentation( true, { 224, 66, 96, 500 }, { 24, 42, 200, 524 } );
+    inspection.SetShellPresentation( true, { 224, 66, 96, 500 }, { 24, 42, 100, 524 } );
     inspection.SetDrawerOpen( true, 1.0 );
     layout = BuildReplayCauseInspectorLayout( inspection.View(), tree, 320, 640, 1.0f );
     CHECK( layout.drawer.y == 42 );
     CHECK( layout.drawer.h == 524 );
     CHECK( layout.hierarchy.y == 66 );
-    CHECK( ReplayCauseInspectorContainsPoint( layout, 26, 50 ) );
+    CHECK_FALSE( ReplayCauseInspectorContainsPoint( layout, 26, 50 ) );
+    CHECK( ReplayCauseInspectorContainsPoint( layout, 126, 50 ) );
+    CHECK( layout.drawer.x == 124.0f );
 }
 
 TEST_CASE( "Solver inspector attributes object and ground contact rows" )

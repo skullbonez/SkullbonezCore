@@ -211,6 +211,20 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
             result.causeControls = { result.right.x, result.right.y + 30.0f, result.right.w, (std::max)( 0.0f, result.right.h - 30.0f ) };
         }
     }
+    if ( state.causeDetailOpen && result.causeControls.w > 0.0f )
+    {
+        // Reserve the joined evidence dock before cameras, picking and badges
+        // consume this layout. Small windows retain a usable scene strip.
+        const float available = (std::max)( 0.0f, result.right.x - result.viewport.x );
+        const float detailWidth = (std::min)( (std::max)( 400.0f, result.right.w ), (std::max)( 0.0f, available - (std::min)( w * 0.2f, available * 0.5f ) ) );
+        result.causeDetail = { result.right.x - detailWidth, result.statusContent.y, detailWidth, result.statusContent.h };
+        result.viewport.w = available - detailWidth;
+        result.statusContent.w = result.viewport.w;
+        if ( editor )
+        {
+            result.transport.w = result.viewport.w;
+        }
+    }
     const float detailsWidth = (std::min)( 96.0f, w * 0.25f );
     result.replayDetails = { w - detailsWidth, result.transport.y, detailsWidth, result.transport.h };
     result.transport.w = (std::min)( result.transport.w, result.replayDetails.x - result.transport.x );

@@ -521,6 +521,7 @@ class InGameUI
     void SetWindowBounds( int x, int y, int width, int height );
     // The frame prepass resolves layout changes before any world ray is built.
     void UpdatePresentationInput( const InputControl::UIInputSnapshot& input, int width, int height, bool enabled );
+    void SetCauseDetailOpen( bool open );
     GameLayout::PresentationRects PresentationBounds() const;
     GameLayout::LayoutMode PresentationLayout() const;
     GameLayout::Workspace PresentationWorkspace() const;

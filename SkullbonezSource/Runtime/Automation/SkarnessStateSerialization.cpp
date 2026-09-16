@@ -423,6 +423,7 @@ ReplayOverlay::ReplayCauseLoadingView BuildCauseLoading( const ReplayAutomationV
 Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail )
 {
     const auto loading = BuildCauseLoading( replay );
+    const auto inspector = BuildReplayCauseInspectorLayout( replay.causeInspection, replay.causeTree, 0, 0, replay.causeInspection.drawerProgress );
     Json payload = { { "rowCount", replay.causeTree.rows.size() },
                      { "window", { replay.causeTree.x, replay.causeTree.y, replay.causeTree.width, replay.causeTree.height } },
                      { "loading", loading.active },
@@ -444,6 +445,7 @@ Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail 
                      { "transportInFlight", replay.causeInspection.transportInFlight },
                      { "detailVisible", replay.causeInspection.detailVisible },
                      { "drawerOpen", replay.causeInspection.drawerOpen },
+                     { "detailBounds", { inspector.visibleDrawer.x, inspector.visibleDrawer.y, inspector.visibleDrawer.w, inspector.visibleDrawer.h } },
                      { "drawerProgress", replay.causeInspection.drawerProgress },
                      { "summaryExpandedSections", replay.causeInspection.summaryExpandedSections },
                      { "summaryScrollOffset", replay.causeInspection.summaryScrollOffset },

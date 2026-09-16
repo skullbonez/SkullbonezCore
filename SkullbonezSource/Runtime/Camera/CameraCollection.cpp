@@ -873,6 +873,8 @@ void CameraCollection::PanEditorView( float horizontal, float vertical )
     {
         return;
     }
+    // Invariant: pan follows the fixed pane even when inspection supplied a temporary primary pose.
+    ApplyEditorView();
     const Vector3 forward = NormalizeOr( GetCameraView() - GetCameraTranslation(), Vector3( 0, 0, -1 ) );
     const Vector3 right = NormalizeOr( CrossProduct( forward, GetCameraUp() ), Vector3( 1, 0, 0 ) );
     const Vector3 up = CrossProduct( right, forward );

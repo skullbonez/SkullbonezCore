@@ -367,3 +367,12 @@ checks all 14,401 frames of a 120-second box-pile prediction, full high-detail
 evidence, selected/published/rendered target identity, immediate shortening,
 release on disable, and a small prediction after the large buffers retire.
 It samples Windows private commit and private working-set bytes externally.
+
+`validate_causal_viewports.py --session TestOutput/skarness/<case>` checks the
+Causal detail dock at multiple client sizes and with Tools open.
+Single-frame and 30-frame right drags cover all orthographic planes in Scene,
+active Causal inspection and Solver Lab, using raw and client-only movement.
+Assertions check exact displacement and verify that other panes do not move.
+The UI gate runs this test. Skarness `input.pointer_drag` accepts optional
+`movementFrames` (1-120, default 1) and `rawInput` (default true); deltas remain
+the total displacement across the gesture.
