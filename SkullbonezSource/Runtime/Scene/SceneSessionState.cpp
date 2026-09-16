@@ -40,17 +40,14 @@ namespace
 bool IsCineScenePath( const std::string& path )
 {
     const char* name = SceneFileNameFromPath( path.c_str() );
-    return strncmp( name, "concept_", 8 ) == 0 || strncmp( name, "cinematic_", 10 ) == 0 ||
-           strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
+    return strncmp( name, "concept_", 8 ) == 0 || strncmp( name, "cinematic_", 10 ) == 0 || strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
 }
 } // namespace
 
 
 SkullbonezCore::GameObjects::SceneSessionSaveState SceneSessionState::GetSaveState() const
 {
-    return { isScenePhysics,  isSceneText, predictionAllBodiesSpaceSeed,
-             isEditableScene, isFixedStep, hasFlatSlope,
-             flatBaseY,       flatSlopeX,  flatSlopeZ };
+    return { isScenePhysics, isSceneText, predictionAllBodiesSpaceSeed, isEditableScene, isFixedStep, hasFlatSlope, flatBaseY, flatSlopeX, flatSlopeZ };
 }
 
 const char* SkullbonezCore::Runtime::SceneFileNameFromPath( const char* path )
@@ -156,11 +153,9 @@ SkullbonezCore::Physics::PhysicsSceneObjectId SceneSessionState::AllocateSceneOb
     const uint32_t countValue = static_cast<uint32_t>( count );
     const uint32_t maxSceneObjectId = ( std::numeric_limits<uint32_t>::max )();
 
-    if ( nextSceneObjectId == 0 || nextSceneObjectId == maxSceneObjectId ||
-         countValue > maxSceneObjectId - nextSceneObjectId )
+    if ( nextSceneObjectId == 0 || nextSceneObjectId == maxSceneObjectId || countValue > maxSceneObjectId - nextSceneObjectId )
     {
-        SB_FATAL( "SceneSessionState", "Scene object id range exhausted. next=%u requested=%u max=%u", nextSceneObjectId,
-                  countValue, maxSceneObjectId );
+        SB_FATAL( "SceneSessionState", "Scene object id range exhausted. next=%u requested=%u max=%u", nextSceneObjectId, countValue, maxSceneObjectId );
     }
 
     SkullbonezCore::Physics::PhysicsSceneObjectId first;
@@ -197,8 +192,21 @@ void SceneSessionState::ResetSceneObjectIdCursor( const SkullbonezCore::Physics:
     nextSceneObjectId = nextId;
 }
 
-SceneSession::SceneSession( std::vector<std::string> queue ) : m_queue( std::move( queue ) )
+SceneSession::SceneSession( std::vector<std::string> queue )
 {
+    m_queue.reserve( queue.size() );
+    for ( std::string& path : queue )
+    {
+        m_queue.emplace_back( std::move( path ) );
+    }
+}
+
+void SceneSession::RemoveInactiveEntry( int index )
+{
+    if ( HasEntry( index ) && index != CurrentIndex() )
+    {
+        m_queue[index].reset();
+    }
 }
 
 SceneSessionState& SceneSession::State()
@@ -213,7 +221,7 @@ const SceneSessionState& SceneSession::State() const
 
 bool SceneSession::HasEntry( int index ) const
 {
-    return index >= 0 && index < static_cast<int>( m_queue.size() );
+    return index >= 0 && index < static_cast<int>( m_queue.size() ) && m_queue[index].has_value();
 }
 
 bool SceneSession::HasCurrentEntry() const
@@ -223,12 +231,12 @@ bool SceneSession::HasCurrentEntry() const
 
 const std::string* SceneSession::CurrentPath() const
 {
-    return HasCurrentEntry() ? &m_queue[m_state.currentSceneIndex] : nullptr;
+    return HasCurrentEntry() ? &*m_queue[m_state.currentSceneIndex] : nullptr;
 }
 
 const std::string& SceneSession::PathAt( int index ) const
 {
-    return m_queue[index];
+    return *m_queue[index];
 }
 
 int SceneSession::QueueSize() const
@@ -243,7 +251,12 @@ int SceneSession::CurrentIndex() const
 
 int SceneSession::NextIndex() const
 {
-    return m_state.currentSceneIndex + 1;
+    int next = m_state.currentSceneIndex + 1;
+    while ( next < QueueSize() && !HasEntry( next ) )
+    {
+        ++next;
+    }
+    return next;
 }
 
 
@@ -277,16 +290,14 @@ void SceneSession::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, Scene
     // generation before it can emit BeforeSceneUnload again.
     if ( !SceneRuntimeLifecycleTransitionValid( m_lastLifecycleEvent, event ) )
     {
-        SB_FATAL( "Runtime/SceneSession", "Invalid scene lifecycle transition. previous=%s next=%s",
-                  SceneRuntimeLifecycleEventName( m_lastLifecycleEvent ), SceneRuntimeLifecycleEventName( event ) );
+        SB_FATAL( "Runtime/SceneSession", "Invalid scene lifecycle transition. previous=%s next=%s", SceneRuntimeLifecycleEventName( m_lastLifecycleEvent ), SceneRuntimeLifecycleEventName( event ) );
     }
 
     const SceneLifecycleConsumerMask requiredConsumers = SceneLifecycleRequiredConsumers( event );
 
     if ( consumers != requiredConsumers )
     {
-        SB_FATAL( "Runtime/SceneSession", "Scene lifecycle consumer mismatch. phase=%s expected=0x%X actual=0x%X",
-                  SceneRuntimeLifecycleEventName( event ), requiredConsumers, consumers );
+        SB_FATAL( "Runtime/SceneSession", "Scene lifecycle consumer mismatch. phase=%s expected=0x%X actual=0x%X", SceneRuntimeLifecycleEventName( event ), requiredConsumers, consumers );
     }
 
     m_lastLifecycleEvent = event;
@@ -308,7 +319,7 @@ int SceneSession::FindNormalizedPath( const std::string& normalizedPath ) const
 {
     for ( int i = 0; i < QueueSize(); ++i )
     {
-        if ( NormalizeSceneQueuePath( m_queue[i] ) == normalizedPath )
+        if ( HasEntry( i ) && NormalizeSceneQueuePath( *m_queue[i] ) == normalizedPath )
         {
             return i;
         }
@@ -321,7 +332,7 @@ int SceneSession::FindGeneratedDemo() const
 {
     for ( int i = 0; i < QueueSize(); ++i )
     {
-        if ( m_queue[i].empty() )
+        if ( HasEntry( i ) && m_queue[i]->empty() )
         {
             return i;
         }
@@ -343,9 +354,9 @@ bool SceneSession::CurrentQueueIsCinematicDeck() const
         return false;
     }
 
-    for ( const std::string& queuedPath : m_queue )
+    for ( const auto& queuedPath : m_queue )
     {
-        if ( queuedPath.empty() || !IsCineScenePath( queuedPath ) )
+        if ( queuedPath && ( queuedPath->empty() || !IsCineScenePath( *queuedPath ) ) )
         {
             return false;
         }
@@ -363,5 +374,14 @@ int SceneSession::AdjacentQueueIndex( int direction ) const
         return -1;
     }
 
-    return ( m_state.currentSceneIndex + ( direction < 0 ? -1 : 1 ) + queueCount ) % queueCount;
+    int next = m_state.currentSceneIndex;
+    for ( int visited = 0; visited < queueCount; ++visited )
+    {
+        next = ( next + ( direction < 0 ? -1 : 1 ) + queueCount ) % queueCount;
+        if ( HasEntry( next ) )
+        {
+            return next;
+        }
+    }
+    return -1;
 }

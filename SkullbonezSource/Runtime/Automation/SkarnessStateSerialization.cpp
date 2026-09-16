@@ -105,7 +105,10 @@ Json BuildSelection( const SkarnessFrameState& state )
 
 Json BuildInput( const SkarnessFrameState& state )
 {
-    return { { "captureEnabled", state.replayCaptureEnabled },
+    return { { "nativeCaptureRequested", state.nativeCaptureRequested },
+             { "nativeMouseCaptured", state.nativeMouseCaptured },
+             { "windowMaximized", state.windowMaximized },
+             { "captureEnabled", state.replayCaptureEnabled },
              { "scrubPaused", state.replayScrubPaused },
              { "playbackPaused", state.replayPlaybackPaused },
              { "predictionEnabled", state.predictionEnabled },
@@ -571,6 +574,35 @@ Json BuildRenderGeometryEvidence( const ReplayVisualPacket& packet )
              { "spanMismatch", spanMismatch ? spanMismatch : "" } };
 }
 
+Json BuildPathPrefixEvidence( const ReplayVisualPacket& packet )
+{
+    uint64_t ordinaryCount = 0;
+    uint64_t firstSegmentCount = 0;
+    uint64_t firstSegmentHash = 14695981039346656037ull;
+    for ( const auto& range : packet.retainedPredictionRibbonRanges )
+    {
+        if ( range.lane != Rendering::RetainedGeometryLane::Ordinary )
+        {
+            continue;
+        }
+        ordinaryCount += range.recordCount;
+        // The first chunk of each path has no predecessor. Endpoints alone
+        // exclude adjacency repaired by later appends to the same curve.
+        if ( range.recordCount == 0u || range.continuationRange < packet.retainedPredictionRibbonRanges.size() )
+        {
+            continue;
+        }
+        ++firstSegmentCount;
+        const auto records = packet.retainedPredictionCompactRibbonRecords.subspan( range.firstRecord * 19u, 6u );
+        for ( float component : records )
+        {
+            firstSegmentHash ^= std::bit_cast<uint32_t>( component );
+            firstSegmentHash *= 1099511628211ull;
+        }
+    }
+    return { { "ordinaryRecords", ordinaryCount }, { "firstSegmentCount", firstSegmentCount }, { "firstSegmentHash", firstSegmentHash } };
+}
+
 Json BuildPathGeometryEvidence( const ReplayVisualPacket& packet, bool secondary )
 {
     uint64_t hash = 14695981039346656037ull;
@@ -612,9 +644,21 @@ Json BuildPathGeometryEvidence( const ReplayVisualPacket& packet, bool secondary
                     append( packet.retainedPredictionCompactRibbonRecords.subspan( range.firstRecord * 19u, range.recordCount * 19u ) );
                 }
             }
+            // Expanded tails are displayed alongside retained chunks. Count one
+            // camera-neutral record per ribbon, matching Original's snapshot.
+            const auto tails = lane == Rendering::RetainedGeometryLane::Ordinary ? packet.expandedRibbonVertices : packet.priorityExpandedRibbonVertices;
+            for ( std::size_t index = 0; index + 6u * 19u <= tails.size(); index += 6u * 19u )
+            {
+                append( tails.subspan( index, 19u ) );
+            }
         }
     }
-    return { { "records", count }, { "geometryHash", hash }, { "allRed", count > 0u && red }, { "allBlue", count > 0u && blue } };
+    Json result = { { "records", count }, { "geometryHash", hash }, { "allRed", count > 0u && red }, { "allBlue", count > 0u && blue } };
+    if ( !secondary )
+    {
+        result.update( BuildPathPrefixEvidence( packet ) );
+    }
+    return result;
 }
 
 Json BuildVisualPacket( const ReplayAutomationView& replay, SkarnessStateDetail detail )
@@ -730,7 +774,7 @@ Json BuildDivergenceFrame( const RunReplayPredictionFrame* frame )
     return bodies;
 }
 
-Json BuildDivergence( const ReplayAutomationView& replay )
+Json BuildDivergence( const ReplayAutomationView& replay, SkarnessStateDetail detail )
 {
     const auto* red = replay.currentPredictionFrame;
     const auto frame = red ? red->frameIndex : 0u;
@@ -740,10 +784,17 @@ Json BuildDivergence( const ReplayAutomationView& replay )
                                          []( const auto& sample, ReplayFrameIndex index ) { return sample.frameIndex < index; } );
     const auto* blue = replay.divergenceBlueFrames.empty() ? nullptr : found == replay.divergenceBlueFrames.end() ? &replay.divergenceBlueFrames.back() : &*found;
     Json ghosts = Json::array();
-    for ( const auto& ghost : replay.divergenceGhosts )
+    if ( detail != SkarnessStateDetail::Summary )
     {
-        ghosts.push_back( { { "modelRow", ghost.modelRow.value }, { "position", Vec3( ghost.position ) }, { "tint", { ghost.tintR, ghost.tintG, ghost.tintB } }, { "alpha", ghost.alpha } } );
+        for ( const auto& ghost : replay.divergenceGhosts )
+        {
+            ghosts.push_back( { { "modelRow", ghost.modelRow.value }, { "position", Vec3( ghost.position ) }, { "tint", { ghost.tintR, ghost.tintG, ghost.tintB } }, { "alpha", ghost.alpha } } );
+        }
     }
+    // Summary observations must not serialize every comparison body each frame;
+    // that diagnostic cost otherwise dominates prediction timing measurements.
+    const auto bodies = [detail]( const auto* sample ) -> Json
+    { return detail == SkarnessStateDetail::Summary ? Json { { "count", sample ? sample->bodies.size() : 0u }, { "omitted", true } } : BuildDivergenceFrame( sample ); };
     return { { "allocatedOwnerBytes", replay.divergenceAllocatedBytes },
              { "playing", replay.divergencePlaying },
              { "active", replay.divergenceActive },
@@ -752,15 +803,15 @@ Json BuildDivergence( const ReplayAutomationView& replay )
              { "blueFrameCount", replay.divergenceBlueFrames.size() },
              { "blueFrame", blue ? blue->frameIndex : 0u },
              { "redFrame", frame },
-             { "blueBodies", BuildDivergenceFrame( blue ) },
-             { "redBodies", BuildDivergenceFrame( red ) },
-             { "ghosts", ghosts } };
+             { "blueBodies", bodies( blue ) },
+             { "redBodies", bodies( red ) },
+             { "ghosts", detail == SkarnessStateDetail::Summary ? Json { { "count", replay.divergenceGhosts.size() }, { "omitted", true } } : ghosts } };
 }
 
-Json BuildLegacyReplay( const SkarnessFrameState& state, const ReplayAutomationView& replay )
+Json BuildLegacyReplay( const SkarnessFrameState& state, const ReplayAutomationView& replay, SkarnessStateDetail detail )
 {
     const auto loading = BuildCauseLoading( replay );
-    return { { "divergence", BuildDivergence( replay ) },
+    return { { "divergence", BuildDivergence( replay, detail ) },
              { "predictionEnabled", state.predictionEnabled },
              { "predictionBuilding", state.predictionBuilding },
              { "predictionComplete", state.predictionComplete },
@@ -860,7 +911,7 @@ void BuildSkarnessStateTopics( const SkarnessFrameState& state, const ReplayAuto
     Store( outTopics, VisualPacket, BuildVisualPacket( replay, detail ), replay.visualPacket.retainedPredictionRevision );
     Store( outTopics, RenderSubmission, BuildRenderSubmission( state, replay ), replay.trajectorySubmission.presentationTopologyVersion );
     Store( outTopics, LegacyScene, BuildScene( state ), state.sceneGeneration );
-    Store( outTopics, LegacyReplay, BuildLegacyReplay( state, replay ), state.predictionGeneration );
+    Store( outTopics, LegacyReplay, BuildLegacyReplay( state, replay, detail ), state.predictionGeneration );
     Store( outTopics, Presentation, { { "layout", state.presentation.editorLayout ? "Editor" : "Canvas" },
                            { "positionGates", BuildPositionGates( state.presentation.positionGates ) },
                            { "workspace", state.presentation.solverLabWorkspace ? "Solver Lab" : "Scene" },
@@ -885,6 +936,16 @@ void BuildSkarnessStateTopics( const SkarnessFrameState& state, const ReplayAuto
                            { "terrainMaximumHeight", state.presentation.terrainMaximumHeight },
                            { "cameraMode", state.presentation.cameraMode },
                            { "cameraModeEnabledMask", state.presentation.cameraModeEnabledMask },
+                           { "editorView", state.presentation.editorView },
+                           { "fourViews", state.presentation.fourViews },
+                           { "activeEditorPane", state.presentation.activeEditorPane },
+                           { "headerFourViewsBounds", state.presentation.headerFourViewsBounds },
+                           { "editorCanvasBounds", state.presentation.editorCanvasBounds },
+                           { "editorPaneBounds", state.presentation.editorPaneBounds },
+                           { "editorPaneEyes", state.presentation.editorPaneEyes },
+                           { "editorPaneFocus", state.presentation.editorPaneFocus },
+                           { "editorAxes", state.presentation.editorAxes },
+                           { "editorPaneOverlayRendered", state.presentation.editorPaneOverlayRendered },
                            { "cameraPopupBounds", state.presentation.cameraPopupBounds },
                            { "cameraPopupOpen", state.presentation.cameraPopupOpen },
                            { "toolsPopupBounds", state.presentation.toolsPopupBounds },
@@ -914,6 +975,14 @@ void BuildSkarnessStateTopics( const SkarnessFrameState& state, const ReplayAuto
                            { "memoryWaterlineVisible", state.presentation.memoryWaterlineVisible },
                            { "markerSamples", state.presentation.markerSamples },
                            { "memorySamples", state.presentation.memorySamples },
+                           { "memoryPrivateBytes", state.presentation.memoryPrivateBytes },
+                           { "memoryWorkingSetBytes", state.presentation.memoryWorkingSetBytes },
+                           { "memoryCommitBytes", state.presentation.memoryCommitBytes },
+                           { "memoryPredictionCapacityBytes", state.presentation.memoryPredictionCapacityBytes },
+                           { "memoryCapacityTableBytes", state.presentation.memoryCapacityTableBytes },
+                           { "memorySampleSeconds", state.presentation.memorySampleSeconds },
+                           { "memoryPrivateAvailable", state.presentation.memoryPrivateAvailable },
+                           { "memoryCapacityRowsValid", state.presentation.memoryCapacityRowsValid },
                            { "focusedDiagnostic", state.presentation.focusedDiagnostic },
                            { "markerSelectionHash", state.presentation.markerSelectionHash },
                            { "profilerTimeline", state.presentation.profilerTimeline },

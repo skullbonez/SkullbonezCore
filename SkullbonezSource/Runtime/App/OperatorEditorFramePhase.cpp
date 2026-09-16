@@ -229,18 +229,6 @@ OperatorUiForecastFacts SampleOperatorUiForecastFacts( const ContinuousOrbitalFo
     return facts;
 }
 
-Core::MainMemoryStats SampleMainMemoryOverlayStats( const DiagnosticsRuntime& diagnosticsRuntime, const Core::MainMemoryGameObjectStats& gameObjects )
-{
-    Core::MainMemoryStats stats = diagnosticsRuntime.MainMemoryStatsSnapshot();
-    stats.process = Core::MainMemoryProcessStats {};
-    stats.gameObjects = gameObjects;
-    stats.trackedEngineBytes = stats.replay.totalBytes + stats.gameObjects.totalBytes + stats.otherTrackedBytes;
-    stats.unattributedProcessBytes = 0;
-    stats.trackedOvershootBytes = 0;
-    stats.reconciledTotalBytes = stats.trackedEngineBytes;
-    stats.reconciliationDeltaBytes = 0;
-    return stats;
-}
 } // namespace
 
 
@@ -435,13 +423,12 @@ void Run::SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts,
     const bool memoryTabActive = ui.IsVisible() && !ui.IsMinimized() && ui.GetActiveTab() == UI::InGameUITab::Memory;
     const bool memoryOverlayEnabled = ui.IsMemoryOverlayEnabled();
 
-    if ( memoryTabActive && replayHud.memoryStatsValid )
+    if ( memoryTabActive || memoryOverlayEnabled )
     {
-        facts.mainMemory = m_diagnosticsRuntime.RefreshMainMemoryStats( replayHud.memoryStats, renderFrame.diagnostics.gameObjectMemory, facts.now, false, false );
-    }
-    else if ( memoryOverlayEnabled )
-    {
-        facts.mainMemory = SampleMainMemoryOverlayStats( m_diagnosticsRuntime, renderFrame.diagnostics.gameObjectMemory );
+        // Wall time continues while simulation and prediction inspection are paused.
+        const double memoryNow = std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count();
+        const auto& replayMemory = replayHud.memoryStatsValid ? replayHud.memoryStats : m_diagnosticsRuntime.MainMemoryStatsSnapshot().replay;
+        facts.mainMemory = m_diagnosticsRuntime.RefreshMainMemoryStats( replayMemory, renderFrame.diagnostics.gameObjectMemory, memoryNow, false, false );
     }
 
     if ( memoryTabActive || memoryOverlayEnabled )
@@ -452,7 +439,8 @@ void Run::SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts,
         facts.reserveGrowthEventCount = CoreAllocation::RuntimeReserveAllocator::CopyRecentGrowthEvents( facts.reserveGrowthEvents.data(), static_cast<int>( facts.reserveGrowthEvents.size() ) );
     }
 
-    if ( memoryTabActive )
+    // Registry rows can be published by the prediction worker as well.
+    if ( memoryTabActive && replayHud.memoryAccountingIdle )
     {
         facts.reserveCapacityAvailable = true;
         const std::span<const CoreAllocation::RuntimeReserveCapacityView> capacityRows = CoreAllocation::RuntimeReserveAllocator::CapacityRows();
@@ -475,10 +463,9 @@ void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData,
                                    const OverlayDebugState& debug,
                                    RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews )
 {
-    UI::UIRuntimeReserveCapacityRow reserveCapacityRows[UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX] = {};
     OperatorUiDiagnosticsFacts diagnostics;
     SampleOperatorUiDiagnosticsFacts( diagnostics, renderFrame, projection.replayHud, metrics );
-    ProjectOperatorUiDiagnostics( uiData, diagnostics, reserveCapacityRows );
+    ProjectOperatorUiDiagnostics( uiData, diagnostics );
 
     const SceneWorld& sceneWorld = m_sceneController.Scene();
     const Gameplay::TornadoFieldConfig& tornado = sceneWorld.Tornado().GetFieldConfig();
@@ -539,6 +526,16 @@ void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData,
                                                    editor.velocityEditAngular,
                                                    editor.terrainBrushRadius,
                                                    editor.viewportLookActive };
+    uiData.surface.editorView = m_sceneController.Scene().Cameras().EditorView();
+    uiData.surface.fourViews = m_sceneController.Scene().Cameras().FourViews();
+    uiData.surface.activeEditorPane = m_sceneController.Scene().Cameras().ActiveEditorPane();
+    const auto& editorViewMatrix = m_sceneController.Scene().Cameras().GetViewMatrix();
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        // The compass uses the rendered basis, including intermediate tween
+        // samples and roll, rather than the selected destination's orientation.
+        uiData.surface.editorAxes[axis] = { editorViewMatrix.m[axis * 4], -editorViewMatrix.m[axis * 4 + 1], editorViewMatrix.m[axis * 4 + 2] };
+    }
     uiData.surface.transportAlpha = projection.replayHud.scrubberAlpha;
     ProjectOperatorUiInteraction( uiData, interaction );
     ProjectOperatorUiPresentation( uiData, projection.scene, operatorEditorView );
@@ -600,8 +597,9 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase,
     }
 
     renderTargetPreviews = renderer.ResourceLifecycle().BuildRenderTargetPreviewSnapshot( projection.shadowsEnabled, projection.cinematicRendering, projection.cinematicRendering && projection.cinematic.volumetricLightingEnabled );
-    const bool memoryStatsRequested = ui.IsVisible() && !ui.IsMinimized() && ui.GetActiveTab() == UI::InGameUITab::Memory;
-    const ReplayHudStatus replayHud = m_replayRuntime.BuildHudStatus( memoryStatsRequested );
+    const bool memoryStatsRequested = ui.IsMemoryOverlayEnabled() || ( ui.IsVisible() && !ui.IsMinimized() && ui.GetActiveTab() == UI::InGameUITab::Memory );
+    const double memoryNow = std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count();
+    const ReplayHudStatus replayHud = m_replayRuntime.BuildHudStatus( memoryStatsRequested && m_diagnosticsRuntime.MainMemorySampleDue( memoryNow ) );
     const UiTextViewport viewport { operatorUiPhase.Snapshot().viewportWidth, operatorUiPhase.Snapshot().viewportHeight };
     const RuntimeFrameMetricsSnapshot& metrics = operatorUiPhase.Snapshot().metrics;
     const OperatorUiSubmissionPlan& submission = operatorUiPhase.SubmissionPlan();

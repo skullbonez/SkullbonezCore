@@ -231,13 +231,11 @@ struct Dx12GeometryOwnerTestAccess
         owner.m_instancedMeshes.clear();
     }
 
-    static bool TryBuildInstancedAttributeLayout(
-        std::span<const int> instanceAttributeSizes,
-        std::span<const int> staticAttributeSizes,
-        std::size_t& outInstanceCount,
-        std::size_t& outStaticCount,
-        std::size_t& outInputElementCount
-    )
+    static bool TryBuildInstancedAttributeLayout( std::span<const int> instanceAttributeSizes,
+                                                  std::span<const int> staticAttributeSizes,
+                                                  std::size_t& outInstanceCount,
+                                                  std::size_t& outStaticCount,
+                                                  std::size_t& outInputElementCount )
     {
         Dx12GeometryOwner::InstancedAttributeLayout layout;
         const bool accepted = Dx12GeometryOwner::TryBuildInstancedAttributeLayout( instanceAttributeSizes, staticAttributeSizes, layout );
@@ -290,10 +288,10 @@ struct PrimitiveBatchRendererTestAccess
     static bool ResolveVisibleBatchReadiness( bool materialTableReady, bool& shaderPublicationCalled )
     {
         return PrimitiveBatchRenderer::ResolveVisibleBatchReadiness( [materialTableReady]() { return materialTableReady; }, [&shaderPublicationCalled]()
-            {
-                shaderPublicationCalled = true;
-                return true;
-            } );
+                                                                     {
+                                                                         shaderPublicationCalled = true;
+                                                                         return true;
+                                                                     } );
     }
 };
 } // namespace SkullbonezCore::Rendering
@@ -446,16 +444,14 @@ struct TextureCollectionTestAccess
         int eventOrder = 0;
         bool retired = false;
 
-        SkullbonezCore::Core::SbResult decodeFailure = TextureCollection::CreateOrReplaceTextureRecord(
-            textures,
-            original.legacyHash,
-            [&]( TextureCollection::GpuTextureRecord& )
+        SkullbonezCore::Core::SbResult decodeFailure = TextureCollection::CreateOrReplaceTextureRecord( textures,
+                                                                                                        original.legacyHash,
+                                                                                                        [&]( TextureCollection::GpuTextureRecord& )
             {
                 eventOrder = 1;
                 return diagnostics.Failure( "TextureCollectionTest", "planted decode failure" );
             },
-            [&]( uint32_t ) { retired = true; }
-        );
+                                                                                                        [&]( uint32_t ) { retired = true; } );
 
         if ( decodeFailure.Ok() || eventOrder != 1 || retired || destination.legacyHash != original.legacyHash || destination.backendHandle != original.backendHandle ||
              destination.sourceId != original.sourceId || destination.width != original.width || destination.height != original.height || destination.channels != original.channels )
@@ -464,16 +460,14 @@ struct TextureCollectionTestAccess
         }
 
         eventOrder = 0;
-        SkullbonezCore::Core::SbResult backendFailure = TextureCollection::CreateOrReplaceTextureRecord(
-            textures,
-            original.legacyHash,
-            [&]( TextureCollection::GpuTextureRecord& )
+        SkullbonezCore::Core::SbResult backendFailure = TextureCollection::CreateOrReplaceTextureRecord( textures,
+                                                                                                         original.legacyHash,
+                                                                                                         [&]( TextureCollection::GpuTextureRecord& )
             {
                 eventOrder = 2;
                 return diagnostics.Failure( "TextureCollectionTest", "planted backend failure" );
             },
-            [&]( uint32_t ) { retired = true; }
-        );
+                                                                                                         [&]( uint32_t ) { retired = true; } );
 
         if ( backendFailure.Ok() || eventOrder != 2 || retired || destination.legacyHash != original.legacyHash || destination.backendHandle != original.backendHandle ||
              destination.sourceId != original.sourceId || destination.width != original.width || destination.height != original.height || destination.channels != original.channels )
@@ -491,10 +485,9 @@ struct TextureCollectionTestAccess
         eventOrder = 0;
         uint32_t retiredHandle = 0;
 
-        const SkullbonezCore::Core::SbResult success = TextureCollection::CreateOrReplaceTextureRecord(
-            textures,
-            original.legacyHash,
-            [&]( TextureCollection::GpuTextureRecord& loadedCandidate )
+        const SkullbonezCore::Core::SbResult success = TextureCollection::CreateOrReplaceTextureRecord( textures,
+                                                                                                        original.legacyHash,
+                                                                                                        [&]( TextureCollection::GpuTextureRecord& loadedCandidate )
             {
                 if ( destination.backendHandle != original.backendHandle )
                 {
@@ -505,7 +498,7 @@ struct TextureCollectionTestAccess
                 loadedCandidate = candidate;
                 return SkullbonezCore::Core::SbResult::Success();
             },
-            [&]( uint32_t handle )
+                                                                                                        [&]( uint32_t handle )
             {
                 retiredHandle = handle;
 
@@ -513,8 +506,7 @@ struct TextureCollectionTestAccess
                 {
                     eventOrder = 4;
                 }
-            }
-        );
+            } );
 
         return success.Ok() && eventOrder == 4 && retiredHandle == original.backendHandle && destination.legacyHash == candidate.legacyHash && destination.backendHandle == candidate.backendHandle &&
                destination.sourceId == candidate.sourceId && destination.width == candidate.width && destination.height == candidate.height && destination.channels == candidate.channels;
@@ -662,14 +654,12 @@ struct PhysicsContactSolverStageTestAccess
         CHECK( stage.CanAppendObjectManifold( 3u ) );
     }
 
-    static void ReserveAndPrepare(
-        PhysicsContactSolverStage& stage,
-        std::size_t collisionVisualCapacity,
-        std::size_t fixedContactCapacity,
-        std::size_t releaseWakeCapacity,
-        std::size_t fixedTreeCapacity,
-        std::size_t pipelineCapacity
-    )
+    static void ReserveAndPrepare( PhysicsContactSolverStage& stage,
+                                   std::size_t collisionVisualCapacity,
+                                   std::size_t fixedContactCapacity,
+                                   std::size_t releaseWakeCapacity,
+                                   std::size_t fixedTreeCapacity,
+                                   std::size_t pipelineCapacity )
     {
         {
             Core::Allocation::RuntimeAllocationScope sceneLoadScope( Core::Allocation::RuntimeAllocationPhase::SceneLoad );
@@ -948,6 +938,9 @@ TEST_CASE( "SDF atlas contracts reject malformed metrics and incomplete publicat
     CHECK( Text2d::fontTexture == 99u );
     CHECK( Text2d::charAdvance[0] == 0.625f );
     CHECK( Text2d::charAdvance[95] == 0.625f );
+    CHECK( Text2d::MeasureText( 13, "\xCE\x94J" ) == 16.25f );
+    CHECK( Text2d::MeasureText( 13, "\xCE" ) == 6.5f );
+    CHECK( Text2d::MeasureText( 13, "\x7F" ) == 6.5f );
 
     Text2d::fontTexture = originalTexture;
 
@@ -1337,13 +1330,11 @@ TEST_CASE( "IH7 frame resource schedule publishes ordinary sky without cinematic
     using SkullbonezCore::Runtime::RuntimeFrameResourcePass;
     using SkullbonezCore::Runtime::RuntimeFrameResourcePassRequired;
 
-    constexpr std::array passes {
-        RuntimeFrameResourcePass::Sky,
-        RuntimeFrameResourcePass::FullscreenQuad,
-        RuntimeFrameResourcePass::SceneTarget,
-        RuntimeFrameResourcePass::Volumetric,
-        RuntimeFrameResourcePass::Tonemap
-    };
+    constexpr std::array passes { RuntimeFrameResourcePass::Sky,
+                                  RuntimeFrameResourcePass::FullscreenQuad,
+                                  RuntimeFrameResourcePass::SceneTarget,
+                                  RuntimeFrameResourcePass::Volumetric,
+                                  RuntimeFrameResourcePass::Tonemap };
 
     int ordinaryRequired = 0;
     int ordinarySky = 0;
@@ -1497,10 +1488,10 @@ TEST_CASE( "Runtime debug visualizers bound staging and clear transient epochs" 
     bool resourcesReady = false;
     int resourcePreparations = 0;
     CHECK( Runtime::PrepareCollisionVisualizerResourcePhase( [&]()
-            {
-                ++resourcePreparations;
-                resourcesReady = true;
-            }, [&]() { return resourcesReady; } ) );
+        {
+            ++resourcePreparations;
+            resourcesReady = true;
+        }, [&]() { return resourcesReady; } ) );
     CHECK( resourcePreparations == 1 );
     CHECK( Runtime::PrepareCollisionVisualizerResourcePhase( [&]() { ++resourcePreparations; }, [&]() { return resourcesReady; } ) );
     CHECK( resourcePreparations == 1 );
@@ -2208,14 +2199,12 @@ bool RunRuntimeFatalResourceAndPhysicsCase( const char* caseName )
     if ( collisionVisualShort || fixedContactShort || releaseWakeShort || fixedTreeShort || pipelineShort )
     {
         SkullbonezCore::Physics::PhysicsContactSolverStage stage;
-        SkullbonezCore::Physics::PhysicsContactSolverStageTestAccess::ReserveAndPrepare(
-            stage,
-            collisionVisualShort ? 3u : 4u,
-            fixedContactShort ? 1u : 2u,
-            releaseWakeShort ? 1u : 2u,
-            fixedTreeShort ? 1u : 2u,
-            pipelineShort ? 1u : 2u
-        );
+        SkullbonezCore::Physics::PhysicsContactSolverStageTestAccess::ReserveAndPrepare( stage,
+                                                                                         collisionVisualShort ? 3u : 4u,
+                                                                                         fixedContactShort ? 1u : 2u,
+                                                                                         releaseWakeShort ? 1u : 2u,
+                                                                                         fixedTreeShort ? 1u : 2u,
+                                                                                         pipelineShort ? 1u : 2u );
         return true;
     }
 
@@ -2314,33 +2303,31 @@ bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
         using SkullbonezCore::Physics::ConstraintSolveTransaction;
         using SkullbonezCore::Physics::ConstraintSolveTransactionTestAccess;
         using Phase = ConstraintSolvePhaseCursor::Phase;
-        constexpr std::array phases {
-            Phase::Idle,
-            Phase::EntryPolicySetup,
-            Phase::BodySetup,
-            Phase::BuildManifolds,
-            Phase::TerrainRows,
-            Phase::PrepareJoints,
-            Phase::Precompute,
-            Phase::WarmStartJoints,
-            Phase::SolveRows,
-            Phase::PointSupportInstability,
-            Phase::WriteBack,
-            Phase::DebugContacts,
-            Phase::PositionCorrection,
-            Phase::FixedContactRelease,
-            Phase::ReleasedBodySetup,
-            Phase::ReleasedManifolds,
-            Phase::ReleasedTerrainRows,
-            Phase::ReleasedJoints,
-            Phase::ReleasedPrecompute,
-            Phase::ReleasedSolveRows,
-            Phase::ReleasedWriteBack,
-            Phase::ReleasedDebugContacts,
-            Phase::CacheStore,
-            Phase::Complete,
-            Phase::Count
-        };
+        constexpr std::array phases { Phase::Idle,
+                                      Phase::EntryPolicySetup,
+                                      Phase::BodySetup,
+                                      Phase::BuildManifolds,
+                                      Phase::TerrainRows,
+                                      Phase::PrepareJoints,
+                                      Phase::Precompute,
+                                      Phase::WarmStartJoints,
+                                      Phase::SolveRows,
+                                      Phase::PointSupportInstability,
+                                      Phase::WriteBack,
+                                      Phase::DebugContacts,
+                                      Phase::PositionCorrection,
+                                      Phase::FixedContactRelease,
+                                      Phase::ReleasedBodySetup,
+                                      Phase::ReleasedManifolds,
+                                      Phase::ReleasedTerrainRows,
+                                      Phase::ReleasedJoints,
+                                      Phase::ReleasedPrecompute,
+                                      Phase::ReleasedSolveRows,
+                                      Phase::ReleasedWriteBack,
+                                      Phase::ReleasedDebugContacts,
+                                      Phase::CacheStore,
+                                      Phase::Complete,
+                                      Phase::Count };
 
         if ( contactSolvePhaseFrom >= phases.size() - 1u || contactSolvePhaseTo >= phases.size() )
         {
@@ -2367,18 +2354,16 @@ bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
         using SkullbonezCore::Runtime::OperatorCommandTransaction;
         using SkullbonezCore::Runtime::OperatorCommandTransactionTestAccess;
         using Phase = OperatorCommandPhaseCursor::Phase;
-        constexpr std::array phases {
-            Phase::Idle,
-            Phase::DeviceAndMode,
-            Phase::PhysicsControl,
-            Phase::RuntimePresentation,
-            Phase::SimulationPolicy,
-            Phase::PhysicsMaterial,
-            Phase::WorldPolicy,
-            Phase::CinematicPolicy,
-            Phase::Complete,
-            Phase::Count
-        };
+        constexpr std::array phases { Phase::Idle,
+                                      Phase::DeviceAndMode,
+                                      Phase::PhysicsControl,
+                                      Phase::RuntimePresentation,
+                                      Phase::SimulationPolicy,
+                                      Phase::PhysicsMaterial,
+                                      Phase::WorldPolicy,
+                                      Phase::CinematicPolicy,
+                                      Phase::Complete,
+                                      Phase::Count };
 
         if ( operatorPhaseFrom >= phases.size() - 1u || operatorPhaseTo >= phases.size() )
         {
@@ -2443,15 +2428,21 @@ bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
         using namespace SkullbonezCore::Core::Allocation;
         constexpr int wrongOwnerHardCapacity = 1024;
         const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
-              RuntimeReserveSubsystem::Replay,
-              RuntimeReservePhase::Replay,
-              0,
-              wrongOwnerHardCapacity,
-              RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED,
-              true,
-              "Fatal probe for unrelated Replay growth authority" } );
+                                                                                          RuntimeReserveSubsystem::Replay,
+                                                                                          RuntimeReservePhase::Replay,
+                                                                                          0,
+                                                                                          wrongOwnerHardCapacity,
+                                                                                          RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED,
+                                                                                          true,
+                                                                                          "Fatal probe for unrelated Replay growth authority" } );
 
-        RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::RequestGrowth( owner, { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, "PhysicsEngine seed", RuntimeReservePhase::Replay, 0, 0, wrongOwnerHardCapacity, 1 } );
+        RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::RequestGrowth( owner, { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
+                                                                                             "PhysicsEngine seed",
+                                                                                             RuntimeReservePhase::Replay,
+                                                                                             0,
+                                                                                             0,
+                                                                                             wrongOwnerHardCapacity,
+                                                                                             1 } );
 
         if ( !growth.granted )
         {
@@ -2817,14 +2808,14 @@ bool RunRuntimeFatalConcurrencyAndDiagnosticsCase( const char* caseName )
         std::atomic<bool> release { false };
         {
             AmortizedTask task( 1, 1, [&]( int, int )
-                {
-                    started.store( true, std::memory_order_release );
+                                {
+                                    started.store( true, std::memory_order_release );
 
-                    while ( !release.load( std::memory_order_acquire ) )
-                    {
-                        std::this_thread::yield();
-                    }
-                } );
+                                    while ( !release.load( std::memory_order_acquire ) )
+                                    {
+                                        std::this_thread::yield();
+                                    }
+                                } );
             task.SubmitTick( pool );
 
             while ( !started.load( std::memory_order_acquire ) )
@@ -2871,19 +2862,17 @@ bool RunRuntimeFatalConcurrencyAndDiagnosticsCase( const char* caseName )
             for ( uint32_t bodyIndex = 0u; bodyIndex < 2u; ++bodyIndex )
             {
                 const SkullbonezCore::Physics::PhysicsSceneObjectId sceneObjectId { bodyIndex + 1u };
-                const auto bodyDesc = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc(
-                    sceneObjectId,
-                    shape,
-                    Vector3( static_cast<float>( bodyIndex ) * 3.0f, 0.0f, 0.0f ),
-                    SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
-                    Vector3( 0.0f, 0.0f, 0.0f ),
-                    Vector3( 0.0f, 0.0f, 0.0f ),
-                    Vector3( 1.0f, 1.0f, 1.0f ),
-                    1.0f,
-                    0.0f,
-                    SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic,
-                    "fatal-point-joint-body"
-                );
+                const auto bodyDesc = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc( sceneObjectId,
+                                                                                          shape,
+                                                                                          Vector3( static_cast<float>( bodyIndex ) * 3.0f, 0.0f, 0.0f ),
+                                                                                          SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                                                                          Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                          Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                          Vector3( 1.0f, 1.0f, 1.0f ),
+                                                                                          1.0f,
+                                                                                          0.0f,
+                                                                                          SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic,
+                                                                                          "fatal-point-joint-body" );
 
                 auto colliderDesc = SkullbonezCore::Physics::MakeColliderCreateDesc( shape, 0.0f, 0u, "fatal" );
                 colliderDesc.sceneObjectId = sceneObjectId;
@@ -3129,7 +3118,7 @@ TEST_CASE( "Main memory dump reports incomplete write flush and close operations
     CHECK( runtime.WriteMainMemoryDump( replay, gameObjects, scene, "complete", 2.0 ) );
     std::ifstream input( dumpPath, std::ios::binary );
     const std::string bytes { std::istreambuf_iterator<char>( input ), std::istreambuf_iterator<char>() };
-    CHECK( bytes.find( "skullbonez.main_memory.v1" ) != std::string::npos );
+    CHECK( bytes.find( "skullbonez.main_memory.v2" ) != std::string::npos );
     input.close();
     CHECK( DeleteFileA( dumpPath ) != 0 );
 }
@@ -3163,17 +3152,15 @@ TEST_CASE( "Interaction automation rejects canonical output aliases before trunc
     char copiedScriptPath[MAX_PATH] = {};
     char copiedTracePath[MAX_PATH] = {};
     std::ofstream safeTrace;
-    CHECK( PrepareInteractionAutomationOutputPaths(
-            scriptPath,
-            safeReportPath,
-            safeTracePath,
-            copiedScriptPath,
-            sizeof( copiedScriptPath ),
-            copiedTracePath,
-            sizeof( copiedTracePath ),
-            safeTrace,
-            distinctWriter
-        ) == nullptr );
+    CHECK( PrepareInteractionAutomationOutputPaths( scriptPath,
+                                                    safeReportPath,
+                                                    safeTracePath,
+                                                    copiedScriptPath,
+                                                    sizeof( copiedScriptPath ),
+                                                    copiedTracePath,
+                                                    sizeof( copiedTracePath ),
+                                                    safeTrace,
+                                                    distinctWriter ) == nullptr );
     CHECK( distinctWriter.OutputEnabled() );
     CHECK( safeTrace.is_open() );
     safeTrace.close();
@@ -3183,17 +3170,15 @@ TEST_CASE( "Interaction automation rejects canonical output aliases before trunc
     char rejectedScriptPath[MAX_PATH] = {};
     char rejectedTracePath[MAX_PATH] = {};
     std::ofstream rejectedTrace;
-    const char* traceFailure = PrepareInteractionAutomationOutputPaths(
-        scriptPath,
-        safeReportPath,
-        canonicalAlias.c_str(),
-        rejectedScriptPath,
-        sizeof( rejectedScriptPath ),
-        rejectedTracePath,
-        sizeof( rejectedTracePath ),
-        rejectedTrace,
-        traceWriter
-    );
+    const char* traceFailure = PrepareInteractionAutomationOutputPaths( scriptPath,
+                                                                        safeReportPath,
+                                                                        canonicalAlias.c_str(),
+                                                                        rejectedScriptPath,
+                                                                        sizeof( rejectedScriptPath ),
+                                                                        rejectedTracePath,
+                                                                        sizeof( rejectedTracePath ),
+                                                                        rejectedTrace,
+                                                                        traceWriter );
     REQUIRE( traceFailure != nullptr );
     CHECK( std::strcmp( traceFailure, "interaction trace path resolves to interaction script path" ) == 0 );
     CHECK( traceWriter.OutputEnabled() );
@@ -3206,17 +3191,15 @@ TEST_CASE( "Interaction automation rejects canonical output aliases before trunc
     char reportRejectedScriptPath[MAX_PATH] = {};
     char reportRejectedTracePath[MAX_PATH] = {};
     std::ofstream reportRejectedTrace;
-    const char* reportFailure = PrepareInteractionAutomationOutputPaths(
-        scriptPath,
-        canonicalAlias.c_str(),
-        nullptr,
-        reportRejectedScriptPath,
-        sizeof( reportRejectedScriptPath ),
-        reportRejectedTracePath,
-        sizeof( reportRejectedTracePath ),
-        reportRejectedTrace,
-        reportWriter
-    );
+    const char* reportFailure = PrepareInteractionAutomationOutputPaths( scriptPath,
+                                                                         canonicalAlias.c_str(),
+                                                                         nullptr,
+                                                                         reportRejectedScriptPath,
+                                                                         sizeof( reportRejectedScriptPath ),
+                                                                         reportRejectedTracePath,
+                                                                         sizeof( reportRejectedTracePath ),
+                                                                         reportRejectedTrace,
+                                                                         reportWriter );
     REQUIRE( reportFailure != nullptr );
     CHECK( std::strcmp( reportFailure, "interaction report path resolves to interaction script path" ) == 0 );
     CHECK_FALSE( reportWriter.OutputEnabled() );
@@ -3313,12 +3296,10 @@ TEST_CASE( "Interaction report publication is atomic and replay artifact naming 
         report << retainedBytes;
     }
 
-    const SkullbonezCore::Core::AtomicTextFileTestFailure failures[] = {
-        SkullbonezCore::Core::AtomicTextFileTestFailure::Write,
-        SkullbonezCore::Core::AtomicTextFileTestFailure::Flush,
-        SkullbonezCore::Core::AtomicTextFileTestFailure::Close,
-        SkullbonezCore::Core::AtomicTextFileTestFailure::Replace,
-    };
+    const SkullbonezCore::Core::AtomicTextFileTestFailure failures[] = { SkullbonezCore::Core::AtomicTextFileTestFailure::Write,
+                                                                         SkullbonezCore::Core::AtomicTextFileTestFailure::Flush,
+                                                                         SkullbonezCore::Core::AtomicTextFileTestFailure::Close,
+                                                                         SkullbonezCore::Core::AtomicTextFileTestFailure::Replace, };
 
     for ( const SkullbonezCore::Core::AtomicTextFileTestFailure failure : failures )
     {
@@ -3356,16 +3337,14 @@ TEST_CASE( "Interaction startup failure publishes its report without replacing p
 
     SkullbonezCore::Core::SbDiagnosticStore startupDiagnostics;
     const SkullbonezCore::Core::SbResult startupFailure = startupDiagnostics.Failure( "Runtime/Scene", "recorded scene failed semantic validation" );
-    const SkullbonezCore::Core::SbResult resolved = ResolveInteractionAutomationReportForExit(
-        controller,
-        startupFailure,
-        []( void* context, InteractionAutomationRunStatus& status ) -> SkullbonezCore::Core::SbResult
+    const SkullbonezCore::Core::SbResult resolved = ResolveInteractionAutomationReportForExit( controller,
+                                                                                               startupFailure,
+                                                                                               []( void* context, InteractionAutomationRunStatus& status ) -> SkullbonezCore::Core::SbResult
         {
             auto* writer = static_cast<InteractionAutomationReportWriter*>( context );
             return writer->PublishReportBytes( status, "{\"status\":\"failed\"}\n" );
         },
-        &controller.reportWriter
-    );
+                                                                                               &controller.reportWriter );
 
     CHECK_FALSE( resolved.Ok() );
     CHECK( std::strcmp( resolved.ErrorOwner(), "Runtime/Scene" ) == 0 );
@@ -3474,14 +3453,14 @@ TEST_CASE( "AmortizedTask: Reset reports idle success and in-flight refusal" )
     std::atomic<bool> started { false };
     std::atomic<bool> release { false };
     AmortizedTask inFlightTask( 1, 1, [&]( int, int )
-        {
-            started.store( true, std::memory_order_release );
+                                {
+                                    started.store( true, std::memory_order_release );
 
-            while ( !release.load( std::memory_order_acquire ) )
-            {
-                std::this_thread::yield();
-            }
-        } );
+                                    while ( !release.load( std::memory_order_acquire ) )
+                                    {
+                                        std::this_thread::yield();
+                                    }
+                                } );
     inFlightTask.SubmitTick( workerPool );
 
     while ( !started.load( std::memory_order_acquire ) )
@@ -3507,11 +3486,11 @@ TEST_CASE( "AmortizedTask: partial work resumes at the first unfinished item" )
     std::array<int, 3> rangeBegins = {};
     int invocationCount = 0;
     AmortizedTask task( 5, 5, [&]( int begin, int end ) -> int
-        {
-            rangeBegins[static_cast<std::size_t>( invocationCount )] = begin;
-            ++invocationCount;
-            return (std::min)( 2, end - begin );
-        } );
+                        {
+                            rangeBegins[static_cast<std::size_t>( invocationCount )] = begin;
+                            ++invocationCount;
+                            return (std::min)( 2, end - begin );
+                        } );
 
     task.SubmitTick( inlinePool );
     CHECK( task.GetProgress() == doctest::Approx( 0.4f ) );
@@ -3709,18 +3688,16 @@ TEST_CASE( "IH5 old render-pass assert-only implementation is a proven non-Debug
 
 TEST_CASE( "DX12 retirement exhaustion reports truthful queue and fence diagnostics" )
 {
-    ExpectFatalCase( "dx12-retirement-capacity",
-        { "FATAL[Dx12DeferredReleaseOwner]",
-          "phase=quarantine",
-          "capacity=512 count=512 high_water=512",
-          "last_release_input=0 last_released=0 last_survivors=0",
-          "fence_ready=0 last_completed_fence=0" } );
-    ExpectFatalCase( "dx12-retirement-release-snapshot",
-        { "FATAL[Dx12DeferredReleaseOwner]",
-          "phase=quarantine",
-          "capacity=512 count=512 high_water=512",
-          "last_release_input=9 last_released=5 last_survivors=4",
-          "fence_ready=1 last_completed_fence=77" } );
+    ExpectFatalCase( "dx12-retirement-capacity", { "FATAL[Dx12DeferredReleaseOwner]",
+                                                   "phase=quarantine",
+                                                   "capacity=512 count=512 high_water=512",
+                                                   "last_release_input=0 last_released=0 last_survivors=0",
+                                                   "fence_ready=0 last_completed_fence=0" } );
+    ExpectFatalCase( "dx12-retirement-release-snapshot", { "FATAL[Dx12DeferredReleaseOwner]",
+                                                           "phase=quarantine",
+                                                           "capacity=512 count=512 high_water=512",
+                                                           "last_release_input=9 last_released=5 last_survivors=4",
+                                                           "fence_ready=1 last_completed_fence=77" } );
     ExpectFatalCase( "dx12-retirement-reset-live-device", { "FATAL[Dx12DeferredReleaseOwner]", "phase=device_reset", "count=1" } );
     ExpectFatalCase( "dx12-retirement-reset-live-shutdown", { "FATAL[Dx12DeferredReleaseOwner]", "phase=shutdown_reset", "count=1" } );
 }
@@ -3746,11 +3723,26 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
 {
     ExpectFatalCase( "physics-pipeline-batch-full-mode", { "FATAL[Physics/PhysicsStepDiagnostics]", "Count-only pipeline event batches cannot be recorded while full payload retention is active" } );
 
-    ExpectFatalCase( "physics-fixed-list-runtime-capacity", { "FATAL: PhysicsFixedList capacity exceeded", "owner=fatal.physics-fixed-list.runtime", "requested=2", "runtime_capacity=1", "compile_capacity=4", "ceiling=runtime_reservation" } );
+    ExpectFatalCase( "physics-fixed-list-runtime-capacity", { "FATAL: PhysicsFixedList capacity exceeded",
+                                                              "owner=fatal.physics-fixed-list.runtime",
+                                                              "requested=2",
+                                                              "runtime_capacity=1",
+                                                              "compile_capacity=4",
+                                                              "ceiling=runtime_reservation" } );
 
-    ExpectFatalCase( "physics-fixed-list-compile-capacity", { "FATAL: PhysicsFixedList capacity exceeded", "owner=fatal.physics-fixed-list.compile", "requested=3", "runtime_capacity=0", "compile_capacity=2", "ceiling=compile_time_ceiling" } );
+    ExpectFatalCase( "physics-fixed-list-compile-capacity", { "FATAL: PhysicsFixedList capacity exceeded",
+                                                              "owner=fatal.physics-fixed-list.compile",
+                                                              "requested=3",
+                                                              "runtime_capacity=0",
+                                                              "compile_capacity=2",
+                                                              "ceiling=compile_time_ceiling" } );
 
-    ExpectFatalCase( "physics-fixed-list-phase", { "FATAL: PhysicsFixedList reserve denied", "owner=fatal.physics-fixed-list.phase", "requested=1", "runtime_capacity=0", "compile_capacity=2", "phase=startup" } );
+    ExpectFatalCase( "physics-fixed-list-phase", { "FATAL: PhysicsFixedList reserve denied",
+                                                   "owner=fatal.physics-fixed-list.phase",
+                                                   "requested=1",
+                                                   "runtime_capacity=0",
+                                                   "compile_capacity=2",
+                                                   "phase=startup" } );
 
     ExpectFatalCase( "collider-rebind-shape-index", { "FATAL[Physics/ColliderStore]", "operation=rebind", "kind=0", "index=3", "shape_count=3" } );
     ExpectFatalCase( "collider-remove-shape-index", { "FATAL[Physics/ColliderStore]", "operation=remove", "kind=1", "index=1", "shape_count=1" } );
@@ -3764,35 +3756,31 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
     ExpectFatalCase( "contact-side-effect-fixed-tree", { "FATAL[Physics/PhysicsContactSolverStage]", "lane=fixedTreeReleases", "required=2", "capacity=1" } );
     ExpectFatalCase( "contact-side-effect-pipeline", { "FATAL[Physics/PhysicsContactSolverStage]", "lane=pipelineRecords", "required=2", "capacity=1" } );
 
-    ExpectFatalCase( "physics-prediction-seed-wrong-replay-owner",
-        { "FATAL[Physics/ReplayPredictionClone]",
-          "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
-          "owner_name=replay_solver_snapshot",
-          "required_owner=replay_prediction_working_set" } );
+    ExpectFatalCase( "physics-prediction-seed-wrong-replay-owner", { "FATAL[Physics/ReplayPredictionClone]",
+                                                                     "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
+                                                                     "owner_name=replay_solver_snapshot",
+                                                                     "required_owner=replay_prediction_working_set" } );
 
-    ExpectFatalCase( "physics-prediction-seed-missing-scope",
-        { "FATAL[Physics/ReplayPredictionClone]",
-          "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
-          "phase=startup",
-          "owner=0",
-          "owner_name=<unregistered>",
-          "required_owner=replay_prediction_working_set" } );
+    ExpectFatalCase( "physics-prediction-seed-missing-scope", { "FATAL[Physics/ReplayPredictionClone]",
+                                                                "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
+                                                                "phase=startup",
+                                                                "owner=0",
+                                                                "owner_name=<unregistered>",
+                                                                "required_owner=replay_prediction_working_set" } );
 
-    ExpectFatalCase( "physics-prediction-seed-scene-load",
-        { "FATAL[Physics/ReplayPredictionClone]",
-          "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
-          "phase=scene_load",
-          "owner=0",
-          "owner_name=<unregistered>",
-          "required_owner=replay_prediction_working_set" } );
+    ExpectFatalCase( "physics-prediction-seed-scene-load", { "FATAL[Physics/ReplayPredictionClone]",
+                                                             "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
+                                                             "phase=scene_load",
+                                                             "owner=0",
+                                                             "owner_name=<unregistered>",
+                                                             "required_owner=replay_prediction_working_set" } );
 
-    ExpectFatalCase( "physics-prediction-seed-missing-owner",
-        { "FATAL[Physics/ReplayPredictionClone]",
-          "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
-          "phase=replay",
-          "owner=0",
-          "owner_name=<unregistered>",
-          "required_owner=replay_prediction_working_set" } );
+    ExpectFatalCase( "physics-prediction-seed-missing-owner", { "FATAL[Physics/ReplayPredictionClone]",
+                                                                "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
+                                                                "phase=replay",
+                                                                "owner=0",
+                                                                "owner_name=<unregistered>",
+                                                                "required_owner=replay_prediction_working_set" } );
 
     ExpectFatalCase( "terrain-locate-cell-range", { "FATAL[Terrain]", "Terrain polygon cell out of range", "worldXCell=3", "quadsPerSide=3" } );
 
@@ -3812,17 +3800,39 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
 
     ExpectFatalCase( "spatial-grid-tiny-cell", { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=0.25", "minimum=0.5" } );
 
-    ExpectFatalCase( "spatial-grid-reserve-phase", { "FATAL: PhysicsFixedList reserve denied", "owner=SpatialGrid.entries", "requested=1032", "runtime_capacity=0", "compile_capacity=131076", "phase=startup" } );
+    ExpectFatalCase( "spatial-grid-reserve-phase", { "FATAL: PhysicsFixedList reserve denied",
+                                                     "owner=SpatialGrid.entries",
+                                                     "requested=1032",
+                                                     "runtime_capacity=0",
+                                                     "compile_capacity=131076",
+                                                     "phase=startup" } );
 
-    ExpectFatalCase( "spatial-grid-entry-capacity", { "FATAL: PhysicsFixedList capacity exceeded", "owner=SpatialGrid.entries", "requested=1033", "runtime_capacity=1032", "compile_capacity=131076", "high_water=1032", "phase=physics" } );
+    ExpectFatalCase( "spatial-grid-entry-capacity", { "FATAL: PhysicsFixedList capacity exceeded",
+                                                      "owner=SpatialGrid.entries",
+                                                      "requested=1033",
+                                                      "runtime_capacity=1032",
+                                                      "compile_capacity=131076",
+                                                      "high_water=1032",
+                                                      "phase=physics" } );
 
     ExpectCleanControlCase( "spatial-grid-overlay-entry-capacity", { "spatial-grid-overlay-fallback-complete" } );
 
     ExpectFatalCase( "spatial-grid-bucket-capacity", { "FATAL[Physics/SpatialGrid]", "bucket capacity exceeded", "capacity=8192", "active=8192", "phase=steady_gameplay" } );
 
-    ExpectFatalCase( "sleep-support-edge-reserved-capacity", { "FATAL[Physics/SleepSupportEdges]", "Sleep support edge capacity exceeded", "requested=3", "capacity=32768", "reserved_capacity=2", "high_water=2", "phase=steady_gameplay" } );
+    ExpectFatalCase( "sleep-support-edge-reserved-capacity", { "FATAL[Physics/SleepSupportEdges]",
+                                                               "Sleep support edge capacity exceeded",
+                                                               "requested=3",
+                                                               "capacity=32768",
+                                                               "reserved_capacity=2",
+                                                               "high_water=2",
+                                                               "phase=steady_gameplay" } );
 
-    ExpectFatalCase( "sleep-support-edge-capacity", { "FATAL[Physics/SleepSupportEdges]", "Sleep support edge capacity exceeded", "requested=32769", "capacity=32768", "high_water=32768", "phase=steady_gameplay" } );
+    ExpectFatalCase( "sleep-support-edge-capacity", { "FATAL[Physics/SleepSupportEdges]",
+                                                      "Sleep support edge capacity exceeded",
+                                                      "requested=32769",
+                                                      "capacity=32768",
+                                                      "high_water=32768",
+                                                      "phase=steady_gameplay" } );
 
     ExpectFatalCase( "amortized-task-in-flight-destroy", { "FATAL[Core/AmortizedTask]", "Destroying AmortizedTask while worker chunk is in flight" } );
 
@@ -3830,20 +3840,44 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
     ExpectFatalCase( "texture-slot-capacity", { "FATAL[TextureCollection]", "Texture slot capacity exhausted", "capacity=8" } );
     ExpectFatalCase( "tornado-visual-unprepared-frame", { "FATAL[Gameplay/TornadoVisualPass]", "Tornado visual frame is not prepared", "operation=UnpreparedProbe", "field=0", "system=0" } );
     ExpectFatalCase( "tornado-visual-released-frame", { "FATAL[Gameplay/TornadoVisualPass]", "Tornado visual frame is not prepared", "operation=ReleasedProbe", "field=0", "system=0" } );
-    ExpectFatalCase( "replay-restore-pending-timeline-complete", { "FATAL[Runtime/ReplayRestoreTransaction]", "Restore completion reached without satisfying branch timeline state", "required=1", "applied=0" } );
+    ExpectFatalCase( "replay-restore-pending-timeline-complete", { "FATAL[Runtime/ReplayRestoreTransaction]",
+                                                                   "Restore completion reached without satisfying branch timeline state",
+                                                                   "required=1",
+                                                                   "applied=0" } );
 
-    ExpectFatalCase( "replay-restore-unproved-rollback", { "FATAL[Runtime/ReplayRestoreTransaction]", "Rollback completed without verified live-backup application", "mutated=1", "backup=1", "applied=0" } );
+    ExpectFatalCase( "replay-restore-unproved-rollback", { "FATAL[Runtime/ReplayRestoreTransaction]",
+                                                           "Rollback completed without verified live-backup application",
+                                                           "mutated=1",
+                                                           "backup=1",
+                                                           "applied=0" } );
 
     ExpectFatalCase( "scene-capacity-hard-ceiling", { "FATAL[Physics/SceneCapacity]", "owner=Physics/PhysicsEngine", "requested_bodies=9000", "ceiling=8192" } );
 
     ExpectFatalCase( "point-joint-scene-capacity", { "FATAL[Physics/PointJoint]", "owner=Physics/PhysicsWorld", "requested=9", "capacity=8", "retained_capacity=12" } );
 
 #if defined( _DEBUG ) || defined( SKULLBONEZ_PROFILE_ENABLED ) || defined( SKULLBONEZ_TEST_PROFILE_ALLOCATION_FATAL )
-    ExpectFatalCase( "allocation-foreign-page-boundary", { "FATAL[Runtime/Allocation]", "unprovable foreign pointer delete", "phase=diagnostics", "owner=0", "header=unreadable", "foreign_free_count=1" } );
+    ExpectFatalCase( "allocation-foreign-page-boundary", { "FATAL[Runtime/Allocation]",
+                                                           "unprovable foreign pointer delete",
+                                                           "phase=diagnostics",
+                                                           "owner=0",
+                                                           "header=unreadable",
+                                                           "foreign_free_count=1" } );
 
-    ExpectFatalCase( "allocation-foreign-shaped-header", { "FATAL[Runtime/Allocation]", "unprovable foreign pointer delete", "phase=diagnostics", "owner=0", "header=bad_provenance", "foreign_free_count=1" } );
+    ExpectFatalCase( "allocation-foreign-shaped-header", { "FATAL[Runtime/Allocation]",
+                                                           "unprovable foreign pointer delete",
+                                                           "phase=diagnostics",
+                                                           "owner=0",
+                                                           "header=bad_provenance",
+                                                           "foreign_free_count=1" } );
 #else
-    ExpectCleanChildCase( "allocation-foreign-crt-release", { "[allocation-guard] FOREIGN_FREE", "phase=diagnostics", "owner=0", "header=bad_magic", "foreign_free_count=1", "mode=measure", "foreign_frees=1", "VIOLATION:" } );
+    ExpectCleanChildCase( "allocation-foreign-crt-release", { "[allocation-guard] FOREIGN_FREE",
+                                                              "phase=diagnostics",
+                                                              "owner=0",
+                                                              "header=bad_magic",
+                                                              "foreign_free_count=1",
+                                                              "mode=measure",
+                                                              "foreign_frees=1",
+                                                              "VIOLATION:" } );
 #endif
     ExpectFatalCase( "allocation-size-overflow", { "FATAL[Runtime/Allocation]", "global operator new failed", "reason=size_arithmetic_overflow", "size=18446744073709551615" } );
 }
@@ -3903,33 +3937,31 @@ TEST_CASE( "Persistent contact solve transaction enforces every phase edge throu
     using SkullbonezCore::Physics::ConstraintSolveTransaction;
     using SkullbonezCore::Physics::ConstraintSolveTransactionTestAccess;
     using Phase = ConstraintSolvePhaseCursor::Phase;
-    constexpr std::array phases {
-        Phase::Idle,
-        Phase::EntryPolicySetup,
-        Phase::BodySetup,
-        Phase::BuildManifolds,
-        Phase::TerrainRows,
-        Phase::PrepareJoints,
-        Phase::Precompute,
-        Phase::WarmStartJoints,
-        Phase::SolveRows,
-        Phase::PointSupportInstability,
-        Phase::WriteBack,
-        Phase::DebugContacts,
-        Phase::PositionCorrection,
-        Phase::FixedContactRelease,
-        Phase::ReleasedBodySetup,
-        Phase::ReleasedManifolds,
-        Phase::ReleasedTerrainRows,
-        Phase::ReleasedJoints,
-        Phase::ReleasedPrecompute,
-        Phase::ReleasedSolveRows,
-        Phase::ReleasedWriteBack,
-        Phase::ReleasedDebugContacts,
-        Phase::CacheStore,
-        Phase::Complete,
-        Phase::Count
-    };
+    constexpr std::array phases { Phase::Idle,
+                                  Phase::EntryPolicySetup,
+                                  Phase::BodySetup,
+                                  Phase::BuildManifolds,
+                                  Phase::TerrainRows,
+                                  Phase::PrepareJoints,
+                                  Phase::Precompute,
+                                  Phase::WarmStartJoints,
+                                  Phase::SolveRows,
+                                  Phase::PointSupportInstability,
+                                  Phase::WriteBack,
+                                  Phase::DebugContacts,
+                                  Phase::PositionCorrection,
+                                  Phase::FixedContactRelease,
+                                  Phase::ReleasedBodySetup,
+                                  Phase::ReleasedManifolds,
+                                  Phase::ReleasedTerrainRows,
+                                  Phase::ReleasedJoints,
+                                  Phase::ReleasedPrecompute,
+                                  Phase::ReleasedSolveRows,
+                                  Phase::ReleasedWriteBack,
+                                  Phase::ReleasedDebugContacts,
+                                  Phase::CacheStore,
+                                  Phase::Complete,
+                                  Phase::Count };
     constexpr std::size_t entryIndex = 1u;
     constexpr std::size_t jointPreparationIndex = 5u;
     constexpr std::size_t completeIndex = phases.size() - 2u;
@@ -4118,7 +4150,10 @@ TEST_CASE( "Replay startup probe continuation admits only serviced finite-state 
     CheckReplayStartupApplicationMatrix();
 
     ExpectFatalCase( "replay-startup-illegal-transition", { "FATAL[Runtime/ReplayStartupProbeContinuation]", "Illegal startup-probe continuation transition", "operation=FatalContractProbe" } );
-    ExpectFatalCase( "replay-startup-restore-action-without-transaction", { "FATAL[Runtime/ReplayStartupProbeContinuation]", "application state is incoherent", "operation=FatalContractProbe", "restore=0" } );
+    ExpectFatalCase( "replay-startup-restore-action-without-transaction", { "FATAL[Runtime/ReplayStartupProbeContinuation]",
+                                                                            "application state is incoherent",
+                                                                            "operation=FatalContractProbe",
+                                                                            "restore=0" } );
 
     Continuation rejectedActivation( 0.0 );
     ContinuationTestAccess::SeedPendingPresentationActivation( rejectedActivation );
@@ -4138,18 +4173,16 @@ TEST_CASE( "Operator command transaction enforces every phase edge through fatal
     using SkullbonezCore::Runtime::OperatorCommandTransaction;
     using SkullbonezCore::Runtime::OperatorCommandTransactionTestAccess;
     using Phase = OperatorCommandPhaseCursor::Phase;
-    constexpr std::array phases {
-        Phase::Idle,
-        Phase::DeviceAndMode,
-        Phase::PhysicsControl,
-        Phase::RuntimePresentation,
-        Phase::SimulationPolicy,
-        Phase::PhysicsMaterial,
-        Phase::WorldPolicy,
-        Phase::CinematicPolicy,
-        Phase::Complete,
-        Phase::Count
-    };
+    constexpr std::array phases { Phase::Idle,
+                                  Phase::DeviceAndMode,
+                                  Phase::PhysicsControl,
+                                  Phase::RuntimePresentation,
+                                  Phase::SimulationPolicy,
+                                  Phase::PhysicsMaterial,
+                                  Phase::WorldPolicy,
+                                  Phase::CinematicPolicy,
+                                  Phase::Complete,
+                                  Phase::Count };
 
     for ( std::size_t fromIndex = 0u; fromIndex < phases.size(); ++fromIndex )
     {
@@ -4204,19 +4237,17 @@ TEST_CASE( "SceneWorld deletion preserves the moved tornado body timer history" 
         entity.sceneObjectId = sceneObjectId;
         entity.SetName( "tornado-state-remap-body" );
 
-        auto bodyDesc = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc(
-            sceneObjectId,
-            shape,
-            Vector3( static_cast<float>( index ), 5.0f, 0.0f ),
-            SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
-            Vector3( 0.0f, 0.0f, 0.0f ),
-            Vector3( 0.0f, 0.0f, 0.0f ),
-            Vector3( 0.4f, 0.4f, 0.4f ),
-            1.0f,
-            0.0f,
-            SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic,
-            "tornado-state-remap-body"
-        );
+        auto bodyDesc = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc( sceneObjectId,
+                                                                            shape,
+                                                                            Vector3( static_cast<float>( index ), 5.0f, 0.0f ),
+                                                                            SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                                                            Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                            Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                            Vector3( 0.4f, 0.4f, 0.4f ),
+                                                                            1.0f,
+                                                                            0.0f,
+                                                                            SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic,
+                                                                            "tornado-state-remap-body" );
         auto colliderDesc = SkullbonezCore::Physics::MakeColliderCreateDesc( shape, 0.0f, 0u, "tornado-state-remap-body" );
         colliderDesc.sceneObjectId = sceneObjectId;
 
@@ -4337,36 +4368,34 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
     int rendererStarts = 0;
     std::string failureTitle;
     std::vector<int> startupSequence;
-    const SbResult startupFailure = SkullbonezCore::Runtime::StartRendererAfterRawMouseRegistration(
-        failure,
-        [&]( const SbResult&, const char* title )
+    const SbResult startupFailure = SkullbonezCore::Runtime::StartRendererAfterRawMouseRegistration( failure,
+                                                                                                     [&]( const SbResult&, const char* title )
         {
             ++reportedFailures;
             failureTitle = title ? title : "";
             startupSequence.push_back( 1 );
         },
-        [&]()
+                                                                                                     [&]()
         {
             ++workerShutdowns;
             startupSequence.push_back( 2 );
         },
-        [&]()
+                                                                                                     [&]()
         {
             ++windowCleanups;
             startupSequence.push_back( 4 );
         },
-        [&]()
+                                                                                                     [&]()
         {
             ++comUninitializations;
             startupSequence.push_back( 5 );
         },
-        [&]()
+                                                                                                     [&]()
         {
             ++rendererStarts;
             startupSequence.push_back( 6 );
             return SbResult::Success();
-        }
-    );
+        } );
     REQUIRE_FALSE( startupFailure.Ok() );
     CHECK( std::strcmp( startupFailure.ErrorOwner(), "Runtime/Input" ) == 0 );
     CHECK( failureTitle == "SkullbonezCore Input Startup Failed" );
@@ -4383,35 +4412,33 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
     CHECK( probe.called );
 
     startupSequence.clear();
-    const SbResult startupSuccess = SkullbonezCore::Runtime::StartRendererAfterRawMouseRegistration(
-        success,
-        [&]( const SbResult&, const char* )
+    const SbResult startupSuccess = SkullbonezCore::Runtime::StartRendererAfterRawMouseRegistration( success,
+                                                                                                     [&]( const SbResult&, const char* )
         {
             ++reportedFailures;
             startupSequence.push_back( 1 );
         },
-        [&]()
+                                                                                                     [&]()
         {
             ++workerShutdowns;
             startupSequence.push_back( 2 );
         },
-        [&]()
+                                                                                                     [&]()
         {
             ++windowCleanups;
             startupSequence.push_back( 4 );
         },
-        [&]()
+                                                                                                     [&]()
         {
             ++comUninitializations;
             startupSequence.push_back( 5 );
         },
-        [&]()
+                                                                                                     [&]()
         {
             ++rendererStarts;
             startupSequence.push_back( 6 );
             return SbResult::Success();
-        }
-    );
+        } );
     CHECK( startupSuccess.Ok() );
     CHECK( reportedFailures == 1 );
     CHECK( workerShutdowns == 1 );
@@ -4464,4 +4491,41 @@ TEST_CASE( "Render model selection encodes all marked and unmarked modes" )
 TEST_CASE( "Shared solver continuation retains one capped manifold publication budget above 256 bodies" )
 {
     SkullbonezCore::Physics::PhysicsContactSolverStageTestAccess::CheckCombinedManifoldCapacity();
+}
+
+
+TEST_CASE( "Process memory counters expose committed and touched allocations independently" )
+{
+    using SkullbonezCore::Runtime::RuntimeDiagnostics;
+    const auto before = RuntimeDiagnostics::SampleProcessMemory( false );
+    constexpr SIZE_T bytes = 32u * 1024u * 1024u;
+    void* allocation = VirtualAlloc( nullptr, bytes, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE );
+    REQUIRE( allocation != nullptr );
+    const auto committed = RuntimeDiagnostics::SampleProcessMemory( false );
+    volatile unsigned char* pages = static_cast<volatile unsigned char*>( allocation );
+
+    for ( SIZE_T offset = 0; offset < bytes; offset += 4096u )
+    {
+        pages[offset] = 1;
+    }
+
+    const auto touched = RuntimeDiagnostics::SampleProcessMemory( false );
+    const bool released = VirtualFree( allocation, 0, MEM_RELEASE ) != FALSE;
+    CHECK( released );
+    REQUIRE( before.available );
+    REQUIRE( committed.available );
+    REQUIRE( touched.available );
+    CHECK( committed.privateCommitBytes >= before.privateCommitBytes + 28u * 1024u * 1024u );
+    CHECK( touched.taskManagerBytes == touched.privateWorkingSetBytes );
+    CHECK( std::strcmp( touched.taskManagerMetricName, "private_working_set" ) == 0 );
+
+    if ( touched.privateWorkingSetAvailable && before.privateWorkingSetAvailable )
+    {
+        CHECK( touched.privateWorkingSetBytes >= before.privateWorkingSetBytes + 16u * 1024u * 1024u );
+        CHECK( touched.workingSetBytes >= touched.privateWorkingSetBytes );
+    }
+    else
+    {
+        CHECK( touched.taskManagerBytes == 0u );
+    }
 }

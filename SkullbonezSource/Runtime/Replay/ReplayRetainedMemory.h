@@ -73,7 +73,7 @@ struct ReplayGrowthOwnerPolicy
 {
     const char* ownerName;
     SkullbonezCore::Core::Allocation::RuntimeReservePhase phase;
-    int hardBytes;
+    uint64_t hardBytes;
     uint64_t measuredHighWaterBytes;
     ReplayGrowthExhaustionRule exhaustion;
 };

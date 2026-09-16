@@ -115,6 +115,8 @@ class ReplayPredictionPresentation
     const ReplayVisualPacket& PublishedVisualPacketView() const noexcept;
     std::span<const ReplayPredictionGhostDrawRequest> GhostDrawRequestsView() const noexcept;
     void ClearGhostDrawRequests() noexcept;
+    // Retire all borrowed prediction spans before the producer frees storage.
+    void RetirePredictionPublication() noexcept;
     const std::vector<uint8_t>& FocusModelMaskView() const noexcept;
     ReplayPredictionPresentationMemoryStats CollectMemoryStats() const noexcept;
     uint64_t AppearanceInvalidationCount() const noexcept

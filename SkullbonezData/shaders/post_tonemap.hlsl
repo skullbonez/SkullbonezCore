@@ -39,7 +39,7 @@ cbuffer Uniforms : register(b0)
     float uGamma;
     float uVolumetricCompositeStrength;
     float _padding0;
-    float4 uDepthParams; // near, far, unused, unused
+    float4 uDepthParams; // perspective near/far, orthographic depth scale/offset
     float4 uFogParams;   // start, end, density, max opacity
     float3 uFogColor;
     float _padding1;
@@ -99,6 +99,10 @@ float3 TonemapACES(float3 color)
 
 float LinearizeDepth(float depth)
 {
+    if (uDepthParams.z > 0.0f)
+    {
+        return depth * uDepthParams.z + uDepthParams.w;
+    }
     // Hardware depth is stored non-linearly for precision. This converts it
     // back into an approximate camera distance so fog can fade by scene depth.
     float nearPlane = max(uDepthParams.x, 0.0001f);

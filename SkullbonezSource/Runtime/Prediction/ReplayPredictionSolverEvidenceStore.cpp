@@ -301,6 +301,8 @@ Physics::PhysicsPipelineRecord* ReplayPredictionSolverEvidenceStore::MutablePipe
     return &m_pipelineSegments[index / REPLAY_PREDICTION_EVIDENCE_PIPELINE_SEGMENT_CAPACITY]->rows[index % REPLAY_PREDICTION_EVIDENCE_PIPELINE_SEGMENT_CAPACITY];
 }
 
+// Invariant: each grant covers one segment; the allocator tracks the aggregate
+// in uint64_t even when the bank total exceeds int-sized request capacities.
 bool ReplayPredictionSolverEvidenceStore::EnsureFrameSegments( std::size_t requiredCount, int frameNumber )
 {
     const std::size_t requiredSegments = RequiredSegments( requiredCount, REPLAY_PREDICTION_EVIDENCE_FRAME_SEGMENT_CAPACITY );
@@ -312,17 +314,9 @@ bool ReplayPredictionSolverEvidenceStore::EnsureFrameSegments( std::size_t requi
             return false;
         }
 
-        const uint64_t oldBytes = CollectMemoryStats().currentCapacityBytes;
-        const uint64_t requestedBytes = oldBytes + sizeof( FrameSegment );
         Core::Allocation::RuntimeReserveGrowthResult result = {};
 
-        if ( !RequestReplayPredictionReserveGrowth( "ReplayPredictionSolverEvidenceStore::frames",
-                                                    frameNumber,
-                                                    static_cast<int>( oldBytes ),
-                                                    static_cast<int>( requestedBytes ),
-                                                    1,
-                                                    result,
-                                                    sizeof( FrameSegment ) ) )
+        if ( !RequestReplayPredictionReserveGrowth( "ReplayPredictionSolverEvidenceStore::frames", frameNumber, 0, static_cast<int>( sizeof( FrameSegment ) ), 1, result, sizeof( FrameSegment ) ) )
         {
             return false;
         }
@@ -348,14 +342,12 @@ bool ReplayPredictionSolverEvidenceStore::EnsureContactSegments( std::size_t req
             return false;
         }
 
-        const uint64_t oldBytes = CollectMemoryStats().currentCapacityBytes;
-        const uint64_t requestedBytes = oldBytes + sizeof( ContactSegment );
         Core::Allocation::RuntimeReserveGrowthResult result = {};
 
         if ( !RequestReplayPredictionReserveGrowth( "ReplayPredictionSolverEvidenceStore::contacts",
                                                     frameNumber,
-                                                    static_cast<int>( oldBytes ),
-                                                    static_cast<int>( requestedBytes ),
+                                                    0,
+                                                    static_cast<int>( sizeof( ContactSegment ) ),
                                                     1,
                                                     result,
                                                     sizeof( ContactSegment ) ) )
@@ -384,14 +376,12 @@ bool ReplayPredictionSolverEvidenceStore::EnsurePipelineSegments( std::size_t re
             return false;
         }
 
-        const uint64_t oldBytes = CollectMemoryStats().currentCapacityBytes;
-        const uint64_t requestedBytes = oldBytes + sizeof( PipelineSegment );
         Core::Allocation::RuntimeReserveGrowthResult result = {};
 
         if ( !RequestReplayPredictionReserveGrowth( "ReplayPredictionSolverEvidenceStore::pipeline",
                                                     frameNumber,
-                                                    static_cast<int>( oldBytes ),
-                                                    static_cast<int>( requestedBytes ),
+                                                    0,
+                                                    static_cast<int>( sizeof( PipelineSegment ) ),
                                                     1,
                                                     result,
                                                     sizeof( PipelineSegment ) ) )
@@ -501,6 +491,15 @@ void ReplayPredictionSolverEvidenceBanks::ReleaseCapacity() noexcept
     m_banks[1].ReleaseCapacity();
     m_lastReleaseAfterCapacityBytes = m_banks[0].CollectMemoryStats().currentCapacityBytes + m_banks[1].CollectMemoryStats().currentCapacityBytes;
     ++m_releaseCheckpointCount;
+}
+
+void ReplayPredictionSolverEvidenceBanks::ResumeCommittedBuild() noexcept
+{
+    // Lifetime: the caller has joined the worker. The same generation and bank
+    // epoch stay attached to every sealed row while new tail frames append.
+    const uint8_t committed = m_committedIndex.load( std::memory_order_acquire );
+    m_committedIndex.store( m_buildIndex, std::memory_order_release );
+    m_buildIndex = committed;
 }
 
 void ReplayPredictionSolverEvidenceBanks::ReleaseBuildCapacity() noexcept

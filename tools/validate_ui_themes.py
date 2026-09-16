@@ -51,12 +51,14 @@ def run(root: Path) -> None:
             deadline = time.monotonic() + .2
             while time.monotonic() < deadline:
                 send('run.step_frames', count=3)
-            with (directory/'runtime.skarness.ndjson').open() as stream:
+            with (directory/'runtime.skarness.ndjson').open('rb') as stream:
                 stream.seek(offset)
                 for line in stream:
+                    if not line.endswith(b'\n'):
+                        break
+                    offset += len(line)
                     row = json.loads(line)
                     if 'topic' in row: latest[row['topic']] = row['payload']
-                offset = stream.tell()
             (directory/(name+'.json')).write_text(json.dumps(latest, indent=2))
             return latest['ui.presentation']
         def click(x: float, y: float) -> None:
@@ -65,13 +67,26 @@ def run(root: Path) -> None:
             path = directory/(name+'.png')
             send('input.pointer_position', x=800, y=180, enabled=True)
             send('capture.screenshot', path=str(path))
+            ui = latest['ui.presentation']
+            # Check the actual texture submission at both native toolbar sizes.
+            # Bone and dark eye sockets must both survive at the small sizes.
+            marks = [(8, 6, 30, 30)]
+            if ui['toolsVisible']:
+                x, y, _, _ = ui['drawerBounds']
+                marks.append((round(x+14), round(y+11), 22, 22))
+            with Image.open(path).convert('RGB') as image:
+                for x, y, w, h in marks:
+                    pixels = list(image.crop((x, y, x+w, y+h)).getdata())
+                    bone = sum(abs(r-230) <= 6 and abs(g-235) <= 6 and abs(b-240) <= 6 for r, g, b in pixels)
+                    eyes = [image.getpixel((round(x+w*cx/24), round(y+h*12/24))) for cx in (8, 16)]
+                    assert bone >= 30 and all(max(abs(a-b) for a,b in zip(eye, (26,31,38))) <= 12 for eye in eyes), (name, (x,y,w,h), bone, eyes)
             return path
         try:
             assert {'input.pointer_drag', 'capture.screenshot'} <= set(send('capabilities.get')['commands'])
             send('state.subscribe', topics=[], detail='normal')
             ui = sample('initial')
             assert ui['theme'] == expected and ui['layout'] == 'Editor' and ui['activeTool'] == 4, ui
-            assert not ui['toolsVisible']
+            assert ui['toolsVisible'] == (label not in ('live', 'version-4-summary-defaults'))
             if not exercise:
                 capture('restored')
                 if label == 'reload':
@@ -127,11 +142,11 @@ def run(root: Path) -> None:
     session('live', 0, True)
     saved = prefs.read_text()
     assert 'folded 7\n' in saved, saved
-    assert 'version 5\n' in saved and 'theme 2\n' in saved and 'drawer 480\n' in saved, saved
+    assert 'version 6\n' in saved and 'theme 2\n' in saved and 'drawer 480\n' in saved, saved
     session('reload', 2)
-    prefs.write_text(saved.replace('version 5', 'version 4').replace('folded 7\n', 'folded 0\n'))
+    prefs.write_text(saved.replace('version 6', 'version 4').replace('toolsOpen 1\n', '').replace('folded 7\n', 'folded 0\n'))
     session('version-4-summary-defaults', 2)
-    assert 'version 5\n' in prefs.read_text() and 'folded 7\n' in prefs.read_text()
+    assert 'version 6\n' in prefs.read_text() and 'folded 7\n' in prefs.read_text()
     prefs.write_text(saved.replace('folded 7\n', 'folded 0\n'))
     session('current-summary-choice', 2)
     assert 'folded 0\n' in prefs.read_text()

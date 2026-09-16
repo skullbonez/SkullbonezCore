@@ -91,6 +91,15 @@ struct ReplayOverlayGestureView
     bool predictionHorizonDrag = false;
 };
 
+inline UI::UIRect ReplayOutlineToggleRect( const UI::UIRect& controls, float scroll, int index ) noexcept
+{
+    if ( controls.w <= 0 || controls.h <= 0 || index < 0 || index > 1 )
+    {
+        return {};
+    }
+    return { controls.x + 10, controls.y + 370 + index * 32 - std::clamp( scroll, 0.0f, 1.0f ) * (std::max)( 0.0f, 434.0f - controls.h ), (std::max)( 0.0f, controls.w - 20 ), 24 };
+}
+
 // Lifetime: this synchronous subview borrows only the owners needed to draw
 // the replay scrubber. Intercept, trip-planning, porkchop, and cause surfaces
 // stay outside it, so the scrubber phase cannot reach unrelated overlay state.
@@ -170,15 +179,19 @@ struct ReplayVelocityDivergenceView
 // Both drawing and input use these viewport-contained choice rectangles.
 inline UI::UIRect ReplayDivergenceChoiceRect( const UI::UIRect& viewport, bool red ) noexcept
 {
-    const float width = (std::min)( 128.0f, (std::max)( 0.0f, ( viewport.w - 24.0f ) * 0.5f ) );
-    return { viewport.x + 8.0f + ( red ? 0.0f : width + 8.0f ), viewport.y + (std::max)( 0.0f, viewport.h - 40.0f ), width, (std::min)( 30.0f, viewport.h ) };
+    // Reserve the left corner for editor camera controls. Narrow panes place
+    // the experiment actions above that corner instead of covering its buttons.
+    const float inset = viewport.w >= 412.0f ? 132.0f : 0.0f;
+    const float bottom = inset > 0 ? 40.0f : 220.0f;
+    const float width = (std::min)( 128.0f, (std::max)( 0.0f, ( viewport.w - inset - 24.0f ) * 0.5f ) );
+    return { viewport.x + inset + 8.0f + ( red ? 0.0f : width + 8.0f ), viewport.y + (std::max)( 0.0f, viewport.h - bottom ), width, (std::min)( 30.0f, viewport.h ) };
 }
 
 // Additional experiment controls wrap vertically inside the scene viewport.
 inline UI::UIRect ReplayDivergenceToolRect( const UI::UIRect& viewport, int index ) noexcept
 {
     const auto choice = ReplayDivergenceChoiceRect( viewport, true );
-    return { choice.x, (std::max)( viewport.y, choice.y - 36.0f * ( index + 1 ) ), (std::min)( 264.0f, (std::max)( 0.0f, viewport.w - 16.0f ) ), choice.h };
+    return { choice.x, (std::max)( viewport.y, choice.y - 36.0f * ( index + 1 ) ), (std::min)( 264.0f, (std::max)( 0.0f, viewport.x + viewport.w - choice.x - 8.0f ) ), choice.h };
 }
 
 struct ReplayOverlayPlanningSurfacesView

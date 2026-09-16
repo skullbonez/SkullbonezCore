@@ -35,7 +35,6 @@ Related:
 #include "RenderGraphTransientDX12.h"
 
 #include <cstddef>
-#include <vector>
 
 namespace SkullbonezCore
 {
@@ -50,11 +49,9 @@ class Dx12TextureOwner;
 class Dx12GraphTransientPool
 {
   public:
-    Dx12GraphTransientPool( Dx12RenderDevice& device, Dx12DescriptorHeaps& descriptors, Dx12FrameOwner& frame,
-                            Dx12TextureOwner& textures, Dx12PipelineOwner& pipeline );
+    Dx12GraphTransientPool( Dx12RenderDevice& device, Dx12DescriptorHeaps& descriptors, Dx12FrameOwner& frame, Dx12TextureOwner& textures, Dx12PipelineOwner& pipeline );
 
-    RenderGraphTransientMaterializationStats Materialize( const RenderGraph& graph,
-                                                          const RenderGraphCompileResult& compiled );
+    RenderGraphTransientMaterializationStats Materialize( const RenderGraph& graph, const RenderGraphCompileResult& compiled );
     RenderGraphTextureBinding Resolve( RenderGraphResourceHandle resource ) const;
     size_t ExecuteTransitions( const RenderGraph& graph, const RenderGraphCompileResult& compiled, uint32_t passIndex );
     void BeginRenderTarget( const RenderGraphTextureBinding& binding, const char* passName );
@@ -64,8 +61,7 @@ class Dx12GraphTransientPool
     // Concept: the graph executor owns both transient and external-resource
     // transition publication. Runtime passes borrow this concrete owner rather
     // than a union command facade spanning unrelated draw categories.
-    RenderGraphTransientMaterializationStats MaterializeGraphTransientResources( const RenderGraph& graph,
-                                                                                 const RenderGraphCompileResult& compiled );
+    RenderGraphTransientMaterializationStats MaterializeGraphTransientResources( const RenderGraph& graph, const RenderGraphCompileResult& compiled );
     RenderGraphTextureBinding ResolveGraphTextureBinding( RenderGraphResourceHandle resource ) const;
     RenderGraphNativeResourceToken ResolveGraphResourceToken( uint32_t textureHandle ) const;
     RenderGraphBackbufferBinding ResolveGraphBackbufferBinding() const;
@@ -91,8 +87,10 @@ class Dx12GraphTransientPool
     Dx12FrameOwner& m_frame;
     Dx12TextureOwner& m_textures;
     Dx12PipelineOwner& m_pipeline;
-    std::vector<GraphTransientResourceDX12> m_resources;
-    std::vector<GraphTransientBindingDX12> m_bindings;
+    // The compiler bounds logical allocations; unused physical slots are
+    // recycled before another slot is appended, including after resize.
+    RenderGraphFixedList<GraphTransientResourceDX12, RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS> m_resources;
+    RenderGraphFixedList<GraphTransientBindingDX12, RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS> m_bindings;
     GraphTransientMaterializationStatsDX12 m_stats;
     bool m_renderTargetActive = false;
     RenderGraphResourceHandle m_activeRenderTarget;

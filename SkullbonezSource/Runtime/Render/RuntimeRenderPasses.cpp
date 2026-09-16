@@ -429,6 +429,18 @@ void DrawFullscreenQuad( SkullbonezCore::Rendering::Dx12GeometryOwner& renderCom
     renderCommands.UploadAndDrawDynamicVB( quadVB, FULLSCREEN_QUAD_VERTS, rasterState );
 }
 
+Matrix4 SkyProjection( const Matrix4& projection, const SkullbonezCore::Core::CameraConfig& camera )
+{
+    if ( projection.m[15] == 0.0f )
+    {
+        return projection;
+    }
+
+    // The sky is an angular backdrop. Orthographic scene zoom and its fitted
+    // depth slab must not shrink or clip that background out of an editor pane.
+    return Matrix4::PerspectiveZeroToOne( 45.0f, projection.m[5] / projection.m[0], camera.frustumNear, camera.frustumFar );
+}
+
 void BindSkyPassParams( SkullbonezCore::Rendering::ShaderDX12& shader, const Matrix4& view, const Matrix4& projection, const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     shader.SetVec4( "uSunParams", cinematic.sunAzimuth, cinematic.sunElevation, cinematic.sunIntensity, cinematic.skyGlowStrength );
@@ -1044,7 +1056,7 @@ void SkyPass::RenderCinematicSky( const RenderCameraLighting& camera,
     // recopied by the backend while the sky shader is active.
     ClearAllRenderTextureSlots( renderTextures );
     m_skyResources.atmosphereShader->Use();
-    BindSkyPassParams( *m_skyResources.atmosphereShader, view, camera.projection, cinematic );
+    BindSkyPassParams( *m_skyResources.atmosphereShader, view, SkyProjection( camera.projection, m_config.camera ), cinematic );
     DrawFullscreenQuad( renderGeometry, m_fullscreenResources.quadVB, FULLSCREEN_OPAQUE_RASTER );
 }
 
@@ -1069,14 +1081,25 @@ void SkyPass::Render( const RenderCameraLighting& camera,
     // cinematic path above remains valid without a SkyBox.
     SkullbonezCore::Geometry::SkyBox& skyBox = RequireWorldView( "Render" );
 
-    // The cube-map sky follows camera X/Z so the box feels infinitely far away,
-    // while its Y stays authored by config to preserve the long-standing horizon.
-    Matrix4 skyView = view * Matrix4::Translate( camera.eye.x, m_config.skybox.renderHeight, camera.eye.z ) * Matrix4::Scale( m_config.skybox.scale );
+    // Perspective retains the authored vertical horizon. Orthographic panes
+    // follow eye height as well, because their pans have no altitude bound.
+    const bool orthographic = camera.projection.m[15] != 0.0f;
+    const float skyHeight = m_config.skybox.renderHeight + ( orthographic ? camera.eye.y : 0.0f );
+    Matrix4 skyView = view * Matrix4::Translate( camera.eye.x, skyHeight, camera.eye.z ) * Matrix4::Scale( m_config.skybox.scale );
+    Matrix4 skyProjection = SkyProjection( camera.projection, m_config.camera );
+
+    if ( orthographic )
+    {
+        // Keep sky depth at the far plane of the scene's unrelated orthographic
+        // projection. Following eye height also keeps high pans inside the cube.
+        skyProjection.m[10] = -1.0f;
+        skyProjection.m[14] = 0.0f;
+    }
 
     // Pass contract: cube-map skybox faces sample only slot 0. Slots owned by
     // water, post, or shadows must not leak into these six mesh draws.
     ClearRenderTextureSlotsExcept( renderTextures, RENDER_TEXTURE_SLOT_0 );
-    ReportRenderTextureResult( "Frame/Render/Skybox", skyBox.Render( skyView, camera.projection ) );
+    ReportRenderTextureResult( "Frame/Render/Skybox", skyBox.Render( skyView, skyProjection ) );
 }
 
 
@@ -1834,6 +1857,14 @@ bool VolumetricPass::Render( const RenderCameraLighting& camera,
         DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Draw" );
         m_volumetricResources.shader->Use();
         BindVolumetricPassParams( *m_volumetricResources.shader, camera.eye, camera.viewProjection, cinematic, m_config.camera.frustumNear, m_config.camera.frustumFar );
+        if ( camera.projection.m[15] == 1.0f )
+        {
+            m_volumetricResources.shader->SetVec4( "uDepthParams",
+                                                   m_config.camera.frustumNear,
+                                                   m_config.camera.frustumFar,
+                                                   -1.0f / camera.projection.m[10],
+                                                   camera.projection.m[14] / camera.projection.m[10] );
+        }
 
         // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
         // depth. The shader uses depth to tell sky pixels from solid geometry so
@@ -1882,7 +1913,8 @@ void TonemapPass::ReleaseGpuResources()
 }
 
 
-void TonemapPass::Render( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+void TonemapPass::Render( const RenderCameraLighting& camera,
+                          const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                           Rendering::Dx12GeometryOwner& renderGeometry,
                           Rendering::Dx12TextureOwner& renderTextures,
                           Rendering::Dx12FrameOwner& renderFrame,
@@ -1931,6 +1963,16 @@ void TonemapPass::Render( const SkullbonezCore::Core::CinematicRenderConfig& cin
                                m_sceneResources.hdrTarget->GetWidth(),
                                m_sceneResources.hdrTarget->GetHeight(),
                                volumetricReady );
+        // Orthographic hardware depth is affine; use the actual pane matrix.
+        // The perspective branch retains its established near/far calculation.
+        if ( camera.projection.m[15] == 1.0f )
+        {
+            m_tonemapResources.shader->SetVec4( "uDepthParams",
+                                                m_config.camera.frustumNear,
+                                                m_config.camera.frustumFar,
+                                                -1.0f / camera.projection.m[10],
+                                                camera.projection.m[14] / camera.projection.m[10] );
+        }
 
         const bool useGraphVolumetric = volumetricReady && graphVolumetric && graphVolumetric->IsValid() && graphVolumetric->shaderResource;
 

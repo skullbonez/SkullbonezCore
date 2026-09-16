@@ -1153,7 +1153,7 @@ SkullbonezCore::Core::SbResult SceneLoadTransaction::LoadAuthoredScene( SceneCon
     sceneState.isSceneMode = true;
     AuthoredScene scene;
     const std::string& scenePath = *m_preparedLoad.scenePath;
-    const SkullbonezCore::Core::SbResult sceneLoad = AuthoredScene::TryLoadFromFile( diagnostics, scenePath.c_str(), assets, scene );
+    const SkullbonezCore::Core::SbResult sceneLoad = sceneController.ReadCurrentDefinition( assets, scene );
 
     if ( !sceneLoad.Ok() )
     {
@@ -1478,8 +1478,9 @@ SkullbonezCore::Core::SbResult SceneLoadTransaction::Load( SceneController& scen
 // Concept: each save owner publishes only its own persisted fields. The
 // composed request is synchronous, is never retained, and does not let the
 // writer recover Run or collection-order identity.
-SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const SceneDefaultsSaveSnapshot& snapshot ) const
+SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const SceneDefaultsSaveSnapshot& snapshot )
 {
+    Core::Allocation::RuntimeAllocationScope saveScope( Core::Allocation::RuntimeAllocationPhase::SceneLoad );
     const std::string* scenePath = CurrentPath();
 
     if ( !State().isSceneMode || !scenePath || scenePath->empty() )
@@ -1487,6 +1488,14 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
         return m_resultDiagnostics.Failure( "Runtime/SceneController", "No authored scene is active for defaults save" );
     }
 
+    if ( CurrentSceneIsUnsaved() )
+    {
+        std::error_code error;
+        if ( std::filesystem::exists( *scenePath, error ) || error )
+        {
+            return m_resultDiagnostics.Failure( "Runtime/SceneController", "Unsaved scene destination is no longer available: %s", scenePath->c_str() );
+        }
+    }
     if ( State().isEditableScene || ( Scene().Terrain().Get() && Scene().Terrain().Get()->IsEdited() ) )
     {
         const SkullbonezCore::Core::SbResult saveResult = SaveEditableSceneBeforeReplacement( m_resultDiagnostics,
@@ -1496,6 +1505,17 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
                                                                                               GameObjects::PresentationSaveState { snapshot.presentation.waterHidden,
                                                                                                                                    snapshot.presentation.terrainHidden } );
 
+        if ( saveResult.Ok() )
+        {
+            if ( m_activeDraft.index == CurrentIndex() )
+            {
+                m_activeDraft = {};
+            }
+            if ( m_pendingDraft.index == CurrentIndex() )
+            {
+                m_pendingDraft = {};
+            }
+        }
         return saveResult;
     }
 

@@ -49,47 +49,51 @@ namespace
 // larger retained paths. The registered hard cap is a real byte ceiling, not a
 // theoretical element-count product; growth count is telemetry so interactive
 // replay does not trip a per-run count fuse.
-constexpr int
-    REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT = SkullbonezCore::Core::Allocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
+constexpr int REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT = SkullbonezCore::Core::Allocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 } // namespace
 
 namespace ReplayPredictionReserveOperations
 {
 SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() noexcept
 {
-    static const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle
-        owner = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RegisterOwner(
-            { REPLAY_PREDICTION_RESERVE_OWNER, SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem::Replay,
-              SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, 0, REPLAY_PREDICTION_RESERVE_HARD_BYTES,
-              REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT, true,
-              "replay prediction supports large retained path visualization under a hard byte budget" } );
+    static const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RegisterOwner( { REPLAY_PREDICTION_RESERVE_OWNER,
+                                                                                                                                                                 SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem::Replay,
+                                                                                                                                                                 SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
+                                                                                                                                                                 0,
+                                                                                                                                                                 REPLAY_PREDICTION_RESERVE_MAX_REQUEST_BYTES,
+                                                                                                                                                                 REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT,
+                                                                                                                                                                 true,
+                                                                                                                                                                 "prediction allocates on demand and shares one Replay-only byte budget",
+                                                                                                                                                                 0,
+                                                                                                                                                                 REPLAY_PREDICTION_RESERVE_HARD_BYTES } );
 
     return owner;
 }
 
-bool RequestReplayPredictionReserveGrowth( const char* targetName, int frameNumber, int oldCapacityBytes,
-                                           int requestedCapacityBytes, int elementSizeBytes,
+bool RequestReplayPredictionReserveGrowth( const char* targetName,
+                                           int frameNumber,
+                                           int oldCapacityBytes,
+                                           int requestedCapacityBytes,
+                                           int elementSizeBytes,
                                            SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult& outResult,
                                            uint64_t allocationBytes ) noexcept
 {
     outResult = {};
 
-    if ( !targetName || oldCapacityBytes < 0 || requestedCapacityBytes <= oldCapacityBytes ||
-         requestedCapacityBytes > REPLAY_PREDICTION_RESERVE_HARD_BYTES || elementSizeBytes <= 0 )
+    if ( !targetName || oldCapacityBytes < 0 || requestedCapacityBytes <= oldCapacityBytes || requestedCapacityBytes > REPLAY_PREDICTION_RESERVE_MAX_REQUEST_BYTES || elementSizeBytes <= 0 )
     {
         return false;
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthRequest request =
-        { REPLAY_PREDICTION_RESERVE_OWNER,
-          targetName,
-          SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-          frameNumber,
-          oldCapacityBytes,
-          requestedCapacityBytes,
-          elementSizeBytes,
-          allocationBytes };
+    const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthRequest request = { REPLAY_PREDICTION_RESERVE_OWNER,
+                                                                                    targetName,
+                                                                                    SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
+                                                                                    frameNumber,
+                                                                                    oldCapacityBytes,
+                                                                                    requestedCapacityBytes,
+                                                                                    elementSizeBytes,
+                                                                                    allocationBytes };
 
     outResult = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
     return outResult.granted;
@@ -132,24 +136,16 @@ uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const ReplaySolverWorldSnapsh
     return bytes;
 }
 
-void AddReplayPredictionFrameCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories,
-                                            const RunReplayPredictionFrame& frame )
+void AddReplayPredictionFrameCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories, const RunReplayPredictionFrame& frame )
 {
-    SkullbonezCore::Core::
-        MainMemoryAddReplayCategoryBytes( categories,
-                                          SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameBodies,
-                                          ReplayPredictionVectorCapacityBytes( frame.bodies ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameBodies, ReplayPredictionVectorCapacityBytes( frame.bodies ) );
 
-    SkullbonezCore::Core::
-        MainMemoryAddReplayCategoryBytes( categories,
-                                          SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionDebugContacts,
-                                          ReplayPredictionVectorCapacityBytes( frame.debugContacts ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories, SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionDebugContacts, ReplayPredictionVectorCapacityBytes( frame.debugContacts ) );
 }
 
 std::size_t ReplayPredictionInitialDebugContactCapacity( int modelCount )
 {
-    return (std::min)( static_cast<std::size_t>( (std::max)( modelCount, 1 ) ),
-                       static_cast<std::size_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY ) );
+    return (std::min)( static_cast<std::size_t>( (std::max)( modelCount, 1 ) ), static_cast<std::size_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY ) );
 }
 
 uint64_t ReplayPredictionEngineMemoryBytes( const Physics::PhysicsEngine& engine )
@@ -167,8 +163,7 @@ int ReplayPredictionEngineReserveBytes( const Physics::PhysicsEngine& engine )
 {
     const uint64_t bytes = ReplayPredictionEngineMemoryBytes( engine );
 
-    if ( bytes == 0 || bytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) ||
-         bytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
+    if ( bytes == 0 || bytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_MAX_REQUEST_BYTES ) || bytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
     {
         return 0;
     }
@@ -176,9 +171,7 @@ int ReplayPredictionEngineReserveBytes( const Physics::PhysicsEngine& engine )
     return static_cast<int>( bytes );
 }
 
-bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>& destination,
-                                        const Physics::PhysicsEngine& source, int currentReservedBytes,
-                                        int& outReservedBytes )
+bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>& destination, const Physics::PhysicsEngine& source, int currentReservedBytes, int& outReservedBytes )
 {
     outReservedBytes = currentReservedBytes;
     const int requestedBytes = ReplayPredictionEngineReserveBytes( source );
@@ -210,17 +203,14 @@ bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>&
         }
 
         const int oldCapacityBytes = destination ? currentReservedBytes : 0;
-        if ( !RequestReplayPredictionReserveGrowth( "RunReplayPredictionSimulationState::predictionEngine", 0,
-                                                    oldCapacityBytes, requestedBytes, 1, result,
-                                                    static_cast<uint64_t>( requestedBytes ) ) )
+        if ( !RequestReplayPredictionReserveGrowth( "RunReplayPredictionSimulationState::predictionEngine", 0, oldCapacityBytes, requestedBytes, 1, result, static_cast<uint64_t>( requestedBytes ) ) )
         {
             return false;
         }
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope
-        allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
+    SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
 
     if ( replaceDestination )
     {

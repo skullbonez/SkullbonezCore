@@ -51,7 +51,7 @@ def run(session: Path) -> None:
 
     def row(ui: dict, index: int) -> None:
         x, y, width, height = ui["replayControlsBounds"]
-        scroll = ui["replayScroll"] * max(0, 370 - height)
+        scroll = ui["replayScroll"] * max(0, 434 - height)
         click(x + width / 2, y + 19 + index * 32 - scroll)
 
     def seek(ui: dict, normalized: float) -> None:

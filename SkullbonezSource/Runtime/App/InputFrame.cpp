@@ -1251,6 +1251,14 @@ void Run::ApplySkarnessSceneLifecycleCommand( const SkarnessCommand& command, Sk
         application.applied = true;
         return;
     }
+    case SkarnessCommandType::WindowSetMaximized:
+        application.applied = PostMessage( m_window.NativeWindowHandle(), WM_SYSCOMMAND, command.enabled ? SC_MAXIMIZE : SC_RESTORE, 0 ) != FALSE;
+        application.reason = application.applied ? nullptr : "native window rejected system command";
+        return;
+    case SkarnessCommandType::WindowClose:
+        application.applied = PostMessage( m_window.NativeWindowHandle(), WM_SYSCOMMAND, SC_CLOSE, 0 ) != FALSE;
+        application.reason = application.applied ? nullptr : "native window rejected close command";
+        return;
     case SkarnessCommandType::WindowResize:
         application.applied = m_window.RequestClientSize( command.integer, command.secondInteger );
         application.reason = application.applied ? nullptr : "native window rejected client resize";
@@ -1271,21 +1279,30 @@ void Run::ApplySkarnessSceneLifecycleCommand( const SkarnessCommand& command, Sk
     case SkarnessCommandType::SceneLoad:
         application.applied = ApplySkarnessSceneLoadCommand( command, application.deferred, application.reason );
         return;
+    case SkarnessCommandType::SceneCreate:
+    {
+        const uint64_t token = m_skarness.BeginSceneRequest( command.requestId );
+        application.deferred = token != 0;
+        application.reason = "another scene request is pending";
+        if ( token != 0 )
+        {
+            const Core::SbResult submitted = m_sceneController.SubmitCreateScene( command.text.c_str(), false, token );
+            if ( !submitted.Ok() )
+            {
+                m_skarness.CompleteSceneRequest( token, false );
+            }
+        }
+        return;
+    }
     case SkarnessCommandType::SceneReset:
     {
-        const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
-        const std::string* currentPath = m_sceneController.CurrentPath();
-        const bool expectDemo = !currentPath || currentPath->empty();
-
-        if ( !m_skarness.BeginSceneTransition( command.requestId, lifecycle.generation, currentPath ? currentPath->c_str() : "", expectDemo ) )
+        const uint64_t token = m_skarness.BeginSceneRequest( command.requestId );
+        application.deferred = token != 0;
+        application.reason = "another scene request is pending";
+        if ( token != 0 )
         {
-            application.applied = false;
-            application.reason = "another scene transition is pending";
-            return;
+            m_sceneController.SubmitResetCurrentScene( true, true, true, token );
         }
-
-        m_sceneController.SubmitResetCurrentScene();
-        application.deferred = true;
         return;
     }
     case SkarnessCommandType::SceneLoadDemo:
@@ -1478,7 +1495,14 @@ void Run::ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInpu
             application.reason = application.applied ? nullptr : "Accept Original or Modified before saving the scene.";
             if ( application.applied )
             {
-                m_sceneController.SubmitSaveCurrentDefaults();
+                const uint64_t token = m_skarness.BeginSceneRequest( command.requestId );
+                application.deferred = token != 0;
+                application.applied = token != 0;
+                application.reason = token ? nullptr : "another scene request is pending";
+                if ( token )
+                {
+                    m_sceneController.SubmitSaveCurrentDefaults( token );
+                }
             }
         }
         else
@@ -1602,6 +1626,57 @@ void Run::ApplyEditorPlacementModeCommand( RuntimeUIFrameResult& result, const R
     RecordInputModeAction( RuntimeInputAction::ToggleEditorTool, RuntimeInputActionSource::UI );
 }
 
+void Run::RestartAuthoredScene()
+{
+    RestoreAuthoredSceneState( true, m_camera.mode );
+    m_sceneController.MarkManualReset();
+    m_sceneController.EnterInteractiveRun();
+    m_timers.RestartSceneClock();
+}
+
+void Run::RestoreAuthoredSceneState( bool preserveCamera, RunCameraMode restoreMode )
+{
+    Core::Allocation::RuntimeAllocationScope resetScope( Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+    m_continuousForecast.Stop();
+    if ( m_comparison.IsVelocityExperiment() )
+    {
+        CloseComparison();
+    }
+    m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
+    ResetEditorUnfocusedInputState( m_editorTools.Editor(), m_interaction );
+    m_interaction.CancelCameraLookGesture();
+    const RunCameraMode mode = m_camera.mode;
+    const auto timeline = DescribeReplaySceneTimeline( m_sceneController,
+                                                       m_operatorUi->SceneNavigation().overrides,
+                                                       m_sceneController.State(),
+                                                       m_sceneController.Scene().ActiveSceneObjectCapacity(),
+                                                       static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+    // A manual restart keeps camera values. Entering Edit may instead return
+    // from a cause inspection before the editor selects its normal free camera.
+    m_replayRuntime.ResetSceneTimeline( timeline,
+                                        m_inputRouter,
+                                        m_interaction,
+                                        preserveCamera ? nullptr : &m_sceneController.Scene().Cameras(),
+                                        m_sceneController.Scene().Terrain().Get(),
+                                        m_camera,
+                                        restoreMode,
+                                        m_attachedCamera.State().activeFollow,
+                                        m_camera.director.grabbed );
+    m_camera.mode = mode;
+    if ( !m_sceneController.Scene().Physics().RestoreAuthoredBodyState() )
+    {
+        SB_FATAL( "Runtime/Scene", "Cannot restore the authored frame-zero body state." );
+    }
+    m_sceneController.State().currentFrame = 0;
+    m_sceneController.State().isTestComplete = false;
+    m_sceneController.State().isFinishLogged = false;
+    m_simulation.Reset();
+    m_sceneController.Scene().BeginPhysicsStepPresentationCapture();
+    m_sceneController.Scene().CompletePhysicsStepPresentationCapture();
+    m_sceneController.Scene().PrepareRenderInstances( 1.0f );
+    InputController::ResetMouseLook( m_camera );
+}
+
 void Run::ApplyEditorModeToggleCommand( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts, RuntimeInputActionSource source )
 {
     result.enterInteractiveScene = true;
@@ -1612,31 +1687,7 @@ void Run::ApplyEditorModeToggleCommand( RuntimeUIFrameResult& result, const Runt
         {
             CloseComparison();
         }
-        const auto timeline = DescribeReplaySceneTimeline( m_sceneController,
-                                                           m_operatorUi->SceneNavigation().overrides,
-                                                           m_sceneController.State(),
-                                                           m_sceneController.Scene().ActiveSceneObjectCapacity(),
-                                                           static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-        m_replayRuntime.ResetSceneTimeline( timeline,
-                                            m_inputRouter,
-                                            m_interaction,
-                                            &m_sceneController.Scene().Cameras(),
-                                            m_sceneController.Scene().Terrain().Get(),
-                                            m_camera,
-                                            facts.replayRestoreCameraMode,
-                                            m_attachedCamera.State().activeFollow,
-                                            m_camera.director.grabbed );
-        // Restore the authored seed before exposing any editor operation. This
-        // retains unsaved objects and edits without reading the level from disk.
-        if ( !m_sceneController.Scene().Physics().RestoreAuthoredBodyState() )
-        {
-            SB_FATAL( "Runtime/Editor", "Cannot restore the authored frame-zero body state." );
-        }
-        m_sceneController.State().currentFrame = 0;
-        m_simulation.Reset();
-        m_sceneController.Scene().BeginPhysicsStepPresentationCapture();
-        m_sceneController.Scene().CompletePhysicsStepPresentationCapture();
-        m_sceneController.Scene().PrepareRenderInstances( 1.0f );
+        RestoreAuthoredSceneState( false, facts.replayRestoreCameraMode );
         result.replayWorkspace = {};
         const RuntimeInteractionTransition transition = m_interaction.EnterEdit();
         m_inputRouter
@@ -2041,7 +2092,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     {
         RecordInputModeAction( RuntimeInputAction::ToggleVsync, RuntimeInputActionSource::UI );
     }
-    if ( acceptance.cameraModeAccepted )
+    if ( acceptance.cameraModeAccepted && !( ( commands.run.toggleFourViews || commands.run.requestedEditorView >= 0 ) && acceptance.cameraModeIndex == static_cast<int>( m_camera.mode ) ) )
     {
         m_inputRouter.ApplyCameraMode( static_cast<RunCameraMode>( acceptance.cameraModeIndex ),
                                        RuntimeInputActionSource::UI,
@@ -2052,10 +2103,25 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
                                        m_camera,
                                        m_sceneController,
                                        m_replayRuntime,
-                                       m_inputRouter.RuntimeContext() );
+                                       m_inputRouter.RuntimeContext(),
+                                       commands.run.toggleFourViews || commands.run.requestedEditorView >= 0 );
     }
 
+    if ( commands.run.requestedEditorView >= 0 )
+    {
+        SelectEditorCameraView( commands.run.requestedEditorView );
+    }
+    if ( commands.run.toggleFourViews )
+    {
+        SelectEditorCameraView( -1 );
+    }
     ApplyEditorModeCommands( result, keyboardToggleEditorMode, facts, commands );
+    if ( !ComparisonUiActive() && !m_editorTools.Editor().editorModeEnabled && m_operatorUi->PresentationLayout() != UI::GameLayout::LayoutMode::Editor &&
+         !m_sceneController.Scene().Cameras().FourViews() && m_sceneController.Scene().Cameras().EditorView() != 0 )
+    {
+        // Leaving every editor surface also releases its camera lock.
+        SelectEditorCameraView( 0 );
+    }
     ApplyEditorSceneCommands( result, commands );
     ApplyRuntimePresentationCommands( result, transaction, acceptance );
     ApplyReplayAndPhysicsTuningCommands( commands, transaction, acceptance );
@@ -2101,6 +2167,18 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
         result.enterInteractiveScene = true;
     }
 
+    if ( sceneController.Scene().Cameras().EditorView() != 0 && !ui.BlocksCameraMouse() )
+    {
+        const auto& device = inputRouter.DeviceFrame();
+        if ( device.rightDown )
+        {
+            const auto& cameras = sceneController.Scene().Cameras();
+            const float distance = Math::Vector::Distance( cameras.GetCameraTranslation(), cameras.GetCameraView() );
+            sceneController.Scene().Cameras().PanEditorView( -device.rawMouseX * distance * 0.001f, device.rawMouseY * distance * 0.001f );
+        }
+        sceneController.Scene().Cameras().ZoomEditorView( -result.editorUnhandledWheelDelta * 0.001f );
+        result.editorUnhandledWheelDelta = 0;
+    }
     const DeviceInputFrame& editorDevice = inputRouter.DeviceFrame();
     const EditorViewportPlacementResult editorPointerResult = editorTools.RouteEditorViewportPlacement( { result.editorUnhandledWheelDelta,
                                                                                                           editorDevice.rightDown,

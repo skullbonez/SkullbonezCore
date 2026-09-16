@@ -21,7 +21,7 @@ Related:
 cbuffer Uniforms : register(b0)
 {
     float4x4 uProjection;
-    float4   uPreviewParams; // x: mode 0=color 1=HDR color 2=depth, y: exposure, z: gamma, w: opacity
+    float4   uPreviewParams; // x: mode 0=color 1=HDR color 2=depth 3=premultiplied RGBA, y: exposure, z: gamma, w: opacity
 };
 
 // Invariant: b1 carries stable indices into the directly indexed shader-visible
@@ -72,6 +72,14 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     Texture2D<float4> textureSource = ResourceDescriptorHeap[BindlessTextureIndex(0u)];
     float4 sampleValue = textureSource.Sample(sSampler0, saturate(input.texCoord));
     const int mode = (int)round(uPreviewParams.x);
+
+    // UI artwork stores premultiplied RGB so bilinear/mip filtering preserves
+    // silhouette coverage. The shared UI pass uses straight-alpha blending.
+    if (mode == 3)
+    {
+        float alpha = saturate(sampleValue.a);
+        return float4(alpha > 0.00001f ? sampleValue.rgb / alpha : 0.0f, alpha * saturate(uPreviewParams.w));
+    }
 
     if (mode == 2)
     {

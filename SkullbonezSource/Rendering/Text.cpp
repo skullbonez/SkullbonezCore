@@ -23,6 +23,7 @@ Related:
 #include "Text.h"
 #include "../Core/SbDiagnosticStore.h"
 #include "../Core/PlatformWin32.h"
+#include "../Core/TextGlyphs.h"
 #include "../Core/WindowConstants.h"
 #include "RenderCommandTypes.h"
 #include "DX12/RenderBackendDX12.h"
@@ -94,7 +95,7 @@ bool IsValidGdiSelection( HGDIOBJ object )
 struct SdfFileHeader
 {
     char magic[8];    // "SBSDF001" — format identifier
-    uint32_t version; // 1
+    uint32_t version; // 2: printable ASCII plus delta in the former DEL cell
 
     uint32_t atlasW; // FONT_ATLAS_W (640)
 
@@ -227,7 +228,7 @@ static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* 
     }
 
     // Reject stale or corrupt files before touching any engine state.
-    if ( memcmp( hdr.magic, "SBSDF001", 8 ) != 0 || hdr.version != 1u || hdr.atlasW != static_cast<uint32_t>( FONT_ATLAS_W ) || hdr.atlasH != static_cast<uint32_t>( FONT_ATLAS_H ) ||
+    if ( memcmp( hdr.magic, "SBSDF001", 8 ) != 0 || hdr.version != 2u || hdr.atlasW != static_cast<uint32_t>( FONT_ATLAS_W ) || hdr.atlasH != static_cast<uint32_t>( FONT_ATLAS_H ) ||
          hdr.fontSize != static_cast<uint32_t>( FONT_SIZE ) || hdr.cellW != static_cast<uint32_t>( FONT_CELL_W ) || hdr.cellH != static_cast<uint32_t>( FONT_CELL_H ) )
     {
         return false;
@@ -264,7 +265,7 @@ static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* 
 // Text2d::GenerateSdfAtlasToFile
 
 //
-// All 96 printable ASCII glyphs are drawn at SDF_SCALE x resolution using GDI,
+// Printable ASCII and delta are drawn at SDF_SCALE x resolution using GDI,
 // computes a per-cell Signed Distance Field via two 2D Euclidean Distance
 // Transforms, box-filters the result down to the final atlas size, then writes
 // a binary .sdf file that LoadSdfAtlasFromFile / BuildFont can read directly.
@@ -406,25 +407,26 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
     float charAdvBuf[96] = {};
     INT advWidths[96] = {};
 
-    gdiResults.glyphWidthsMeasured = GetCharWidth32( memDC, 32, 127, advWidths ) != FALSE;
+    gdiResults.glyphWidthsMeasured = GetCharWidth32W( memDC, 32, 126, advWidths ) != FALSE;
+    gdiResults.glyphWidthsMeasured = GetCharWidth32W( memDC, 0x0394, 0x0394, &advWidths[Core::TextGlyphs::DELTA_INDEX] ) != FALSE && gdiResults.glyphWidthsMeasured;
 
     for ( int i = 0; i < 96; ++i )
     {
         charAdvBuf[i] = static_cast<float>( advWidths[i] ) / static_cast<float>( FONT_SIZE_HI );
     }
 
-    // Render all 96 printable ASCII characters (0x20–0x7F).
+    // The non-printable DEL cell now holds a real Greek capital delta.
     // Cell layout mirrors the final atlas (FONT_COLS × FONT_ROWS) but scaled up.
     gdiResults.backgroundModeSet = SetBkMode( memDC, TRANSPARENT ) != 0;
     gdiResults.textColorSet = SetTextColor( memDC, RGB( 255, 255, 255 ) ) != CLR_INVALID;
-    char ch[2] = { 0, 0 };
+    wchar_t ch[2] = { 0, 0 };
 
     for ( int i = 0; i < 96; ++i )
     {
-        ch[0] = static_cast<char>( i + 32 );
+        ch[0] = i == Core::TextGlyphs::DELTA_INDEX ? L'\u0394' : static_cast<wchar_t>( i + 32 );
         const int col = i % FONT_COLS;
         const int row = i / FONT_COLS;
-        gdiResults.glyphsDrawn = TextOutA( memDC, col * FONT_CELL_W_HI, row * FONT_CELL_H_HI, ch, 1 ) != FALSE && gdiResults.glyphsDrawn;
+        gdiResults.glyphsDrawn = TextOutW( memDC, col * FONT_CELL_W_HI, row * FONT_CELL_H_HI, ch, 1 ) != FALSE && gdiResults.glyphsDrawn;
     }
 
     // Flush GDI drawing queue before reading pBits.
@@ -563,7 +565,7 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
 
     SdfFileHeader hdr = {};
     memcpy( hdr.magic, "SBSDF001", 8 );
-    hdr.version = 1u;
+    hdr.version = 2u;
     hdr.atlasW = static_cast<uint32_t>( FONT_ATLAS_W );
     hdr.atlasH = static_cast<uint32_t>( FONT_ATLAS_H );
     hdr.fontSize = static_cast<uint32_t>( FONT_SIZE );
@@ -700,13 +702,13 @@ float Text2d::MeasureText( float size, const char* text )
 
     float width = 0.0f;
 
-    for ( const char* p = text; *p; ++p )
+    for ( const char* p = text; *p; )
     {
-        unsigned char c = static_cast<unsigned char>( *p );
+        const int glyph = Core::TextGlyphs::Next( p );
 
-        if ( c >= 32 && c <= 127 )
+        if ( glyph >= 0 )
         {
-            width += charAdvance[c - 32] * size;
+            width += charAdvance[glyph] * size;
         }
         else
         {
@@ -780,7 +782,7 @@ void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosit
     float penX = xPosition;
     float penY = yPosition;
 
-    for ( int i = 0; i < len; ++i )
+    for ( const char* cursor = formatted; *cursor; )
     {
         // Guard against overflowing the batch buffer.
         if ( batch.m_textVertexCount + TEXT_BATCH_VERTS_PER_CHAR > TEXT_BATCH_MAX_CHARS * TEXT_BATCH_VERTS_PER_CHAR )
@@ -788,15 +790,14 @@ void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosit
             break;
         }
 
-        unsigned char c = static_cast<unsigned char>( formatted[i] );
+        const int idx = Core::TextGlyphs::Next( cursor );
 
-        if ( c < 32 || c > 127 )
+        if ( idx < 0 )
         {
             penX += size * 0.5f;
             continue;
         }
 
-        int idx = c - 32;
         int col = idx % FONT_COLS;
         int row = idx / FONT_COLS;
 

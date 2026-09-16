@@ -1,8 +1,439 @@
 # Session State
 
-Date: 2026-09-13
-Branch: `codex/unified-ui`
-Status: Owner-approved baseline reconciliation complete; canonical gates pass. PR #169 is the clean review destination. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
+Date: 2026-09-16
+Branch: `codex/prediction-editor-complete`
+Status: Combined PR branch contains all thirteen existing feature commits plus the pending Memory, camera, comparison and scene changes. Long-horizon demand allocation and retirement are implemented; all final closure checks pass.
+
+
+## Complete prediction and editor follow-up - 2026-09-16
+
+The new branch includes PR #170's eleven commits and PR #171's two commits
+without rewriting either branch. The user explicitly requested every pending
+workspace change, including `simon.scene.json`, in one new PR against main.
+The fourteenth commit contains that pending work and the memory fix below.
+The original workspace index is preserved while this branch is assembled in
+`TestOutput/startup-commit`.
+
+Prediction's existing Replay-only owner now has an 8 GiB aggregate allowance,
+separate from its int-sized per-request capacity limit. Registration allocates
+no backing memory. Active bytes and pending grants share the same uint64_t cap;
+existing owners keep their previous defaults. Each optional evidence bank can
+grow to 4 GiB within that shared total, with demand-allocated chunks and the
+existing fixed pointer tables. No Physics body field or upward include is added.
+
+Explicit disable joins the worker, retires published and cached visual spans,
+and releases both frame banks, trajectory buffers, evidence and private engine.
+Horizon reductions retain the computed suffix for instant re-extension while
+prediction stays enabled. A native comparison-load test caught a stale visual
+packet after release; all explicit disable routes now retire it first.
+
+The 300-box 120-second high-detail test publishes all 14,401 simulation and
+evidence frames with selected = published = submitted target 1. Private working
+set rises from 220.87 MiB to 1,905.09 MiB, drops to 229.90 MiB after disable, then
+uses 263.43 MiB for a new two-second prediction of target 2. Private commit is a
+separate metric: 737.67, 2,981.73, 758.34 and 837.12 MiB respectively.
+Evidence: `TestOutput/skarness/prediction-memory-final/` and
+`TestOutput/skarness/complete-final-prediction_memory/` in the combined worktree.
+The permanent assertion is `tools/validate_prediction_memory.py`.
+
+Fast validation passes 1,069 tests and 3,733,761 assertions (one skip). The final
+allocation policy has zero allowlist errors; dependency checks report zero
+findings. Compiler-backed design checks cover the aggregate budget, segmented
+evidence, producer lifetime and App publication retirement. The repaired native
+four-view test covers recorded first-frame rewind, both ball caps and picking,
+workspace retention, side-view wall navigation and Top visibility.
+
+
+Final closure: the complete UI interaction matrix, Space 200 horizon drags,
+300-body long-horizon/strict-allocation test, Memory parity, native window
+controls, DX12 renderer and performance gates pass. The exact-staged Physics
+gate passes fingerprint `c400bce7c176`, including the unchanged 44,401-line
+worker matrix (`50bca7c0f2c420832c4fd99b1812f4db48d88cfadb4d475622a3d3bd3465a1c1`).
+A concurrent Debug build initially collided with that gate; the serialized
+rerun passes. Final logs are `complete-physics-commit-final.log`,
+`complete-dx12.log`, `complete-perf.log` and `complete-reviewed-*.log` under
+the combined worktree's TestOutput. The final instrumented memory test is
+`TestOutput/skarness/prediction-memory-instrumented/`.
+
+Profile is rebuilt in `C:/SkullbonezCore`; the second build takes 1.18 seconds
+with no compilation or linking. The running game is preserved, with its previous
+EXE/PDB retained under `Profile/SKULLBONEZ_CORE.before-memory-update.*`.
+Restarting the game uses the new build. No golden baseline was changed by the
+fourteenth commit.
+
+## F6 and Memory accounting fixes - 2026-09-15
+
+F6 and Memory now share a one-second wall-clock sample of Windows private
+working-set RAM. Total working set and private commit remain separate counters.
+The owner-capacity table owns its frame storage, labels capacity as allocated,
+and avoids prediction-worker storage until both producers are idle. Removed
+the synthetic reconciliation remainder and versioned memory dumps to v2.
+
+The native 200-body, high-detail, 20-second prediction increases private RAM
+from 230.15 to 623.22 MiB. All six external-counter comparisons differ by at
+most 8 KiB; switching tabs and hiding F6 preserve the same metric. Prediction
+identity is selected = published = submitted target 1 with 2,401 frames.
+Evidence and screenshots: `TestOutput/skarness/memory-fixed-verified/`.
+The permanent regression is `tools/validate_memory_ui.py`, included in the UI gate.
+
+All 1,060 unit tests / 3,736,231 assertions pass. The Memory-only draw fingerprint
+was intentionally updated for the corrected labels with explicit label checks;
+all other tab fingerprints are unchanged. Compiler-backed design and dependency
+checks pass. Profile is built locally; the second build took 1.3 seconds with
+503 output timestamps unchanged and no compilation or linking. The initial
+fast preflight passed, but overlapping Profile builds damaged generated PDBs;
+a sequential clean/build repaired them with zero warnings or errors.
+
+Performance validation passes all ten scale workloads, absolute DX12/Physics
+budgets and baseline comparisons; selected-path and causal-inspection checks
+pass with zero steady allocations. The one-minute graphics stress gate passes,
+including descriptor churn and PID-scoped timeout cleanup. Profile and Debug
+are built.
+
+The commit gate refuses the existing untracked `simon.scene.json`; fixes remain
+staged without committing or bypassing the hook.
+
+The replay fidelity run stops on a pre-existing shader provenance mismatch:
+expected `ebf5e912bd99d56b8abee769d7ebab079b61186ea478a596b92716384a0e5a60`,
+current `cb1a9ef006a4d5561ab450131bfdf3f7af251504d827b25224cd9cd944c01d71`.
+This change edits no shaders and does not update that baseline. Logs use the
+`TestOutput/memory-` prefix. The user-owned `simon.scene.json` remains untouched.
+
+## Four-view sky and foreground-wall navigation - 2026-09-15
+
+X Side and Z Side now clip geometry behind their eye, allowing zoom to pass
+the catcher wall and inspect the destruction wall in the 200-body prediction
+scene. Top retains the fitted full-height depth volume so elevated objects
+remain visible and pickable when zooming. Rendering and picking consume the
+same pane projection.
+
+Authored and cinematic skies use an angular background projection independent
+of orthographic scene scale. Orthographic cube skies follow eye height and
+write far depth, keeping them visible through pane zoom and vertical panning.
+Perspective sky behavior is unchanged.
+
+The native four-view regression first picks the catcher from outside it, then
+zooms through it and picks the named destruction-wall brick. Both side panes
+pass sky pixel checks. Existing Top, prediction overlay, workspace retention,
+comparison picking, compact resize and cinematic checks pass, with zero
+allocation-guard violations. Evidence is under
+`TestOutput/skarness/four-wall-fixed`, including `wall-past-catcher.png` and
+the state snapshot showing the selected object's identity. Compiler-backed
+design passes three sources and ten contexts with no findings. No scene or
+golden was changed.
+
+The final fast gate passes, including 1,058 tests / 3,733,914 assertions.
+DX12 visual baselines and the deterministic 44,401-line Physics worker matrix
+pass unchanged. The one-minute graphics stress run completed without a crash;
+PID-scoped timeout cleanup brought its total duration to 70.9 seconds.
+Profile and Debug are rebuilt in the original workspace.
+Logs use the `TestOutput/four-wall-` prefix.
+
+## Profile F5 build readiness - 2026-09-14
+
+Removed CORE's obsolete DisableFastUpToDateCheck override. RENDERING's shader
+bake now uses native read/write/command tlogs, so Visual Studio can skip an
+unchanged build while retaining shader input and output tracking. DXC runtime
+DLLs use native copy-local tracking instead of unconditional post-build copies
+that failed against the user's open application.
+
+Profile is built in the original workspace. The second build passed in 1.2
+seconds with all 505 checked binary/object timestamps unchanged and no compiler
+or linker invocations. Logs are `TestOutput/f5-profile-fixed.log` and
+`TestOutput/f5-profile-noop.log`. The production shader target passes the
+isolated tracking regression for unchanged builds, include edits, missing
+outputs, failed bakes, retries and design-time skips; artifacts are under
+`TestOutput/f5-shader-tracking-final`.
+
+The user's existing Visual Studio debugging session remains open. Its loaded
+CORE project still reports the old DisableFastUpToDateCheck=true setting;
+Visual Studio must reload the project after debugging ends to adopt the fix.
+The other five loaded projects report up-to-date. Actual F5 skipping in the
+reloaded IDE is not yet verified. The running app and simon.scene.json remain
+untouched. Future handoffs must build Profile locally, not just copy an EXE
+from an isolated checkout and leave local build records stale.
+
+## Solver mathematical typography - 2026-09-14
+
+Iterations now renders Greek capital delta through the filtered SDF font atlas.
+The atlas version is 2: the former non-printable DEL cell contains U+0394.
+Core/TextGlyphs shares its UTF-8 mapping between UI measurement and Rendering
+submission. Printable ASCII pixels and advances are byte-identical to the
+previous asset; only delta's cell, advance and the version word change.
+
+Impulse labels retain delta-J with a normal subscript, normal J and tangential
+J. Main text is 13 pixels and subscripts are 10 pixels, with horizontal positions
+derived from font advances. The procedural delta triangles are removed.
+Focused metrics checks cover delta plus J, a truncated UTF-8 lead byte and DEL.
+The full unit suite passes 1,058 cases / 3,735,515 assertions, with one skipped.
+Compiler-backed design passes four sources / 23 contexts in 10 seconds;
+dependency and project ownership checks pass. Validation artifacts use the
+`TestOutput/smooth-text-*` prefix and the isolated checkout, preserving the
+user's running Profile app and unrelated `simon.scene.json`.
+
+The UI gate's initial build/unit/native pass ran for 359 seconds; a diagnostics
+test read a partially written JSONL row. All 2,433 completed trace rows parse,
+and the unchanged diagnostics rerun passed. The final inspector plus remaining
+UI checks and ready builds passed in 418 seconds. Final pixels are preserved
+in `TestOutput/smooth-text-inspector.png`. DX12 renderer validation passed in
+25 seconds with unchanged visual baselines and zero validation errors.
+The one-minute graphics stress run completed without a crash; its normal
+PID-scoped timeout cleanup brought total wall time to 71 seconds. The final
+review retained the inspector's clip and found no ownership, allocation or
+Replay boundary changes.
+The staged physics gate passes with all worker configurations matching the
+unchanged 44,401-line golden. The verified Profile executable and matching PDB
+are installed at the original workspace's normal launch path. The running
+executable was renamed to `Profile/SKULLBONEZ_CORE.before-smooth-text-20260914.exe`
+so the user's existing session could stay open; its symbols are retained beside
+it. The next normal Profile launch uses the new mathematical typography.
+
+## Solver contact source labels - 2026-09-14
+
+The Iterations tab now keeps the selected contact's type and A/B sources above
+the scrollable stage rows. Labels include the body row, fixed/dynamic status
+and authored object name. A terrain contact explicitly says Ground / terrain
+surface; a fixed object named ground remains an object. Missing metadata keeps
+the exact body row and says details unavailable. Raw Record and copied text
+include the same source descriptions. Physics and Replay ownership are unchanged.
+
+The focused attribution test passes 12 assertions; the full unit suite passes
+1,058 cases / 3,734,903 assertions, with one skipped case. Compiler-backed design
+passes two sources / eight contexts, and dependency checks pass. The native
+Iterations screenshot is `TestOutput/solver-sources-inspector.png`; its selected
+object IDs match the published source metadata. Ground wording is covered by
+the projection test; local falling-ball fixtures did not expose a selectable
+terrain row and are not counted as native terrain proof.
+
+Validation uses the isolated checkout while the user's Profile app remains
+open. Logs are `TestOutput/solver-sources-ui-isolated.log` and
+`TestOutput/solver-sources-ui-resume.log`. The older unified-Causes script has
+outdated navigation assumptions, so the maintained causal-playback gate owns
+the native source-label check. `simon.scene.json` remains untouched.
+All remaining native UI checks and the DX12 message check pass; the gate's
+initial build/unit run took 230 seconds, and its corrected causal check plus
+remaining native cases and ready builds took 614 seconds. The isolated Profile,
+Debug and Automation builds contain the change. The original Profile executable
+could not be relinked while the user's running process holds it open.
+The staged physics gate passes in 34 seconds, with all worker configurations
+matching the unchanged golden (`TestOutput/solver-sources-physics.log`).
+
+## Original cute skull restored - 2026-09-14
+
+The owner requested the original round skull with large eyes and three teeth.
+The branding generator restores that 24-unit artwork from commit `d659cdc96`.
+The editor keeps a transparent premultiplied texture on a quad. Every Windows
+ICO resolution, 16 through 256 pixels, has an opaque black background. The
+public PNG stays transparent. Existing asset paths remain in use.
+
+Regeneration reproduces all three assets byte for byte. The ICO alpha and
+black-corner checks pass, and the UI texture retains valid premultiplied color.
+Native theme assertions now check the bone color and both eye positions at
+the 30-pixel header and 22-pixel Tools sizes. Evidence is under
+`TestOutput/cute-skull-*`. Camera behavior is unchanged by this artwork update.
+The unit suite passes 1,057 cases / 3,736,731 assertions, with one skipped case.
+Dark and Light native screenshots were inspected in
+`TestOutput/skarness/ui-gate-ui_themes-31462/live`; the three-theme pixel checks
+and all three compact layout sizes pass.
+The complete `validate_ui` gate passes in 740 seconds
+(`TestOutput/cute-skull-ui.log`). Profile, Debug and Automation embed the exact
+nine black-backed ICO images (`TestOutput/cute-skull-resources.log`).
+
+## Textured marks and camera playback - 2026-09-14
+
+The resumed task replaces the procedural native skull with one filtered RGBA
+texture quad at both toolbar sizes. UI records a detached image identity;
+Runtime/Render owns startup upload, mip filtering, ordered submission and release.
+The generator writes premultiplied color to preserve edge coverage during filtering.
+The shader and quad vertex buffer are also initialized during BackendInit, before
+the first image can appear; the allocation-sensitive native check passes.
+
+View presets and Four Views retain the current interaction workspace. Scene
+activation is consumed once even when the initial camera is live, preventing a
+later Inspect camera selection from reapplying the activation pause. The native
+camera regression checks captured solver frames with the harness pause released,
+for both running and prediction-paused states. It also uses actual button centers
+and waits for hover transitions before clicking.
+
+Fast validation passes in `TestOutput/takeover-fast2.log`. The final UI gate
+passes 1,057 unit cases / 3,734,886 assertions, with one skipped case, and all
+native UI checks (`TestOutput/takeover-ui-final.log`, 774 seconds). Camera
+validation passes 40 checks in `TestOutput/skarness/takeover-editor-final`.
+DX12 validation passes in 25 seconds; the one-minute graphics stress run
+completes; all 15 prediction-matrix cases pass in 414 seconds. Logs are
+`TestOutput/takeover-dx12.log`, `TestOutput/takeover-stress.log` and
+`TestOutput/takeover-prediction-matrix.log`. Focused compiler-backed design,
+dependency and allocation-policy checks pass. Dark and Light screenshots in
+`TestOutput/skarness/ui-gate-ui_themes-10816/live` were visually inspected.
+
+The final review checked image ordering, filtered alpha, resource lifetime,
+workspace preservation and one-time activation. Temporary diagnostics were
+removed. No dependency rule, Replay growth privilege or baseline changed.
+The unrelated `SkullbonezData/scenes/simon.scene.json` remains untouched;
+commit validation uses an isolated checkout to exclude that untracked input.
+The staged physics gate passes in 43 seconds: all four worker configurations
+match the unchanged 44,401-line golden byte for byte
+(`TestOutput/takeover-physics-commit.log`).
+
+## Split State branding - 2026-09-14
+
+The owner replaced Finite Element with Split State: neutral ivory solid skull
+on the left, cyan wireframe on the right. The native editor header and Tools
+mark share generated contours with all nine Windows ICO resolutions and the
+new split-state-skull.png export. The superseded PNG is removed.
+
+Native marks use pixel-aligned origins, a full-pixel minimum wire width and a
+sparse mesh below 32 pixels. Each ICO size is rasterized independently at 8x
+resolution and downsampled once; a tiny icon is not derived from a detailed
+large bitmap. Native drawing uses bounded contour/ellipse/stroke helpers with
+no new textures, allocations, panels or submission boundaries.
+
+Visual evidence: TestOutput/skarness/ui-gate-unified_compact_tools_ui-25178
+covers 320x240, 480x360 and 640x480; ui-gate-ui_themes-6437 covers Blue,
+Dark and Light. Inspected both header and 22-pixel Tools marks. The size sheet
+is TestOutput/split-state-icons-preview.png. Source design, dependency and
+allocation checks pass; Profile, Debug and Automation contain the exact nine
+ICO images. The complete UI gate passes: 1,054 cases / 3,734,640 assertions
+(one skipped), all native UI cases and the DX12 message check. Builds are ready.
+Closure log: TestOutput/split-state-ui-final.log.
+
+## Authored reset and explicit scene saves - 2026-09-13
+
+R now restores the current Physics-authored descriptors in place, retaining
+newly placed objects, IDs, selection, terrain edits and camera panes. It resets
+simulation/replay clocks and clears transient prediction interactions without
+reloading the scene file or advancing its generation. Reset Defaults retains
+its separate reload behavior. Entering Edit shares the same authored restore.
+
+New creates an in-memory editable draft; no starter scene file is written.
+Explicit Save publishes it. Switching scenes or exiting discards later unsaved
+changes without writing them. Draft queue slots retain stable indices; inactive
+paths are retired after successful replacement. Skarness create/reset/save
+receipts complete after the actual operation, including exact rejection of
+requests displaced by queue arbitration or a failed earlier transition.
+
+The adversarial review checked draft failure paths, receipt ordering, ownership,
+camera/selection preservation and replay dependencies. No remaining material
+blocker was found after retaining a failed draft's queue identity until it can
+be retired. Only cold SceneLoad and Diagnostics allocation entries changed;
+no Replay growth privilege was added. JSON boundary metadata no longer names
+scene creation, since it constructs a definition without serialization.
+
+Native evidence: TestOutput/skarness/reset-compass-final verifies placed poses,
+IDs/count, unchanged scene generation, selection/four-view preservation, explicit
+Save, reload discard and no write on exit. terrain-reset-final covers flat/import
+creation, sculpting, retained terrain on reset and unchanged height-map reuse.
+reset-final3 state-stream and editor-velocity checks pass; reset-commands-final
+passes the complete capability catalog and command routes. All 1,054 C++ cases /
+3,737,430 assertions pass (one skipped). Source design passes 54 sources / 448
+contexts; final compass winding changes receive an additional focused check.
+
+## Four editor views and follow-up fixes - 2026-09-13
+
+The top-right 4 Views toggle presents Top, X Side, Z Side and Perspective
+in Scene and Solver Lab. The original full-screen pose is restored when it is
+disabled. Each workspace retains its own pane poses. No additional scene
+cameras are registered. The bottom-left compass tracks the actual rendered
+orientation, including the existing 200 ms eased single-view transition.
+Right-drag pans axis views within their plane; the wheel zooms along the view
+normal. Perspective controls retain their existing behavior. Captured drags
+stay with their starting pane across dividers.
+
+App prepares simulation, model data and prediction publication once, then
+submits the same overlay packet to all panes. Orthographic post-processing
+uses linear depth. The fitted depth envelope stays centered on the scene
+while zoom moves the camera, so elevated objects do not disappear when the
+Top eye passes them. Lab picking uses that near plane, and vertical terrain
+picking intersects the height field directly.
+
+Blue prediction outlines and Grey resting outlines now live in the scrollable
+Replay pane, with clipped matching input and tooltips. Cause retains evidence
+inspection and no longer handles those visibility clicks. The current Split State skull
+contours are shared by native logo drawing and the nine embedded Windows ICO
+sizes through tools/generate_app_icon.py; the PNG exports the same design.
+
+Terminal adversarial review found no remaining material blockers after fixes
+for workspace restoration, Canvas gizmo input, same-mode Inspect clearing a
+prediction, orthographic fog depth and camera picking. Its five ownership
+answers are clear; no downward Replay dependency or growth privilege was added.
+Runtime allocation checks exposed transient metadata vector growth and Skarness
+comparison reply strings. The former now uses fixed arrays bounded by graph
+allocation capacity; the latter has a Diagnostics scope after the actual action.
+The allocation allowlist removes the vector entries and describes only the
+fixed-list lexical false positives.
+
+Native evidence: reset-final-validate_four_views has 20 passing native checks including
+close Top visibility/picking, Original and Modified pixels in all four panes,
+shared target identity, Lab picking, drag capture, workspace restoration,
+odd-size resizing and cinematic rendering, with the allocation guard passing.
+editor-views-final-pan passes 12 original camera-view cases. causal-outline-final
+passes the moved outline controls with unchanged prediction identity/data and
+inspected pixels. Profile and Automation embed all nine exact ICO resolutions.
+All 1,054 unit cases / 3,737,430 assertions pass; source design passes 54 sources /
+448 contexts plus the final compass check, and allocation/dependency/plain-language checks pass. All 17 required native UI cases and the DX12 renderer gate pass. Performance and final DX12 closure pass. The canonical perf gate now isolates
+its fresh default Canvas preferences; the old gate used the user's open Editor
+panels. A matched pre-feature/current Editor comparison independently passes
+all existing relative and absolute budgets (Frame +4.2%, UI +11.0%, UI/Draw
++18.7%). The original thresholds and baselines are unchanged. One-minute
+graphics stress passes 131/131 descriptor changes with baseline/current 20;
+PID timeout shutdown produces no final memory JSON. The mandatory physics
+worker matrix 0/0-repeat/1/4 matches the unchanged 44,401-line reference exactly.
+Final logs: four-views-perf-pinned-final, four-views-dx12-final,
+four-views-physics-gate-final, scene-reset-tests-final-2 and scene-reset-design-final.
+The isolated commit checkout has the same staged tree and omits user files.
+No golden baselines changed. simon.scene.json is user-owned and excluded.
+
+## Editor view transitions — 2026-09-13
+
+The owner requested 200 ms eased transitions and retained the existing camera
+setup. Editor view changes now use cubic ease-out, blend the top/side up
+vectors, and retarget from the visible pose if another view is selected during
+the transition. No additional scene cameras are registered. Ordinary camera
+transitions retain their 1.5-second duration. Solve Lab advances the camera
+with its presentation clock even while playback is paused. Newly started
+tweens initialize their visible sample before another same-frame command can
+read it, fixing the demo-to-Inspect empty-pose case.
+
+Final validation passes 28 camera cases / 474 assertions, all 12 native view
+cases with 1,029 intermediate tween samples, the DX12 renderer gate, and the
+compiler-backed source-design check. Native checks include paused Lab, actual
+edit mode, compact Canvas, zoom-only locks and Perspective restoration.
+Evidence is in `TestOutput/skarness/editor-tween-final-4/` and
+`TestOutput/editor-tween-*-final.log`. No baseline changed.
+
+## Prediction speed and editor views — 2026-09-13
+
+Modified velocity prediction now retains the selected reveal rate instead of
+silently reducing it to 1x. The 200-ball space regression verifies equal
+20-second horizons, high detail, 2,401 published frames, selected/published/
+rendered target identity, and unchanged Original geometry across two edits.
+The final isolated run completed Original in 2.0 seconds and Modified in 2.9–3.0
+seconds, using 155 versus 164–165 update frames. Changed collision work and
+comparison drawing still affect wall time; there is no separate slow reveal.
+Skarness summary snapshots omit comparison body arrays to avoid measuring
+diagnostic serialization as prediction cost; normal/full detail stays intact.
+
+Every editor viewport and Solve Lab now offers bottom-left Top, X Side,
+Z Side, and Perspective buttons. Axis views frame movable scene content,
+hold focus/orientation, and accept zoom only. Perspective restores the prior
+pose. Scene and Lab retain independent views, scene replacement resets them,
+and leaving every editor surface releases the camera lock. Lab framing uses
+displayed recording positions. Native coverage includes 12 views across space,
+at-rest, demo and Lab, actual edit mode, and a 640x480 Canvas viewport.
+
+Profile tests pass 1,049 active cases / 3,735,127 assertions with one existing
+skip. The complete Skarness gate passes in 510.6 seconds, DX12 in 114.2
+seconds, replay visual fidelity in 358.5 seconds, and repository preflight
+in 117.7 seconds. Progressive normal-detail
+reveal also passes with zero gameplay allocation violations and DX12 errors.
+Native screenshots and state traces are under
+`TestOutput/skarness/editor-views-final/`,
+`TestOutput/skarness/prediction-speed-final/`, and
+`TestOutput/skarness/velocity-reveal-final/`; gate logs use
+`TestOutput/editor-views-*-final.log`.
+No Physics or visual baseline, downward dependency, or replay growth
+privilege changed. The allocation-policy edit only refreshes an existing
+diagnostic statement's surrounding source context.
 
 ## Approved gate repairs — 2026-09-13
 

@@ -89,6 +89,7 @@ struct OwnerRecord
     RuntimeReservePhase initPhase;
     int initialCapacity;
     int hardCapacity;
+    uint64_t hardByteBudget;
     int replayGrowthLimit;
     bool allowReplayGrowth;
     const char* capacityReason;
@@ -245,8 +246,7 @@ void UpdateHighWaterU64( std::atomic<uint64_t>& highWater, uint64_t value ) noex
 {
     uint64_t observed = highWater.load( std::memory_order_relaxed );
 
-    while ( observed < value &&
-            !highWater.compare_exchange_weak( observed, value, std::memory_order_relaxed, std::memory_order_relaxed ) )
+    while ( observed < value && !highWater.compare_exchange_weak( observed, value, std::memory_order_relaxed, std::memory_order_relaxed ) )
     {
     }
 }
@@ -255,8 +255,7 @@ void UpdateHighWaterI32( std::atomic<int>& highWater, int value ) noexcept
 {
     int observed = highWater.load( std::memory_order_relaxed );
 
-    while ( observed < value &&
-            !highWater.compare_exchange_weak( observed, value, std::memory_order_relaxed, std::memory_order_relaxed ) )
+    while ( observed < value && !highWater.compare_exchange_weak( observed, value, std::memory_order_relaxed, std::memory_order_relaxed ) )
     {
     }
 }
@@ -278,6 +277,11 @@ void SubtractActiveBytes( std::atomic<uint64_t>& activeBytes, uint64_t size ) no
 
 uint64_t OwnerHardCapacityBytes( const OwnerRecord& owner ) noexcept
 {
+    if ( owner.hardByteBudget != 0u )
+    {
+        return owner.hardByteBudget;
+    }
+
     const uint64_t elementBytes = static_cast<uint64_t>( owner.elementSizeBytes > 0 ? owner.elementSizeBytes : 1 );
     return static_cast<uint64_t>( owner.hardCapacity > 0 ? owner.hardCapacity : 0 ) * elementBytes;
 }
@@ -288,8 +292,7 @@ bool TryReservePendingReplayGrantBytes( OwnerRecord& owner, uint64_t bytes ) noe
     const uint64_t pendingBytes = owner.counters.pendingReplayGrantBytes.load( std::memory_order_relaxed );
     const uint64_t hardBytes = OwnerHardCapacityBytes( owner );
 
-    if ( activeBytes > hardBytes || pendingBytes > hardBytes - activeBytes ||
-         bytes > hardBytes - activeBytes - pendingBytes )
+    if ( activeBytes > hardBytes || pendingBytes > hardBytes - activeBytes || bytes > hardBytes - activeBytes - pendingBytes )
     {
         return false;
     }
@@ -347,8 +350,7 @@ void ReleasePendingReplayGrantBytes( RuntimeReserveOwnerHandle ownerHandle, uint
 void ResetOwnerCounters( OwnerCounters& counters, int initialCapacity, bool preserveLiveBytes = false ) noexcept
 {
     const uint64_t liveBytes = preserveLiveBytes ? counters.activeBytes.load( std::memory_order_relaxed ) : 0u;
-    const uint64_t pendingBytes = preserveLiveBytes ? counters.pendingReplayGrantBytes.load( std::memory_order_relaxed )
-                                                    : 0u;
+    const uint64_t pendingBytes = preserveLiveBytes ? counters.pendingReplayGrantBytes.load( std::memory_order_relaxed ) : 0u;
     counters.allocations.store( 0u, std::memory_order_relaxed );
     counters.frees.store( 0u, std::memory_order_relaxed );
     counters.allocatedBytes.store( 0u, std::memory_order_relaxed );
@@ -373,10 +375,9 @@ bool RegistrationMatchesOwnerPolicy( const OwnerRecord& owner, const RuntimeRese
     const int hardCapacity = desc.hardCapacity >= desc.initialCapacity ? desc.hardCapacity : desc.initialCapacity;
     const int elementSizeBytes = desc.elementSizeBytes > 0 ? desc.elementSizeBytes : 0;
 
-    bool matches = owner.subsystem == desc.subsystem && owner.initPhase == desc.initPhase &&
-                   owner.initialCapacity == desc.initialCapacity && owner.hardCapacity == hardCapacity &&
-                   owner.replayGrowthLimit == desc.replayGrowthLimit && owner.allowReplayGrowth == desc.allowReplayGrowth &&
-                   owner.elementSizeBytes == elementSizeBytes;
+    bool matches = owner.subsystem == desc.subsystem && owner.initPhase == desc.initPhase && owner.initialCapacity == desc.initialCapacity && owner.hardCapacity == hardCapacity &&
+                   owner.replayGrowthLimit == desc.replayGrowthLimit && owner.allowReplayGrowth == desc.allowReplayGrowth && owner.elementSizeBytes == elementSizeBytes &&
+                   owner.hardByteBudget == desc.hardByteBudget;
     return matches;
 }
 
@@ -399,8 +400,7 @@ uint64_t GrowthDeltaBytes( int oldCapacity, int grantedCapacity, int elementSize
 uint64_t MaximumBackingAllocationBytes( const RuntimeReserveGrowthRequest& request ) noexcept
 {
     const uint64_t elementBytes = static_cast<uint64_t>( request.elementSizeBytes > 0 ? request.elementSizeBytes : 1 );
-    const uint64_t requestedCapacity = static_cast<uint64_t>( request.requestedCapacity > 0 ? request.requestedCapacity
-                                                                                            : 0 );
+    const uint64_t requestedCapacity = static_cast<uint64_t>( request.requestedCapacity > 0 ? request.requestedCapacity : 0 );
     return requestedCapacity * elementBytes;
 }
 
@@ -421,8 +421,7 @@ uint64_t NextReplayGrowthGrantId() noexcept
     return grantId;
 }
 
-void RecordGrowthEvent( const OwnerRecord& owner, int ownerIndex, const RuntimeReserveGrowthRequest& request,
-                        const RuntimeReserveGrowthResult& result, const char* reason, uint64_t bytes ) noexcept
+void RecordGrowthEvent( const OwnerRecord& owner, int ownerIndex, const RuntimeReserveGrowthRequest& request, const RuntimeReserveGrowthResult& result, const char* reason, uint64_t bytes ) noexcept
 {
     GrowthEventLock lock;
     const uint64_t sequence = s_growthEventCount.load( std::memory_order_relaxed ) + 1u;
@@ -445,8 +444,7 @@ void RecordGrowthEvent( const OwnerRecord& owner, int ownerIndex, const RuntimeR
     event.granted = result.granted;
 }
 
-RuntimeReserveGrowthResult DenyGrowth( OwnerRecord& owner, int ownerIndex, const RuntimeReserveGrowthRequest& request,
-                                       const char* reason ) noexcept
+RuntimeReserveGrowthResult DenyGrowth( OwnerRecord& owner, int ownerIndex, const RuntimeReserveGrowthRequest& request, const char* reason ) noexcept
 {
     owner.counters.failedGrowths.fetch_add( 1u, std::memory_order_relaxed );
     s_policyViolations.fetch_add( 1u, std::memory_order_relaxed );
@@ -456,15 +454,19 @@ RuntimeReserveGrowthResult DenyGrowth( OwnerRecord& owner, int ownerIndex, const
     result.growthCount = static_cast<int>( owner.counters.replayGrowths.load( std::memory_order_relaxed ) );
     RecordGrowthEvent( owner, ownerIndex, request, result, reason, 0u );
     std::fprintf( stdout,
-                  "[runtime-reserve] growth owner=%s target=%s subsystem=%s phase=%s frame=%d old_capacity=%d "
-                  "requested_capacity=%d granted_capacity=%d element_bytes=%d bytes=0 growth_count=%d "
-                  "hard_capacity=%d status=denied reason=%s\n",
-                  SafeOwnerName( owner, ownerIndex ), SafeTargetName( request ),
+                  "[runtime-reserve] growth owner=%s target=%s subsystem=%s phase=%s frame=%d old_capacity=%d " "requested_capacity=%d granted_capacity=%d element_bytes=%d bytes=0 growth_count=%d " "hard_capacity=%d status=denied reason=%s\n",
+                  SafeOwnerName( owner, ownerIndex ),
+                  SafeTargetName( request ),
                   RuntimeReserveSubsystemName( ownerIndex == 0 ? RuntimeReserveSubsystem::Unknown : owner.subsystem ),
-                  RuntimeReservePhaseName( request.phase ), request.frameNumber, request.oldCapacity,
-                  request.requestedCapacity, result.grantedCapacity,
-                  request.elementSizeBytes > 0 ? request.elementSizeBytes : 1, result.growthCount,
-                  ownerIndex == 0 ? 0 : owner.hardCapacity, SafeReason( reason ) );
+                  RuntimeReservePhaseName( request.phase ),
+                  request.frameNumber,
+                  request.oldCapacity,
+                  request.requestedCapacity,
+                  result.grantedCapacity,
+                  request.elementSizeBytes > 0 ? request.elementSizeBytes : 1,
+                  result.growthCount,
+                  ownerIndex == 0 ? 0 : owner.hardCapacity,
+                  SafeReason( reason ) );
 
     return result;
 }
@@ -516,19 +518,16 @@ RuntimeReserveGrowthResult& RuntimeReserveGrowthResult::operator=( RuntimeReserv
     return *this;
 }
 
-RuntimeReserveGrowthScope::RuntimeReserveGrowthScope( RuntimeReserveOwnerHandle owner, RuntimeReservePhase phase,
-                                                      RuntimeReserveGrowthResult& result ) noexcept
-    : m_previousOwner( s_approvedReplayGrowthOwner ), m_previousPhase( s_approvedReplayGrowthPhase ),
-      m_previousDepth( s_approvedReplayGrowthDepth ), m_previousGrantId( s_approvedReplayGrowthGrantId ),
-      m_previousRemainingBytes( s_approvedReplayGrowthRemainingBytes ), m_active( false )
+RuntimeReserveGrowthScope::RuntimeReserveGrowthScope( RuntimeReserveOwnerHandle owner, RuntimeReservePhase phase, RuntimeReserveGrowthResult& result ) noexcept
+    : m_previousOwner( s_approvedReplayGrowthOwner ), m_previousPhase( s_approvedReplayGrowthPhase ), m_previousDepth( s_approvedReplayGrowthDepth ),
+      m_previousGrantId( s_approvedReplayGrowthGrantId ), m_previousRemainingBytes( s_approvedReplayGrowthRemainingBytes ), m_active( false )
 {
     const RuntimeReserveOwnerHandle normalizedOwner = NormalizeOwnerHandle( owner );
 
     // A result is a one-use grant. Private identity fields prevent fabricated
     // public success values from opening a scope, and clearing the token here
     // prevents the same granted request from being reused.
-    if ( result.granted && result.m_grantId != 0u && result.m_grantOwner == normalizedOwner &&
-         result.m_grantPhase == phase && result.m_allocationBytes > 0u && normalizedOwner != UNREGISTERED_OWNER &&
+    if ( result.granted && result.m_grantId != 0u && result.m_grantOwner == normalizedOwner && result.m_grantPhase == phase && result.m_allocationBytes > 0u && normalizedOwner != UNREGISTERED_OWNER &&
          phase == RuntimeReservePhase::Replay )
     {
         s_approvedReplayGrowthOwner = normalizedOwner;
@@ -557,8 +556,7 @@ RuntimeReserveGrowthScope::~RuntimeReserveGrowthScope() noexcept
     }
 }
 
-RuntimeReserveOwnerScope::RuntimeReserveOwnerScope( RuntimeReserveOwnerHandle owner ) noexcept
-    : m_previous( RuntimeReserveAllocator::CurrentOwner() )
+RuntimeReserveOwnerScope::RuntimeReserveOwnerScope( RuntimeReserveOwnerHandle owner ) noexcept : m_previous( RuntimeReserveAllocator::CurrentOwner() )
 {
     RuntimeReserveAllocator::SetCurrentOwner( owner );
 }
@@ -568,8 +566,7 @@ RuntimeReserveOwnerScope::~RuntimeReserveOwnerScope() noexcept
     RuntimeReserveAllocator::SetCurrentOwner( m_previous );
 }
 
-RuntimeReserveAllocationScope::RuntimeReserveAllocationScope( RuntimeReserveOwnerHandle owner, RuntimeReservePhase phase,
-                                                              RuntimeReserveGrowthResult& result ) noexcept
+RuntimeReserveAllocationScope::RuntimeReserveAllocationScope( RuntimeReserveOwnerHandle owner, RuntimeReservePhase phase, RuntimeReserveGrowthResult& result ) noexcept
     : m_allocationScope( phase ), m_ownerScope( owner ), m_growthScope( owner, phase, result )
 {
 }
@@ -595,10 +592,7 @@ RuntimeReserveOwnerHandle RuntimeReserveAllocator::RegisterOwner( const RuntimeR
             if ( !RegistrationMatchesOwnerPolicy( existing, desc ) )
             {
                 s_policyViolations.fetch_add( 1u, std::memory_order_relaxed );
-                std::fprintf( stdout,
-                              "[runtime-reserve] registration owner=%s status=denied "
-                              "reason=duplicate_owner_policy_mismatch\n",
-                              ownerName );
+                std::fprintf( stdout, "[runtime-reserve] registration owner=%s status=denied " "reason=duplicate_owner_policy_mismatch\n", ownerName );
                 return INVALID_RUNTIME_RESERVE_OWNER;
             }
 
@@ -620,6 +614,7 @@ RuntimeReserveOwnerHandle RuntimeReserveAllocator::RegisterOwner( const RuntimeR
     owner.initPhase = desc.initPhase;
     owner.initialCapacity = desc.initialCapacity;
     owner.hardCapacity = desc.hardCapacity >= desc.initialCapacity ? desc.hardCapacity : desc.initialCapacity;
+    owner.hardByteBudget = desc.hardByteBudget;
     owner.replayGrowthLimit = desc.replayGrowthLimit;
     owner.allowReplayGrowth = desc.allowReplayGrowth;
     owner.capacityReason = desc.capacityReason && desc.capacityReason[0] != '\0' ? desc.capacityReason : "unspecified";
@@ -635,16 +630,14 @@ RuntimeReserveOwnerHandle RuntimeReserveAllocator::RegisterOwner( const RuntimeR
         if ( capacityRowIndex >= 0 && capacityRowIndex < MAX_RUNTIME_RESERVE_OWNERS )
         {
             owner.capacityRowIndex = capacityRowIndex;
-            s_capacityRows[capacityRowIndex] = {
-                owner.ownerName,
-                owner.subsystem,
-                owner.capacityReason,
-                owner.elementSizeBytes,
-                owner.initialCapacity,
-                0,
-                0,
-                static_cast<uint64_t>( owner.initialCapacity ) * static_cast<uint64_t>( owner.elementSizeBytes ),
-            };
+            s_capacityRows[capacityRowIndex] = { owner.ownerName,
+                                                 owner.subsystem,
+                                                 owner.capacityReason,
+                                                 owner.elementSizeBytes,
+                                                 owner.initialCapacity,
+                                                 0,
+                                                 0,
+                                                 static_cast<uint64_t>( owner.initialCapacity ) * static_cast<uint64_t>( owner.elementSizeBytes ), };
         }
         else
         {
@@ -657,8 +650,7 @@ RuntimeReserveOwnerHandle RuntimeReserveAllocator::RegisterOwner( const RuntimeR
     return static_cast<RuntimeReserveOwnerHandle>( index );
 }
 
-RuntimeReserveGrowthResult RuntimeReserveAllocator::RequestGrowth( RuntimeReserveOwnerHandle ownerHandle,
-                                                                   const RuntimeReserveGrowthRequest& request ) noexcept
+RuntimeReserveGrowthResult RuntimeReserveAllocator::RequestGrowth( RuntimeReserveOwnerHandle ownerHandle, const RuntimeReserveGrowthRequest& request ) noexcept
 {
     // One allocator-session lock makes grant admission, pending reservation,
     // counters, and event publication indivisible with respect to reset.
@@ -712,9 +704,7 @@ RuntimeReserveGrowthResult RuntimeReserveAllocator::RequestGrowth( RuntimeReserv
         return DenyGrowth( owner, ownerIndex, request, "owner_byte_budget" );
     }
 
-    const uint64_t newGrowthCount = replayGrowth
-                                        ? owner.counters.replayGrowths.fetch_add( 1u, std::memory_order_relaxed ) + 1u
-                                        : oldGrowthCount;
+    const uint64_t newGrowthCount = replayGrowth ? owner.counters.replayGrowths.fetch_add( 1u, std::memory_order_relaxed ) + 1u : oldGrowthCount;
 
     // Policy counters are process-monotonic. The separately claimed canonical
     // publisher owns the live capacity row, so a same-name clone cannot mutate
@@ -737,13 +727,19 @@ RuntimeReserveGrowthResult RuntimeReserveAllocator::RequestGrowth( RuntimeReserv
 
     RecordGrowthEvent( owner, ownerIndex, request, result, "granted", grownBytes );
     std::fprintf( stdout,
-                  "[runtime-reserve] growth owner=%s target=%s subsystem=%s phase=%s frame=%d old_capacity=%d "
-                  "requested_capacity=%d granted_capacity=%d element_bytes=%d bytes=%llu growth_count=%d "
-                  "hard_capacity=%d status=granted\n",
-                  SafeOwnerName( owner, ownerIndex ), SafeTargetName( request ),
-                  RuntimeReserveSubsystemName( owner.subsystem ), RuntimeReservePhaseName( request.phase ),
-                  request.frameNumber, request.oldCapacity, request.requestedCapacity, request.requestedCapacity,
-                  elementBytes, static_cast<unsigned long long>( grownBytes ), result.growthCount, owner.hardCapacity );
+                  "[runtime-reserve] growth owner=%s target=%s subsystem=%s phase=%s frame=%d old_capacity=%d " "requested_capacity=%d granted_capacity=%d element_bytes=%d bytes=%llu growth_count=%d " "hard_capacity=%d status=granted\n",
+                  SafeOwnerName( owner, ownerIndex ),
+                  SafeTargetName( request ),
+                  RuntimeReserveSubsystemName( owner.subsystem ),
+                  RuntimeReservePhaseName( request.phase ),
+                  request.frameNumber,
+                  request.oldCapacity,
+                  request.requestedCapacity,
+                  request.requestedCapacity,
+                  elementBytes,
+                  static_cast<unsigned long long>( grownBytes ),
+                  result.growthCount,
+                  owner.hardCapacity );
 
     return result;
 }
@@ -761,17 +757,13 @@ void RuntimeReserveAllocator::SetCurrentOwner( RuntimeReserveOwnerHandle owner )
 bool RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept
 {
     const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( owner );
-    return phaseIndex == 6 && ownerIndex != UNREGISTERED_OWNER && ownerIndex == s_approvedReplayGrowthOwner &&
-           s_approvedReplayGrowthDepth > 0 && s_approvedReplayGrowthPhase == RuntimeReservePhase::Replay &&
-           s_approvedReplayGrowthGrantId != 0u && s_approvedReplayGrowthRemainingBytes > 0u;
+    return phaseIndex == 6 && ownerIndex != UNREGISTERED_OWNER && ownerIndex == s_approvedReplayGrowthOwner && s_approvedReplayGrowthDepth > 0 &&
+           s_approvedReplayGrowthPhase == RuntimeReservePhase::Replay && s_approvedReplayGrowthGrantId != 0u && s_approvedReplayGrowthRemainingBytes > 0u;
 }
 
-bool RuntimeReserveAllocator::TryConsumeApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex,
-                                                                        uint64_t bytes,
-                                                                        uint64_t* outAccountingGeneration ) noexcept
+bool RuntimeReserveAllocator::TryConsumeApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes, uint64_t* outAccountingGeneration ) noexcept
 {
-    if ( bytes == 0u || !IsApprovedReplayGrowthAllocation( owner, phaseIndex ) ||
-         bytes > s_approvedReplayGrowthRemainingBytes )
+    if ( bytes == 0u || !IsApprovedReplayGrowthAllocation( owner, phaseIndex ) || bytes > s_approvedReplayGrowthRemainingBytes )
     {
         return false;
     }
@@ -808,8 +800,7 @@ bool RuntimeReserveAllocator::TryConsumeApprovedReplayGrowthAllocation( RuntimeR
 }
 
 
-uint64_t RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ownerHandle, int phaseIndex,
-                                                    uint64_t bytes ) noexcept
+uint64_t RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ownerHandle, int phaseIndex, uint64_t bytes ) noexcept
 {
     ReplayBudgetLock accountingLock;
     const uint64_t accountingGeneration = s_allocationAccountingGeneration.load( std::memory_order_relaxed );
@@ -829,11 +820,11 @@ uint64_t RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ow
         {
             s_policyViolations.fetch_add( 1u, std::memory_order_relaxed );
             std::fprintf( stdout,
-                          "[runtime-reserve] policy_violation owner=%s phase=%s bytes=%llu active_bytes=%llu "
-                          "hard_capacity=%d reason=replay_owner_byte_cap\n",
+                          "[runtime-reserve] policy_violation owner=%s phase=%s bytes=%llu active_bytes=%llu " "hard_capacity=%d reason=replay_owner_byte_cap\n",
                           SafeOwnerName( owner, ownerIndex ),
                           RuntimeReservePhaseName( RuntimeReservePhaseFromAllocationPhaseIndex( phaseIndex ) ),
-                          static_cast<unsigned long long>( bytes ), static_cast<unsigned long long>( activeAfter ),
+                          static_cast<unsigned long long>( bytes ),
+                          static_cast<unsigned long long>( activeAfter ),
                           owner.hardCapacity );
         }
     }
@@ -851,8 +842,7 @@ uint64_t RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ow
     {
         s_policyViolations.fetch_add( 1u, std::memory_order_relaxed );
         std::fprintf( stdout,
-                      "[runtime-reserve] policy_violation owner=unregistered_runtime_allocation phase=%s bytes=%llu "
-                      "reason=missing_owner_scope\n",
+                      "[runtime-reserve] policy_violation owner=unregistered_runtime_allocation phase=%s bytes=%llu " "reason=missing_owner_scope\n",
                       RuntimeReservePhaseName( RuntimeReservePhaseFromAllocationPhaseIndex( phaseIndex ) ),
                       static_cast<unsigned long long>( bytes ) );
     }
@@ -860,14 +850,12 @@ uint64_t RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ow
     return accountingGeneration;
 }
 
-void RuntimeReserveAllocator::RecordFree( RuntimeReserveOwnerHandle ownerHandle, uint64_t bytes,
-                                          uint64_t accountingGeneration ) noexcept
+void RuntimeReserveAllocator::RecordFree( RuntimeReserveOwnerHandle ownerHandle, uint64_t bytes, uint64_t accountingGeneration ) noexcept
 {
     ReplayBudgetLock accountingLock;
     const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( ownerHandle );
     OwnerRecord& owner = OwnerForHandle( ownerIndex );
-    const bool currentSession = accountingGeneration == 0u ||
-                                accountingGeneration == s_allocationAccountingGeneration.load( std::memory_order_relaxed );
+    const bool currentSession = accountingGeneration == 0u || accountingGeneration == s_allocationAccountingGeneration.load( std::memory_order_relaxed );
 
     if ( currentSession )
     {
@@ -914,8 +902,7 @@ int RuntimeReserveAllocator::CopyRecentGrowthEvents( RuntimeReserveGrowthEventVi
     return copyCount;
 }
 
-bool RuntimeReserveAllocator::CopyOwnerStats( RuntimeReserveOwnerHandle ownerHandle,
-                                              RuntimeReserveOwnerStatsView& outStats ) noexcept
+bool RuntimeReserveAllocator::CopyOwnerStats( RuntimeReserveOwnerHandle ownerHandle, RuntimeReserveOwnerStatsView& outStats ) noexcept
 {
     outStats = {};
     const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( ownerHandle );
@@ -938,6 +925,7 @@ bool RuntimeReserveAllocator::CopyOwnerStats( RuntimeReserveOwnerHandle ownerHan
     outStats.failedGrowths = owner.counters.failedGrowths.load( std::memory_order_relaxed );
     outStats.currentCapacity = owner.counters.currentCapacity.load( std::memory_order_relaxed );
     outStats.hardCapacity = owner.hardCapacity;
+    outStats.hardByteBudget = OwnerHardCapacityBytes( owner );
     outStats.highWaterCapacity = owner.counters.highWaterCapacity.load( std::memory_order_relaxed );
     outStats.lastGrowthFrame = owner.counters.lastGrowthFrame.load( std::memory_order_relaxed );
     outStats.allowReplayGrowth = owner.allowReplayGrowth;
@@ -959,8 +947,7 @@ bool RuntimeReserveAllocator::CopyOwnerStatsByName( const char* ownerName, Runti
     {
         const OwnerRecord& owner = s_owners[index];
 
-        if ( owner.active.load( std::memory_order_acquire ) != 0u && owner.ownerName &&
-             std::strcmp( owner.ownerName, ownerName ) == 0 )
+        if ( owner.active.load( std::memory_order_acquire ) != 0u && owner.ownerName && std::strcmp( owner.ownerName, ownerName ) == 0 )
         {
             return CopyOwnerStats( static_cast<RuntimeReserveOwnerHandle>( index ), outStats );
         }
@@ -969,8 +956,7 @@ bool RuntimeReserveAllocator::CopyOwnerStatsByName( const char* ownerName, Runti
     return false;
 }
 
-RuntimeReserveCapacityPublisherToken
-RuntimeReserveAllocator::ClaimCapacityPublisher( RuntimeReserveOwnerHandle ownerHandle ) noexcept
+RuntimeReserveCapacityPublisherToken RuntimeReserveAllocator::ClaimCapacityPublisher( RuntimeReserveOwnerHandle ownerHandle ) noexcept
 {
     const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( ownerHandle );
 
@@ -996,8 +982,7 @@ RuntimeReserveAllocator::ClaimCapacityPublisher( RuntimeReserveOwnerHandle owner
 
     uint32_t expected = INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER;
 
-    if ( !owner.capacityPublisher.compare_exchange_strong( expected, publisher, std::memory_order_acq_rel,
-                                                           std::memory_order_acquire ) )
+    if ( !owner.capacityPublisher.compare_exchange_strong( expected, publisher, std::memory_order_acq_rel, std::memory_order_acquire ) )
     {
         return INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER;
     }
@@ -1005,9 +990,7 @@ RuntimeReserveAllocator::ClaimCapacityPublisher( RuntimeReserveOwnerHandle owner
     return publisher;
 }
 
-void RuntimeReserveAllocator::ReleaseCapacityPublisher( RuntimeReserveOwnerHandle ownerHandle,
-                                                        RuntimeReserveCapacityPublisherToken publisher,
-                                                        int sessionHighWater ) noexcept
+void RuntimeReserveAllocator::ReleaseCapacityPublisher( RuntimeReserveOwnerHandle ownerHandle, RuntimeReserveCapacityPublisherToken publisher, int sessionHighWater ) noexcept
 {
     if ( publisher == INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER )
     {
@@ -1043,8 +1026,10 @@ void RuntimeReserveAllocator::ReleaseCapacityPublisher( RuntimeReserveOwnerHandl
 }
 
 void RuntimeReserveAllocator::PublishCapacityUsage( RuntimeReserveOwnerHandle ownerHandle,
-                                                    RuntimeReserveCapacityPublisherToken publisher, int currentCapacity,
-                                                    int liveCount, int sessionHighWater ) noexcept
+                                                    RuntimeReserveCapacityPublisherToken publisher,
+                                                    int currentCapacity,
+                                                    int liveCount,
+                                                    int sessionHighWater ) noexcept
 {
     const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( ownerHandle );
 
@@ -1056,8 +1041,7 @@ void RuntimeReserveAllocator::PublishCapacityUsage( RuntimeReserveOwnerHandle ow
 
     OwnerRecord& owner = OwnerForHandle( ownerIndex );
 
-    if ( owner.capacityRowIndex < 0 || publisher == INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER ||
-         owner.capacityPublisher.load( std::memory_order_acquire ) != publisher )
+    if ( owner.capacityRowIndex < 0 || publisher == INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER || owner.capacityPublisher.load( std::memory_order_acquire ) != publisher )
     {
         return;
     }
@@ -1072,8 +1056,7 @@ void RuntimeReserveAllocator::PublishCapacityUsage( RuntimeReserveOwnerHandle ow
         capacityRow.sessionHighWater = reportedHighWater;
     }
 
-    capacityRow.residentBytes = static_cast<uint64_t>( capacityRow.currentCapacity ) *
-                                static_cast<uint64_t>( capacityRow.elementSizeBytes );
+    capacityRow.residentBytes = static_cast<uint64_t>( capacityRow.currentCapacity ) * static_cast<uint64_t>( capacityRow.elementSizeBytes );
 }
 
 std::span<const RuntimeReserveCapacityView> RuntimeReserveAllocator::CapacityRows() noexcept
@@ -1117,8 +1100,7 @@ void RuntimeReserveAllocator::PrintCapacityRows( FILE* out, const char* sceneNam
         sortedRows[index] = &rows[static_cast<std::size_t>( index )];
     }
 
-    std::sort( sortedRows, sortedRows + rowCount,
-               []( const RuntimeReserveCapacityView* left, const RuntimeReserveCapacityView* right )
+    std::sort( sortedRows, sortedRows + rowCount, []( const RuntimeReserveCapacityView* left, const RuntimeReserveCapacityView* right )
                {
                    if ( left->residentBytes != right->residentBytes )
                    {
@@ -1128,22 +1110,24 @@ void RuntimeReserveAllocator::PrintCapacityRows( FILE* out, const char* sceneNam
                    return std::strcmp( left->ownerName, right->ownerName ) < 0;
                } );
 
-    std::fprintf( out, "[capacity] scene=\"%s\" status=%s rows=%d\n", sceneName ? sceneName : "",
-                  status ? status : "unknown", rowCount );
+    std::fprintf( out, "[capacity] scene=\"%s\" status=%s rows=%d\n", sceneName ? sceneName : "", status ? status : "unknown", rowCount );
 
     for ( int index = 0; index < rowCount; ++index )
     {
         const RuntimeReserveCapacityView& row = *sortedRows[index];
-        const double utilisation = row.currentCapacity > 0 ? static_cast<double>( row.sessionHighWater ) * 100.0 /
-                                                                 static_cast<double>( row.currentCapacity )
-                                                           : 0.0;
+        const double utilisation = row.currentCapacity > 0 ? static_cast<double>( row.sessionHighWater ) * 100.0 / static_cast<double>( row.currentCapacity ) : 0.0;
 
         std::fprintf( out,
-                      "[capacity] owner=\"%s\" subsystem=%s reason=\"%s\" element_bytes=%d capacity=%d live=%d "
-                      "high_water=%d utilisation=%.2f%% resident_bytes=%llu\n",
-                      row.ownerName ? row.ownerName : "", RuntimeReserveSubsystemName( row.subsystem ),
-                      row.capacityReason ? row.capacityReason : "", row.elementSizeBytes, row.currentCapacity, row.liveCount,
-                      row.sessionHighWater, utilisation, static_cast<unsigned long long>( row.residentBytes ) );
+                      "[capacity] owner=\"%s\" subsystem=%s reason=\"%s\" element_bytes=%d capacity=%d live=%d " "high_water=%d utilisation=%.2f%% resident_bytes=%llu\n",
+                      row.ownerName ? row.ownerName : "",
+                      RuntimeReserveSubsystemName( row.subsystem ),
+                      row.capacityReason ? row.capacityReason : "",
+                      row.elementSizeBytes,
+                      row.currentCapacity,
+                      row.liveCount,
+                      row.sessionHighWater,
+                      utilisation,
+                      static_cast<unsigned long long>( row.residentBytes ) );
     }
 
     std::fflush( out );
@@ -1157,9 +1141,7 @@ uint64_t RuntimeReserveAllocator::GrowthEventCount() noexcept
 uint64_t RuntimeReserveAllocator::GrowthEventDroppedCount() noexcept
 {
     const uint64_t total = GrowthEventCount();
-    return total > static_cast<uint64_t>( MAX_RUNTIME_RESERVE_GROWTH_EVENTS )
-               ? total - static_cast<uint64_t>( MAX_RUNTIME_RESERVE_GROWTH_EVENTS )
-               : 0u;
+    return total > static_cast<uint64_t>( MAX_RUNTIME_RESERVE_GROWTH_EVENTS ) ? total - static_cast<uint64_t>( MAX_RUNTIME_RESERVE_GROWTH_EVENTS ) : 0u;
 }
 
 void RuntimeReserveAllocator::ResetCounters() noexcept
@@ -1202,7 +1184,8 @@ void RuntimeReserveAllocator::PrintSummary( FILE* out ) noexcept
         return;
     }
 
-    std::fprintf( out, "[runtime-reserve] policy_violations=%llu registered_owners=%d\n",
+    std::fprintf( out,
+                  "[runtime-reserve] policy_violations=%llu registered_owners=%d\n",
                   static_cast<unsigned long long>( PolicyViolationCount() ),
                   s_registeredOwnerCount.load( std::memory_order_relaxed ) - 1 );
 
@@ -1224,8 +1207,7 @@ void RuntimeReserveAllocator::PrintSummary( FILE* out ) noexcept
         const uint64_t failedGrowths = owner.counters.failedGrowths.load( std::memory_order_relaxed );
         const int highWaterCapacity = owner.counters.highWaterCapacity.load( std::memory_order_relaxed );
 
-        if ( allocations == 0u && frees == 0u && bytes == 0u && activeBytes == 0u && highWaterBytes == 0u &&
-             replayGrowths == 0u && failedGrowths == 0u && highWaterCapacity == 0 )
+        if ( allocations == 0u && frees == 0u && bytes == 0u && activeBytes == 0u && highWaterBytes == 0u && replayGrowths == 0u && failedGrowths == 0u && highWaterCapacity == 0 )
         {
             continue;
         }
@@ -1233,19 +1215,22 @@ void RuntimeReserveAllocator::PrintSummary( FILE* out ) noexcept
         const int lastPhase = owner.counters.lastPhaseIndex.load( std::memory_order_relaxed );
         const RuntimeReservePhase phase = RuntimeReservePhaseFromAllocationPhaseIndex( lastPhase );
         std::fprintf( out,
-                      "[runtime-reserve] owner=%s subsystem=%s init_phase=%s last_phase=%s allocations=%llu "
-                      "frees=%llu bytes=%llu active_bytes=%llu high_water_bytes=%llu capacity=%d "
-                      "hard_capacity=%d growth_limit=%d high_water_capacity=%d replay_grows=%llu failed_grows=%llu "
-                      "last_growth_frame=%d reason=\"%s\"\n",
+                      "[runtime-reserve] owner=%s subsystem=%s init_phase=%s last_phase=%s allocations=%llu " "frees=%llu bytes=%llu active_bytes=%llu high_water_bytes=%llu capacity=%d " "hard_capacity=%d growth_limit=%d high_water_capacity=%d replay_grows=%llu failed_grows=%llu " "last_growth_frame=%d reason=\"%s\"\n",
                       SafeOwnerName( owner, index ),
                       RuntimeReserveSubsystemName( index == 0 ? RuntimeReserveSubsystem::Unknown : owner.subsystem ),
                       RuntimeReservePhaseName( index == 0 ? RuntimeReservePhase::SteadyGameplay : owner.initPhase ),
-                      RuntimeReservePhaseName( phase ), static_cast<unsigned long long>( allocations ),
-                      static_cast<unsigned long long>( frees ), static_cast<unsigned long long>( bytes ),
-                      static_cast<unsigned long long>( activeBytes ), static_cast<unsigned long long>( highWaterBytes ),
-                      owner.counters.currentCapacity.load( std::memory_order_relaxed ), index == 0 ? 0 : owner.hardCapacity,
-                      index == 0 ? 0 : owner.replayGrowthLimit, highWaterCapacity,
-                      static_cast<unsigned long long>( replayGrowths ), static_cast<unsigned long long>( failedGrowths ),
+                      RuntimeReservePhaseName( phase ),
+                      static_cast<unsigned long long>( allocations ),
+                      static_cast<unsigned long long>( frees ),
+                      static_cast<unsigned long long>( bytes ),
+                      static_cast<unsigned long long>( activeBytes ),
+                      static_cast<unsigned long long>( highWaterBytes ),
+                      owner.counters.currentCapacity.load( std::memory_order_relaxed ),
+                      index == 0 ? 0 : owner.hardCapacity,
+                      index == 0 ? 0 : owner.replayGrowthLimit,
+                      highWaterCapacity,
+                      static_cast<unsigned long long>( replayGrowths ),
+                      static_cast<unsigned long long>( failedGrowths ),
                       owner.counters.lastGrowthFrame.load( std::memory_order_relaxed ),
                       index == 0 ? "missing RuntimeReserveOwnerScope" : SafeCapacityReason( owner ) );
     }
@@ -1255,22 +1240,30 @@ void RuntimeReserveAllocator::PrintSummary( FILE* out ) noexcept
 
     if ( recentEventCount > 0 )
     {
-        std::fprintf( out, "[runtime-reserve] growth_events total=%llu shown=%d dropped=%llu\n",
-                      static_cast<unsigned long long>( GrowthEventCount() ), recentEventCount,
+        std::fprintf( out,
+                      "[runtime-reserve] growth_events total=%llu shown=%d dropped=%llu\n",
+                      static_cast<unsigned long long>( GrowthEventCount() ),
+                      recentEventCount,
                       static_cast<unsigned long long>( GrowthEventDroppedCount() ) );
 
         for ( int index = recentEventCount - 1; index >= 0; --index )
         {
             const RuntimeReserveGrowthEventView& event = recentEvents[index];
             std::fprintf( out,
-                          "[runtime-reserve] growth_event sequence=%llu owner=%s target=%s phase=%s frame=%d "
-                          "bytes=%llu old_capacity=%d requested_capacity=%d granted_capacity=%d "
-                          "element_bytes=%d growth_count=%d status=%s reason=%s\n",
-                          static_cast<unsigned long long>( event.sequence ), event.ownerName ? event.ownerName : "",
-                          event.targetName ? event.targetName : "", event.phaseName ? event.phaseName : "",
-                          event.frameNumber, static_cast<unsigned long long>( event.bytes ), event.oldCapacity,
-                          event.requestedCapacity, event.grantedCapacity, event.elementSizeBytes, event.growthCount,
-                          event.granted ? "granted" : "denied", event.reason ? event.reason : "" );
+                          "[runtime-reserve] growth_event sequence=%llu owner=%s target=%s phase=%s frame=%d " "bytes=%llu old_capacity=%d requested_capacity=%d granted_capacity=%d " "element_bytes=%d growth_count=%d status=%s reason=%s\n",
+                          static_cast<unsigned long long>( event.sequence ),
+                          event.ownerName ? event.ownerName : "",
+                          event.targetName ? event.targetName : "",
+                          event.phaseName ? event.phaseName : "",
+                          event.frameNumber,
+                          static_cast<unsigned long long>( event.bytes ),
+                          event.oldCapacity,
+                          event.requestedCapacity,
+                          event.grantedCapacity,
+                          event.elementSizeBytes,
+                          event.growthCount,
+                          event.granted ? "granted" : "denied",
+                          event.reason ? event.reason : "" );
         }
     }
 }

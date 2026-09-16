@@ -85,7 +85,8 @@ class UIDrawList
         PopClip,
         PreviewImage,
         LayerBreak,
-        VerticalText
+        VerticalText,
+        Image
     };
 
     struct Stats
@@ -120,12 +121,14 @@ class UIDrawList
         float a;
         int textOffset;
         PreviewTargetId preview;
+        UIImageId image;
         bool foreground;
         UIPanel panel;
     };
     static_assert( std::is_trivially_copyable_v<Command>, "UI draw commands must remain plain inspectable values." );
 
     void Clear();
+    void AddImage( UIImageId image, const UIRect& bounds, float opacity = 1.0f );
     void AddRect( const UIRect& bounds, const Style::UIColor& color );
     void AddRoundedRect( const UIRect& bounds, float radius, const Style::UIColor& color );
     void AddTriangle( const UITriangle& triangle, const Style::UIColor& color );

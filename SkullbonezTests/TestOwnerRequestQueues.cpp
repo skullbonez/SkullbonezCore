@@ -2317,3 +2317,43 @@ TEST_CASE( "Velocity screen drag stays smooth across reversed and foreshortened 
     CHECK( drag.Delta( 121, 100 ) == doctest::Approx( -10 ) );
     CHECK_FALSE( drag.Begin( Vector3( 100, 100, 0 ), Vector3( 102, 100, 0 ), Vector3( 100, 100, 0 ), 10 ) );
 }
+
+TEST_CASE( "Authored restart preserves replacement policy and exact rejected receipts" )
+{
+    SceneRequestQueue queue;
+    SceneRequest reset;
+    reset.type = SceneRequestType::ResetCurrentScene;
+    reset.completionToken = 41;
+    REQUIRE( queue.Submit( diagnostics, reset ).Ok() );
+    CHECK( queue.HasTransition() );
+    CHECK_FALSE( queue.HasReplacement() );
+    reset.completionToken = 42;
+    REQUIRE( queue.Submit( diagnostics, reset ).Ok() );
+    const auto batch = queue.TakePending();
+    REQUIRE( batch.count == 1 );
+    CHECK( batch.requests[0].completionToken == 41 );
+    REQUIRE( batch.rejectedTransitionCount == 1 );
+    CHECK( batch.rejectedCompletionTokens[0] == 42 );
+    reset.preserveRuntimeState = false;
+    REQUIRE( queue.Submit( diagnostics, reset ).Ok() );
+    CHECK( queue.HasReplacement() );
+}
+
+TEST_CASE( "Retiring unsaved drafts preserves active queue identity and skips retired slots" )
+{
+    SceneSession scene( std::vector<std::string> { "first.scene.json", "draft.scene.json", "saved.scene.json" } );
+    scene.BeginLoad( 2 );
+    const auto* activePath = scene.CurrentPath();
+    scene.RemoveInactiveEntry( 1 );
+    CHECK_FALSE( scene.HasEntry( 1 ) );
+    CHECK( scene.CurrentIndex() == 2 );
+    CHECK( scene.CurrentPath() == activePath );
+    CHECK( scene.FindNormalizedPath( "draft.scene.json" ) == -1 );
+    CHECK( scene.FindGeneratedDemo() == -1 );
+    CHECK( scene.AdjacentQueueIndex( -1 ) == 0 );
+    scene.RemoveInactiveEntry( 2 );
+    CHECK( scene.HasCurrentEntry() );
+    scene.BeginLoad( 0 );
+    CHECK( scene.NextIndex() == 2 );
+    CHECK( scene.AdjacentQueueIndex( 1 ) == 2 );
+}

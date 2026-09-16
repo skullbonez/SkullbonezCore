@@ -585,9 +585,9 @@ bool PhysicsComparison::Load( const char* bundlePath, ComparisonLoadProgress* pr
     m_recordings = std::move( candidate );
     m_bundle = fs::absolute( path ).string();
     m_scene = ( path.parent_path() / "inputs" / "scene.scene.json" ).string();
-    m_tick = 0;
     m_lastTick = ticks;
-    m_loopStart = 0;
+    m_tick = FirstTick();
+    m_loopStart = FirstTick();
     m_loopEnd = ticks;
     m_fraction = 0;
     m_memoryCharge = charge;

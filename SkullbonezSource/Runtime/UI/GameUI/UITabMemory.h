@@ -1,37 +1,5 @@
-/*
-File: SkullbonezSource/Runtime/UI/GameUI/UITabMemory.h
-Purpose:
-  Declares the in-engine memory diagnostics tab.
-
-Summary:
-  The memory tab shows cached runtime diagnostics and emits replay-memory policy
-  requests. Runtime owns process sampling and replay reconfiguration; the F6
-  overlay reads tracked/cached counters and reserve-growth events without
-  initiating diagnostics work. The tab receives detached fixed capacity rows
-  and orders them by resident bytes without reaching into allocator storage.
-
-Glossary:
-  Reserve growth event: A replay-approved vector reserve bump with a named owner,
-    target structure, frame, capacity delta, and byte size.
-  Main memory: Coarsely reconciled process, replay, and game-object memory stats.
-  Replay policy: Preset, retention, and budget request displayed by the Memory
-    tab and applied by replay timeline composition.
-
-Invariants:
-  - Drawing the tab must not allocate, resample memory, or resize replay rings
-    directly.
-  - Reserve-growth rows are fixed-frame-data entries copied from the allocator's
-    no-heap diagnostics ring.
-  - Capacity rows are detached frame values; UI never retains the allocator's
-    borrowed capacity span.
-  - The F6 overlay retains important allocation events in fixed storage so
-    steady gameplay diagnostics do not allocate while reporting allocations.
-
-Related:
-  - SkullbonezSource/Runtime/UI/GameUI/UITabMemory.cpp
-  - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
-  - Agentic/Reference/engine-glossary.md
-*/
+// Memory controls and allocation-free process history. Owner rows are allocated
+// capacities; the plotted waterline always measures private resident RAM.
 #pragma once
 
 #include "../../../Core/Allocation/RuntimeReserveAllocator.h"
@@ -74,6 +42,15 @@ struct MemoryOverlayPinnedEvent
 struct UIMemoryOverlayState
 {
     bool overlayEnabled = false;
+    uint64_t memoryPrivateBytes = 0;
+    uint64_t memoryWorkingSetBytes = 0;
+    uint64_t memoryCommitBytes = 0;
+    uint64_t memoryPredictionCapacityBytes = 0;
+    uint64_t memoryCapacityTableBytes = 0;
+    double memorySampleSeconds = 0.0;
+    bool memoryPrivateAvailable = false;
+    bool memoryCapacityRowsValid = true;
+
     MemoryOverlaySample samples[MEMORY_OVERLAY_SAMPLE_COUNT] = {};
     UIRect dockedBounds;
     // Placement survives F6 toggles; native capture is requested through the UI owner.

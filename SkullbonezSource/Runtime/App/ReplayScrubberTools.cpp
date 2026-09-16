@@ -1016,6 +1016,20 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
     }
 
     const RuntimePointerEvent& planningPointerEvent = inputRouter.RuntimeSnapshot().pointer;
+    if ( planningPointerEvent.hasClientPosition && !input.scrubberUiBlocksMouse && inputRouter.UiSnapshot().mouse.leftPressed &&
+         input.controlsBounds.Contains( planningPointerEvent.clientX, planningPointerEvent.clientY ) &&
+         ShouldRenderScrubber( input.editorModeEnabled, input.uiVisible, input.uiMinimized, interaction.Gesture().kind, sharedSurface ) )
+    {
+        for ( int index = 0; index < 2; ++index )
+        {
+            if ( ReplayOverlay::ReplayOutlineToggleRect( input.controlsBounds, input.controlsScroll, index ).Contains( planningPointerEvent.clientX, planningPointerEvent.clientY ) )
+            {
+                m_planningOwner.CauseInspection().ToggleOutlineVisibility( index == 1 );
+                output.consumesMouse = true;
+                return;
+            }
+        }
+    }
     const UI::UIRect planningViewport = sharedSurface ? input.planningBounds : UI::UIRect { 0.0f, 0.0f, static_cast<float>( input.screenWidth ), static_cast<float>( input.screenHeight ) };
     const auto divergence = m_planningOwner.VelocityDivergence();
     const bool overRed = divergence.active && ReplayOverlay::ReplayDivergenceChoiceRect( planningViewport, true ).Contains( planningPointerEvent.clientX, planningPointerEvent.clientY );
@@ -2436,6 +2450,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTogglePredictionCommand&,
         PublishTransportFeedback( "ACCEPT ORIGINAL OR MODIFIED FIRST", now );
         return;
     }
+    m_predictionPresentation.RetirePredictionPublication();
     HandleReplayPredictionPressed( Prediction(), m_scrubberOwner, SolverPresentTrackPosition(), interaction, now, output.enterInteractive );
 }
 
@@ -2797,6 +2812,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
             consumesMouse = true;
             break;
         }
+        m_predictionPresentation.RetirePredictionPublication();
         HandleReplayPredictionPressed( Prediction(), m_scrubberOwner, solverPresentTrackPosition, interaction, input.now, output.enterInteractive );
 
         consumesMouse = true;

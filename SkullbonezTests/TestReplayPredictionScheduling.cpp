@@ -39,7 +39,6 @@ using SkullbonezCore::Runtime::EvaluateReplayPredictionDetailTransition;
 using SkullbonezCore::Runtime::ReplayPredictionArchiveDetailCapability;
 using SkullbonezCore::Runtime::ReplayPredictionBuildMode;
 using SkullbonezCore::Runtime::ReplayPredictionCoalescerAction;
-using SkullbonezCore::Runtime::ReplayPredictionPendingPublicationAction;
 using SkullbonezCore::Runtime::ReplayPredictionDetailMode;
 using SkullbonezCore::Runtime::ReplayPredictionDetailModeAfterArchiveLoad;
 using SkullbonezCore::Runtime::ReplayPredictionDetailModeAfterGenerationReset;
@@ -48,6 +47,7 @@ using SkullbonezCore::Runtime::ReplayPredictionDetailTransitionHas;
 using SkullbonezCore::Runtime::ReplayPredictionGenerationResetReason;
 using SkullbonezCore::Runtime::ReplayPredictionPathPresentation;
 using SkullbonezCore::Runtime::ReplayPredictionPathPresentationShowsAllBodies;
+using SkullbonezCore::Runtime::ReplayPredictionPendingPublicationAction;
 using SkullbonezCore::Runtime::ReplayPredictionPublication;
 using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
@@ -129,50 +129,34 @@ TEST_CASE( "Replay prediction detail mode: transitions preserve one operator pre
     constexpr ReplayPredictionDetailMode defaultMode = ReplayPredictionDetailMode::High;
     CHECK( defaultMode == ReplayPredictionDetailMode::High );
 
-    const ReplayPredictionDetailTransitionAction
-        noChange = EvaluateReplayPredictionDetailTransition( defaultMode, ReplayPredictionDetailMode::High );
+    const ReplayPredictionDetailTransitionAction noChange = EvaluateReplayPredictionDetailTransition( defaultMode, ReplayPredictionDetailMode::High );
     CHECK( noChange == ReplayPredictionDetailTransitionAction::None );
 
-    const ReplayPredictionDetailTransitionAction
-        selectLow = EvaluateReplayPredictionDetailTransition( defaultMode, ReplayPredictionDetailMode::Low );
+    const ReplayPredictionDetailTransitionAction selectLow = EvaluateReplayPredictionDetailTransition( defaultMode, ReplayPredictionDetailMode::Low );
     CHECK( ReplayPredictionDetailTransitionHas( selectLow, ReplayPredictionDetailTransitionAction::RestartGeneration ) );
-    CHECK( ReplayPredictionDetailTransitionHas( selectLow,
-                                                ReplayPredictionDetailTransitionAction::ClearPredictionInspection ) );
-    CHECK( ReplayPredictionDetailTransitionHas( selectLow,
-                                                ReplayPredictionDetailTransitionAction::ReleaseHighDetailCapacity ) );
+    CHECK( ReplayPredictionDetailTransitionHas( selectLow, ReplayPredictionDetailTransitionAction::ClearPredictionInspection ) );
+    CHECK( ReplayPredictionDetailTransitionHas( selectLow, ReplayPredictionDetailTransitionAction::ReleaseHighDetailCapacity ) );
 
-    const ReplayPredictionDetailTransitionAction
-        selectHigh = EvaluateReplayPredictionDetailTransition( ReplayPredictionDetailMode::Low,
-                                                               ReplayPredictionDetailMode::High );
+    const ReplayPredictionDetailTransitionAction selectHigh = EvaluateReplayPredictionDetailTransition( ReplayPredictionDetailMode::Low, ReplayPredictionDetailMode::High );
     CHECK( ReplayPredictionDetailTransitionHas( selectHigh, ReplayPredictionDetailTransitionAction::RestartGeneration ) );
-    CHECK( ReplayPredictionDetailTransitionHas( selectHigh,
-                                                ReplayPredictionDetailTransitionAction::ClearPredictionInspection ) );
-    CHECK_FALSE( ReplayPredictionDetailTransitionHas( selectHigh,
-                                                      ReplayPredictionDetailTransitionAction::ReleaseHighDetailCapacity ) );
+    CHECK( ReplayPredictionDetailTransitionHas( selectHigh, ReplayPredictionDetailTransitionAction::ClearPredictionInspection ) );
+    CHECK_FALSE( ReplayPredictionDetailTransitionHas( selectHigh, ReplayPredictionDetailTransitionAction::ReleaseHighDetailCapacity ) );
 }
 
 TEST_CASE( "Replay prediction detail mode: archive capability cannot replace the active preference" )
 {
-    CHECK( ReplayPredictionDetailModeAfterArchiveLoad( ReplayPredictionDetailMode::High,
-                                                       ReplayPredictionArchiveDetailCapability::Low ) ==
-           ReplayPredictionDetailMode::High );
-    CHECK( ReplayPredictionDetailModeAfterArchiveLoad( ReplayPredictionDetailMode::Low,
-                                                       ReplayPredictionArchiveDetailCapability::High ) ==
-           ReplayPredictionDetailMode::Low );
+    CHECK( ReplayPredictionDetailModeAfterArchiveLoad( ReplayPredictionDetailMode::High, ReplayPredictionArchiveDetailCapability::Low ) == ReplayPredictionDetailMode::High );
+    CHECK( ReplayPredictionDetailModeAfterArchiveLoad( ReplayPredictionDetailMode::Low, ReplayPredictionArchiveDetailCapability::High ) == ReplayPredictionDetailMode::Low );
 }
 
 TEST_CASE( "Replay prediction detail mode: generation resets preserve the active preference" )
 {
-    constexpr std::array resetReasons = { ReplayPredictionGenerationResetReason::Scene,
-                                          ReplayPredictionGenerationResetReason::Owner,
-                                          ReplayPredictionGenerationResetReason::PredictToggle };
+    constexpr std::array resetReasons = { ReplayPredictionGenerationResetReason::Scene, ReplayPredictionGenerationResetReason::Owner, ReplayPredictionGenerationResetReason::PredictToggle };
 
     for ( ReplayPredictionGenerationResetReason reason : resetReasons )
     {
-        CHECK( ReplayPredictionDetailModeAfterGenerationReset( ReplayPredictionDetailMode::High, reason ) ==
-               ReplayPredictionDetailMode::High );
-        CHECK( ReplayPredictionDetailModeAfterGenerationReset( ReplayPredictionDetailMode::Low, reason ) ==
-               ReplayPredictionDetailMode::Low );
+        CHECK( ReplayPredictionDetailModeAfterGenerationReset( ReplayPredictionDetailMode::High, reason ) == ReplayPredictionDetailMode::High );
+        CHECK( ReplayPredictionDetailModeAfterGenerationReset( ReplayPredictionDetailMode::Low, reason ) == ReplayPredictionDetailMode::Low );
     }
 }
 
@@ -204,16 +188,11 @@ TEST_CASE( "Replay prediction scheduling: throughput feedback follows changing w
 
 TEST_CASE( "Replay prediction scheduling: instant dirty work is superseded without cancellation" )
 {
-    CHECK( ChooseReplayPredictionCoalescerAction( true, true, ReplayPredictionBuildMode::Instant, false, false ) ==
-           ReplayPredictionCoalescerAction::Supersede );
-    CHECK( ChooseReplayPredictionCoalescerAction( false, false, ReplayPredictionBuildMode::Instant, true, false ) ==
-           ReplayPredictionCoalescerAction::Begin );
-    CHECK( ChooseReplayPredictionCoalescerAction( true, true, ReplayPredictionBuildMode::Amortized, false, false ) ==
-           ReplayPredictionCoalescerAction::Supersede );
-    CHECK( ChooseReplayPredictionCoalescerAction( true, true, ReplayPredictionBuildMode::Amortized, false, true ) ==
-           ReplayPredictionCoalescerAction::PromoteAndBegin );
-    CHECK( ChooseReplayPredictionCoalescerAction( false, true, ReplayPredictionBuildMode::Instant, false, false ) ==
-           ReplayPredictionCoalescerAction::Nothing );
+    CHECK( ChooseReplayPredictionCoalescerAction( true, true, ReplayPredictionBuildMode::Instant, false, false ) == ReplayPredictionCoalescerAction::Supersede );
+    CHECK( ChooseReplayPredictionCoalescerAction( false, false, ReplayPredictionBuildMode::Instant, true, false ) == ReplayPredictionCoalescerAction::Begin );
+    CHECK( ChooseReplayPredictionCoalescerAction( true, true, ReplayPredictionBuildMode::Amortized, false, false ) == ReplayPredictionCoalescerAction::Supersede );
+    CHECK( ChooseReplayPredictionCoalescerAction( true, true, ReplayPredictionBuildMode::Amortized, false, true ) == ReplayPredictionCoalescerAction::PromoteAndBegin );
+    CHECK( ChooseReplayPredictionCoalescerAction( false, true, ReplayPredictionBuildMode::Instant, false, false ) == ReplayPredictionCoalescerAction::Nothing );
 }
 
 TEST_CASE( "Replay prediction scheduling: changing the selected target explicitly restarts a committed future" )
@@ -232,14 +211,10 @@ TEST_CASE( "Replay prediction scheduling: a new target supersedes a pending publ
     const SkullbonezCore::Physics::PhysicsSceneObjectId requestedTarget { 73 };
     const SkullbonezCore::Physics::PhysicsSceneObjectId visibleRoot { 29 };
 
-    CHECK( ChooseReplayPredictionPendingPublicationAction( false, activeTarget, requestedTarget, visibleRoot ) ==
-           ReplayPredictionPendingPublicationAction::None );
-    CHECK( ChooseReplayPredictionPendingPublicationAction( true, activeTarget, activeTarget, visibleRoot ) ==
-           ReplayPredictionPendingPublicationAction::Wait );
-    CHECK( ChooseReplayPredictionPendingPublicationAction( true, activeTarget, requestedTarget, visibleRoot ) ==
-           ReplayPredictionPendingPublicationAction::Discard );
-    CHECK( ChooseReplayPredictionPendingPublicationAction( true, activeTarget, activeTarget, {} ) ==
-           ReplayPredictionPendingPublicationAction::Discard );
+    CHECK( ChooseReplayPredictionPendingPublicationAction( false, activeTarget, requestedTarget, visibleRoot ) == ReplayPredictionPendingPublicationAction::None );
+    CHECK( ChooseReplayPredictionPendingPublicationAction( true, activeTarget, activeTarget, visibleRoot ) == ReplayPredictionPendingPublicationAction::Wait );
+    CHECK( ChooseReplayPredictionPendingPublicationAction( true, activeTarget, requestedTarget, visibleRoot ) == ReplayPredictionPendingPublicationAction::Discard );
+    CHECK( ChooseReplayPredictionPendingPublicationAction( true, activeTarget, activeTarget, {} ) == ReplayPredictionPendingPublicationAction::Discard );
 }
 
 TEST_CASE( "Replay prediction publication: release cursor is bounded and reset clears failure" )
@@ -418,8 +393,7 @@ TEST_CASE( "Continuous prediction sample ring: concurrent snapshots never accept
     std::atomic<bool> writerDone { false };
     std::atomic<bool> writerSucceeded { true };
 
-    std::thread writer(
-        [&]()
+    std::thread writer( [&]()
         {
             writerStarted.store( true, std::memory_order_release );
 
@@ -467,8 +441,7 @@ TEST_CASE( "Continuous prediction sample ring: concurrent snapshots never accept
             for ( std::size_t body = 0u; body < positions.size(); ++body )
             {
                 const auto expected = ContinuousPosition( tick, body );
-                coherent = coherent && positions[body].x == expected.x && positions[body].y == expected.y &&
-                           positions[body].z == expected.z;
+                coherent = coherent && positions[body].x == expected.x && positions[body].y == expected.y && positions[body].z == expected.z;
             }
         }
     }
@@ -516,14 +489,70 @@ TEST_CASE( "Replay sample lookup: stable id and explicit negative-row policy sur
     movedBody.modelRow.value = 7;
     sample.bodies.push_back( movedBody );
 
-    CHECK( FindReplayBodyByIdInSample<ReplaySolverFrameSample, ReplaySolverBodySample>( sample, { 41u } ) ==
-           &sample.bodies[1] );
-    CHECK( ( FindReplayBodyByModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, true>( sample, -1 ) ==
-             &sample.bodies[0] ) );
-    CHECK( ( FindReplayBodyByModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, false>( sample, -1 ) ==
-             nullptr ) );
-    CHECK( ( FindReplayBodyByModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, true>( sample, 7 ) ==
-             &sample.bodies[1] ) );
-    CHECK( ( SceneObjectIdForModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, true>( sample, 7 ).value ==
-             41u ) );
+    CHECK( FindReplayBodyByIdInSample<ReplaySolverFrameSample, ReplaySolverBodySample>( sample, { 41u } ) == &sample.bodies[1] );
+    CHECK( ( FindReplayBodyByModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, true>( sample, -1 ) == &sample.bodies[0] ) );
+    CHECK( ( FindReplayBodyByModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, false>( sample, -1 ) == nullptr ) );
+    CHECK( ( FindReplayBodyByModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, true>( sample, 7 ) == &sample.bodies[1] ) );
+    CHECK( ( SceneObjectIdForModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, true>( sample, 7 ).value == 41u ) );
+}
+
+TEST_CASE( "Prediction scheduling: horizon growth and shrink preserve the completed worker cursor" )
+{
+    SkullbonezCore::Threading::LockOrderValidator locks;
+    SkullbonezCore::Threading::WorkerPool pool( locks );
+    std::array<int, 9> visits {};
+    SkullbonezCore::Threading::AmortizedTask task( 4, 3, [&]( int begin, int end )
+                                                   {
+                                                       for ( int item = begin; item < end; ++item )
+                                                       {
+                                                           ++visits[static_cast<std::size_t>( item )];
+                                                       }
+                                                   } );
+    task.SubmitTick( pool );
+    REQUIRE( task.Retarget( 2 ) );
+    CHECK( task.IsComplete() );
+    task.SubmitTick( pool );
+    REQUIRE( task.Retarget( 6 ) );
+    task.SubmitTick( pool );
+    CHECK( task.IsComplete() );
+    REQUIRE( task.Retarget( 9 ) );
+    task.SubmitTick( pool );
+    CHECK( task.IsComplete() );
+    CHECK( visits == std::array<int, 9> { 1, 1, 1, 1, 1, 1, 1, 1, 1 } );
+}
+
+TEST_CASE( "Prediction scheduling: changing the horizon refuses an in-flight cursor" )
+{
+    SkullbonezCore::Threading::LockOrderValidator locks;
+    SkullbonezCore::Threading::WorkerPool pool( locks );
+    pool.Initialise( 1 );
+    std::atomic<bool> started { false };
+    std::atomic<bool> release { false };
+    SkullbonezCore::Threading::AmortizedTask task( 1, 1, [&]( int, int )
+                                                   {
+                                                       started.store( true, std::memory_order_release );
+                                                       while ( !release.load( std::memory_order_acquire ) )
+                                                       {
+                                                           std::this_thread::yield();
+                                                       }
+                                                   } );
+    task.SubmitTick( pool );
+    while ( !started.load( std::memory_order_acquire ) )
+    {
+        std::this_thread::yield();
+    }
+    CHECK_FALSE( task.Retarget( 2 ) );
+    release.store( true, std::memory_order_release );
+    while ( task.IsInFlight() )
+    {
+        std::this_thread::yield();
+    }
+    REQUIRE( task.Retarget( 2 ) );
+    task.SubmitTick( pool );
+    while ( task.IsInFlight() )
+    {
+        std::this_thread::yield();
+    }
+    CHECK( task.IsComplete() );
+    pool.Shutdown();
 }

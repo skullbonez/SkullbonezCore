@@ -1874,3 +1874,39 @@ TEST_CASE( "PhysicsFixedList: object size no longer scales with compile-time cap
     CHECK( sizeof( PhysicsFixedList<uint8_t, 8192> ) == sizeof( PhysicsFixedList<uint8_t, 8> ) );
     CHECK( sizeof( PhysicsFixedList<uint8_t, 8192> ) <= 64u );
 }
+
+TEST_CASE( "RuntimeReserveAllocator: aggregate byte budget exceeds int capacity without eager allocation" )
+{
+    RuntimeReserveAllocator::ResetCounters();
+    constexpr const char* ownerName = "unit.reserve.large-aggregate";
+    constexpr uint64_t gib = 1024ull * 1024ull * 1024ull;
+    RuntimeReserveOwnerDesc desc = MakeReplayOwnerDesc( ownerName, 0, 1073741824,
+                                                       RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, 1 );
+    desc.hardByteBudget = 8u * gib;
+    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( desc );
+    REQUIRE( owner != INVALID_RUNTIME_RESERVE_OWNER );
+    RuntimeReserveOwnerStatsView stats = {};
+    REQUIRE( RuntimeReserveAllocator::CopyOwnerStats( owner, stats ) );
+    CHECK( stats.hardByteBudget == 8u * gib );
+    CHECK( stats.activeBytes == 0u );
+    CHECK( stats.pendingReplayGrantBytes == 0u );
+
+    // Simulate existing backing allocations without physically allocating GiBs.
+    RuntimeReserveAllocator::RecordAllocation( owner, 1, 7u * gib );
+    RuntimeReserveGrowthRequest request = MakeGrowthRequest( ownerName, 0, 1073741824,
+                                                            RuntimeReservePhase::Replay, gib );
+    request.elementSizeBytes = 1;
+    RuntimeReserveGrowthResult grant = RuntimeReserveAllocator::RequestGrowth( owner, request );
+    REQUIRE( grant.granted );
+    CHECK_FALSE( RuntimeReserveAllocator::RequestGrowth( owner, request ).granted );
+    CheckEventText( LatestGrowthEvent().reason, "owner_byte_budget" );
+    grant = {};
+    RuntimeReserveAllocator::RecordFree( owner, 7u * gib );
+    REQUIRE( RuntimeReserveAllocator::CopyOwnerStats( owner, stats ) );
+    CHECK( stats.activeBytes == 0u );
+    CHECK( stats.pendingReplayGrantBytes == 0u );
+    CHECK( RuntimeReserveAllocator::RequestGrowth( owner, request ).granted );
+
+    desc.hardByteBudget = 9u * gib;
+    CHECK( RuntimeReserveAllocator::RegisterOwner( desc ) == INVALID_RUNTIME_RESERVE_OWNER );
+}

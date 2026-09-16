@@ -56,7 +56,6 @@ TEST_CASE( "Unified Causes opens an attached evidence drawer and rejects hidden 
     CHECK( opened.visibleDrawer.y == bounds.y );
     CHECK( opened.visibleDrawer.y + opened.visibleDrawer.h == bounds.y + bounds.h );
     CHECK( opened.tabs[2].x + opened.tabs[2].w <= bounds.x + bounds.w );
-    CHECK( opened.outlineToggles[0].w > 0.0f );
     inspection.SetShellPresentation( true, {} );
     CHECK_FALSE( inspection.TickSolverDetailPanelInput( tree, x, y, true, false, true, 0, 1784, 961 ) );
     CHECK( inspection.View().drawerOpen );
@@ -266,19 +265,17 @@ TEST_CASE( "Cause hierarchy inspector target: deterministic visual fixtures pin 
         int scrollRows;
     };
 
-    constexpr std::array fixtures = {
-        Fixture { "hierarchy-only", 1920, 1080, -1, ReplayCauseInspectorTab::Summary, 0.0f, 0 },
-        Fixture { "opening-midpoint", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 0.5f, 0 },
-        Fixture { "summary-open", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 1.0f, 0 },
-        Fixture { "raw-top", 1920, 1080, 3, ReplayCauseInspectorTab::RawRecord, 1.0f, 0 },
-        Fixture { "raw-scrolled", 1920, 1080, 3, ReplayCauseInspectorTab::RawRecord, 1.0f, 6 },
-        Fixture { "iterations", 1920, 1080, 3, ReplayCauseInspectorTab::Iterations, 1.0f, 0 },
-        Fixture { "filtered", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 0.0f, 0 },
-        Fixture { "unavailable", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 1.0f, 0 },
-        Fixture { "moved", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 1.0f, 0 },
-        Fixture { "resized", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 1.0f, 0 },
-        Fixture { "compact", 931, 643, 3, ReplayCauseInspectorTab::RawRecord, 1.0f, 0 },
-    };
+    constexpr std::array fixtures = { Fixture { "hierarchy-only", 1920, 1080, -1, ReplayCauseInspectorTab::Summary, 0.0f, 0 },
+                                      Fixture { "opening-midpoint", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 0.5f, 0 },
+                                      Fixture { "summary-open", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 1.0f, 0 },
+                                      Fixture { "raw-top", 1920, 1080, 3, ReplayCauseInspectorTab::RawRecord, 1.0f, 0 },
+                                      Fixture { "raw-scrolled", 1920, 1080, 3, ReplayCauseInspectorTab::RawRecord, 1.0f, 6 },
+                                      Fixture { "iterations", 1920, 1080, 3, ReplayCauseInspectorTab::Iterations, 1.0f, 0 },
+                                      Fixture { "filtered", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 0.0f, 0 },
+                                      Fixture { "unavailable", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 1.0f, 0 },
+                                      Fixture { "moved", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 1.0f, 0 },
+                                      Fixture { "resized", 1920, 1080, 3, ReplayCauseInspectorTab::Summary, 1.0f, 0 },
+                                      Fixture { "compact", 931, 643, 3, ReplayCauseInspectorTab::RawRecord, 1.0f, 0 }, };
 
     CHECK( fixtures.size() == 11u );
     CHECK( std::strcmp( fixtures.front().name, "hierarchy-only" ) == 0 );
@@ -411,14 +408,12 @@ TEST_CASE( "Cause hierarchy inspector layout: drawer-title drag and resize mutat
 
 TEST_CASE( "Cause hierarchy inspector target: filtering preserves ancestor paths and source-row identity" )
 {
-    constexpr std::array rows = {
-        CauseInspectorTargetFilterRow { 0, -1, false, false },
-        CauseInspectorTargetFilterRow { 1, 0, false, false },
-        CauseInspectorTargetFilterRow { 2, 1, false, true },
-        CauseInspectorTargetFilterRow { 3, 2, true, true },
-        CauseInspectorTargetFilterRow { 4, 0, false, false },
-        CauseInspectorTargetFilterRow { 5, 4, false, true },
-    };
+    constexpr std::array rows = { CauseInspectorTargetFilterRow { 0, -1, false, false },
+                                  CauseInspectorTargetFilterRow { 1, 0, false, false },
+                                  CauseInspectorTargetFilterRow { 2, 1, false, true },
+                                  CauseInspectorTargetFilterRow { 3, 2, true, true },
+                                  CauseInspectorTargetFilterRow { 4, 0, false, false },
+                                  CauseInspectorTargetFilterRow { 5, 4, false, true }, };
     const CauseInspectorTargetFilterProjection projection = BuildCauseInspectorTargetFilter( rows, true );
     constexpr std::array expected = { 0, 1, 2, 3 };
     REQUIRE( projection.count == expected.size() );
@@ -2434,8 +2429,8 @@ TEST_CASE( "Cause summary: independent sections use visible hit rectangles and c
     tree.y = 140;
     tree.width = 430;
     tree.height = 520;
-    const auto layout = BuildReplayCauseInspectorLayout( inspection.View().SolverDetail(), tree, 1920, 1080, 1.0f );
     CHECK( inspection.View().summaryExpandedSections == 0 );
+    const auto layout = BuildReplayCauseInspectorLayout( inspection.View().SolverDetail(), tree, 1920, 1080, 1.0f );
     const auto header = ReplayCauseSummarySectionRect( layout, inspection.View().Display(), 0 );
     const int x = static_cast<int>( header.x + 20 );
     const int y = static_cast<int>( header.y + 15 );
@@ -2464,23 +2459,15 @@ TEST_CASE( "Cause outline controls: default on, independent, and retained across
     tree.y = 140;
     tree.width = 430;
     tree.height = 520;
-    const auto layout = BuildReplayCauseInspectorLayout( inspection.View().SolverDetail(), tree, 1920, 1080, 1.0f );
     CHECK( inspection.View().blueOutlinesVisible );
     CHECK( inspection.View().greyOutlinesVisible );
-    for ( std::size_t index = 0; index < layout.outlineToggles.size(); ++index )
-    {
-        const auto& toggle = layout.outlineToggles[index];
-        const auto hierarchyContent = ReplayOverlay::ReplayCauseWindowContentRect( tree );
-        CHECK( toggle.x >= layout.hierarchy.x );
-        CHECK( toggle.x + toggle.w <= layout.hierarchy.x + layout.hierarchy.w );
-        CHECK( toggle.y >= hierarchyContent.y + hierarchyContent.h );
-        const int x = static_cast<int>( toggle.x + 30 );
-        const int y = static_cast<int>( toggle.y + 10 );
-        CHECK_FALSE( inspection.TickSolverDetailPanelInput( tree, x, y, true, true, true, 0, 1920, 1080 ) );
-        CHECK( inspection.TickSolverDetailPanelInput( tree, x, y, true, false, true, 0, 1920, 1080 ) );
-        CHECK_FALSE( inspection.View().blueOutlinesVisible );
-        CHECK( inspection.View().greyOutlinesVisible == ( index == 0 ) );
-    }
+    // Cause clicks no longer change scene outline visibility.
+    CHECK_FALSE( inspection.TickSolverDetailPanelInput( tree, tree.x + 50, tree.y + tree.height - 66, true, false, true, 0, 1920, 1080 ) );
+    CHECK( inspection.View().blueOutlinesVisible );
+    inspection.ToggleOutlineVisibility( false );
+    CHECK_FALSE( inspection.View().blueOutlinesVisible );
+    CHECK( inspection.View().greyOutlinesVisible );
+    inspection.ToggleOutlineVisibility( true );
     ReplayCauseSeekResult seek;
     seek.availability = ReplayCauseSeekAvailability::Available;
     seek.frame = 10;
@@ -2509,7 +2496,7 @@ TEST_CASE( "Cause summary section preference survives retargeting and reset with
     CHECK( inspection.View().summaryExpandedSections == 0 );
 }
 
-TEST_CASE( "Short Causes panes scroll every header and outline control inside the shell" )
+TEST_CASE( "Short Causes panes scroll evidence controls inside the shell" )
 {
     RunReplayCauseTreeState tree;
     ReplayCauseInspection inspection;
@@ -2517,16 +2504,9 @@ TEST_CASE( "Short Causes panes scroll every header and outline control inside th
     inspection.SetShellPresentation( true, bounds );
     auto layout = BuildReplayCauseInspectorLayout( inspection.View(), tree, 320, 240, 0.0f );
     CHECK( layout.hierarchy.h == REPLAY_CAUSE_SHELL_MIN_CONTENT_HEIGHT );
-    CHECK( layout.outlineToggles[0].y > layout.drawerToggle.y + layout.drawerToggle.h );
     REQUIRE( inspection.TickSolverDetailPanelInput( tree, 260, 100, true, false, false, -12000, 320, 240 ) );
     layout = BuildReplayCauseInspectorLayout( inspection.View(), tree, 320, 240, 0.0f );
-    for ( const auto& toggle : layout.outlineToggles )
-    {
-        CHECK( bounds.Contains( static_cast<int>( toggle.x + 3.0f ), static_cast<int>( toggle.y + 12.0f ) ) );
-    }
-    const auto& blue = layout.outlineToggles[0];
-    REQUIRE( inspection.TickSolverDetailPanelInput( tree, static_cast<int>( blue.x + 3 ), static_cast<int>( blue.y + 12 ), true, false, true, 0, 320, 240 ) );
-    CHECK_FALSE( inspection.View().blueOutlinesVisible );
+    CHECK( inspection.View().blueOutlinesVisible );
     CHECK_FALSE( inspection.TickSolverDetailPanelInput( tree, 260, 20, true, false, true, 0, 320, 240 ) );
     REQUIRE( inspection.TickSolverDetailPanelInput( tree, 260, 100, true, false, false, 12000, 320, 240 ) );
     CHECK( inspection.View().shellScroll == 0.0f );
@@ -2539,4 +2519,47 @@ TEST_CASE( "Short Causes panes scroll every header and outline control inside th
     CHECK( layout.drawer.h == 524 );
     CHECK( layout.hierarchy.y == 66 );
     CHECK( ReplayCauseInspectorContainsPoint( layout, 26, 50 ) );
+}
+
+TEST_CASE( "Solver inspector attributes object and ground contact rows" )
+{
+    using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
+    std::array<PhysicsSolverPersistentContactSample, 2> contacts {};
+    contacts[0].bodyA = 203;
+    contacts[0].bodyB = 209;
+    contacts[0].featureId = 16384;
+    contacts[1] = contacts[0];
+    contacts[1].bodyB = -1;
+    contacts[1].isTerrain = true;
+    ReplayCauseSolverDetailView detail;
+    detail.solverDetailContacts = contacts;
+    detail.objects[0].bodyRow = 209;
+    detail.objects[0].available = true;
+    detail.objects[0].fixed = true;
+    strcpy_s( detail.objects[0].name, "ground_platform" );
+    detail.objects[1].bodyRow = 203;
+    detail.objects[1].available = true;
+    strcpy_s( detail.objects[1].name, "falling_ball" );
+
+    const auto objects = BuildReplayCauseIterationsProjection( detail, 0 );
+    CHECK( std::strstr( objects.contactSource, "Contact 1 of 2 | Object / object" ) != nullptr );
+    CHECK( std::strcmp( objects.bodyA, "[203] Dynamic object: falling_ball" ) == 0 );
+    CHECK( std::strcmp( objects.bodyB, "[209] Fixed object: ground_platform" ) == 0 );
+    // A fixed object named ground is still an object contact, not a terrain row.
+    CHECK( std::strstr( objects.bodyB, "terrain" ) == nullptr );
+
+    const auto ground = BuildReplayCauseIterationsProjection( detail, 1 );
+    CHECK( std::strstr( ground.contactSource, "Contact 2 of 2 | Object / ground (terrain)" ) != nullptr );
+    CHECK( std::strcmp( ground.bodyB, "Ground / terrain surface" ) == 0 );
+    CHECK( std::strcmp( ground.bodyA, objects.bodyA ) == 0 );
+    ReplayCauseTransportView transport;
+    char copied[REPLAY_CAUSE_INSPECTOR_COPY_TEXT_CAPACITY] = {};
+    REQUIRE( SerializeReplayCauseRawRecord( BuildReplayCauseRawRecordProjection( detail, transport, 1 ), copied, sizeof( copied ) ) );
+    CHECK( std::strstr( copied, "Body A Source: [203] Dynamic object: falling_ball" ) != nullptr );
+    CHECK( std::strstr( copied, "Body B Source: Ground / terrain surface" ) != nullptr );
+
+    detail.objects[1].available = false;
+    const auto missing = BuildReplayCauseIterationsProjection( detail, 0 );
+    CHECK( std::strcmp( missing.bodyA, "[203] Object (details unavailable)" ) == 0 );
+    CHECK( std::strstr( missing.bodyA, "ground_platform" ) == nullptr );
 }

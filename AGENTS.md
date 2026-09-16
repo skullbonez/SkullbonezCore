@@ -1163,6 +1163,14 @@ Use `validate_build_all.bat` only when all three development configurations are
 the requested evidence. Ordinary `validate_fast` builds Profile and does not
 rebuild unrelated configurations.
 
+After source or build-system work, leave Profile built in the workspace the
+user opens in Visual Studio. A build in another worktree, or copying its EXE
+and PDB, does not update this workspace's objects and native build-tracking
+logs. Before claiming F5-ready, complete a local Profile build and confirm a
+second unchanged build performs no compilation or linking. Preserve an open
+user session; an in-use executable may be retained under a backup name while
+the normal output path is rebuilt.
+
 - **Platform:** x64 only; do not change.
 - **Configurations:** Debug, Profile, Release.
 - **Toolset:** v143 (VS2022).

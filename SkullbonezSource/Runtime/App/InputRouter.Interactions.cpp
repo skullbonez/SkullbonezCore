@@ -481,12 +481,13 @@ void InputRouter::ApplyCameraMode( RunCameraMode mode,
                                    CameraControlState& camera,
                                    SceneController& sceneController,
                                    ReplayRuntime& replayRuntime,
-                                   RuntimeInputContext& runtimeInput )
+                                   RuntimeInputContext& runtimeInput,
+                                   bool preserveWorkspace )
 {
     // Lifetime: all domain owners are synchronous borrows for one semantic
     // mode request. InputRouter retains only its own edge/presentation state.
-    // Invariant: interaction cleanup precedes camera/editor mutation, then
-    // pointer and RuntimeInputContext presentation publish the completed mode.
+    // Workspace changes clean interaction state before camera/editor mutation;
+    // framing-only requests retain it. Pointer presentation publishes last.
     InputRouter& inputRouter = *this;
     const bool authoredScene = sceneController.State().isSceneMode;
     const uint32_t enabledMask = RuntimeCameraModeEnabledMask( sceneController.State().isSceneMode, sceneController.Scene().SceneEntityCount() );
@@ -528,16 +529,21 @@ void InputRouter::ApplyCameraMode( RunCameraMode mode,
         DemoDirectorPlayback::EnterMode( camera.director, CaptureDemoDirectorPose( sceneController.Scene().Cameras() ) );
     }
 
-    const RuntimeInteractionTransition transition = EnterInteractionForCameraMode( interaction, mode );
-    inputRouter.ApplyInteractionTransition( transition,
-                                            editorTools,
-                                            runtimeTools,
-                                            interaction,
-                                            attachedCamera,
-                                            camera,
-                                            sceneController,
-                                            replayRuntime,
-                                            NormalizeRuntimeCameraMode( replayRuntime.BuildInputView().restoreCameraMode, authoredScene, enabledMask ) );
+    // View presets own camera framing only. Retain Live, Inspect, Edit or
+    // Replay policy exactly as it was before the view button was pressed.
+    if ( !preserveWorkspace )
+    {
+        const RuntimeInteractionTransition transition = EnterInteractionForCameraMode( interaction, mode );
+        inputRouter.ApplyInteractionTransition( transition,
+                                                editorTools,
+                                                runtimeTools,
+                                                interaction,
+                                                attachedCamera,
+                                                camera,
+                                                sceneController,
+                                                replayRuntime,
+                                                NormalizeRuntimeCameraMode( replayRuntime.BuildInputView().restoreCameraMode, authoredScene, enabledMask ) );
+    }
 
     const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow, camera.director.grabbed );
 
@@ -796,7 +802,7 @@ InputCaptureActionResult InputRouter::DispatchCaptureActions( InputActions& acti
             break;
         case RuntimeInputAction::ResetScene:
 
-            // R reloads after capture actions have had their persistence slot.
+            // R restarts authored poses after explicit capture actions have completed.
             sceneController.SubmitResetCurrentScene();
             break;
         case RuntimeInputAction::ResetSceneFromBackspace:

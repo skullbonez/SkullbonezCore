@@ -38,6 +38,7 @@ Related:
 #include "../../Core/MainMemoryStats.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsWorldForces.h"
+#include "../../Physics/PhysicsTimestep.h"
 
 #include <algorithm>
 #include <array>
@@ -525,6 +526,7 @@ struct ReplayPredictionCommittedPublicationState
 struct RunReplayPredictionBuildState
 {
     bool dirty = true;
+    bool horizonChanged = false;
     uint32_t generationBeginCount = 0; // Successful future-simulation generations in this process.
 
     // Concept: dirty requests do not form a queue. While a worker job is in
@@ -596,7 +598,7 @@ struct ReplayPredictionIsolatedSimulation
     // Runtime allocation policy: owner replay_prediction_working_set; reason:
     // private prediction needs bounded isolated physics storage for exploration;
     // deletion condition: none, this is the end-state isolation boundary;
-    // checker budget: 960 MiB hard cap registered by ReplayPredictionReserveOwner().
+    // checker budget: 8 GiB hard cap registered by ReplayPredictionReserveOwner().
     std::unique_ptr<Physics::PhysicsEngine> predictionEngine;
     int predictionEngineReserveBytes = 0; // Monotonic approved byte budget retained with predictionEngine.
     Gameplay::TornadoGameplay predictionTornadoGameplay;
@@ -705,6 +707,11 @@ struct RunReplayPredictionState
     bool FutureTreePublicationComplete( const RunReplayPredictionTrajectoryBuildState& trajectory, Physics::PhysicsSceneObjectId rootId, bool usingBuildFrames, std::size_t frameCount ) const noexcept;
     void ResetBuildFramePublication() noexcept;
     void PublishBuildFrameSlot( std::size_t frameSlot ) noexcept;
+
+    std::size_t HorizonFrameCount() const noexcept
+    {
+        return static_cast<std::size_t>( std::ceil( simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) + 1u;
+    }
 
     bool enabled = false;
     bool ragdollVisualsEnabled = false;
@@ -847,10 +854,11 @@ class ReplayPrediction
     {
         if ( m_state.BuildFramesAreComplete() )
         {
-            return m_state.build.buildFrames;
+            return std::span<const RunReplayPredictionFrame>( m_state.build.buildFrames ).first( (std::min)( m_state.HorizonFrameCount(), m_state.build.buildFrames.size() ) );
         }
 
-        return m_state.CommittedFrames();
+        const auto frames = m_state.CommittedFrames();
+        return frames.first( (std::min)( m_state.HorizonFrameCount(), frames.size() ) );
     }
 
     ReplayPredictionPresentationView PresentationView() const noexcept
@@ -932,12 +940,16 @@ class ReplayPrediction
         view.baseline.comparisonActive = predictionState.baseline.comparisonActive;
         view.timeline.deterministicRevealEnabled = predictionState.revealClock.deterministicFrameEnabled;
         view.controls.generationPermitted = generationPermitted;
+        // Retain the simulated suffix for later growth, but every playback and
+        // drawing consumer receives only the currently requested time window.
+        view.timeline.frames = view.timeline.frames.first( (std::min)( view.timeline.frames.size(), predictionState.HorizonFrameCount() ) );
+        view.timeline.complete = view.timeline.complete && view.timeline.frames.size() >= predictionState.HorizonFrameCount();
         return view;
     }
 
     bool ToggleEnabled() noexcept
     {
-        m_state.enabled = !m_state.enabled;
+        SetEnabled( !m_state.enabled );
         return m_state.enabled;
     }
     bool BuildPrefixShouldBePresented() const noexcept
@@ -986,6 +998,7 @@ class ReplayPrediction
     // Owner commands used by validation and UI paths. These keep rebuild and
     // baseline invalidation coupled to the state transition that requires it.
     void SetEnabled( bool enabled ) noexcept;
+    void ReleaseDisabledCapacity() noexcept;
     ReplayPredictionDetailTransitionAction ApplyDetailModeCommand( ReplayPredictionDetailModeCommand command );
     ReplayPredictionDetailMode DetailMode() const noexcept
     {
@@ -1094,6 +1107,7 @@ class ReplayPrediction
     // Internal worker/frame-thread commands keep the Physics diagnostics gate
     // paired with the evidence bank that consumes its exact rows.
     bool BeginSolverEvidenceBuild( uint32_t generation );
+    bool ApplyHorizonContinuation();
     bool RefreshSolverEvidenceSource( Physics::PhysicsEngine& predictionEngine, int modelCount );
     bool SealSolverEvidenceFrame( ReplayFrameIndex frame );
     bool PromoteSolverEvidenceBuild() noexcept;

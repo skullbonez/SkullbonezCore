@@ -1113,6 +1113,56 @@ TEST_CASE( "UI draw values retain nested clips and report imbalance" )
 }
 
 
+TEST_CASE( "UI images retain identity, clipping and opacity through panel composition" )
+{
+    using namespace SkullbonezCore::UI;
+    auto source = std::make_unique<UIDrawList>();
+    auto composed = std::make_unique<UIDrawList>();
+    auto panel = std::make_unique<UIDrawList>();
+    source->Clear();
+    composed->Clear();
+    panel->Clear();
+    source->SetPanel( UIPanel::Header );
+    source->PushClip( { 0, 0, 20, 20 } );
+    source->AddImage( UIImageId::ApplicationMark, { 2, 3, 26, 26 }, 0.8f );
+    source->PopClip();
+    composed->Append( *source, 10, 20 );
+    source->Clear();
+    panel->CopyPanel( *composed, UIPanel::Header );
+    panel->ApplyPresentation( { 5, 6 }, 0.5f );
+    const auto commands = panel->Commands();
+    REQUIRE( commands.size() == 3 );
+    CHECK( commands[0].type == UIDrawList::CommandType::PushClip );
+    CHECK( commands[1].type == UIDrawList::CommandType::Image );
+    CHECK( commands[1].image == UIImageId::ApplicationMark );
+    CHECK( commands[1].x0 == 17 );
+    CHECK( commands[1].y0 == 29 );
+    CHECK( commands[1].w == 26 );
+    CHECK( commands[1].a == doctest::Approx( 0.4f ) );
+    CHECK( commands[2].type == UIDrawList::CommandType::PopClip );
+    CHECK_FALSE( panel->GetStats().clipOverflow );
+    CHECK( panel->Fingerprint() != composed->Fingerprint() );
+}
+
+TEST_CASE( "Application marks record one textured quad at toolbar sizes" )
+{
+    using namespace SkullbonezCore::UI;
+    auto list = std::make_unique<UIDrawList>();
+    for ( float size : { 22.0f, 30.0f } )
+    {
+        list->Clear();
+        const UIDrawContext draw( 640, 480, *list );
+        SkullbonezCore::UI::GameLayout::DrawSkullLogo( draw, { 8, 6, size, size } );
+        const auto commands = list->Commands();
+        REQUIRE( commands.size() == 1 );
+        CHECK( commands[0].type == UIDrawList::CommandType::Image );
+        CHECK( commands[0].image == UIImageId::ApplicationMark );
+        CHECK( commands[0].w == size );
+        CHECK( commands[0].h == size );
+    }
+}
+
+
 TEST_CASE( "UI preview values define unavailable fallback presentation" )
 {
     UIDrawList list;
@@ -1226,35 +1276,31 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
     data->renderTargets.count = 1;
     data->renderTargets.previews[0] = { "Scene HDR", 1920, 1080, false, false, true };
 
-    constexpr InGameUITab tabs[] = {
-        InGameUITab::Profiler,
-        InGameUITab::Scene,
-        InGameUITab::Editor,
-        InGameUITab::Physics,
-        InGameUITab::Options,
-        InGameUITab::Render,
-        InGameUITab::Targets,
-        InGameUITab::Keys,
-        InGameUITab::Sky,
-        InGameUITab::Cinematic,
-        InGameUITab::Memory,
-    };
+    constexpr InGameUITab tabs[] = { InGameUITab::Profiler,
+                                     InGameUITab::Scene,
+                                     InGameUITab::Editor,
+                                     InGameUITab::Physics,
+                                     InGameUITab::Options,
+                                     InGameUITab::Render,
+                                     InGameUITab::Targets,
+                                     InGameUITab::Keys,
+                                     InGameUITab::Sky,
+                                     InGameUITab::Cinematic,
+                                     InGameUITab::Memory, };
     // Blue-gray mockup palette with selected-value clips that reserve combo arrows.
     // Options adds themes; Profiler/Memory share table roles.
     // Editor adds sculpt controls; native evidence: terrain-validation-06/editor-controls-view.png.
-    constexpr uint64_t expected[] = {
-        2132093253974716310ull,
-        8999909969555097215ull,
-        15598442833394761550ull,
-        5029844691847507383ull,
-        10394370338941968616ull,
-        5478074610712965329ull,
-        6412084034923494129ull,
-        16903291462328685303ull,
-        17139239282114657199ull,
-        17717404666730030321ull,
-        2685391709597859732ull,
-    };
+    constexpr uint64_t expected[] = { 2132093253974716310ull,
+                                      8999909969555097215ull,
+                                      15598442833394761550ull,
+                                      5029844691847507383ull,
+                                      10394370338941968616ull,
+                                      5478074610712965329ull,
+                                      6412084034923494129ull,
+                                      16903291462328685303ull,
+                                      17139239282114657199ull,
+                                      17717404666730030321ull,
+                                      10199071145756757626ull, };
     static_assert( std::size( tabs ) == std::size( expected ) );
 
     auto ui = std::make_unique<InGameUI>();
@@ -1288,6 +1334,15 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
         if ( tabs[surface] == InGameUITab::Options )
         {
             REQUIRE( FindDrawTextIndex( frame, "Capture lockstep" ) >= 0 );
+        }
+
+        if ( tabs[surface] == InGameUITab::Memory )
+        {
+            // The reviewed Memory panel separates OS residency from owner capacity.
+            REQUIRE( FindDrawTextIndex( frame, "Private RAM" ) >= 0 );
+            REQUIRE( FindDrawTextIndex( frame, "Capacity" ) >= 0 );
+            CHECK( FindDrawTextIndex( frame, "TaskMgr" ) == -1 );
+            CHECK( FindDrawTextIndex( frame, "Unattrib" ) == -1 );
         }
 
         CHECK( frame.Fingerprint() == expected[surface] );
@@ -1363,14 +1418,13 @@ TEST_CASE( "GameUI gravity slider endpoints emit signed world acceleration from 
     CHECK( maximumResult.commands.water.requestedWorldGravity == doctest::Approx( -Policy::UI_WORLD_GRAVITY_MAX ) );
 }
 
-TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes without draw overflow" )
+TEST_CASE( "Memory capacity table sorts frame-owned rows by allocation capacity without draw overflow" )
 {
     using SkullbonezCore::UI::InGameUIFrameData;
     using SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState;
 
     auto data = std::make_unique<InGameUIFrameData>();
-    SkullbonezCore::UI::UIRuntimeReserveCapacityRow capacityRows[2] = {};
-    data->diagnostics.reserveCapacityRows = capacityRows;
+    auto& capacityRows = data->diagnostics.reserveCapacityRows;
     data->diagnostics.reserveCapacityRowCount = 2;
     strcpy_s( capacityRows[0].ownerName, "PhysicsBodyStore.bodies" );
     strcpy_s( capacityRows[0].capacityReason, "one row per loaded body" );
@@ -1388,6 +1442,11 @@ TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes wi
     capacityRows[1].liveCount = 80;
     capacityRows[1].sessionHighWater = 125;
     capacityRows[1].residentBytes = 16000;
+    // Copying a frame must not retain the source frame's backing rows.
+    auto copied = std::make_unique<InGameUIFrameData>( *data );
+    CHECK( copied->diagnostics.reserveCapacityRows.data() != data->diagnostics.reserveCapacityRows.data() );
+    data.reset();
+    data = std::move( copied );
     const SkullbonezCore::UI::UIMemoryTabFrameView memoryFrame = data->MemoryTabFrame();
 
     UIDrawList list;
@@ -1474,8 +1533,9 @@ TEST_CASE( "UI font metrics are immutable and preserve legacy operation order" )
     REQUIRE( UIFontMetrics::Install( advances.data(), static_cast<int>( advances.size() ) ) );
     CHECK( UIFontMetrics::Install( advances.data(), static_cast<int>( advances.size() ) ) );
 
-    char allGlyphs[UIFontMetrics::GLYPH_COUNT + 1] = {};
-    for ( int index = 0; index < UIFontMetrics::GLYPH_COUNT; ++index )
+    REQUIRE( header.version == 2u );
+    char allGlyphs[96] = {};
+    for ( int index = 0; index < 95; ++index )
     {
         allGlyphs[index] = static_cast<char>( index + 32 );
     }
@@ -1501,6 +1561,9 @@ TEST_CASE( "UI font metrics are immutable and preserve legacy operation order" )
         }
     }
     CHECK( UIFontMetrics::MeasureText( 12.5f, nullptr ) == 0.0f );
+    CHECK( UIFontMetrics::MeasureText( 13.0f, "\xCE\x94J" ) == ( advances[95] * 13.0f + advances['J' - 32] * 13.0f ) );
+    CHECK( UIFontMetrics::MeasureText( 13.0f, "\xCE" ) == 6.5f );
+    CHECK( UIFontMetrics::MeasureText( 13.0f, "\x7F" ) == 6.5f );
 
     advances[0] += 1.0f;
     CHECK_FALSE( UIFontMetrics::Install( advances.data(), static_cast<int>( advances.size() ) ) );
@@ -1886,4 +1949,34 @@ TEST_CASE( "UI transport reveal cannot block its own hover while shielding the w
     CHECK_FALSE( transitions->BlocksPointer( { 200, 915 }, UIPanel::Transport ) );
     transitions->Compose( .08 );
     CHECK_FALSE( transitions->BlocksPointer( { 200, 915 }, UIPanel::Transport ) );
+}
+
+
+TEST_CASE( "Memory history never substitutes allocation capacity for private resident RAM" )
+{
+    using namespace SkullbonezCore::UI;
+    auto frame = std::make_unique<InGameUIFrameData>();
+    frame->surface.screenW = 1280;
+    frame->surface.screenH = 720;
+    frame->diagnostics.mainMemory.process.available = true;
+    frame->diagnostics.mainMemory.process.privateWorkingSetAvailable = true;
+    frame->diagnostics.mainMemory.process.privateWorkingSetBytes = 128u * 1024u * 1024u;
+    frame->diagnostics.mainMemory.trackedEngineBytes = 900u * 1024u * 1024u;
+    MemoryTab::UIMemoryOverlayState state;
+    MemoryTab::SetOverlayEnabled( state, true );
+    MemoryTab::PushOverlayFrame( state, frame->MemoryTabFrame() );
+    REQUIRE( state.sampleCount == 1 );
+    CHECK( state.samples[0].totalBytes == frame->diagnostics.mainMemory.process.privateWorkingSetBytes );
+    frame->diagnostics.mainMemory.trackedEngineBytes *= 2u;
+    MemoryTab::PushOverlayFrame( state, frame->MemoryTabFrame() );
+    CHECK( state.samples[1].totalBytes == state.samples[0].totalBytes );
+    frame->diagnostics.mainMemory.process.privateWorkingSetAvailable = false;
+    MemoryTab::PushOverlayFrame( state, frame->MemoryTabFrame() );
+    CHECK( state.sampleCount == 2 );
+    CHECK_FALSE( state.memoryPrivateAvailable );
+    CHECK( state.memoryPrivateBytes == 0u );
+    UIDrawList list;
+    UIDrawContext draw( 1280, 720, list );
+    MemoryTab::DrawOverlay( state, draw, frame->MemoryTabFrame(), 20.0f, 40.0f );
+    CHECK( FindDrawTextIndex( list, "unavailable" ) >= 0 );
 }

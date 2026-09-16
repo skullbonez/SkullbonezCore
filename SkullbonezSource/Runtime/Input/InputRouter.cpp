@@ -251,6 +251,13 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
         routedFrame.middleDown = false;
     }
 
+    // Hazard: a completed camera or tool drag must not retain HWND capture and
+    // redirect later title-bar clicks into the client. Continuous free-look
+    // may renew its capture request later in this same input turn.
+    if ( !routedFrame.leftDown && !routedFrame.rightDown && !routedFrame.middleDown )
+    {
+        ReleaseNativeCapture();
+    }
     m_deviceFrame = routedFrame;
     if ( !routedFrame.appFocused || !routedFrame.leftDown )
     {
@@ -291,6 +298,7 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
             m_actionDelivered.fill( false );
             m_leftWasDown = false;
             m_rightWasDown = false;
+            m_middleWasDown = false;
         }
 
         m_appFocused = false;
@@ -311,6 +319,7 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
         SynchronizeFocusedInputs( routedFrame, bindings );
         m_leftWasDown = routedFrame.leftDown;
         m_rightWasDown = routedFrame.rightDown;
+        m_middleWasDown = routedFrame.middleDown;
     }
     else
     {
@@ -421,6 +430,7 @@ void InputRouter::Reset()
     m_mouseCaptured = false;
     m_leftWasDown = false;
     m_rightWasDown = false;
+    m_middleWasDown = false;
 }
 
 
@@ -755,7 +765,9 @@ void InputRouter::CapturePointerEdges( const DeviceInputFrame& frame, InputActio
     output.mouse.rightPressed = frame.rightDown && !m_rightWasDown;
     output.mouse.rightReleased = !frame.rightDown && m_rightWasDown;
     m_leftWasDown = frame.leftDown;
+    output.mouse.middlePressed = frame.middleDown && !m_middleWasDown;
     m_rightWasDown = frame.rightDown;
+    m_middleWasDown = frame.middleDown;
 }
 
 
@@ -793,6 +805,7 @@ void InputRouter::CaptureFocusLoss( RuntimeInputKeyBindingView bindings, InputAc
     m_actionDelivered.fill( false );
     m_leftWasDown = false;
     m_rightWasDown = false;
+    m_middleWasDown = false;
 }
 
 

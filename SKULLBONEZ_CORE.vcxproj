@@ -25,7 +25,6 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{92972446-7D18-4AD1-AE43-15671C767306}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -239,12 +238,10 @@
       <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\FloatingPointContract.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <FunctionLevelLinking Condition="'$(Configuration)'!='Debug'">true</FunctionLevelLinking>
     </ClCompile>
-    <PostBuildEvent>
-      <Command>copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxcompiler.dll" "$(OutDir)dxcompiler.dll" &gt;nul
-copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <!-- Native copy-local tracking skips unchanged DLLs, including those loaded by an open app. -->
+    <ReferenceCopyLocalPaths Include="$(WindowsSdkDir)Redist\D3D\x64\dxcompiler.dll;$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
@@ -490,6 +487,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Tools\LauncherLaser.h" />
     <ClInclude Include="SkullbonezSource\Core\AmortizedTask.h" />
     <ClInclude Include="SkullbonezSource\Core\ByteView.h" />
+    <ClInclude Include="SkullbonezSource\Core\TextGlyphs.h" />
     <ClInclude Include="SkullbonezSource\Core\Common.h" />
     <ClInclude Include="SkullbonezSource\Core\FloatingPointContract.h" />
     <ClInclude Include="SkullbonezSource\Core\PlatformPosix.h" />

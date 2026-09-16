@@ -227,20 +227,11 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
 
 void DrawSkullLogo( const UIDrawContext& draw, const UIRect& bounds )
 {
-    // Concept: the demo logo's round cranium, large paired sockets and three
-    // small teeth share one 24-unit silhouette at every native drawing size.
     const float size = (std::max)( 0.0f, (std::min)( bounds.w, bounds.h ) );
-    const float scale = size / 24.0f;
-    const float x = bounds.x + ( bounds.w - size ) * 0.5f;
-    const float y = bounds.y + ( bounds.h - size ) * 0.5f;
-    draw.RoundedRect( x + 2.0f * scale, y + scale, 20.0f * scale, 19.0f * scale, 10.0f * scale, 0.9f, 0.92f, 0.94f, 1.0f );
-    for ( int tooth = 0; tooth < 3; ++tooth )
+    if ( size > 0.0f )
     {
-        draw.RoundedRect( x + ( 6.0f + static_cast<float>( tooth ) * 4.0f ) * scale, y + 17.0f * scale, 3.0f * scale, 6.0f * scale, scale, 0.9f, 0.92f, 0.94f, 1.0f );
+        draw.Image( UIImageId::ApplicationMark, { bounds.x + ( bounds.w - size ) * .5f, bounds.y + ( bounds.h - size ) * .5f, size, size } );
     }
-    draw.RoundedRect( x + 5.0f * scale, y + 9.0f * scale, 6.0f * scale, 6.0f * scale, 3.0f * scale, 0.10f, 0.12f, 0.15f, 1.0f );
-    draw.RoundedRect( x + 13.0f * scale, y + 9.0f * scale, 6.0f * scale, 6.0f * scale, 3.0f * scale, 0.10f, 0.12f, 0.15f, 1.0f );
-    draw.Triangle( x + 12.0f * scale, y + 14.0f * scale, x + 10.0f * scale, y + 18.0f * scale, x + 14.0f * scale, y + 18.0f * scale, 0.10f, 0.12f, 0.15f, 1.0f );
 }
 
 HeaderRects ComputeHeaderRects( const UIRect& header, Workspace workspace )
@@ -261,8 +252,21 @@ HeaderRects ComputeHeaderRects( const UIRect& header, Workspace workspace )
     result.workspace = { result.layout.x - 102.0f * unit, y, 94.0f * unit, height };
     const float cameraWidth = header.w >= 600.0f ? 120.0f : 74.0f * unit;
     result.camera = { result.workspace.x - cameraWidth - pad, y, cameraWidth, height };
-    result.scene = { result.skull.x + result.skull.w + pad, y, (std::max)( 0.0f, result.camera.x - result.skull.x - result.skull.w - pad * 2.0f ), height };
+    result.fourViews = { result.camera.x - 70.0f * unit, y, 62.0f * unit, height };
+    result.scene = { result.skull.x + result.skull.w + pad, y, (std::max)( 0.0f, result.fourViews.x - result.skull.x - result.skull.w - pad * 2.0f ), height };
     return result;
+}
+
+std::array<UIRect, 4> EditorPaneRects( const UIRect& viewport )
+{
+    // Equal integer extents let the renderer reuse offscreen targets between
+    // panes without alternating resource sizes on odd-sized windows.
+    const float width = static_cast<float>( (std::max)( 1, ( static_cast<int>( viewport.w ) - 2 ) / 2 ) );
+    const float height = static_cast<float>( (std::max)( 1, ( static_cast<int>( viewport.h ) - 2 ) / 2 ) );
+    return { UIRect { viewport.x, viewport.y, width, height },
+             UIRect { viewport.x + width + 2, viewport.y, width, height },
+             UIRect { viewport.x, viewport.y + height + 2, width, height },
+             UIRect { viewport.x + width + 2, viewport.y + height + 2, width, height } };
 }
 
 UIRect DiagnosticDetailsBounds( const UIRect& panel )
@@ -379,3 +383,14 @@ uint32_t ReflectionDisabledMask()
     return 0u;
 }
 } // namespace SkullbonezCore::UI::GameLayout
+
+std::array<SkullbonezCore::UI::UIRect, 4> SkullbonezCore::UI::GameLayout::EditorViewGizmoRects( const UIRect& viewport )
+{
+    if ( viewport.w < 132.0f || viewport.h < 96.0f )
+    {
+        return {};
+    }
+    const float x = viewport.x + 8.0f;
+    const float y = viewport.y + viewport.h - 88.0f;
+    return { UIRect { x + 30, y + 54, 60, 24 }, UIRect { x + 30, y, 60, 24 }, UIRect { x, y + 27, 56, 24 }, UIRect { x + 60, y + 27, 56, 24 } };
+}

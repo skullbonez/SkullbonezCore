@@ -6,7 +6,7 @@ Purpose:
 Summary:
   The late UI pass lends one immutable draw list and explicit backend owners.
   This unit translates screen-space shapes and text, resolves preview identities
-  against the current renderer snapshot, and owns the preview-only GPU objects.
+  against the current renderer snapshot, and owns image textures and shared textured-quad GPU objects.
   UI is the author and Runtime/Render is the printer. The author records what
   appears and in which order; the printer chooses DX12 resources and commands.
 
@@ -17,7 +17,7 @@ Glossary:
 Invariants:
   - Layer/image boundaries preserve ordering between batches. Ordinary widgets
     use quads before glyphs within each batch.
-  - Pixel coordinates are snapped before conversion to Text2d projection space.
+  - Rectangles snap to pixel edges; textured quads retain subpixel bounds.
   - A missing or stale preview identity renders the authored fallback panel.
   - Resource handles never travel back into UI-owned retained state.
 
@@ -39,6 +39,8 @@ Related:
 #include "../../Rendering/Text.h"
 #include "../../UI/UIDraw.h"
 #include "../../UI/UIDrawList.h"
+
+#include "stb_image.h"
 
 #include <algorithm>
 #include <cmath>
@@ -354,6 +356,7 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList,
             }
             applyClip();
             break;
+        case UI::UIDrawList::CommandType::Image:
         case UI::UIDrawList::CommandType::PreviewImage:
         {
             // Invariant: images split the quad/text batches so commands
@@ -366,7 +369,11 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList,
             const int targetIndex = static_cast<int>( command.preview.catalogIndex );
             const bool canResolve = command.preview.valid && previewData && assets && renderResources && targetIndex >= 0 && targetIndex < previewData->count;
 
-            const RuntimeRenderTargetPreview* resource = canResolve ? &previewData->targets[static_cast<size_t>( targetIndex )] : nullptr;
+            const bool image = command.type == UI::UIDrawList::CommandType::Image;
+            RuntimeRenderTargetPreview imageResource {};
+            imageResource.textureHandle = command.image == UI::UIImageId::ApplicationMark ? m_applicationMarkTexture : 0;
+            imageResource.available = imageResource.textureHandle != 0;
+            const RuntimeRenderTargetPreview* resource = image ? &imageResource : ( canResolve ? &previewData->targets[static_cast<size_t>( targetIndex )] : nullptr );
 
             if ( !resource || !resource->available || resource->textureHandle == 0 )
             {
@@ -375,7 +382,10 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList,
                 break;
             }
 
-            EnsurePreviewResources( *assets, *renderResources, renderGeometry );
+            if ( assets && renderResources )
+            {
+                EnsurePreviewResources( *assets, *renderResources, renderGeometry );
+            }
 
             if ( !m_previewShader || m_previewVertexBuffer == 0 )
             {
@@ -435,7 +445,7 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList,
 
             const Math::Transformation::Matrix4 projection = Math::Transformation::Matrix4::Ortho( -halfW, halfW, -halfH, halfH, -1.0f, 1.0f );
 
-            const int mode = resource->depth ? 2 : ( resource->hdr ? 1 : 0 );
+            const int mode = image ? 3 : ( resource->depth ? 2 : ( resource->hdr ? 1 : 0 ) );
             m_previewShader->Use();
             m_previewShader->SetMat4( "uProjection", projection );
             m_previewShader->SetInt( "uTexture", 0 );
@@ -480,8 +490,43 @@ void UiDrawSubmission::EnsurePreviewResources( Assets::AssetSystem& assets, Rend
     }
 }
 
-void UiDrawSubmission::ReleaseGpuResources( Rendering::Dx12GeometryOwner* renderGeometry )
+bool UiDrawSubmission::InitializeImages( Assets::AssetSystem& assets,
+                                         Rendering::Dx12ResourceBuilder& renderResources,
+                                         Rendering::Dx12TextureOwner& renderTextures,
+                                         Rendering::Dx12GeometryOwner& renderGeometry )
 {
+    // Invariant: images can first appear after gameplay starts. Build their
+    // shader and vertex buffer here, inside the renderer's BackendInit phase.
+    EnsurePreviewResources( assets, renderResources, renderGeometry );
+    if ( !m_previewShader || m_previewVertexBuffer == 0 )
+    {
+        return false;
+    }
+
+    if ( m_applicationMarkTexture != 0 )
+    {
+        return true;
+    }
+    // Lifetime: decode/upload only at the UI resource boundary; draw commands
+    // retain a value identity and never load files or allocate texture storage.
+    int width = 0, height = 0, channels = 0;
+    const std::string path = std::string( DATA_ROOT ) + "branding/split-state-ui.png";
+    std::unique_ptr<unsigned char, decltype( &stbi_image_free )> pixels( stbi_load( path.c_str(), &width, &height, &channels, 4 ), stbi_image_free );
+    if ( !pixels )
+    {
+        return false;
+    }
+    m_applicationMarkTexture = renderTextures.CreateTexture2D( pixels.get(), width, height, 4, Rendering::TextureMipPolicy::Generate, Rendering::TextureFilterPolicy::Linear );
+    return m_applicationMarkTexture != 0;
+}
+
+void UiDrawSubmission::ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTextures, Rendering::Dx12GeometryOwner* renderGeometry )
+{
+    if ( m_applicationMarkTexture != 0 && renderTextures )
+    {
+        renderTextures->DeleteTexture( m_applicationMarkTexture );
+    }
+    m_applicationMarkTexture = 0;
     m_previewShader.reset();
 
     if ( m_previewVertexBuffer != 0 )

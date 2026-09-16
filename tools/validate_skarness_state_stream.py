@@ -143,6 +143,10 @@ def validate(session: Path, executable: Path, scene: Path) -> dict[str, object]:
         require(filled.get("status") == "applied", f"replay ring fill failed: {filled}")
         reset = connection.wait(connection.send("scene.reset", request_id="state-scene-reset"))
         require(reset.get("status") == "applied", f"scene reset failed: {reset}")
+        # R restarts authored poses in place. A file load still advances the
+        # scene generation and must publish topic resets to existing subscribers.
+        reloaded = connection.wait(connection.send("scene.load", {"name": scene.name}, request_id="state-scene-reload"))
+        require(reloaded.get("status") == "applied", f"scene reload failed: {reloaded}")
 
         selected = ["frame.clocks", "replay.prediction.frames", "replay.visual_packet"]
         subscribed = connection.wait(

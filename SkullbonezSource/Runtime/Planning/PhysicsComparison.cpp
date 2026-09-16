@@ -69,9 +69,24 @@ ComparisonBodyDifference PhysicsComparison::Difference( uint64_t id, int tick ) 
     return Compare( Body( 0, id, tick ), Body( 1, id, tick ) );
 }
 
+int PhysicsComparison::FirstTick() const noexcept
+{
+    // Invariant: transport stays in the shared recorded interval. Archived
+    // captures start at tick one; velocity experiments include their tick zero.
+    int first = 0;
+    for ( const auto& recording : m_recordings )
+    {
+        if ( !recording.frames.empty() )
+        {
+            first = (std::max)( first, recording.frames.front().sceneFrame + recording.tickOffset );
+        }
+    }
+    return first;
+}
+
 void PhysicsComparison::Seek( int tick ) noexcept
 {
-    m_tick = std::clamp( tick, 0, m_lastTick );
+    m_tick = std::clamp( tick, FirstTick(), m_lastTick );
     m_fraction = 0;
 }
 void PhysicsComparison::Step( int direction ) noexcept
@@ -85,7 +100,7 @@ void PhysicsComparison::Play( int direction ) noexcept
 }
 void PhysicsComparison::SetLoop( int first, int last, bool enabled ) noexcept
 {
-    m_loopStart = std::clamp( first, 0, m_lastTick );
+    m_loopStart = std::clamp( first, FirstTick(), m_lastTick );
     m_loopEnd = std::clamp( last, m_loopStart, m_lastTick );
     m_loop = enabled;
 }
@@ -98,7 +113,7 @@ void PhysicsComparison::Advance( double seconds ) noexcept
     m_fraction += (std::min)( seconds, 1.0 ) * 120.0 * std::clamp( m_settings.speed, 0.05f, 8.0f );
     const int steps = static_cast<int>( m_fraction );
     m_fraction -= steps;
-    const int first = m_loop ? m_loopStart : 0;
+    const int first = m_loop ? m_loopStart : FirstTick();
     const int last = m_loop ? m_loopEnd : m_lastTick;
     const int next = m_tick + steps * m_direction;
     if ( m_loop )

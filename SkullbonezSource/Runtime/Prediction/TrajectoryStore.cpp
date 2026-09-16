@@ -55,7 +55,7 @@ template <typename T> bool CapacityBytesForCount( std::size_t capacity, uint64_t
 
 bool ByteCountFitsReserveRequest( uint64_t bytes ) noexcept
 {
-    return bytes <= static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) && bytes <= static_cast<uint64_t>( ( std::numeric_limits<int>::max )() );
+    return bytes <= static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_MAX_REQUEST_BYTES ) && bytes <= static_cast<uint64_t>( ( std::numeric_limits<int>::max )() );
 }
 } // namespace
 
@@ -309,6 +309,23 @@ std::size_t ReplayTrajectoryStore::TrimPublishedPointsBeforeFrame( ReplayTraject
     }
 
     return removedCount;
+}
+
+void ReplayTrajectoryStore::ResumePredictionCommittedBank( uint16_t futureRootBuildBranch, uint16_t firstChildBuildBranch ) noexcept
+{
+    RetirePredictionBankRecords( ReplayPredictionTrajectoryBank::Build, futureRootBuildBranch, firstChildBuildBranch );
+    for ( ReplayTrajectoryRecord& record : std::span<ReplayTrajectoryRecord>( records.data(), activeRecordCount ) )
+    {
+        if ( record.key.lane == ReplayTrajectoryLane::FutureRoot && record.key.branchOrdinal == 0u )
+        {
+            record.key.branchOrdinal = futureRootBuildBranch;
+        }
+        else if ( ( record.key.lane == ReplayTrajectoryLane::FutureChildIncoming || record.key.lane == ReplayTrajectoryLane::FutureChildOutgoing ) && record.key.branchOrdinal < firstChildBuildBranch )
+        {
+            record.key.branchOrdinal += firstChildBuildBranch;
+        }
+    }
+    ++publicationVersion;
 }
 
 bool ReplayTrajectoryStore::ReserveRecords( std::size_t requestedCapacity, int frameNumber )

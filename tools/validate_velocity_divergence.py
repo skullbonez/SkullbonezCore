@@ -96,10 +96,11 @@ def run(session: Path, executable: Path) -> None:
     def accept(red: bool) -> dict:
         ui = topics()["ui.presentation"]
         x, _, width, _ = ui["viewport"]
-        button_width = min(128, max(0, (width - 24) / 2))
+        inset = 132 if width >= 412 else 0
+        button_width = min(128, max(0, (width - inset - 24) / 2))
         # Canvas reserves the strip above transport for Planning. Exercise the
         # physical pointer, not an acceptance-only automation implementation.
-        button_x = x + 8 + button_width / 2 + (0 if red else button_width + 8)
+        button_x = x + inset + 8 + button_width / 2 + (0 if red else button_width + 8)
         send("input.pointer_drag", button="left", x=int(button_x),
              y=int(ui["transportBounds"][1] - 25), deltaX=0, deltaY=0)
         observed = state()

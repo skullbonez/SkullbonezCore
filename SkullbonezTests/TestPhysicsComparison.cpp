@@ -163,6 +163,41 @@ TEST_CASE( "Physics comparison seeks exact ticks and repeats a range without cha
     CHECK( comparison.Tick() == 3 );
     CHECK( comparison.Direction() == 0 );
 }
+TEST_CASE( "Physics comparison transport cannot enter an unrecorded initial tick" )
+{
+    PhysicsComparison comparison;
+    PhysicsComparisonTestAccess::Populate( comparison, 8 );
+    CHECK( comparison.FirstTick() == 1 );
+    comparison.Seek( 0 );
+    CHECK( comparison.Tick() == 1 );
+    REQUIRE( comparison.Body( 0, 7, comparison.Tick() ) );
+    REQUIRE( comparison.Body( 1, 7, comparison.Tick() ) );
+    comparison.Step( -1 );
+    CHECK( comparison.Tick() == 1 );
+    comparison.Play( -1 );
+    comparison.Advance( 1.0 / 120 );
+    CHECK( comparison.Tick() == 1 );
+    CHECK( comparison.Direction() == 0 );
+    comparison.SetLoop( 0, 3, true );
+    CHECK( comparison.LoopStart() == 1 );
+    comparison.Play( -1 );
+    comparison.Advance( 1.0 / 120 );
+    CHECK( comparison.Tick() == 3 );
+    comparison.Play( 1 );
+    comparison.Advance( 1.0 / 120 );
+    CHECK( comparison.Tick() == 1 );
+    // Prediction comparisons really record zero; do not discard that sample.
+    for ( auto& recording : PhysicsComparisonTestAccess::Recordings( comparison ) )
+    {
+        recording.tickOffset = 0;
+    }
+    comparison.Seek( 0 );
+    CHECK( comparison.FirstTick() == 0 );
+    CHECK( comparison.Tick() == 0 );
+    CHECK( comparison.Body( 0, 7, 0 ) != nullptr );
+    CHECK( comparison.Body( 1, 7, 0 ) != nullptr );
+}
+
 TEST_CASE( "Physics comparison contact matching uses stable ids and rejects ambiguous features" )
 {
     PhysicsComparison comparison;

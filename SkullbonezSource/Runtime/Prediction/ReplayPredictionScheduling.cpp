@@ -52,7 +52,8 @@ bool ReplayPredictionBudgetExpired( const std::chrono::steady_clock::time_point&
 // units from changing either time units or accounting order.
 bool ReplayPredictionBudgetExpiredForPass( ReplayPredictionUpdateResult& result,
                                            SkullbonezCore::Core::MainMemoryReplayBudgetPass pass,
-                                           const std::chrono::steady_clock::time_point& start, double budgetMilliseconds )
+                                           const std::chrono::steady_clock::time_point& start,
+                                           double budgetMilliseconds )
 {
     if ( !ReplayPredictionBudgetExpired( start, budgetMilliseconds ) )
     {
@@ -96,9 +97,11 @@ double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& p
 // the unfold without banking reveal debt.
 // Invariant: the cursor is monotonic per prediction. It plays 0 -> horizon once
 // and then holds, so every revealed line and causal box stays on screen.
-ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction,
-                                                   ReplayFrameIndex lastAvailableFrame )
+ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction, ReplayFrameIndex lastAvailableFrame )
 {
+    const ReplayFrameIndex horizonFrame = static_cast<ReplayFrameIndex>( std::ceil( prediction.simulation.horizonSeconds / ::PHYSICS_FIXED_DT ) );
+    lastAvailableFrame = (std::min)( lastAvailableFrame, horizonFrame );
+
     if ( prediction.revealClock.deterministicFrameEnabled )
     {
         prediction.revealClock.presentedFrame = (std::min)( lastAvailableFrame, prediction.revealClock.deterministicFrame );
@@ -125,8 +128,7 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
     }
 
     const double availableSeconds = static_cast<double>( lastAvailableFrame ) * ::PHYSICS_FIXED_DT;
-    const double elapsedSeconds = (std::max)( 0.0,
-                                              std::chrono::duration<double>( now - prediction.revealClock.anchor ).count() );
+    const double elapsedSeconds = (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealClock.anchor ).count() );
 
     const double revealSecondsPerSecond = ReplayPredictionRevealSecondsPerSecond( prediction );
     double revealSeconds = elapsedSeconds * revealSecondsPerSecond;
@@ -134,9 +136,7 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
     if ( prediction.build.building && revealSeconds > availableSeconds )
     {
         revealSeconds = availableSeconds;
-        prediction.revealClock.anchor = now -
-                                        std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                                            std::chrono::duration<double>( availableSeconds / revealSecondsPerSecond ) );
+        prediction.revealClock.anchor = now - std::chrono::duration_cast<std::chrono::steady_clock::duration>( std::chrono::duration<double>( availableSeconds / revealSecondsPerSecond ) );
     }
 
     const double revealFrame = revealSeconds / static_cast<double>( ::PHYSICS_FIXED_DT );
@@ -145,19 +145,16 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
     return prediction.revealClock.presentedFrame;
 }
 
-std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction,
-                                                                   Physics::PhysicsSceneObjectId requestedTargetId )
+std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction, Physics::PhysicsSceneObjectId requestedTargetId )
 {
-    if ( requestedTargetId.value == 0 || prediction.simulation.targetId.value != requestedTargetId.value ||
-         !prediction.HasCommittedFramePrefix() )
+    if ( requestedTargetId.value == 0 || prediction.simulation.targetId.value != requestedTargetId.value || !prediction.HasCommittedFramePrefix() )
     {
         return 2u;
     }
 
     // Why: auto-refresh should replace the old future only after the rebuilding
     // prefix catches the causal story the user can already see.
-    const ReplayFrameIndex lastCommittedFrame = prediction.simulation.frames[prediction.CommittedFrameCount() - 1u]
-                                                    .frameIndex;
+    const ReplayFrameIndex lastCommittedFrame = prediction.simulation.frames[prediction.CommittedFrameCount() - 1u].frameIndex;
     const ReplayFrameIndex revealFrame = ReplayPredictionRevealFrameIndex( prediction, lastCommittedFrame );
     return (std::max)( std::size_t { 2u }, static_cast<std::size_t>( revealFrame ) + 1u );
 }
@@ -203,15 +200,13 @@ bool ReplayPrediction::PromoteBuildPrefixToCommitted()
         return false;
     }
 
-    const std::size_t visibleFrameCount = m_state.build.presentationPublication
-                                              .PresentedCount( promotedFrameCount, m_state.build.buildFrames.size() );
+    const std::size_t visibleFrameCount = m_state.build.presentationPublication.PresentedCount( promotedFrameCount, m_state.build.buildFrames.size() );
 
     // Invariant: promotion changes only frame storage ownership. Snapshot the
     // actually presented build topology/trajectory bank before root rebuilding
     // mutates the live cursor, then retarget its frame storage after the swap.
-    if ( !m_state.committedPublication.CaptureVisible( m_state.trajectoryBuild, m_state.futureNodeCache,
-                                                       m_state.simulation.targetModelRow, true, true, visibleFrameCount,
-                                                       m_state.trajectoryStore.publicationVersion ) )
+    if ( !m_state.committedPublication
+              .CaptureVisible( m_state.trajectoryBuild, m_state.futureNodeCache, m_state.simulation.targetModelRow, true, true, visibleFrameCount, m_state.trajectoryStore.publicationVersion ) )
     {
         return false;
     }
@@ -288,7 +283,7 @@ void ReplayPrediction::CancelJob( bool clearSamples, bool preserveVisibleSnapsho
 
         // Why: invalidation is publication state, not storage retirement. The
         // old committed bank becomes allocation-free scratch after the next
-        // swap, including when Predict-off interrupted a completed horizon.
+        // swap. Explicit disable releases these banks after this invalidation.
         m_state.InvalidateCommittedFrames();
         m_state.trajectoryStore.Clear();
         ClearFutureNodeCache();

@@ -34,9 +34,11 @@ Invariants:
 namespace SkullbonezCore::Runtime
 {
 inline constexpr std::size_t REPLAY_PREDICTION_EVIDENCE_FRAME_SEGMENT_CAPACITY = 128u;
-inline constexpr std::size_t REPLAY_PREDICTION_EVIDENCE_CONTACT_SEGMENT_CAPACITY = 256u;
-inline constexpr std::size_t REPLAY_PREDICTION_EVIDENCE_PIPELINE_SEGMENT_CAPACITY = 1024u;
-inline constexpr uint64_t REPLAY_PREDICTION_EVIDENCE_BANK_HARD_BYTES = 320ull * 1024ull * 1024ull;
+// Why: larger demand-allocated chunks cover long horizons without increasing
+// the always-resident pointer tables. Low detail still allocates no chunks.
+inline constexpr std::size_t REPLAY_PREDICTION_EVIDENCE_CONTACT_SEGMENT_CAPACITY = 4096u;
+inline constexpr std::size_t REPLAY_PREDICTION_EVIDENCE_PIPELINE_SEGMENT_CAPACITY = 16384u;
+inline constexpr uint64_t REPLAY_PREDICTION_EVIDENCE_BANK_HARD_BYTES = 4ull * 1024ull * 1024ull * 1024ull;
 
 using ReplayPredictionContactSpan = std::span<const Physics::PhysicsSolverPersistentContactSample>;
 using ReplayPredictionPipelineSpan = std::span<const Physics::PhysicsPipelineRecord>;
@@ -198,6 +200,7 @@ class ReplayPredictionSolverEvidenceBanks
     void CancelBuild() noexcept;
     // Caller joins the build worker before releasing the non-committed bank.
     void ReleaseBuildCapacity() noexcept;
+    void ResumeCommittedBuild() noexcept;
     void ReleaseCapacity() noexcept;
 
     const ReplayPredictionSolverEvidenceStore& Build() const noexcept;

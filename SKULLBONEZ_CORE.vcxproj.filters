@@ -808,6 +808,9 @@
     <ClInclude Include="SkullbonezSource\Core\ByteView.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Core\TextGlyphs.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\FloatingPointContract.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>

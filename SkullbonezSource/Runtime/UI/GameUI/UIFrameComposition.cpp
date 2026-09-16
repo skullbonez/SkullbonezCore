@@ -295,7 +295,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
 
     hash = HashInt( hash, data.diagnostics.reserveCapacityRowCount );
 
-    for ( int rowIndex = 0; data.diagnostics.reserveCapacityRows && rowIndex < data.diagnostics.reserveCapacityRowCount && rowIndex < UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX; ++rowIndex )
+    for ( int rowIndex = 0; rowIndex < data.diagnostics.reserveCapacityRowCount && rowIndex < UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX; ++rowIndex )
     {
         const UIRuntimeReserveCapacityRow& row = data.diagnostics.reserveCapacityRows[rowIndex];
         hash = HashTextValue( hash, row.ownerName );

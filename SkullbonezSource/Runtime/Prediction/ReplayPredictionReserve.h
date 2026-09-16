@@ -118,7 +118,7 @@ bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>&
 // Invariant: the allocation phase, owner, and granted-growth scopes are entered
 // in that order only after the working-set owner approves the request.
 // Runtime allocation policy: requests use byte units (`elementSizeBytes == 1`)
-// because one 960 MiB cap is shared across vectors with different element types.
+// because one 8 GiB aggregate cap is shared across vectors with different element types.
 // The optional allocation byte value narrows aggregate working-set requests to
 // the exact backing allocations performed inside the resulting scope.
 template <typename T> bool ReserveReplayPredictionVector( std::vector<T>& values, std::size_t requestedCapacity, int frameNumber, const char* targetName )
@@ -132,7 +132,7 @@ template <typename T> bool ReserveReplayPredictionVector( std::vector<T>& values
     uint64_t requestedBytes = 0;
 
     if ( !ReplayPredictionCapacityBytes<T>( values.capacity(), oldBytes ) || !ReplayPredictionCapacityBytes<T>( requestedCapacity, requestedBytes ) ||
-         requestedBytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) )
+         requestedBytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_MAX_REQUEST_BYTES ) )
     {
         return false;
     }
@@ -221,7 +221,7 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<Frame>& frames,
     const uint64_t transientBytes = oldBytes + allocationBytes;
     const uint64_t reservationBytes = (std::max)( requestedBytes, transientBytes );
 
-    if ( reservationBytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) || reservationBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
+    if ( reservationBytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_MAX_REQUEST_BYTES ) || reservationBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
     {
         return false;
     }

@@ -210,6 +210,7 @@ class PhysicsComparison
     {
         return m_lastTick;
     }
+    int FirstTick() const noexcept;
     int Direction() const noexcept
     {
         return m_direction;

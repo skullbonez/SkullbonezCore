@@ -13,7 +13,8 @@ Glossary:
 
 Invariants:
   - Stable inventory order is recorder, solver snapshot, prediction working set.
-  - The inventory contains exactly the three pre-partition owners and caps.
+  - Package policies own the caps; Prediction permits 8 GiB of demand growth.
+  - Growth/high-water counters remain in RuntimeReserveAllocator; phase is Replay.
   - Lookup returns pointers into the stable constexpr inventory.
 
 Related:

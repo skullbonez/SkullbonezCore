@@ -408,12 +408,16 @@ struct ReplayCauseIterationRow
 
 inline constexpr std::size_t REPLAY_CAUSE_ITERATIONS_ROW_CAPACITY = 32u;
 inline constexpr float REPLAY_CAUSE_ITERATIONS_ROW_HEIGHT = 48.0f;
+inline constexpr float REPLAY_CAUSE_ITERATIONS_SOURCE_HEIGHT = 80.0f;
 
 struct ReplayCauseIterationsProjection
 {
     std::array<ReplayCauseIterationRow, REPLAY_CAUSE_ITERATIONS_ROW_CAPACITY> rows;
     std::size_t rowCount = 0;
     char summary[128] = {};
+    char contactSource[128] = {};
+    char bodyA[128] = {};
+    char bodyB[128] = {};
 };
 
 enum class ReplayCauseInspectorCommandKind : uint8_t
@@ -442,7 +446,6 @@ struct ReplayCauseInspectorLayout
     UI::UIRect drawerToggle;
     std::array<UI::UIRect, 3> tabs;
     UI::UIRect content;
-    std::array<UI::UIRect, 2> outlineToggles;
     UI::UIRect rawTable;
     UI::UIRect rawCopy;
     UI::UIRect iterationsTable;
@@ -530,6 +533,7 @@ class ReplayCauseInspection
     void SetDrawerOpen( bool open, double nowSeconds ) noexcept;
     void SetShellPresentation( bool enabled, const UI::UIRect& bounds, const UI::UIRect& viewport = {} ) noexcept;
     void SetActiveTab( ReplayCauseInspectorTab tab ) noexcept;
+    void ToggleOutlineVisibility( bool resting ) noexcept;
     void SetSummaryExpandedSections( int section ) noexcept;
     bool CopySelectedRecord( char* destination, std::size_t destinationCapacity ) const noexcept;
     bool TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree,

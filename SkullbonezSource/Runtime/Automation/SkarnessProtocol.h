@@ -55,10 +55,13 @@ enum class SkarnessCommandType : uint8_t
 {
     CaptureScreenshot,
     WindowResize,
+    WindowSetMaximized,
+    WindowClose,
     UiAnimationClock,
     PhysicsSpeculativeValidation,
     EditorSetTerrainBrush,
     SceneSave,
+    SceneCreate,
     SceneLoad,
     SceneReset,
     SceneLoadDemo,
@@ -244,6 +247,7 @@ struct SkarnessCapability
 // parsers, and mechanical coverage tests join on these stable command names.
 inline constexpr std::array SKARNESS_CAPABILITIES = { SkarnessCapability { "editor.set_terrain_brush", "Editor", "{enabled:bool}" },
                                                       SkarnessCapability { "scene.save", "Scene", "{}" },
+                                                      SkarnessCapability { "scene.create", "Scene", "{name:string}" },
                                                       SkarnessCapability { "input.file_dialog_response",
                          "Automation",
                          "{purpose:comparison.open|comparison.save|replay.load|terrain.import,accepted:bool,path?:string}",
@@ -268,6 +272,8 @@ inline constexpr std::array SKARNESS_CAPABILITIES = { SkarnessCapability { "edit
                                                       SkarnessCapability { "session.stop", "Automation", "{}" },
                                                       SkarnessCapability { "capture.screenshot", "Capture", "{path:string}" },
                                                       SkarnessCapability { "window.resize", "Startup", "{width:int[320..8192],height:int[240..8192]}" },
+                                                      SkarnessCapability { "window.set_maximized", "Startup", "{maximized:bool}" },
+                                                      SkarnessCapability { "window.close", "Startup", "{}" },
                                                       SkarnessCapability { "scene.load", "Scene", "{name:string}|{path:string}" },
                                                       SkarnessCapability { "scene.reset", "Scene", "{}" },
                                                       SkarnessCapability { "scene.load_demo", "Scene", "{}" },
@@ -408,6 +414,16 @@ struct SkarnessFrameState
         float terrainMaximumHeight = 0.0f;
         int cameraMode = 0;
         uint32_t cameraModeEnabledMask = 0;
+        int editorView = 0;
+        bool fourViews = false;
+        int activeEditorPane = 3;
+        std::array<float, 4> headerFourViewsBounds {};
+        std::array<float, 4> editorCanvasBounds {};
+        std::array<std::array<float, 4>, 4> editorPaneBounds {};
+        std::array<std::array<float, 3>, 4> editorPaneEyes {};
+        std::array<std::array<float, 3>, 4> editorPaneFocus {};
+        std::array<std::array<float, 3>, 3> editorAxes {};
+        std::array<bool, 4> editorPaneOverlayRendered {};
         std::array<float, 4> cameraPopupBounds = {};
         bool cameraPopupOpen = false;
         std::array<float, 4> toolsPopupBounds = {};
@@ -431,6 +447,15 @@ struct SkarnessFrameState
         bool memoryWaterlineVisible = false;
         int markerSamples = 0;
         int memorySamples = 0;
+        uint64_t memoryPrivateBytes = 0;
+        uint64_t memoryWorkingSetBytes = 0;
+        uint64_t memoryCommitBytes = 0;
+        uint64_t memoryPredictionCapacityBytes = 0;
+        uint64_t memoryCapacityTableBytes = 0;
+        double memorySampleSeconds = 0.0;
+        bool memoryPrivateAvailable = false;
+        bool memoryCapacityRowsValid = true;
+
         int focusedDiagnostic = 0;
         uint32_t markerSelectionHash = 0;
         bool profilerTimeline = false;
@@ -530,6 +555,9 @@ struct SkarnessFrameState
     int sceneManualResetCount = 0;
     double simulationSeconds = 0.0;
     bool paused = true;
+    bool nativeCaptureRequested = false;
+    bool nativeMouseCaptured = false;
+    bool windowMaximized = false;
     bool replayCaptureEnabled = false;
     bool replayScrubPaused = false;
     bool replayPlaybackPaused = false;

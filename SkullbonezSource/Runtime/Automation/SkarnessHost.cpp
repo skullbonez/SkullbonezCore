@@ -453,6 +453,16 @@ CommandParseStatus ParseValueCommand( const std::string& name, const Json& argum
         const bool valid = ReadNumber( arguments, "seconds", command.number ) && command.number >= 0 && ReadBoolean( arguments, "enabled", command.enabled );
         return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
     }
+    if ( name == "window.set_maximized" )
+    {
+        command.type = SkarnessCommandType::WindowSetMaximized;
+        return ReadBoolean( arguments, "maximized", command.enabled ) ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+    if ( name == "window.close" )
+    {
+        command.type = SkarnessCommandType::WindowClose;
+        return CommandParseStatus::Valid;
+    }
     if ( name == "window.resize" )
     {
         command.type = SkarnessCommandType::WindowResize;
@@ -470,6 +480,11 @@ CommandParseStatus ParseValueCommand( const std::string& name, const Json& argum
         return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
     }
 
+    if ( name == "scene.create" )
+    {
+        command.type = SkarnessCommandType::SceneCreate;
+        return ReadString( arguments, "name", command.text ) && !command.text.empty() && command.text.size() < 128u ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
     if ( name == "scene.load" )
     {
         command.type = SkarnessCommandType::SceneLoad;
@@ -1358,7 +1373,7 @@ bool SkarnessHost::BeginSceneTransition( const std::string& requestId, uint64_t 
 {
     // Retain only transport completion identity here; App owns the scene load.
     Core::Allocation::RuntimeAllocationScope diagnosticsScope( Core::Allocation::RuntimeAllocationPhase::Diagnostics );
-    if ( !m_pendingSceneTransition.requestId.empty() )
+    if ( !m_pendingSceneTransition.requestId.empty() || !m_pendingSceneRequestId.empty() )
     {
         return false;
     }
@@ -1369,6 +1384,29 @@ bool SkarnessHost::BeginSceneTransition( const std::string& requestId, uint64_t 
     m_pendingSceneTransition.framesRemaining = 1200u;
     m_pendingSceneTransition.expectDemo = expectDemo;
     return true;
+}
+
+uint64_t SkarnessHost::BeginSceneRequest( const std::string& requestId )
+{
+    Core::Allocation::RuntimeAllocationScope diagnosticsScope( Core::Allocation::RuntimeAllocationPhase::Diagnostics );
+    if ( !m_pendingSceneRequestId.empty() || !m_pendingSceneTransition.requestId.empty() )
+    {
+        return 0;
+    }
+    m_pendingSceneRequestId = requestId;
+    return ++m_sceneRequestToken;
+}
+
+void SkarnessHost::CompleteSceneRequest( uint64_t token, bool applied )
+{
+    if ( token == 0 || token != m_sceneRequestToken || m_pendingSceneRequestId.empty() )
+    {
+        return;
+    }
+    // Invariant: completion follows this exact request's execution or rejection,
+    // including queue arbitration; a different reset cannot satisfy the receipt.
+    CompleteCommand( m_pendingSceneRequestId, applied, applied ? nullptr : "scene request failed or was superseded" );
+    m_pendingSceneRequestId.clear();
 }
 
 uint64_t SkarnessHost::BeginCapture( const std::string& requestId )

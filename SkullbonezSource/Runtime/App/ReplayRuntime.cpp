@@ -310,12 +310,14 @@ const std::vector<RunReplayPredictionFrame>& ReplayRuntimeTimelinePredictionFram
 {
     if ( prediction.BuildPrefixShouldBePresented() )
     {
-        outFrameCount = prediction.PublishedBuildFrameCount();
+        outFrameCount = (std::min)( prediction.PublishedBuildFrameCount(), prediction.HorizonFrameCount() );
         return prediction.build.buildFrames;
     }
 
     const std::vector<RunReplayPredictionFrame>& frames = ReplayRuntimeActivePredictionFrames( prediction );
-    outFrameCount = prediction.CommittedFrameCount();
+    // The cache may retain a longer solved future for later extension. Timeline
+    // normalization must use the same visible horizon as ActiveFrames().
+    outFrameCount = (std::min)( prediction.CommittedFrameCount(), prediction.HorizonFrameCount() );
     return frames;
 }
 
@@ -543,6 +545,10 @@ ReplayFrameIntentResult ReplayRuntime::ApplyFrameIntent( const ReplayFrameIntent
 
     if ( intent.setPredictionEnabled )
     {
+        if ( !intent.predictionEnabled && !m_planningOwner.VelocityDivergence().active )
+        {
+            m_predictionPresentation.RetirePredictionPublication();
+        }
         Prediction().SetEnabled( intent.predictionEnabled || m_planningOwner.VelocityDivergence().active );
     }
 
@@ -1857,6 +1863,7 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     m_scrubberOwner.HideSurface();
     ClearCameraFocusForRestore();
     ClearPathVisualizerState();
+    m_predictionPresentation.RetirePredictionPublication();
     Prediction().DisableAndClearCache();
     m_planningOwner.ResetTransientPlanState();
     m_authoring.ResetVelocityEdit();
@@ -2403,7 +2410,12 @@ ReplayHudStatus ReplayRuntime::BuildHudStatus( bool includeMemoryStats ) const
     status.divergenceValid = Prediction().State().baseline.divergenceValid;
     status.predictionRevealRate = static_cast<float>( Prediction().State().revealClock.secondsPerSecond );
 
-    if ( includeMemoryStats )
+    // Hazard: prediction capacity traversal borrows vectors that worker slices
+    // can grow. Process RAM remains live during builds; owner capacities refresh
+    // at the next idle sample without blocking the render thread on a worker.
+    status.memoryAccountingIdle = !Prediction().State().build.building && ( !m_bluePrediction || !m_bluePrediction->State().build.building );
+
+    if ( includeMemoryStats && status.memoryAccountingIdle )
     {
         status.memoryStats = CollectMemoryStats();
         status.memoryStatsValid = true;

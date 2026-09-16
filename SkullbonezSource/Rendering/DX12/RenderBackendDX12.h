@@ -154,7 +154,7 @@ struct Dx12DynamicGeometryHandleCodec
 // Invariant: change these caps only with bounded GPU-memory and draw-command
 // evidence. Do not mirror a feature-policy increase automatically.
 inline constexpr std::size_t INSTANCED_RIBBON_FLOATS_PER_RECORD = 19u;
-inline constexpr std::size_t MAX_RETAINED_GEOMETRY_ORDINARY_RECORDS = 24000u;
+inline constexpr std::size_t MAX_RETAINED_GEOMETRY_ORDINARY_RECORDS = 40000u;
 inline constexpr std::size_t MAX_RETAINED_GEOMETRY_PRIORITY_RECORDS = 3000u;
 inline constexpr std::size_t MAX_RETAINED_GEOMETRY_ORDINARY_LINE_FLOATS = 262144u;
 inline constexpr std::size_t MAX_RETAINED_GEOMETRY_PRIORITY_LINE_FLOATS = 524288u;

@@ -456,7 +456,7 @@ void PhysicsComparisonPanel::Plot( const PhysicsComparison& comparison, UI::UIRe
     {
         for ( int i = 0; i < count; ++i )
         {
-            const auto* body = comparison.Body( side, comparison.Selected(), i * comparison.LastTick() / ( count - 1 ) );
+            const auto* body = comparison.Body( side, comparison.Selected(), comparison.FirstTick() + i * ( comparison.LastTick() - comparison.FirstTick() ) / ( count - 1 ) );
             if ( !body )
             {
                 continue;
@@ -477,7 +477,7 @@ void PhysicsComparisonPanel::Plot( const PhysicsComparison& comparison, UI::UIRe
         bool valid = false;
         for ( int i = 0; i < count; ++i )
         {
-            const auto* body = comparison.Body( side, comparison.Selected(), i * comparison.LastTick() / ( count - 1 ) );
+            const auto* body = comparison.Body( side, comparison.Selected(), comparison.FirstTick() + i * ( comparison.LastTick() - comparison.FirstTick() ) / ( count - 1 ) );
             if ( !body )
             {
                 valid = false;
@@ -498,7 +498,7 @@ void PhysicsComparisonPanel::Plot( const PhysicsComparison& comparison, UI::UIRe
     m_draw.PushClip( { bounds.x + 6, bounds.y + 4, bounds.w - 12, 16 } );
     m_draw.AddText( { bounds.x + 6, bounds.y + 5 }, 11, muted, label );
     m_draw.PopClip();
-    const float x = chart.x + chart.w * comparison.Tick() / (std::max)( 1, comparison.LastTick() );
+    const float x = chart.x + chart.w * ( comparison.Tick() - comparison.FirstTick() ) / (std::max)( 1, comparison.LastTick() - comparison.FirstTick() );
     Line( m_draw, { x, chart.y }, { x, chart.y + chart.h }, ink );
 }
 const UI::UIDrawList& PhysicsComparisonPanel::Compose( const PhysicsComparison& comparison, int width, int height )
@@ -596,7 +596,7 @@ const UI::UIDrawList& PhysicsComparisonPanel::Compose( const PhysicsComparison& 
     ButtonAt( { 317, bottom + 12, 56, 29 }, "Loop", 35, comparison.LoopEnabled() );
     m_timeline = { 383, bottom + 15, static_cast<float>( (std::max)( 1, width - 605 ) ), 22 };
     m_draw.AddRoundedRect( m_timeline, 5, { 0.13f, 0.2f, 0.27f, 1 } );
-    m_draw.AddRect( { m_timeline.x, m_timeline.y, m_timeline.w * comparison.Tick() / (std::max)( 1, comparison.LastTick() ), m_timeline.h }, cyan );
+    m_draw.AddRect( { m_timeline.x, m_timeline.y, m_timeline.w * ( comparison.Tick() - comparison.FirstTick() ) / (std::max)( 1, comparison.LastTick() - comparison.FirstTick() ), m_timeline.h }, cyan );
     std::snprintf( text, sizeof( text ), "Tick %d / %d  %.4fs", comparison.Tick(), comparison.LastTick(), comparison.Tick() / 120.0 );
     m_draw.AddText( { static_cast<float>( width - 212 ), bottom + 20 }, 12, ink, text );
     // Draw the popup last so its opaque rows cover the toolbar and scene labels.
@@ -661,7 +661,7 @@ ComparisonPanelAction PhysicsComparisonPanel::Input( PhysicsComparison& comparis
     {
         comparison.Play( 0 );
         const float fraction = std::clamp( ( input.mouseX - m_timeline.x ) / m_timeline.w, 0.0f, 1.0f );
-        comparison.Seek( static_cast<int>( fraction * comparison.LastTick() ) );
+        comparison.Seek( comparison.FirstTick() + static_cast<int>( fraction * ( comparison.LastTick() - comparison.FirstTick() ) ) );
         return ComparisonPanelAction::None;
     }
     if ( !input.leftPressed )
@@ -1030,7 +1030,7 @@ void PhysicsComparisonPanel::ComposeShellTransport( const PhysicsComparison& com
     const float labelWidth = m_buttonClip.w >= 380 ? 152.0f : 0.0f;
     // The visible track is four pixels high; the remaining transport is its hit target.
     m_timeline = { x + 116 * scale, y, (std::max)( 1.0f, m_buttonClip.w - 124 * scale - labelWidth ), m_buttonClip.h };
-    const float filled = m_timeline.w * comparison.Tick() / (std::max)( 1, comparison.LastTick() );
+    const float filled = m_timeline.w * ( comparison.Tick() - comparison.FirstTick() ) / (std::max)( 1, comparison.LastTick() - comparison.FirstTick() );
     m_draw.AddRoundedRect( { m_timeline.x, y + 12, m_timeline.w, 4 }, 2, { 0.22f, 0.24f, 0.27f, 1 } );
     m_draw.AddRoundedRect( { m_timeline.x, y + 12, filled, 4 }, 2, cyan );
     m_draw.AddRoundedRect( { m_timeline.x + filled - 7, y + 7, 14, 14 }, 7, cyan );

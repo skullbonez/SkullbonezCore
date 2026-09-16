@@ -24,6 +24,8 @@ Related:
   - SkullbonezSource/Runtime/Camera/CameraCollection.h
 */
 #include "../Camera/CameraControlState.h"
+#include "Run.h"
+#include "../Startup/Window.h"
 
 #include "../Camera/CameraCollection.h"
 #include "../Scene/AttachedCameraController.h"
@@ -42,9 +44,13 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore::Runtime
 {
-void CameraControlState::UpdateViewingOrientation( Runtime::SceneWorld& world, bool replayCameraActive, bool sceneMode,
-                                                   bool attachedActiveFollow, bool cameraLookCaptured,
-                                                   float presentationAlpha, Core::Profiler* )
+void CameraControlState::UpdateViewingOrientation( Runtime::SceneWorld& world,
+                                                   bool replayCameraActive,
+                                                   bool sceneMode,
+                                                   bool attachedActiveFollow,
+                                                   bool cameraLookCaptured,
+                                                   float presentationAlpha,
+                                                   Core::Profiler* )
 {
     Environment::CameraCollection& cameras = world.Cameras();
 
@@ -84,8 +90,7 @@ void CameraControlState::UpdateViewingOrientation( Runtime::SceneWorld& world, b
         Vector3 targetPosition;
         Quaternion targetOrientation;
 
-        if ( modelIndex >= 0 &&
-             world.TryGetPresentationPose( modelIndex, presentationAlpha, targetPosition, targetOrientation ) )
+        if ( modelIndex >= 0 && world.TryGetPresentationPose( modelIndex, presentationAlpha, targetPosition, targetOrientation ) )
         {
             cameras.SetViewCoordinates( targetPosition );
         }
@@ -102,22 +107,27 @@ void CameraControlState::AdvanceAutoCycleClock( bool sceneMode, float simulation
 }
 
 
-void CameraControlState::TickControls( Runtime::SceneWorld& world, AttachedCameraController& attachedCamera, float cameraDt,
-                                       float presentationAlpha, float fluidSurfaceHeight, bool attachedOrbitOwnsCamera,
-                                       bool flyControlsActive, bool editorModeEnabled, bool editorViewportLookActive,
-                                       bool manualControlsActive, bool authoredScene )
+void CameraControlState::TickControls( Runtime::SceneWorld& world,
+                                       AttachedCameraController& attachedCamera,
+                                       float cameraDt,
+                                       float presentationAlpha,
+                                       float fluidSurfaceHeight,
+                                       bool attachedOrbitOwnsCamera,
+                                       bool flyControlsActive,
+                                       bool editorModeEnabled,
+                                       bool editorViewportLookActive,
+                                       bool manualControlsActive,
+                                       bool authoredScene )
 {
     Environment::CameraCollection& cameras = world.Cameras();
     Geometry::Terrain& terrain = *world.Terrain().Get();
     const float mouseMovementQuantity = ( 1.0f / 60.0f ) * m_mouseSensitivity;
     mouseRadiansPerPixel = mouseMovementQuantity;
     const bool hasTravelInput = inputMoveForward || inputMoveBackward || inputMoveLeft || inputMoveRight;
-    const bool demoCycleEnabled = !manualControlsActive && !editorViewportLookActive && !authoredScene &&
-                                  !mouseLookOwnsCursor;
+    const bool demoCycleEnabled = !manualControlsActive && !editorViewportLookActive && !authoredScene && !mouseLookOwnsCursor;
     AdvanceDemoCameraCycleClock( cameraDt, demoCycleEnabled );
 
-    if ( !attachedOrbitOwnsCamera &&
-         ( flyControlsActive || mouseLookOwnsCursor || editorViewportLookActive || hasTravelInput ) )
+    if ( !attachedOrbitOwnsCamera && ( flyControlsActive || mouseLookOwnsCursor || editorViewportLookActive || hasTravelInput ) )
     {
         if ( ( !editorModeEnabled || editorViewportLookActive ) && ( inputXMove != 0 || inputYMove != 0 ) )
         {
@@ -125,8 +135,7 @@ void CameraControlState::TickControls( Runtime::SceneWorld& world, AttachedCamer
             // positive), while Camera rotates world vectors with the engine's
             // right-handed active convention. Inverse radians keep free look
             // and locked launcher orbit aligned with pointer motion.
-            cameras.RotatePrimary( InputController::ResolveMouseLookRadians( inputXMove, mouseMovementQuantity ),
-                                   InputController::ResolveMouseLookRadians( inputYMove, mouseMovementQuantity ) );
+            cameras.RotatePrimary( InputController::ResolveMouseLookRadians( inputXMove, mouseMovementQuantity ), InputController::ResolveMouseLookRadians( inputYMove, mouseMovementQuantity ) );
         }
 
         const float travelQuantity = cameraDt * m_keySpeed * travelSpeedMultiplier;
@@ -158,14 +167,11 @@ void CameraControlState::TickControls( Runtime::SceneWorld& world, AttachedCamer
     if ( !manualControlsActive && !editorViewportLookActive && !authoredScene )
     {
         const Vector3 translatedCameraPosition = cameras.GetCameraTranslation();
-        const float terrainHeight = terrain.GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z,
-                                                                false );
+        const float terrainHeight = terrain.GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, false );
 
         // The world owner may move water after startup; the frame carries that
         // live plane while stable movement limits stay with CameraControlState.
-        const float resolvedY = InputController::ResolvePassiveCameraY( translatedCameraPosition.y, terrainHeight,
-                                                                        fluidSurfaceHeight, m_minCameraHeight,
-                                                                        m_maxCameraHeight );
+        const float resolvedY = InputController::ResolvePassiveCameraY( translatedCameraPosition.y, terrainHeight, fluidSurfaceHeight, m_minCameraHeight, m_maxCameraHeight );
 
         if ( resolvedY != translatedCameraPosition.y )
         {
@@ -184,3 +190,59 @@ void CameraControlState::TickControls( Runtime::SceneWorld& world, AttachedCamer
     cameras.SetTweenDeltaSeconds( cameraDt );
 }
 } // namespace SkullbonezCore::Runtime
+
+void SkullbonezCore::Runtime::Run::SelectEditorCameraView( int axis )
+{
+    auto& cameras = m_sceneController.Scene().Cameras();
+    Vector3 minimum, maximum;
+    bool hasBody = false;
+    const auto& bodies = m_sceneController.Scene().BodyStore();
+    const auto hot = bodies.HotFields();
+    // Frame movable content rather than fixed terrain or the authored aim point.
+    // Lab positions come from the displayed recording at the current tick.
+    for ( int row = 0; row < bodies.Count(); ++row )
+    {
+        if ( hot.fixed[row] )
+        {
+            continue;
+        }
+        Vector3 position = Physics::PhysicsBodyPosition( hot, row );
+        if ( ComparisonUiActive() && m_comparison.Active() )
+        {
+            const auto* record = bodies.RecordForHandle( bodies.HandleForModelIndex( row ) );
+            const auto* displayed = record ? m_comparison.Body( 0, record->sceneObjectId.value, m_comparison.Tick() ) : nullptr;
+            if ( !displayed )
+            {
+                continue;
+            }
+            position = displayed->position;
+        }
+        const float radius = hot.boundingRadius[row];
+        const Vector3 low = position - Vector3( radius, radius, radius );
+        const Vector3 high = position + Vector3( radius, radius, radius );
+        if ( !hasBody )
+        {
+            minimum = low;
+            maximum = high;
+            hasBody = true;
+        }
+        else
+        {
+            minimum = Vector3( (std::min)( minimum.x, low.x ), (std::min)( minimum.y, low.y ), (std::min)( minimum.z, low.z ) );
+            maximum = Vector3( (std::max)( maximum.x, high.x ), (std::max)( maximum.y, high.y ), (std::max)( maximum.z, high.z ) );
+        }
+    }
+    const Vector3 center = hasBody ? ( minimum + maximum ) * 0.5f : cameras.GetCameraView();
+    const float radius = hasBody ? Math::Vector::Distance( minimum, maximum ) * 0.5f : Math::Vector::Distance( cameras.GetCameraTranslation(), center ) * 0.4f;
+    const auto projection = ComparisonUiActive() ? m_comparisonPanel.BuildFrame( m_comparison, m_window.ClientWidth(), m_window.ClientHeight() ).projection : m_window.GetProjectionMatrix();
+    const float lens = (std::max)( projection.m[0], projection.m[5] );
+    const float distance = radius * std::sqrt( 1.0f + lens * lens ) * 1.15f;
+    if ( axis == -1 )
+    {
+        cameras.ToggleFourViews( center, distance );
+    }
+    else
+    {
+        cameras.SelectEditorView( center, distance, axis );
+    }
+}

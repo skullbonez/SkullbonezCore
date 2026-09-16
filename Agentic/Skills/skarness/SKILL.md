@@ -60,8 +60,11 @@ creation, capture, camera-look ownership, and dismissal policy are all exercised
 python tools\skarness.py command TestOutput\skarness\<case> input.pointer_drag button=right x=800 y=450 deltaX=-65 deltaY=20
 ```
 
-Exercise scene lifecycle defects in one persistent session. Scene commands do
-not report `applied` until the requested generation is activated and ready:
+Exercise scene lifecycle defects in one persistent session. Scene loads report
+`applied` after the requested generation is activated and ready. `scene.reset`
+restores authored poses in the current generation; its receipt follows the
+restart itself. `scene.create` reserves an unsaved draft, and only `scene.save`
+writes that scene to disk:
 
 ```powershell
 python tools\skarness.py load-scene TestOutput\skarness\<case> at_rest.scene.json

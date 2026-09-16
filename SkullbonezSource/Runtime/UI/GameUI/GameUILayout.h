@@ -29,6 +29,8 @@ namespace SkullbonezCore::UI::GameLayout
 inline constexpr float EDITOR_CONTROLS_HEIGHT = 470.0f;
 inline constexpr float EDITOR_PALETTE_TOP = EDITOR_CONTROLS_HEIGHT + 22.0f;
 float EditorContentHeight( float width );
+std::array<UIRect, 4> EditorViewGizmoRects( const UIRect& viewport );
+std::array<UIRect, 4> EditorPaneRects( const UIRect& viewport );
 
 std::array<char, 64> HeaderTitle( const char* sceneName );
 
@@ -48,7 +50,7 @@ enum class Workspace : uint8_t
 // simulation clock, comparison recording, or functional editor mode.
 struct PresentationPreferences
 {
-    static constexpr uint32_t VERSION = 5;
+    static constexpr uint32_t VERSION = 6;
     LayoutMode layout = LayoutMode::Canvas;
     Style::Theme theme = Style::Theme::Blue;
     float leftWidth = 280.0f;
@@ -61,6 +63,7 @@ struct PresentationPreferences
     bool leftFolded = true;
     bool replayFolded = true;
     bool rightFolded = true;
+    bool toolsOpen = false;
 };
 
 struct PresentationState
@@ -119,6 +122,7 @@ struct HeaderRects
     UIRect scene;
     UIRect scenes;
     UIRect camera;
+    UIRect fourViews;
     UIRect workspace;
     UIRect layout;
     UIRect tools;
@@ -130,6 +134,15 @@ struct DiagnosticPresentation
     bool memoryWaterlineVisible = false;
     int markerSamples = 0;
     int memorySamples = 0;
+    uint64_t memoryPrivateBytes = 0;
+    uint64_t memoryWorkingSetBytes = 0;
+    uint64_t memoryCommitBytes = 0;
+    uint64_t memoryPredictionCapacityBytes = 0;
+    uint64_t memoryCapacityTableBytes = 0;
+    double memorySampleSeconds = 0.0;
+    bool memoryPrivateAvailable = false;
+    bool memoryCapacityRowsValid = true;
+
     int focusedPanel = 0;
     uint32_t markerSelectionHash = 0;
     bool profilerTimeline = false;

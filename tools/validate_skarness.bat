@@ -27,6 +27,18 @@ echo [skarness] Lazy velocity comparison, frozen Original, both choices, and cle
 "%PYTHON_EXE%" "%~dp0validate_velocity_divergence.py" --session TestOutput\skarness\validation\velocity-divergence
 if errorlevel 1 goto fail
 
+echo [skarness] Original and Modified prediction speed and quality...
+"%PYTHON_EXE%" "%~dp0validate_velocity_prediction_speed.py" --session TestOutput\skarness\validation\velocity-speed
+if errorlevel 1 goto fail
+
+echo [skarness] Editor and Solver Lab fixed camera views...
+"%PYTHON_EXE%" "%~dp0validate_editor_views.py" --session TestOutput\skarness\validation\editor-views
+if errorlevel 1 exit /b 1
+"%PYTHON_EXE%" "%~dp0validate_four_views.py" --session TestOutput\skarness\validation\four-views
+if errorlevel 1 goto fail
+"%PYTHON_EXE%" "%~dp0validate_scene_reset.py" --session "%REPO%\TestOutput\skarness\scene-reset-%RANDOM%"
+if errorlevel 1 exit /b 1
+
 echo [skarness] Snapshot, delta, eviction, reset, and Physics correlation state...
 "%PYTHON_EXE%" "%~dp0validate_skarness_state_stream.py" --session TestOutput\validation\skarness\state-stream
 if errorlevel 1 goto fail
@@ -49,6 +61,22 @@ if errorlevel 1 goto fail
 
 echo [skarness] P shortcut pause, predict, clear and resume...
 "%PYTHON_EXE%" "%~dp0validate_skarness_prediction_shortcut.py" --session TestOutput\validation\skarness\prediction-shortcut
+if errorlevel 1 goto fail
+
+echo [skarness] Dense horizon continuation, trimming, and target selection...
+"%PYTHON_EXE%" "%~dp0validate_prediction_horizon.py" --session TestOutput/skarness/validation/prediction-horizon
+if errorlevel 1 goto fail
+
+echo [skarness] Long-horizon demand allocation and release...
+"%PYTHON_EXE%" "%~dp0validate_prediction_memory.py" --session TestOutput/skarness/validation/prediction-memory
+if errorlevel 1 goto fail
+
+echo [skarness] Space 200 continuous horizon drag and curve quality...
+"%PYTHON_EXE%" "%~dp0validate_space_prediction_horizon.py" --session TestOutput/skarness/validation/space-prediction-horizon
+if errorlevel 1 goto fail
+
+echo [skarness] Native capture release and window controls...
+"%PYTHON_EXE%" "%~dp0validate_native_window.py" --session "%REPO%\TestOutput\skarness\native-window-%RANDOM%"
 if errorlevel 1 goto fail
 
 echo [skarness] Persistent multi-scene prediction matrix...

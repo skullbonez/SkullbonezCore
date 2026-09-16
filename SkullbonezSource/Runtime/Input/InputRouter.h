@@ -362,7 +362,8 @@ class InputRouter
                           CameraControlState& camera,
                           SceneController& sceneController,
                           ReplayRuntime& replayRuntime,
-                          RuntimeInputContext& runtimeInput );
+                          RuntimeInputContext& runtimeInput,
+                          bool preserveWorkspace = false );
     void CycleCameraMode( EditorToolsOwner& editorTools,
                           RuntimeTools& runtimeTools,
                           RuntimeInteractionController& interaction,
@@ -499,6 +500,7 @@ class InputRouter
     bool m_mouseCaptured = false;
     bool m_leftWasDown = false;
     bool m_rightWasDown = false;
+    bool m_middleWasDown = false;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore
