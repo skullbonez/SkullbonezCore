@@ -1434,7 +1434,34 @@ void ReplayPrediction::SetVerificationRevealFrame( ReplayFrameIndex frame ) noex
 void ReplayPrediction::SetEnabled( bool enabled ) noexcept
 {
     m_state.enabled = enabled;
+    if ( !enabled )
+    {
+        ReleaseDisabledCapacity();
+    }
     MarkDirty();
+}
+
+void ReplayPrediction::ReleaseDisabledCapacity() noexcept
+{
+    if ( m_state.enabled )
+    {
+        return;
+    }
+
+    // Lifetime: CancelJob joins the sole writer and hides every published frame
+    // before any backing storage is freed. Horizon edits keep their reusable
+    // suffix; explicitly disabling prediction retires its large working set.
+    CancelJob( true );
+    m_solverEvidence.ReleaseCapacity();
+    std::vector<RunReplayPredictionFrame>().swap( m_state.simulation.frames );
+    std::vector<RunReplayPredictionFrame>().swap( m_state.build.buildFrames );
+    std::vector<RunReplayPredictionBodyBackup>().swap( m_state.simulation.predictionBodies );
+    m_state.trajectoryStore.ReplaceRecordsFromArchive( {} );
+    m_state.simulation.predictionEngine.reset();
+    m_state.simulation.predictionEngineReserveBytes = 0;
+    // The two tornado arrays are small startup reserves used by allocation-free
+    // completion copies. Retain those fixed arrays while releasing the solver snapshot.
+    m_state.simulation.predictionWorld.physics = {};
 }
 
 ReplayPrediction::~ReplayPrediction()
@@ -1848,7 +1875,7 @@ void ReplayPrediction::ApplyAuthoringRequest( const ReplayPredictionAuthoringCom
 
 void ReplayPrediction::DisableAndClearCache()
 {
-    m_state.enabled = false;
+    SetEnabled( false );
     ClearCache();
 }
 

@@ -1,39 +1,5 @@
-/*
-File: SkullbonezSource/Runtime/UI/GameUI/UITabMemory.cpp
-Purpose:
-  Draws the in-engine memory diagnostics tab.
-
-Summary:
-  Runtime refreshes memory data for the Memory tab, while the F6 overlay renders
-  tracked/cached counters and reserve-growth events without sampling process
-  memory. Detached capacity rows are sorted by resident bytes for the tab. This
-  file formats snapshots and emits replay-memory policy commands; Replay
-  timeline composition owns the actual recorder reconfiguration.
-
-Glossary:
-  Allocation size: Bytes newly reserved by a successful growth request.
-  Capacity span: Old, requested, and granted element capacities for the target.
-  Peak utilisation: Session high-water divided by committed capacity.
-
-Invariants:
-  - Formatting uses stack buffers only; memory diagnostics must not allocate.
-  - Event rows are newest-first because the most recent replay growth is usually
-    the one the user is trying to understand.
-  - Capacity rows are resident-bytes-descending with owner name as the stable
-    tie break.
-  - The F6 overlay keeps retained event pins in fixed arrays so diagnostics do
-    not allocate while visualizing allocator activity.
-  - Replay policy controls emit one-frame requests and never resize recorder
-    storage from UI code.
-  - Cohesion ruling: overlay counters, replay-policy controls, samples, and
-    reserve-event rows all mutate one UIMemoryOverlayState and share one
-    scroll/layout transaction; there is no independent owner seam to extract.
-
-Related:
-  - SkullbonezSource/Runtime/UI/GameUI/UITabMemory.h
-  - SkullbonezSource/Runtime/UI/GameUI/UI.h
-  - Agentic/Reference/engine-glossary.md
-*/
+// Draw process residency separately from owner allocation capacities.
+// The tab borrows frame-owned rows only for this synchronous draw.
 #include "UITabMemory.h"
 
 #include "../../../Core/MainMemoryStats.h"
@@ -205,17 +171,7 @@ void CopyShortLabel( const char* source, char* out, std::size_t outSize )
 
 uint64_t CurrentTotalMemoryBytes( const SkullbonezCore::Core::MainMemoryStats& memory )
 {
-    if ( memory.process.available && memory.process.taskManagerBytes > 0u )
-    {
-        return memory.process.taskManagerBytes;
-    }
-
-    if ( memory.reconciledTotalBytes > 0u )
-    {
-        return memory.reconciledTotalBytes;
-    }
-
-    return memory.trackedEngineBytes;
+    return memory.process.privateWorkingSetAvailable ? memory.process.privateWorkingSetBytes : 0u;
 }
 
 uint64_t OverlayMinimumAxisSpan( uint64_t totalBytes )
@@ -527,7 +483,7 @@ void DrawMemoryStackSegment( const SkullbonezCore::UI::UIDrawContext& draw, floa
 
 void DrawOverlaySubsystemStack( const SkullbonezCore::UI::UIDrawContext& draw, const SkullbonezCore::Core::MainMemoryStats& memory, const SkullbonezCore::UI::UIRect& stackRect )
 {
-    const uint64_t totalBytes = (std::max)( CurrentTotalMemoryBytes( memory ), 1ull );
+    const uint64_t totalBytes = (std::max)( memory.trackedEngineBytes, 1ull );
     float x = stackRect.x;
     const float stackEndX = stackRect.x + stackRect.w;
     DrawMemoryStackSegment( draw, x, stackRect.y, stackRect.h, stackRect.w, stackEndX, memory.gameObjects.totalBytes, totalBytes, 0.70f, 0.90f, 0.54f );
@@ -546,7 +502,6 @@ void DrawOverlaySubsystemStack( const SkullbonezCore::UI::UIDrawContext& draw, c
 
     DrawMemoryStackSegment( draw, x, stackRect.y, stackRect.h, stackRect.w, stackEndX, memory.otherTrackedBytes, totalBytes, 0.95f, 0.76f, 0.34f );
 
-    DrawMemoryStackSegment( draw, x, stackRect.y, stackRect.h, stackRect.w, stackEndX, memory.unattributedProcessBytes, totalBytes, 0.62f, 0.70f, 0.78f );
 
     if ( x < stackRect.x + stackRect.w )
     {
@@ -726,16 +681,20 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
 
     const float row0 = panelY + 36.0f;
 
-    if ( memory.process.available )
+    if ( memory.process.privateWorkingSetAvailable )
     {
-        DrawMemoryRow( draw, x, row0, labelW, "TaskMgr", memory.process.taskManagerBytes );
+        DrawMemoryRow( draw, x, row0, labelW, "Private RAM", memory.process.taskManagerBytes );
     }
     else
     {
-        draw.Text( x, row0, 9.6f, tablePalette.textSecondary.r, tablePalette.textSecondary.g, tablePalette.textSecondary.b, "TaskMgr" );
+        draw.Text( x, row0, 9.6f, tablePalette.textSecondary.r, tablePalette.textSecondary.g, tablePalette.textSecondary.b, "Private RAM" );
         draw.Text( x + labelW, row0, 9.6f, tablePalette.warningAccent.r, tablePalette.warningAccent.g, tablePalette.warningAccent.b, "n/a" );
     }
 
+    FormatMemoryMiB( memory.process.workingSetBytes, a, sizeof( a ) );
+    FormatMemoryMiB( memory.process.privateCommitBytes, b, sizeof( b ) );
+    snprintf( text, sizeof( text ), "Working set %s  Private commit %s", a, b );
+    draw.Text( subX, row0, 8.4f, tablePalette.textSecondary.r, tablePalette.textSecondary.g, tablePalette.textSecondary.b, text );
     DrawMemoryRow( draw, x, row0 + 18.0f, labelW, "Replay", memory.replay.totalBytes );
     FormatMemoryMiB( memory.replay.presentationBytes, a, sizeof( a ) );
     FormatMemoryMiB( memory.replay.solverBytes, b, sizeof( b ) );
@@ -758,19 +717,8 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     snprintf( text, sizeof( text ), "Models %s  Stores %s  Worlds %s", a, b, c );
     draw.Text( subX, row0 + 50.0f, 8.4f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
 
-    DrawMemoryRow( draw, x, row0 + 68.0f, labelW, "Unattrib", memory.unattributedProcessBytes );
-    FormatMemoryMiB( memory.trackedEngineBytes, a, sizeof( a ) );
-    FormatMemoryMiB( memory.reconciledTotalBytes, b, sizeof( b ) );
-    snprintf( text, sizeof( text ), "Tracked %s  Sum %s", a, b );
-    draw.Text( subX, row0 + 68.0f, 8.4f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
-
-    if ( memory.trackedOvershootBytes > 0 )
-    {
-        FormatMemoryMiB( memory.trackedOvershootBytes, a, sizeof( a ) );
-        snprintf( text, sizeof( text ), "Tracked exceeds process by %s", a );
-        draw.Text( x, row0 + 92.0f, 9.2f, tablePalette.warningAccent.r, tablePalette.warningAccent.g, tablePalette.warningAccent.b, text );
-    }
-    else
+    DrawMemoryRow( draw, x, row0 + 68.0f, labelW, "Capacity", memory.trackedEngineBytes );
+    draw.Text( subX, row0 + 68.0f, 8.4f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, "Owner capacity at last idle sample; not resident RAM" );
     {
         const bool hasForeignFrees = memory.foreignFreeCount > 0u;
 
@@ -1025,7 +973,14 @@ void DrawReserveCapacityRows( const SkullbonezCore::UI::UIDrawContext& draw,
     {
         draw.Text( tableX + 14.0f, tableY + 9.0f, 10.4f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, "Store Capacity" );
 
-        snprintf( text, sizeof( text ), "%d owners  %s resident", rowCount, totalResident );
+        if ( rowCount > 0 )
+        {
+            snprintf( text, sizeof( text ), "%d owners  %s allocated", rowCount, totalResident );
+        }
+        else
+        {
+            snprintf( text, sizeof( text ), "Owner snapshot unavailable" );
+        }
         draw.Text( tableX + tableW - 180.0f, tableY + 10.0f, 8.4f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
     }
 
@@ -1048,7 +1003,7 @@ void DrawReserveCapacityRows( const SkullbonezCore::UI::UIDrawContext& draw,
         draw.Text( liveX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g, tablePalette.textSecondary.b, "Live" );
         draw.Text( peakX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g, tablePalette.textSecondary.b, "Peak" );
         draw.Text( utilisationX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g, tablePalette.textSecondary.b, "Use" );
-        draw.Text( residentX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g, tablePalette.textSecondary.b, "Resident" );
+        draw.Text( residentX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g, tablePalette.textSecondary.b, "Allocated" );
     }
 
     for ( int index = 0; index < rowCount; ++index )
@@ -1197,7 +1152,25 @@ void SetOverlayEnabled( UIMemoryOverlayState& state, bool enabled )
 
 void PushOverlayFrame( UIMemoryOverlayState& state, const UIMemoryTabFrameView& data )
 {
-    if ( !OverlayEnabled( state ) )
+    state.memoryPrivateBytes = CurrentTotalMemoryBytes( data.mainMemory );
+    state.memoryWorkingSetBytes = data.mainMemory.process.workingSetBytes;
+    state.memoryCommitBytes = data.mainMemory.process.privateCommitBytes;
+    state.memoryPredictionCapacityBytes = data.mainMemory.replay.predictionBytes;
+    state.memorySampleSeconds = data.mainMemory.sampleTimeSeconds;
+    state.memoryPrivateAvailable = data.mainMemory.process.privateWorkingSetAvailable;
+    state.memoryCapacityTableBytes = 0;
+    state.memoryCapacityRowsValid = true;
+
+    for ( int index = 0; data.reserveCapacityRows && index < data.reserveCapacityRowCount; ++index )
+    {
+        const auto& row = data.reserveCapacityRows[index];
+        const uint64_t expectedBytes = static_cast<uint64_t>( row.elementSizeBytes ) * static_cast<uint64_t>( row.currentCapacity );
+        state.memoryCapacityRowsValid = state.memoryCapacityRowsValid && row.elementSizeBytes >= 0 && row.currentCapacity >= 0 && row.liveCount >= 0 && row.liveCount <= row.currentCapacity &&
+                                        row.residentBytes == expectedBytes;
+        state.memoryCapacityTableBytes += row.residentBytes;
+    }
+
+    if ( !OverlayEnabled( state ) || !data.mainMemory.process.privateWorkingSetAvailable )
     {
         return;
     }
@@ -1257,10 +1230,17 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
 
     char axisText[32] = {};
 
-    FormatMemoryMiB( totalBytes, totalText, sizeof( totalText ) );
+    if ( memory.process.privateWorkingSetAvailable )
+    {
+        FormatMemoryMiB( totalBytes, totalText, sizeof( totalText ) );
+    }
+    else
+    {
+        snprintf( totalText, sizeof( totalText ), "unavailable" );
+    }
     FormatMemoryMiB( memory.trackedEngineBytes, trackedText, sizeof( trackedText ) );
 
-    draw.Text( panel.x + 10.0f, panel.y + 8.0f, 10.5f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, "F6  Memory" );
+    draw.Text( panel.x + 10.0f, panel.y + 8.0f, 10.5f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, "F6  Private RAM" );
     const bool narrowHeader = docked && panel.w < 260.0f;
     draw.Text( narrowHeader ? panel.x + 10.0f : panel.x + panel.w - ( docked ? 158.0f : 112.0f ),
                panel.y + ( narrowHeader ? 24.0f : 8.0f ),
@@ -1368,7 +1348,7 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
     draw.Outline( stack.x, stack.y, stack.w, stack.h, palette.innerBorder.r, palette.innerBorder.g, palette.innerBorder.b, 0.42f );
 
     char text[160] = {};
-    snprintf( text, sizeof( text ), "tracked %s   pins %d/%llu", trackedText, retainedCount, static_cast<unsigned long long>( data.reserveGrowthEventTotalCount ) );
+    snprintf( text, sizeof( text ), "capacity %s   pins %d/%llu", trackedText, retainedCount, static_cast<unsigned long long>( data.reserveGrowthEventTotalCount ) );
 
     draw.Text( panel.x + 10.0f, panel.y + panel.h - 42.0f, 8.6f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
 

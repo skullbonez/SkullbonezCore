@@ -447,6 +447,15 @@ struct SkarnessFrameState
         bool memoryWaterlineVisible = false;
         int markerSamples = 0;
         int memorySamples = 0;
+        uint64_t memoryPrivateBytes = 0;
+        uint64_t memoryWorkingSetBytes = 0;
+        uint64_t memoryCommitBytes = 0;
+        uint64_t memoryPredictionCapacityBytes = 0;
+        uint64_t memoryCapacityTableBytes = 0;
+        double memorySampleSeconds = 0.0;
+        bool memoryPrivateAvailable = false;
+        bool memoryCapacityRowsValid = true;
+
         int focusedDiagnostic = 0;
         uint32_t markerSelectionHash = 0;
         bool profilerTimeline = false;

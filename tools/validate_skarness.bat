@@ -67,6 +67,10 @@ echo [skarness] Dense horizon continuation, trimming, and target selection...
 "%PYTHON_EXE%" "%~dp0validate_prediction_horizon.py" --session TestOutput/skarness/validation/prediction-horizon
 if errorlevel 1 goto fail
 
+echo [skarness] Long-horizon demand allocation and release...
+"%PYTHON_EXE%" "%~dp0validate_prediction_memory.py" --session TestOutput/skarness/validation/prediction-memory
+if errorlevel 1 goto fail
+
 echo [skarness] Space 200 continuous horizon drag and curve quality...
 "%PYTHON_EXE%" "%~dp0validate_space_prediction_horizon.py" --session TestOutput/skarness/validation/space-prediction-horizon
 if errorlevel 1 goto fail

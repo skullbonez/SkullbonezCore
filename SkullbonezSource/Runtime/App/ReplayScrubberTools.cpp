@@ -2450,6 +2450,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTogglePredictionCommand&,
         PublishTransportFeedback( "ACCEPT ORIGINAL OR MODIFIED FIRST", now );
         return;
     }
+    m_predictionPresentation.RetirePredictionPublication();
     HandleReplayPredictionPressed( Prediction(), m_scrubberOwner, SolverPresentTrackPosition(), interaction, now, output.enterInteractive );
 }
 
@@ -2811,6 +2812,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
             consumesMouse = true;
             break;
         }
+        m_predictionPresentation.RetirePredictionPublication();
         HandleReplayPredictionPressed( Prediction(), m_scrubberOwner, solverPresentTrackPosition, interaction, input.now, output.enterInteractive );
 
         consumesMouse = true;

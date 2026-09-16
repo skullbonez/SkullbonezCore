@@ -1,26 +1,5 @@
-/*
-File: SkullbonezSource/Core/MainMemoryStats.h
-Purpose:
-  Defines POD snapshots for main-memory diagnostics.
-
-Summary:
-  These structs are neutral data contracts. Runtime diagnostics fills the
-  process-level snapshot, while replay, game-object, and UI code use the same
-  PODs without depending on each other's owners.
-
-Glossary:
-  Task Manager metric: Named process-memory field used as the top-level total.
-  Reconciled total: Tracked engine bytes plus unattributed bytes, adjusted for
-    any tracked overshoot so it matches the sampled process metric.
-
-Invariants:
-  - Byte fields are CPU-visible main memory only.
-  - GPU default heaps are not included in these totals.
-
-Related:
-  - SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h
-  - Agentic/Reference/engine-glossary.md
-*/
+// CPU memory snapshots. Process residency and owner allocation capacity are
+// separate measurements; GPU default heaps are excluded.
 #pragma once
 
 #include <array>
@@ -116,15 +95,13 @@ struct MainMemoryReplayCategoryBytes
     uint64_t bytes[MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT] = {};
 };
 
-inline uint64_t MainMemoryReplayCategoryByte( const MainMemoryReplayCategoryBytes& categories,
-                                              MainMemoryReplayByteCategory category )
+inline uint64_t MainMemoryReplayCategoryByte( const MainMemoryReplayCategoryBytes& categories, MainMemoryReplayByteCategory category )
 {
     const std::size_t categoryIndex = static_cast<std::size_t>( category );
     return categoryIndex < MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT ? categories.bytes[categoryIndex] : 0;
 }
 
-inline void MainMemoryAddReplayCategoryBytes( MainMemoryReplayCategoryBytes& categories,
-                                              MainMemoryReplayByteCategory category, uint64_t bytes )
+inline void MainMemoryAddReplayCategoryBytes( MainMemoryReplayCategoryBytes& categories, MainMemoryReplayByteCategory category, uint64_t bytes )
 {
     const std::size_t categoryIndex = static_cast<std::size_t>( category );
 
@@ -134,8 +111,7 @@ inline void MainMemoryAddReplayCategoryBytes( MainMemoryReplayCategoryBytes& cat
     }
 }
 
-inline uint64_t MainMemoryReplayCategoryRangeBytes( const MainMemoryReplayCategoryBytes& categories,
-                                                    MainMemoryReplayByteCategory first, MainMemoryReplayByteCategory end )
+inline uint64_t MainMemoryReplayCategoryRangeBytes( const MainMemoryReplayCategoryBytes& categories, MainMemoryReplayByteCategory first, MainMemoryReplayByteCategory end )
 {
     const std::size_t firstIndex = static_cast<std::size_t>( first );
     const std::size_t endIndex = static_cast<std::size_t>( end );
@@ -151,12 +127,12 @@ inline uint64_t MainMemoryReplayCategoryRangeBytes( const MainMemoryReplayCatego
 
 struct MainMemoryReplayTrajectoryStats
 {
-    uint64_t storeBytes = 0;                                // Current TrajectoryStore allocation; 0 until the store lands.
-    uint64_t recordCount = 0;                               // Live TrajectoryStore record count visible to replay tooling.
-    uint64_t pointCount = 0;                                // Total stored trajectory points, including unpublished build slack.
-    uint64_t publishedPointCount = 0;                       // Points currently exposed through record published prefixes.
-    uint64_t versionChurn = 0;                              // Number of allocated record versions since the store was reset.
-    uint32_t maxRecordVersion = 0;                          // Highest version still resident in the store.
+    uint64_t storeBytes = 0;          // Current TrajectoryStore allocation; 0 until the store lands.
+    uint64_t recordCount = 0;         // Live TrajectoryStore record count visible to replay tooling.
+    uint64_t pointCount = 0;          // Total stored trajectory points, including unpublished build slack.
+    uint64_t publishedPointCount = 0; // Points currently exposed through record published prefixes.
+    uint64_t versionChurn = 0;        // Number of allocated record versions since the store was reset.
+    uint32_t maxRecordVersion = 0;    // Highest version still resident in the store.
     uint64_t emittedSegments[MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT] = {};
     uint64_t droppedSegments[MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT] = {};
     uint64_t budgetExpiries[MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT] = {};
@@ -193,39 +169,40 @@ struct MainMemoryReplayTrajectorySubmissionStats
     // Invariant: one storage lane hashes its exact ordered bytes. A packet that
     // joins retained and frame-local lanes composes their cached hash/size facts
     // so publication remains content-sensitive without rereading retained data.
-    bool hasGeometry = false;                               // True when the tracer submitted replay ribbon vertices this frame.
-    uint64_t ordinaryLineHash = 0;                          // Exact ordinary xyz/rgb line stream sent to DrawLinesColored.
+    bool hasGeometry = false;      // True when the tracer submitted replay ribbon vertices this frame.
+    uint64_t ordinaryLineHash = 0; // Exact ordinary xyz/rgb line stream sent to DrawLinesColored.
     uint64_t ordinaryLineBytes = 0;
     uint32_t ordinaryLineVertexCount = 0;
-    uint64_t priorityLineHash = 0;                          // Exact priority marker line stream appended after ordinary lines.
-    uint64_t priorityLineCanonicalHash = 0;                 // Order-independent exact-record marker fingerprint.
+    uint64_t priorityLineHash = 0;          // Exact priority marker line stream appended after ordinary lines.
+    uint64_t priorityLineCanonicalHash = 0; // Order-independent exact-record marker fingerprint.
     uint64_t priorityLineBytes = 0;
     uint32_t priorityLineVertexCount = 0;
-    uint64_t ordinaryRibbonHash = 0;                        // Exact packed ordinary replay-ribbon segment stream.
+    uint64_t ordinaryRibbonHash = 0; // Exact packed ordinary replay-ribbon segment stream.
     uint64_t ordinaryRibbonBytes = 0;
     uint32_t ordinaryRibbonSegmentCount = 0;
-    uint64_t priorityRibbonHash = 0;                        // Exact packed priority replay-ribbon segment stream.
-    uint64_t priorityRibbonCanonicalHash = 0;               // Order-independent exact-record marker fingerprint.
+    uint64_t priorityRibbonHash = 0;          // Exact packed priority replay-ribbon segment stream.
+    uint64_t priorityRibbonCanonicalHash = 0; // Order-independent exact-record marker fingerprint.
     uint64_t priorityRibbonBytes = 0;
     uint32_t priorityRibbonSegmentCount = 0;
-    uint64_t vertexHash = 0;                                // Content fingerprint for the submitted replay ribbon vertex lanes.
-    uint64_t ordinaryVertexHash = 0;                        // Ordered expanded vertices before priority markers are appended.
+    uint64_t vertexHash = 0;         // Content fingerprint for the submitted replay ribbon vertex lanes.
+    uint64_t ordinaryVertexHash = 0; // Ordered expanded vertices before priority markers are appended.
     uint64_t ordinaryVertexBytes = 0;
     uint32_t ordinaryVertexCount = 0;
-    uint64_t vertexBytes = 0;                               // Submitted replay ribbon byte count for the frame.
-    uint32_t vertexCount = 0;                               // Submitted replay ribbon vertex count for the frame.
-    uint32_t segmentCount = 0;                              // Source replay ribbon segment count expanded into vertices.
+    uint64_t vertexBytes = 0;  // Submitted replay ribbon byte count for the frame.
+    uint32_t vertexCount = 0;  // Submitted replay ribbon vertex count for the frame.
+    uint32_t segmentCount = 0; // Source replay ribbon segment count expanded into vertices.
 };
 
 struct MainMemoryProcessStats
 {
+    bool privateWorkingSetAvailable = false;
     bool available = false;                                 // False when the OS process-memory query failed.
     char taskManagerMetricName[32] = "private_working_set"; // Named process metric used as the top-level total.
     uint64_t taskManagerBytes = 0;                          // Top-level process memory shown in the profiler/dump.
     uint64_t workingSetBytes = 0;                           // Resident process working set.
     uint64_t privateWorkingSetBytes = 0;                    // Resident pages private to this process.
     uint64_t privateCommitBytes = 0;                        // Private committed bytes reported by PROCESS_MEMORY_COUNTERS_EX.
-    uint64_t pagefileUsageBytes = 0;                        // Pagefile-backed process usage for correlation with tools.
+    uint64_t pagefileUsageBytes = 0;                        // Commit charge alias; not bytes currently stored in the pagefile.
 };
 
 struct MainMemoryReplayStats
@@ -239,8 +216,8 @@ struct MainMemoryReplayStats
         uint64_t allocatorHighWaterBytes = 0;
         uint64_t replayGrowths = 0;
         uint64_t failedGrowths = 0;
-        int hardBytes = 0;
-        int reportedHighWaterCapacity = 0;                  // Owner capacity units; replay byte owners report bytes.
+        uint64_t hardBytes = 0;
+        int reportedHighWaterCapacity = 0; // Owner capacity units; replay byte owners report bytes.
         int lastGrowthFrame = -1;
         bool registered = false;
     };
@@ -264,14 +241,14 @@ struct MainMemoryReplayStats
 
     // Replay policy fields report the requested knobs and the resolved recorder
     // windows that were actually applied by replay timeline composition.
-    int memoryPreset = 0;                                   // 0=lossless look, 1=balanced, 2=compact.
+    int memoryPreset = 0; // 0=lossless look, 1=balanced, 2=compact.
     int requestedRetentionSeconds = 0;
     int requestedBudgetMiB = 0;
     int presentationRetentionSeconds = 0;
     int solverRetentionSeconds = 0;
     bool memoryBudgetClamped = false;
     bool solverWindowReduced = false;
-    std::array<GrowthOwner, 3> growthOwners;                // Same stable order as App's REPLAY_GROWTH_OWNER_POLICIES.
+    std::array<GrowthOwner, 3> growthOwners; // Same stable order as App's REPLAY_GROWTH_OWNER_POLICIES.
     MainMemoryReplayCategoryBytes categoryBytes;
     MainMemoryReplayPredictionEvidenceStats predictionEvidence;
     MainMemoryReplayTrajectoryStats trajectory;
@@ -293,9 +270,8 @@ inline uint64_t MainMemoryReplayCategoryTotalBytes( const MainMemoryReplayCatego
 
 inline uint64_t MainMemoryReplayPredictionEvidenceCapacityBytes( const MainMemoryReplayPredictionEvidenceStats& evidence )
 {
-    return evidence.buildContactCapacityBytes + evidence.buildPipelineCapacityBytes + evidence.buildFrameCapacityBytes +
-           evidence.committedContactCapacityBytes + evidence.committedPipelineCapacityBytes +
-           evidence.committedFrameCapacityBytes;
+    return evidence.buildContactCapacityBytes + evidence.buildPipelineCapacityBytes + evidence.buildFrameCapacityBytes + evidence.committedContactCapacityBytes +
+           evidence.committedPipelineCapacityBytes + evidence.committedFrameCapacityBytes;
 }
 
 // Concept: the Low-detail release witness carries the complete categorized
@@ -305,21 +281,14 @@ inline uint64_t MainMemoryReplayPredictionEvidenceCapacityBytes( const MainMemor
 inline bool MainMemoryReplayPredictionEvidenceReleaseReconciles( const MainMemoryReplayStats& stats )
 {
     const MainMemoryReplayPredictionEvidenceStats& evidence = stats.predictionEvidence;
-    const uint64_t
-        evidenceCategories = MainMemoryReplayCategoryByte( stats.categoryBytes,
-                                                           MainMemoryReplayByteCategory::PredictionSolverContactEvidence ) +
-                             MainMemoryReplayCategoryByte( stats.categoryBytes,
-                                                           MainMemoryReplayByteCategory::PredictionPipelineEvidence );
+    const uint64_t evidenceCategories = MainMemoryReplayCategoryByte( stats.categoryBytes, MainMemoryReplayByteCategory::PredictionSolverContactEvidence ) +
+                                        MainMemoryReplayCategoryByte( stats.categoryBytes, MainMemoryReplayByteCategory::PredictionPipelineEvidence );
     const uint64_t currentCapacity = MainMemoryReplayPredictionEvidenceCapacityBytes( evidence );
 
-    if ( evidence.releaseCheckpointCount == 0u ||
-         evidence.lastReleaseBeforeCapacityBytes < evidence.lastReleaseAfterCapacityBytes ||
-         evidence.lastReleaseBeforeReplayTotalBytes < evidence.lastReleaseAfterReplayTotalBytes ||
-         evidence.lastReleaseBeforeCategoryTotalBytes < evidence.lastReleaseAfterCategoryTotalBytes ||
-         evidence.currentCapacityBytes != currentCapacity || evidenceCategories != currentCapacity ||
-         stats.totalBytes != MainMemoryReplayCategoryTotalBytes( stats.categoryBytes ) ||
-         evidence.currentCapacityBytes != evidence.lastReleaseAfterCapacityBytes ||
-         evidence.lastReleaseBeforeReplayTotalBytes != evidence.lastReleaseBeforeCategoryTotalBytes ||
+    if ( evidence.releaseCheckpointCount == 0u || evidence.lastReleaseBeforeCapacityBytes < evidence.lastReleaseAfterCapacityBytes ||
+         evidence.lastReleaseBeforeReplayTotalBytes < evidence.lastReleaseAfterReplayTotalBytes || evidence.lastReleaseBeforeCategoryTotalBytes < evidence.lastReleaseAfterCategoryTotalBytes ||
+         evidence.currentCapacityBytes != currentCapacity || evidenceCategories != currentCapacity || stats.totalBytes != MainMemoryReplayCategoryTotalBytes( stats.categoryBytes ) ||
+         evidence.currentCapacityBytes != evidence.lastReleaseAfterCapacityBytes || evidence.lastReleaseBeforeReplayTotalBytes != evidence.lastReleaseBeforeCategoryTotalBytes ||
          evidence.lastReleaseAfterReplayTotalBytes != evidence.lastReleaseAfterCategoryTotalBytes )
     {
         return false;
@@ -327,20 +296,19 @@ inline bool MainMemoryReplayPredictionEvidenceReleaseReconciles( const MainMemor
 
     const uint64_t evidenceReleased = evidence.lastReleaseBeforeCapacityBytes - evidence.lastReleaseAfterCapacityBytes;
     const uint64_t replayReleased = evidence.lastReleaseBeforeReplayTotalBytes - evidence.lastReleaseAfterReplayTotalBytes;
-    const uint64_t categoryReleased = evidence.lastReleaseBeforeCategoryTotalBytes -
-                                      evidence.lastReleaseAfterCategoryTotalBytes;
+    const uint64_t categoryReleased = evidence.lastReleaseBeforeCategoryTotalBytes - evidence.lastReleaseAfterCategoryTotalBytes;
     return evidenceReleased > 0u && evidenceReleased == replayReleased && evidenceReleased == categoryReleased;
 }
 
 struct MainMemoryGameObjectStats
 {
-    uint64_t modelVectorBytes = 0;                          // Dynamic legacy object record vector capacity.
-    uint64_t physicsStoreBytes = 0;                         // Physics body-store vector capacity.
-    uint64_t colliderStoreBytes = 0;                        // Collider-store vector capacity.
-    uint64_t renderStoreBytes = 0;                          // Render-instance vector capacity.
-    uint64_t physicsWorldBytes = 0;                         // PhysicsWorld fixed state plus retained dynamic solver memory.
-    uint64_t gameplayWorldBytes = 0;                        // Scene-lifetime Gameplay state, visual arena, and scratch capacity.
-    uint64_t debugAndBroadphaseBytes = 0;                   // Informational subset already included in owning world totals.
+    uint64_t modelVectorBytes = 0;        // Dynamic legacy object record vector capacity.
+    uint64_t physicsStoreBytes = 0;       // Physics body-store vector capacity.
+    uint64_t colliderStoreBytes = 0;      // Collider-store vector capacity.
+    uint64_t renderStoreBytes = 0;        // Render-instance vector capacity.
+    uint64_t physicsWorldBytes = 0;       // PhysicsWorld fixed state plus retained dynamic solver memory.
+    uint64_t gameplayWorldBytes = 0;      // Scene-lifetime Gameplay state, visual arena, and scratch capacity.
+    uint64_t debugAndBroadphaseBytes = 0; // Informational subset already included in owning world totals.
     uint64_t totalBytes = 0;
     std::size_t modelCount = 0;
     std::size_t modelCapacity = 0;
@@ -356,11 +324,7 @@ struct MainMemoryStats
     MainMemoryGameObjectStats gameObjects;
     uint64_t otherTrackedBytes = 0;
     uint64_t trackedEngineBytes = 0;
-    uint64_t unattributedProcessBytes = 0;
-    uint64_t trackedOvershootBytes = 0;
-    uint64_t reconciledTotalBytes = 0;
-    uint64_t reconciliationDeltaBytes = 0;
-    uint64_t foreignFreeCount = 0;                          // Process-lifetime global-delete ownership failures.
+    uint64_t foreignFreeCount = 0; // Process-lifetime global-delete ownership failures.
     double sampleTimeSeconds = 0.0;
 };
 } // namespace Core

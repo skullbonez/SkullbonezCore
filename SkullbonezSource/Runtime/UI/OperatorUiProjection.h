@@ -425,7 +425,7 @@ inline void AppendOperatorEditorHierarchyRow( UI::OperatorEditorFrameView& view,
     }
 }
 
-void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& uiData, const OperatorUiDiagnosticsFacts& facts, UI::UIRuntimeReserveCapacityRow* reserveCapacityRows );
+void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& uiData, const OperatorUiDiagnosticsFacts& facts );
 void ProjectOperatorUiPresentation( UI::InGameUIFrameData& uiData, const OperatorUiSceneFacts& facts, const UI::OperatorEditorFrameView& operatorEditorView );
 void ProjectOperatorUiSettings( UI::InGameUIFrameData& uiData, const OperatorUiSettingsFacts& facts );
 void ProjectOperatorUiInteraction( UI::InGameUIFrameData& uiData, const OperatorUiInteractionFacts& facts );

@@ -1,8 +1,103 @@
 # Session State
 
-Date: 2026-09-15
-Branch: `codex/prediction-speed-editor-views`
-Status: Four-view editor, camera clipping, Replay controls and authored reset/explicit-save fixes implemented; PR #170 is open. The original cute skull is restored with black-backed Windows icons. The textured-mark and camera-playback follow-up passes final native validation. PHYSICS_SCALE stays complete; PHYSICS_AB remains queued.
+Date: 2026-09-16
+Branch: `codex/prediction-editor-complete`
+Status: Combined PR branch contains all thirteen existing feature commits plus the pending Memory, camera, comparison and scene changes. Long-horizon demand allocation and retirement are implemented; all final closure checks pass.
+
+
+## Complete prediction and editor follow-up - 2026-09-16
+
+The new branch includes PR #170's eleven commits and PR #171's two commits
+without rewriting either branch. The user explicitly requested every pending
+workspace change, including `simon.scene.json`, in one new PR against main.
+The fourteenth commit contains that pending work and the memory fix below.
+The original workspace index is preserved while this branch is assembled in
+`TestOutput/startup-commit`.
+
+Prediction's existing Replay-only owner now has an 8 GiB aggregate allowance,
+separate from its int-sized per-request capacity limit. Registration allocates
+no backing memory. Active bytes and pending grants share the same uint64_t cap;
+existing owners keep their previous defaults. Each optional evidence bank can
+grow to 4 GiB within that shared total, with demand-allocated chunks and the
+existing fixed pointer tables. No Physics body field or upward include is added.
+
+Explicit disable joins the worker, retires published and cached visual spans,
+and releases both frame banks, trajectory buffers, evidence and private engine.
+Horizon reductions retain the computed suffix for instant re-extension while
+prediction stays enabled. A native comparison-load test caught a stale visual
+packet after release; all explicit disable routes now retire it first.
+
+The 300-box 120-second high-detail test publishes all 14,401 simulation and
+evidence frames with selected = published = submitted target 1. Private working
+set rises from 220.87 MiB to 1,905.09 MiB, drops to 229.90 MiB after disable, then
+uses 263.43 MiB for a new two-second prediction of target 2. Private commit is a
+separate metric: 737.67, 2,981.73, 758.34 and 837.12 MiB respectively.
+Evidence: `TestOutput/skarness/prediction-memory-final/` and
+`TestOutput/skarness/complete-final-prediction_memory/` in the combined worktree.
+The permanent assertion is `tools/validate_prediction_memory.py`.
+
+Fast validation passes 1,069 tests and 3,733,761 assertions (one skip). The final
+allocation policy has zero allowlist errors; dependency checks report zero
+findings. Compiler-backed design checks cover the aggregate budget, segmented
+evidence, producer lifetime and App publication retirement. The repaired native
+four-view test covers recorded first-frame rewind, both ball caps and picking,
+workspace retention, side-view wall navigation and Top visibility.
+
+
+Final closure: the complete UI interaction matrix, Space 200 horizon drags,
+300-body long-horizon/strict-allocation test, Memory parity, native window
+controls, DX12 renderer and performance gates pass. The exact-staged Physics
+gate passes fingerprint `c400bce7c176`, including the unchanged 44,401-line
+worker matrix (`50bca7c0f2c420832c4fd99b1812f4db48d88cfadb4d475622a3d3bd3465a1c1`).
+A concurrent Debug build initially collided with that gate; the serialized
+rerun passes. Final logs are `complete-physics-commit-final.log`,
+`complete-dx12.log`, `complete-perf.log` and `complete-reviewed-*.log` under
+the combined worktree's TestOutput. The final instrumented memory test is
+`TestOutput/skarness/prediction-memory-instrumented/`.
+
+Profile is rebuilt in `C:/SkullbonezCore`; the second build takes 1.18 seconds
+with no compilation or linking. The running game is preserved, with its previous
+EXE/PDB retained under `Profile/SKULLBONEZ_CORE.before-memory-update.*`.
+Restarting the game uses the new build. No golden baseline was changed by the
+fourteenth commit.
+
+## F6 and Memory accounting fixes - 2026-09-15
+
+F6 and Memory now share a one-second wall-clock sample of Windows private
+working-set RAM. Total working set and private commit remain separate counters.
+The owner-capacity table owns its frame storage, labels capacity as allocated,
+and avoids prediction-worker storage until both producers are idle. Removed
+the synthetic reconciliation remainder and versioned memory dumps to v2.
+
+The native 200-body, high-detail, 20-second prediction increases private RAM
+from 230.15 to 623.22 MiB. All six external-counter comparisons differ by at
+most 8 KiB; switching tabs and hiding F6 preserve the same metric. Prediction
+identity is selected = published = submitted target 1 with 2,401 frames.
+Evidence and screenshots: `TestOutput/skarness/memory-fixed-verified/`.
+The permanent regression is `tools/validate_memory_ui.py`, included in the UI gate.
+
+All 1,060 unit tests / 3,736,231 assertions pass. The Memory-only draw fingerprint
+was intentionally updated for the corrected labels with explicit label checks;
+all other tab fingerprints are unchanged. Compiler-backed design and dependency
+checks pass. Profile is built locally; the second build took 1.3 seconds with
+503 output timestamps unchanged and no compilation or linking. The initial
+fast preflight passed, but overlapping Profile builds damaged generated PDBs;
+a sequential clean/build repaired them with zero warnings or errors.
+
+Performance validation passes all ten scale workloads, absolute DX12/Physics
+budgets and baseline comparisons; selected-path and causal-inspection checks
+pass with zero steady allocations. The one-minute graphics stress gate passes,
+including descriptor churn and PID-scoped timeout cleanup. Profile and Debug
+are built.
+
+The commit gate refuses the existing untracked `simon.scene.json`; fixes remain
+staged without committing or bypassing the hook.
+
+The replay fidelity run stops on a pre-existing shader provenance mismatch:
+expected `ebf5e912bd99d56b8abee769d7ebab079b61186ea478a596b92716384a0e5a60`,
+current `cb1a9ef006a4d5561ab450131bfdf3f7af251504d827b25224cd9cd944c01d71`.
+This change edits no shaders and does not update that baseline. Logs use the
+`TestOutput/memory-` prefix. The user-owned `simon.scene.json` remains untouched.
 
 ## Four-view sky and foreground-wall navigation - 2026-09-15
 

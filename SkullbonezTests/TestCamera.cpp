@@ -617,6 +617,40 @@ TEST_CASE( "Editor camera panes preserve full-screen pose and independent plane 
     CHECK_FALSE( cameras.FourViews() );
 }
 
+TEST_CASE( "Solver Lab orthographic zoom preserves recorded bodies across the eye plane" )
+{
+    CameraCollection cameras;
+    const Vector3 focus( 500, 20, 500 );
+    cameras.AddCamera( Vector3( 400, 100, 700 ), focus, Vector3( 0, 1, 0 ), CAMERA_FREE );
+    cameras.SetEditorViewWorkspace( true );
+    cameras.SetCamera();
+    cameras.ToggleFourViews( focus, 200 );
+    const auto perspective = SkullbonezCore::Math::Transformation::Matrix4::PerspectiveZeroToOne( 45, 1.5f, 0.1f, 10000 );
+    for ( int pane = 0; pane < 3; ++pane )
+    {
+        cameras.SelectEditorPane( pane );
+        const Vector3 normal = pane == 0 ? Vector3( 0, 1, 0 ) : pane == 1 ? Vector3( 1, 0, 0 ) : Vector3( 0, 0, 1 );
+        cameras.ZoomEditorView( -2 );
+        const auto pose = cameras.EditorPane( pane );
+        const auto clip = cameras.EditorPaneProjection( pane, perspective ) * SkullbonezCore::Math::Transformation::Matrix4::LookAt( pose.eye, pose.focus, pose.up );
+        for ( float extent : { -7.0f, 0.0f, 7.0f } )
+        {
+            // Both surfaces of a seven-unit ball remain inside the depth volume,
+            // including its nearest cap well behind the zoomed inspection eye.
+            const auto point = focus + normal * ( 190 + extent );
+            const float depth = clip.m[2] * point.x + clip.m[6] * point.y + clip.m[10] * point.z + clip.m[14];
+            CHECK( depth > 0 );
+            CHECK( depth < 1 );
+        }
+        if ( pane != 0 )
+        {
+            const auto foreground = focus + normal * 210;
+            const float depth = clip.m[2] * foreground.x + clip.m[6] * foreground.y + clip.m[10] * foreground.z + clip.m[14];
+            CHECK( depth < 0 );
+        }
+    }
+}
+
 TEST_CASE( "Editor camera views: eased transitions finish in 200ms and retarget from the visible pose" )
 {
     CameraCollection cameras;

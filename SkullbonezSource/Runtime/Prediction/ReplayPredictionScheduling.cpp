@@ -283,7 +283,7 @@ void ReplayPrediction::CancelJob( bool clearSamples, bool preserveVisibleSnapsho
 
         // Why: invalidation is publication state, not storage retirement. The
         // old committed bank becomes allocation-free scratch after the next
-        // swap, including when Predict-off interrupted a completed horizon.
+        // swap. Explicit disable releases these banks after this invalidation.
         m_state.InvalidateCommittedFrames();
         m_state.trajectoryStore.Clear();
         ClearFutureNodeCache();

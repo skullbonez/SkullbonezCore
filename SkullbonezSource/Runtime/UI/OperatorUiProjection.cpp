@@ -384,7 +384,7 @@ void ProjectOperatorUiProfilerFrame( UI::InGameUIFrameData& uiData, std::span<co
 #endif
 } // namespace
 
-void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const OperatorUiDiagnosticsFacts& facts, UI::UIRuntimeReserveCapacityRow* reserveCapacityRows )
+void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const OperatorUiDiagnosticsFacts& facts )
 {
     UIData.surface.UIDrawCalls = facts.metrics.uiDrawCalls;
     UIData.surface.visibility = ProjectRenderVisibilityDiagnostics( facts.visibility );
@@ -529,7 +529,6 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const Operator
     UIData.diagnostics.replayMemoryBudgetClamped = facts.replayMemoryBudgetClamped;
     UIData.diagnostics.replayMemorySolverWindowReduced = facts.replayMemorySolverWindowReduced;
     UIData.scene.predictionRevealRate = facts.predictionRevealRate;
-    UIData.diagnostics.reserveCapacityRows = nullptr;
     UIData.diagnostics.reserveCapacityRowCount = 0;
 
     UIData.diagnostics.mainMemory = facts.mainMemory;
@@ -554,7 +553,7 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const Operator
         for ( int index = 0; index < UIData.diagnostics.reserveCapacityRowCount; ++index )
         {
             const SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView& source = facts.reserveCapacityRows[static_cast<std::size_t>( index )];
-            SkullbonezCore::UI::UIRuntimeReserveCapacityRow& destination = reserveCapacityRows[index];
+            SkullbonezCore::UI::UIRuntimeReserveCapacityRow& destination = UIData.diagnostics.reserveCapacityRows[static_cast<std::size_t>( index )];
             strncpy_s( destination.ownerName, sizeof( destination.ownerName ), source.ownerName ? source.ownerName : "", _TRUNCATE );
 
             strncpy_s( destination.capacityReason, sizeof( destination.capacityReason ), source.capacityReason ? source.capacityReason : "", _TRUNCATE );
@@ -567,8 +566,6 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const Operator
             destination.sessionHighWater = source.sessionHighWater;
             destination.residentBytes = source.residentBytes;
         }
-
-        UIData.diagnostics.reserveCapacityRows = reserveCapacityRows;
     }
 }
 void ProjectOperatorUiPresentation( UI::InGameUIFrameData& UIData, const OperatorUiSceneFacts& facts, const UI::OperatorEditorFrameView& operatorEditorView )

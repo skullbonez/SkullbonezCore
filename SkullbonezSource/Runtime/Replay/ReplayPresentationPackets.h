@@ -71,5 +71,6 @@ struct ReplayHudStatus
     bool solverWindowReduced = false;
     bool divergenceValid = false;
     bool memoryStatsValid = false;
+    bool memoryAccountingIdle = false;
 };
 } // namespace SkullbonezCore::Runtime

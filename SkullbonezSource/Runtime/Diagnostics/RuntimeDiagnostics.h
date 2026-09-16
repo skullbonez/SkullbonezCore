@@ -46,15 +46,20 @@ namespace Runtime
 class RuntimeSceneDiagnosticFacts
 {
   public:
-    RuntimeSceneDiagnosticFacts( int currentSceneIndex = 0, int loadCount = 0, int manualResetCount = 0,
-                                 int currentFrame = 0, int targetFrameCount = 0, int modelCount = 0, uint32_t rngSeed = 0,
-                                 bool fixedStep = false, bool testComplete = false, bool finishLogged = false );
+    RuntimeSceneDiagnosticFacts( int currentSceneIndex = 0,
+                                 int loadCount = 0,
+                                 int manualResetCount = 0,
+                                 int currentFrame = 0,
+                                 int targetFrameCount = 0,
+                                 int modelCount = 0,
+                                 uint32_t rngSeed = 0,
+                                 bool fixedStep = false,
+                                 bool testComplete = false,
+                                 bool finishLogged = false );
 
-    static constexpr bool ValuesAreValid( int currentSceneIndex, int loadCount, int manualResetCount, int currentFrame,
-                                          int targetFrameCount, int modelCount ) noexcept
+    static constexpr bool ValuesAreValid( int currentSceneIndex, int loadCount, int manualResetCount, int currentFrame, int targetFrameCount, int modelCount ) noexcept
     {
-        return currentSceneIndex >= -1 && loadCount >= 0 && manualResetCount >= 0 && currentFrame >= 0 &&
-               targetFrameCount >= -1 && modelCount >= 0;
+        return currentSceneIndex >= -1 && loadCount >= 0 && manualResetCount >= 0 && currentFrame >= 0 && targetFrameCount >= -1 && modelCount >= 0;
     }
 
     int CurrentSceneIndex() const
@@ -113,16 +118,16 @@ class RuntimeSceneDiagnosticFacts
 
 struct RunPerfLogState
 {
-    bool isPerfTest = false;                             // Active only while RuntimeDiagnostics owns the required perf CSV handle.
-    bool perfHeaderWritten = false;                      // Prevents duplicate CSV headers across passes in one run.
-    char perfLogPath[256] = {};                          // Output path for perf CSV; empty disables file logging.
-    FILE* perfLogFile = nullptr;                         // Open perf CSV handle owned by RuntimeDiagnostics until ClosePerfLog.
-    bool isPerfLogFlushEnabled = false;                  // Diagnostic mode: force flush after every perf write.
-    int perfLogFlushInterval = 0;                        // Flush every N writes; 0 means flush only at close.
-    int perfLogWritesSinceFlush = 0;                     // Buffered perf-log rows since last explicit flush.
+    bool isPerfTest = false;            // Active only while RuntimeDiagnostics owns the required perf CSV handle.
+    bool perfHeaderWritten = false;     // Prevents duplicate CSV headers across passes in one run.
+    char perfLogPath[256] = {};         // Output path for perf CSV; empty disables file logging.
+    FILE* perfLogFile = nullptr;        // Open perf CSV handle owned by RuntimeDiagnostics until ClosePerfLog.
+    bool isPerfLogFlushEnabled = false; // Diagnostic mode: force flush after every perf write.
+    int perfLogFlushInterval = 0;       // Flush every N writes; 0 means flush only at close.
+    int perfLogWritesSinceFlush = 0;    // Buffered perf-log rows since last explicit flush.
 #ifdef _DEBUG
-    char physicsRegressionLogOverride[256] = {};         // CLI --physics-regression-log path (empty = disabled)
-    char physicsCollisionTimeLogOverride[256] = {};      // CLI --physics-collision-time-log path (empty = disabled)
+    char physicsRegressionLogOverride[256] = {};    // CLI --physics-regression-log path (empty = disabled)
+    char physicsCollisionTimeLogOverride[256] = {}; // CLI --physics-collision-time-log path (empty = disabled)
 #endif
 };
 
@@ -233,13 +238,11 @@ struct RuntimeProfilerFrameTimes
 class RuntimeDiagnostics
 {
   public:
-
-    // Samples cheap process counters; includePrivateWorkingSet adds a
-    // full resident-page walk for diagnostics that need Task Manager parity.
+    // Samples all process counters with EX2. includePrivateWorkingSet permits
+    // a cold page-walk fallback on Windows versions without EX2 support.
     static SkullbonezCore::Core::MainMemoryProcessStats SampleProcessMemory( bool includePrivateWorkingSet );
     [[nodiscard]] static bool ClosePerfLog( RunPerfLogState& perfLog );
-    [[nodiscard]] static bool ClosePerfLogWithMemoryCheckpoint( RunPerfLogState& perfLog, int pass,
-                                                                const char* checkpoint );
+    [[nodiscard]] static bool ClosePerfLogWithMemoryCheckpoint( RunPerfLogState& perfLog, int pass, const char* checkpoint );
     [[nodiscard]] static bool LogPerfMemory( RunPerfLogState& perfLog, int pass, const char* checkpoint );
     static void ResetPerfLogForSceneLoad( RunPerfLogState& perfLog );
     static void ConfigurePerfLogFlush( RunPerfLogState& perfLog, bool enabled, int interval );
@@ -247,11 +250,9 @@ class RuntimeDiagnostics
     // SkullbonezCore::Core::Profiler is a startup-bound optional dependency so artifact writers do
     // not reopen a process-global profiler locator while ticking frames or
     // scene automation.
-    [[nodiscard]] static bool OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass,
-                                               SkullbonezCore::Core::Profiler* profiler );
+    [[nodiscard]] static bool OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass, SkullbonezCore::Core::Profiler* profiler );
     static bool PerfTestActive( const RunPerfLogState& perfLog );
-    [[nodiscard]] static bool TickPerfLog( RunPerfLogState& perfLog, int pass, int frame, float physicsTimeSeconds,
-                                          float renderTimeSeconds, SkullbonezCore::Core::Profiler* profiler );
+    [[nodiscard]] static bool TickPerfLog( RunPerfLogState& perfLog, int pass, int frame, float physicsTimeSeconds, float renderTimeSeconds, SkullbonezCore::Core::Profiler* profiler );
     static RuntimeProfilerFrameTimes SampleProfilerFrameTimes( const SkullbonezCore::Core::Profiler* profiler );
 
 #ifdef _DEBUG
@@ -260,23 +261,20 @@ class RuntimeDiagnostics
 
     // Diagnostics receives the physics owner directly; artifact setup never
     // needs scene lifecycle, request, or world-presentation authority.
-    static void SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics, Physics::PhysicsEngine& physics,
-                                           const char* path, bool renderFrameLockstepForcedByDiagnostics );
-    static bool LogSceneFinished( const RuntimeSceneDiagnosticFacts& scene, const char* scenePath, const char* rendererName,
-                                  const char* reason );
-    static void BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, Physics::PhysicsEngine& physics,
+    static void SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics, Physics::PhysicsEngine& physics, const char* path, bool renderFrameLockstepForcedByDiagnostics );
+    static bool LogSceneFinished( const RuntimeSceneDiagnosticFacts& scene, const char* scenePath, const char* rendererName, const char* reason );
+    static void BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
+                                            Physics::PhysicsEngine& physics,
                                             const RuntimeSceneDiagnosticFacts& scene,
-                                            const SkullbonezCore::Core::EngineConfig& config, const char* scenePath,
-                                            const char* rendererName, bool explicitRenderFrameLockstep,
+                                            const SkullbonezCore::Core::EngineConfig& config,
+                                            const char* scenePath,
+                                            const char* rendererName,
+                                            bool explicitRenderFrameLockstep,
                                             bool effectiveRenderFrameLockstep );
-    static void LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene,
-                                     const ReplayScrubProbeDiagnostic& probe );
-    static void LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene,
-                                       const ReplayRestoreProbeDiagnostic& probe );
-    static void LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene,
-                                        const ReplayRestoreResultDiagnostic& result );
-    static void EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene,
-                                          const char* status );
+    static void LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene, const ReplayScrubProbeDiagnostic& probe );
+    static void LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene, const ReplayRestoreProbeDiagnostic& probe );
+    static void LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene, const ReplayRestoreResultDiagnostic& result );
+    static void EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const RuntimeSceneDiagnosticFacts& scene, const char* status );
 #endif
 };
 } // namespace Runtime

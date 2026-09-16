@@ -234,6 +234,53 @@ def run(session: Path) -> None:
             if send('comparison.state').get('result', {}).get('comparison', {}).get('active'): break
         else: raise AssertionError('Lab did not load')
         exercise('lab')
+        send('comparison.load', path=str(REPO/'SkullbonezData/solver-lab/wall-only/comparison.json'))
+        # Rewind must stop at real A/B data, including reverse playback and loops.
+        send('comparison.seek', tick=0)
+        comparison = send('comparison.state')['result']['comparison']
+        assert comparison['tick'] == 1 and all(comparison['coverage']), comparison
+        send('comparison.step', direction=-1)
+        comparison = send('comparison.state')['result']['comparison']
+        assert comparison['tick'] == 1 and all(comparison['coverage']), comparison
+        send('comparison.loop', first=0, last=3, enabled=True)
+        comparison = send('comparison.state')['result']['comparison']
+        assert comparison['loopFirst'] == 1, comparison
+        send('comparison.loop', first=0, last=comparison['lastTick'], enabled=False)
+        send('capture.screenshot', path=str(session/'lab-first-recorded-frame.png'))
+        checks.append('lab-rewind-retains-first-recorded-frame')
+
+        # Fit at the start, then inspect the moving striker after wall impact.
+        # Zoom the eye through its front cap: Lab must retain the complete sphere.
+        send('comparison.select', sceneObjectId=0)
+        ui = click(sample()['headerFourViewsBounds'])
+        send('comparison.seek', tick=120)
+        send('comparison.select', sceneObjectId=1)
+        comparison = send('comparison.state')['result']['comparison']
+        positions = [comparison['positionA'], comparison['positionB']]
+        send('comparison.select', sceneObjectId=0)
+        ui = sample()
+        x, y, w, h = ui['editorPaneBounds'][1]
+        for _ in range(100):
+            if ui['editorPaneEyes'][1][0] <= positions[0][0]+2: break
+            send('input.pointer_wheel', x=round(x+w*.8), y=round(y+h*.6), wheelDelta=30)
+            ui = sample()
+        else: raise AssertionError('Lab eye did not reach the recorded striker')
+        screenshot = session/'lab-ball-across-eye-plane.png'
+        send('capture.screenshot', path=str(screenshot))
+        (session/'lab-ball-across-eye-plane.json').write_text(json.dumps(latest, indent=2))
+        eye, focus = ui['editorPaneEyes'][1], ui['editorPaneFocus'][1]
+        _, _, vw, vh = comparison['viewport']
+        scale = h * (1/math.tan(math.pi/8)) * max(1, (int(vw)//2)/int(vh)) / (2*math.dist(eye, focus))
+        for side, position in enumerate(positions):
+            px = x+side*(int(w)//2)+(int(w)//2)/2-(position[2]-focus[2])*scale
+            py = y+h/2-(position[1]-focus[1])*scale
+            with Image.open(screenshot).convert('RGB') as image:
+                pixels = list(image.crop((round(px-2), round(py-2), round(px+3), round(py+3))).getdata())
+                assert all(max(pixel)>20 for pixel in pixels), ('Clipped ball centre', side, pixels)
+            ui = click((px, py, 0, 0))
+            assert send('comparison.state')['result']['comparison']['selected'] == 1, (side, px, py)
+        checks.append('lab-side-zoom-keeps-both-ball-caps-visible-and-pickable')
+        ui = click(ui['headerFourViewsBounds'])
         # Both workspaces remain split while their selected panes and poses
         # round-trip through the shared registered camera slot.
         ui = click(sample()['headerFourViewsBounds'])

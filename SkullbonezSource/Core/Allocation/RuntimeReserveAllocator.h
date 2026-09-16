@@ -87,6 +87,10 @@ struct RuntimeReserveOwnerDesc
     // Nonzero owners express capacities in elements and appear in the fixed
     // capacity-row readout. Zero means the capacity is already measured in bytes.
     int elementSizeBytes = 0;
+
+    // A separate aggregate byte ceiling permits many int-sized buffers. Zero
+    // keeps the existing hardCapacity multiplied by element-size policy.
+    uint64_t hardByteBudget = 0u;
 };
 
 struct RuntimeReserveGrowthRequest
@@ -151,6 +155,7 @@ struct RuntimeReserveOwnerStatsView
     uint64_t allocations;
     uint64_t activeBytes;             // Currently live allocation bytes attributed to this owner.
     uint64_t highWaterBytes;          // Largest transient active-byte total since counters reset.
+    uint64_t hardByteBudget;          // Effective cap shared by live allocations and pending grants.
     uint64_t pendingReplayGrantBytes; // Issued replay bytes not yet allocated or released.
     uint64_t replayGrowths;
     uint64_t failedGrowths;
@@ -176,8 +181,7 @@ struct RuntimeReserveCapacityView
 class RuntimeReserveGrowthScope
 {
   public:
-    RuntimeReserveGrowthScope( RuntimeReserveOwnerHandle owner, RuntimeReservePhase phase,
-                               RuntimeReserveGrowthResult& result ) noexcept;
+    RuntimeReserveGrowthScope( RuntimeReserveOwnerHandle owner, RuntimeReservePhase phase, RuntimeReserveGrowthResult& result ) noexcept;
     ~RuntimeReserveGrowthScope() noexcept;
 
     RuntimeReserveGrowthScope( const RuntimeReserveGrowthScope& ) = delete;
@@ -212,8 +216,7 @@ class RuntimeReserveOwnerScope
 class RuntimeReserveAllocationScope
 {
   public:
-    RuntimeReserveAllocationScope( RuntimeReserveOwnerHandle owner, RuntimeReservePhase phase,
-                                   RuntimeReserveGrowthResult& result ) noexcept;
+    RuntimeReserveAllocationScope( RuntimeReserveOwnerHandle owner, RuntimeReservePhase phase, RuntimeReserveGrowthResult& result ) noexcept;
     ~RuntimeReserveAllocationScope() noexcept = default;
 
     RuntimeReserveAllocationScope( const RuntimeReserveAllocationScope& ) = delete;
@@ -233,8 +236,7 @@ class RuntimeReserveAllocator
 {
   public:
     static RuntimeReserveOwnerHandle RegisterOwner( const RuntimeReserveOwnerDesc& desc ) noexcept;
-    static RuntimeReserveGrowthResult RequestGrowth( RuntimeReserveOwnerHandle owner,
-                                                     const RuntimeReserveGrowthRequest& request ) noexcept;
+    static RuntimeReserveGrowthResult RequestGrowth( RuntimeReserveOwnerHandle owner, const RuntimeReserveGrowthRequest& request ) noexcept;
 
     static RuntimeReserveOwnerHandle CurrentOwner() noexcept;
     static void SetCurrentOwner( RuntimeReserveOwnerHandle owner ) noexcept;
@@ -242,8 +244,7 @@ class RuntimeReserveAllocator
     // IsApproved is a non-consuming preflight for fixed containers. The global
     // allocation hook must use TryConsume with its exact requested byte count.
     static bool IsApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept;
-    static bool TryConsumeApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes,
-                                                          uint64_t* outAccountingGeneration = nullptr ) noexcept;
+    static bool TryConsumeApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes, uint64_t* outAccountingGeneration = nullptr ) noexcept;
 
     static uint64_t RecordAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes ) noexcept;
     static void RecordFree( RuntimeReserveOwnerHandle owner, uint64_t bytes, uint64_t accountingGeneration = 0u ) noexcept;
@@ -254,10 +255,8 @@ class RuntimeReserveAllocator
     static bool CopyOwnerStats( RuntimeReserveOwnerHandle owner, RuntimeReserveOwnerStatsView& outStats ) noexcept;
     static bool CopyOwnerStatsByName( const char* ownerName, RuntimeReserveOwnerStatsView& outStats ) noexcept;
     static RuntimeReserveCapacityPublisherToken ClaimCapacityPublisher( RuntimeReserveOwnerHandle owner ) noexcept;
-    static void ReleaseCapacityPublisher( RuntimeReserveOwnerHandle owner, RuntimeReserveCapacityPublisherToken publisher,
-                                          int sessionHighWater ) noexcept;
-    static void PublishCapacityUsage( RuntimeReserveOwnerHandle owner, RuntimeReserveCapacityPublisherToken publisher,
-                                      int currentCapacity, int liveCount, int sessionHighWater ) noexcept;
+    static void ReleaseCapacityPublisher( RuntimeReserveOwnerHandle owner, RuntimeReserveCapacityPublisherToken publisher, int sessionHighWater ) noexcept;
+    static void PublishCapacityUsage( RuntimeReserveOwnerHandle owner, RuntimeReserveCapacityPublisherToken publisher, int currentCapacity, int liveCount, int sessionHighWater ) noexcept;
     static std::span<const RuntimeReserveCapacityView> CapacityRows() noexcept;
     static uint64_t CapacitySessionGeneration() noexcept;
     static void BeginCapacitySession() noexcept;

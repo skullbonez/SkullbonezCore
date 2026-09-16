@@ -686,6 +686,23 @@ void ReplayPredictionPresentation::PublishVisualPacket( ReplayVisualPacket packe
 }
 
 
+void ReplayPredictionPresentation::RetirePredictionPublication() noexcept
+{
+    // Lifetime: workspace transitions may query this packet before another
+    // render frame replaces it. Drop both cached packets before freeing their
+    // producer, including the retained geometry cache's record cursors.
+    m_publishedVisualPacket = {};
+    m_retainedDrawPacket = {};
+    m_retainedState->geometry.Clear();
+    m_retainedState->drawList.Reset();
+    m_retainedMarkerDrawList.Clear();
+    ClearGhostDrawRequests();
+    m_retainedDrawPacketDirty = true;
+    m_retainedRenderingActive = false;
+    ++m_retainedDrawStreamId;
+}
+
+
 void ReplayPredictionPresentation::StorePublishedVisualPacket( ReplayVisualPacket packet )
 {
     // Lifetime: spans point into fixed tracer or prediction reserves and remain

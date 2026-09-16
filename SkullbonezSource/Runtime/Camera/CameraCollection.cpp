@@ -858,11 +858,12 @@ Matrix4 CameraCollection::EditorPaneProjection( int pane, const Matrix4& perspec
     const float distance = Distance( pose.eye, pose.focus );
     const float halfWidth = distance / perspective.m[0];
     const float halfHeight = distance / perspective.m[5];
-    // Top keeps the full fitted height so zooming cannot hide elevated objects.
-    // Side views advance their near plane with the eye, allowing navigation
-    // through foreground walls. Picking uses this same projection.
+    // Lab side zoom changes inspection scale, keeping the original fitted eye
+    // plane stationary. Extending it farther would reveal the distant catcher
+    // wall. Scene side views instead navigate through foreground walls; Top
+    // keeps elevated objects. Picking uses the same depth interval.
     const float halfDepth = m_fourViews[m_editorViewWorkspace ? 1 : 0].halfDepth;
-    const float nearPlane = pane == 0 ? distance - halfDepth : (std::max)( 0.01f, distance - halfDepth );
+    const float nearPlane = pane == 0 ? distance - halfDepth : m_editorViewWorkspace ? distance - (std::max)( 100.0f, halfDepth * 0.5f ) : (std::max)( 0.01f, distance - halfDepth );
     return Matrix4::OrthoZeroToOne( -halfWidth, halfWidth, -halfHeight, halfHeight, nearPlane, distance + halfDepth );
 }
 

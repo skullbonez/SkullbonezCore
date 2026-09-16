@@ -56,16 +56,15 @@ enum class DiagnosticsUiKeyboardCommand : uint8_t
 
 struct DiagnosticsUIKeyboardShortcutResult
 {
-    bool handled = false;                                    // True when the action belongs to the diagnostics UI keyboard group.
-    bool triggered = false;                                  // True when this frame captured the shortcut edge.
-    bool releaseMouseToUI = false;                           // True when Run should refresh cursor ownership and release capture.
+    bool handled = false;          // True when the action belongs to the diagnostics UI keyboard group.
+    bool triggered = false;        // True when this frame captured the shortcut edge.
+    bool releaseMouseToUI = false; // True when Run should refresh cursor ownership and release capture.
     bool markInteractiveRun = false;
     bool disableExitOnComplete = false;
     bool disableCaptureAutomationExit = false;
 };
 
-DiagnosticsUIKeyboardShortcutResult
-HandleDiagnosticsUIKeyboardShortcut( OverlayDebugState& debug, DiagnosticsUiKeyboardCommand command, bool wasPressed );
+DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( OverlayDebugState& debug, DiagnosticsUiKeyboardCommand command, bool wasPressed );
 
 #if defined( SKULLBONEZ_RENDER_FREE_TESTS )
 enum class MainMemoryDumpTestFailure : uint8_t
@@ -82,7 +81,6 @@ void SetMainMemoryDumpTestFailure( MainMemoryDumpTestFailure failure ) noexcept;
 class DiagnosticsRuntime
 {
   public:
-
     // Startup binding that keeps perf CSV and frame-time diagnostics off the
     // global profiler accessor after initialization.
     void BindProfiler( SkullbonezCore::Core::Profiler* profiler );
@@ -101,30 +99,35 @@ class DiagnosticsRuntime
     RuntimeProfilerFrameTimes SampleProfilerFrameTimes() const;
 
     // Accepts replay accounting already published by the composition root so
-    // the UI pass cannot reopen replay ownership while reconciling totals.
-    const SkullbonezCore::Core::MainMemoryStats&
-    RefreshMainMemoryStats( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
-                            const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects, double nowSeconds,
-                            bool force, bool includePrivateWorkingSet = true );
+    // sampling process RAM does not traverse replay storage from the UI pass.
+    const SkullbonezCore::Core::MainMemoryStats& RefreshMainMemoryStats( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
+                                                                         const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
+                                                                         double nowSeconds,
+                                                                         bool force,
+                                                                         bool includePrivateWorkingSet = true );
+    bool MainMemorySampleDue( double nowSeconds ) const;
     const SkullbonezCore::Core::MainMemoryStats& MainMemoryStatsSnapshot() const;
     void SetMainMemoryDumpPath( const char* path );
     bool MainMemoryDumpRequested() const;
     bool WriteMainMemoryDump( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
                               const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
-                              const RuntimeSceneDiagnosticFacts& scene, const char* checkpoint, double nowSeconds );
+                              const RuntimeSceneDiagnosticFacts& scene,
+                              const char* checkpoint,
+                              double nowSeconds );
 
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState& PhysicsDiagnostics();
 
     void SetPhysicsRegressionLogOverride( const char* path );
     void SetPhysicsCollisionTimeLogOverride( const char* path );
-    void SetPhysicsDiagnosticsPath( Physics::PhysicsEngine& physics, const char* path,
-                                    bool renderFrameLockstepForcedByDiagnostics );
-    bool LogSceneFinished( const RuntimeSceneDiagnosticFacts& scene, const char* scenePath,
-                           const Rendering::Dx12Diagnostics* renderDiagnostics, const char* reason );
-    void BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics, const RuntimeSceneDiagnosticFacts& scene,
-                                     const SkullbonezCore::Core::EngineConfig& config, const char* scenePath,
-                                     const char* rendererName, bool explicitRenderFrameLockstep,
+    void SetPhysicsDiagnosticsPath( Physics::PhysicsEngine& physics, const char* path, bool renderFrameLockstepForcedByDiagnostics );
+    bool LogSceneFinished( const RuntimeSceneDiagnosticFacts& scene, const char* scenePath, const Rendering::Dx12Diagnostics* renderDiagnostics, const char* reason );
+    void BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics,
+                                     const RuntimeSceneDiagnosticFacts& scene,
+                                     const SkullbonezCore::Core::EngineConfig& config,
+                                     const char* scenePath,
+                                     const char* rendererName,
+                                     bool explicitRenderFrameLockstep,
                                      bool effectiveRenderFrameLockstep );
     void LogReplayScrubProbe( const RuntimeSceneDiagnosticFacts& scene, const ReplayScrubProbeDiagnostic& probe );
     void LogReplayRestoreProbe( const RuntimeSceneDiagnosticFacts& scene, const ReplayRestoreProbeDiagnostic& probe );
@@ -147,8 +150,8 @@ class DiagnosticsRuntime
 
     // Cache-mode guard: a deep diagnostics caller cannot reuse a recent fast UI sample.
     bool m_lastMainMemorySampleUsedPrivateWorkingSetQuery = false;
-    char m_mainMemoryDumpPath[260] = {};                     // CLI --memory-dump output path; empty disables shutdown dump.
-    UIStressPolicyOwner m_uiStress;                          // Deterministic UI stress policy and random cursor
+    char m_mainMemoryDumpPath[260] = {}; // CLI --memory-dump output path; empty disables shutdown dump.
+    UIStressPolicyOwner m_uiStress;      // Deterministic UI stress policy and random cursor
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

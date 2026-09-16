@@ -185,21 +185,6 @@ bool Run::PublishComparisonLoad()
         return false;
     }
     m_comparisonPanel.Prepare( m_sceneController.Scene().Colliders(), m_sceneController.Scene().RenderInstances() );
-    if ( !finding )
-    {
-        // Captures need not contain tick zero. Start where both producers have
-        // recorded motion, so a newly selected comparison opens with geometry.
-        int firstTick = 0;
-        for ( int side = 0; side < 2; ++side )
-        {
-            const auto& recording = m_comparison.Recording( side );
-            if ( !recording.frames.empty() )
-            {
-                firstTick = (std::max)( firstTick, recording.frames.front().sceneFrame + recording.tickOffset );
-            }
-        }
-        m_comparison.Seek( firstTick );
-    }
     auto& cameras = m_sceneController.Scene().Cameras();
     cameras.CancelTween();
     if ( finding )

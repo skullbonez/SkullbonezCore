@@ -25,7 +25,7 @@ Invariants:
   - Draw returns backend-neutral values and never requires a renderer owner.
   - Runtime App republishes detached Look Lab status only after an authoring or
     scene transition; idle UI composition reads the cache without an upward edge.
-  - Capacity-row labels live in Runtime's detached fixed snapshot; UI borrows
+  - Capacity-row labels live in the UI frame's fixed snapshot; the tab borrows
     them only for the synchronous draw and retains no allocator span.
 
 Related:
@@ -102,7 +102,7 @@ struct UIRuntimeReserveCapacityRow
     int currentCapacity = 0;
     int liveCount = 0;
     int sessionHighWater = 0;
-    uint64_t residentBytes = 0;
+    uint64_t residentBytes = 0; // Allocated capacity bytes, not measured OS residency.
 };
 
 struct UIRenderTargetPreviewResource
@@ -353,6 +353,8 @@ struct UIFrameSurfaceData
     uint32_t cameraModeEnabledMask = 0x7Fu;
 };
 
+// Invariant: the frame owns capacity rows and labels, so frame copies remain
+// independent of the projection call and of the source frame lifetime.
 struct UIFrameDiagnosticsData
 {
     ProfilerTab::FrameSnapshot profiler;
@@ -360,7 +362,8 @@ struct UIFrameDiagnosticsData
     int profilerMarkerOptionCount = 0;
     SkullbonezCore::Core::MainMemoryStats mainMemory;
     UIRenderMemoryStats renderMemory;
-    const UIRuntimeReserveCapacityRow* reserveCapacityRows = nullptr;
+    // Lifetime: rows belong to the frame, including copies, through hashing and drawing.
+    std::array<UIRuntimeReserveCapacityRow, UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX> reserveCapacityRows {};
     int reserveCapacityRowCount = 0;
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView reserveGrowthEvents[UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX];
     int reserveGrowthEventCount = 0;

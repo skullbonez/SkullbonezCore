@@ -1454,6 +1454,15 @@ void Run::PublishSkarnessFrameState()
     state.presentation.memoryWaterlineVisible = diagnostics.memoryWaterlineVisible;
     state.presentation.markerSamples = diagnostics.markerSamples;
     state.presentation.memorySamples = diagnostics.memorySamples;
+    state.presentation.memoryPrivateBytes = diagnostics.memoryPrivateBytes;
+    state.presentation.memoryWorkingSetBytes = diagnostics.memoryWorkingSetBytes;
+    state.presentation.memoryCommitBytes = diagnostics.memoryCommitBytes;
+    state.presentation.memoryPredictionCapacityBytes = diagnostics.memoryPredictionCapacityBytes;
+    state.presentation.memoryCapacityTableBytes = diagnostics.memoryCapacityTableBytes;
+    state.presentation.memorySampleSeconds = diagnostics.memorySampleSeconds;
+    state.presentation.memoryPrivateAvailable = diagnostics.memoryPrivateAvailable;
+    state.presentation.memoryCapacityRowsValid = diagnostics.memoryCapacityRowsValid;
+
     state.presentation.focusedDiagnostic = diagnostics.focusedPanel;
     state.presentation.markerSelectionHash = diagnostics.markerSelectionHash;
     state.presentation.profilerTimeline = diagnostics.profilerTimeline;

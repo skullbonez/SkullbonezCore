@@ -1300,7 +1300,7 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
                                       16903291462328685303ull,
                                       17139239282114657199ull,
                                       17717404666730030321ull,
-                                      2685391709597859732ull, };
+                                      10199071145756757626ull, };
     static_assert( std::size( tabs ) == std::size( expected ) );
 
     auto ui = std::make_unique<InGameUI>();
@@ -1334,6 +1334,15 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
         if ( tabs[surface] == InGameUITab::Options )
         {
             REQUIRE( FindDrawTextIndex( frame, "Capture lockstep" ) >= 0 );
+        }
+
+        if ( tabs[surface] == InGameUITab::Memory )
+        {
+            // The reviewed Memory panel separates OS residency from owner capacity.
+            REQUIRE( FindDrawTextIndex( frame, "Private RAM" ) >= 0 );
+            REQUIRE( FindDrawTextIndex( frame, "Capacity" ) >= 0 );
+            CHECK( FindDrawTextIndex( frame, "TaskMgr" ) == -1 );
+            CHECK( FindDrawTextIndex( frame, "Unattrib" ) == -1 );
         }
 
         CHECK( frame.Fingerprint() == expected[surface] );
@@ -1409,14 +1418,13 @@ TEST_CASE( "GameUI gravity slider endpoints emit signed world acceleration from 
     CHECK( maximumResult.commands.water.requestedWorldGravity == doctest::Approx( -Policy::UI_WORLD_GRAVITY_MAX ) );
 }
 
-TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes without draw overflow" )
+TEST_CASE( "Memory capacity table sorts frame-owned rows by allocation capacity without draw overflow" )
 {
     using SkullbonezCore::UI::InGameUIFrameData;
     using SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState;
 
     auto data = std::make_unique<InGameUIFrameData>();
-    SkullbonezCore::UI::UIRuntimeReserveCapacityRow capacityRows[2] = {};
-    data->diagnostics.reserveCapacityRows = capacityRows;
+    auto& capacityRows = data->diagnostics.reserveCapacityRows;
     data->diagnostics.reserveCapacityRowCount = 2;
     strcpy_s( capacityRows[0].ownerName, "PhysicsBodyStore.bodies" );
     strcpy_s( capacityRows[0].capacityReason, "one row per loaded body" );
@@ -1434,6 +1442,11 @@ TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes wi
     capacityRows[1].liveCount = 80;
     capacityRows[1].sessionHighWater = 125;
     capacityRows[1].residentBytes = 16000;
+    // Copying a frame must not retain the source frame's backing rows.
+    auto copied = std::make_unique<InGameUIFrameData>( *data );
+    CHECK( copied->diagnostics.reserveCapacityRows.data() != data->diagnostics.reserveCapacityRows.data() );
+    data.reset();
+    data = std::move( copied );
     const SkullbonezCore::UI::UIMemoryTabFrameView memoryFrame = data->MemoryTabFrame();
 
     UIDrawList list;
@@ -1936,4 +1949,34 @@ TEST_CASE( "UI transport reveal cannot block its own hover while shielding the w
     CHECK_FALSE( transitions->BlocksPointer( { 200, 915 }, UIPanel::Transport ) );
     transitions->Compose( .08 );
     CHECK_FALSE( transitions->BlocksPointer( { 200, 915 }, UIPanel::Transport ) );
+}
+
+
+TEST_CASE( "Memory history never substitutes allocation capacity for private resident RAM" )
+{
+    using namespace SkullbonezCore::UI;
+    auto frame = std::make_unique<InGameUIFrameData>();
+    frame->surface.screenW = 1280;
+    frame->surface.screenH = 720;
+    frame->diagnostics.mainMemory.process.available = true;
+    frame->diagnostics.mainMemory.process.privateWorkingSetAvailable = true;
+    frame->diagnostics.mainMemory.process.privateWorkingSetBytes = 128u * 1024u * 1024u;
+    frame->diagnostics.mainMemory.trackedEngineBytes = 900u * 1024u * 1024u;
+    MemoryTab::UIMemoryOverlayState state;
+    MemoryTab::SetOverlayEnabled( state, true );
+    MemoryTab::PushOverlayFrame( state, frame->MemoryTabFrame() );
+    REQUIRE( state.sampleCount == 1 );
+    CHECK( state.samples[0].totalBytes == frame->diagnostics.mainMemory.process.privateWorkingSetBytes );
+    frame->diagnostics.mainMemory.trackedEngineBytes *= 2u;
+    MemoryTab::PushOverlayFrame( state, frame->MemoryTabFrame() );
+    CHECK( state.samples[1].totalBytes == state.samples[0].totalBytes );
+    frame->diagnostics.mainMemory.process.privateWorkingSetAvailable = false;
+    MemoryTab::PushOverlayFrame( state, frame->MemoryTabFrame() );
+    CHECK( state.sampleCount == 2 );
+    CHECK_FALSE( state.memoryPrivateAvailable );
+    CHECK( state.memoryPrivateBytes == 0u );
+    UIDrawList list;
+    UIDrawContext draw( 1280, 720, list );
+    MemoryTab::DrawOverlay( state, draw, frame->MemoryTabFrame(), 20.0f, 40.0f );
+    CHECK( FindDrawTextIndex( list, "unavailable" ) >= 0 );
 }

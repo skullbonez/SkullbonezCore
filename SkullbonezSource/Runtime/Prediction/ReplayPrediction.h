@@ -598,7 +598,7 @@ struct ReplayPredictionIsolatedSimulation
     // Runtime allocation policy: owner replay_prediction_working_set; reason:
     // private prediction needs bounded isolated physics storage for exploration;
     // deletion condition: none, this is the end-state isolation boundary;
-    // checker budget: 960 MiB hard cap registered by ReplayPredictionReserveOwner().
+    // checker budget: 8 GiB hard cap registered by ReplayPredictionReserveOwner().
     std::unique_ptr<Physics::PhysicsEngine> predictionEngine;
     int predictionEngineReserveBytes = 0; // Monotonic approved byte budget retained with predictionEngine.
     Gameplay::TornadoGameplay predictionTornadoGameplay;
@@ -949,7 +949,7 @@ class ReplayPrediction
 
     bool ToggleEnabled() noexcept
     {
-        m_state.enabled = !m_state.enabled;
+        SetEnabled( !m_state.enabled );
         return m_state.enabled;
     }
     bool BuildPrefixShouldBePresented() const noexcept
@@ -998,6 +998,7 @@ class ReplayPrediction
     // Owner commands used by validation and UI paths. These keep rebuild and
     // baseline invalidation coupled to the state transition that requires it.
     void SetEnabled( bool enabled ) noexcept;
+    void ReleaseDisabledCapacity() noexcept;
     ReplayPredictionDetailTransitionAction ApplyDetailModeCommand( ReplayPredictionDetailModeCommand command );
     ReplayPredictionDetailMode DetailMode() const noexcept
     {

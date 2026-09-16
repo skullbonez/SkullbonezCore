@@ -346,3 +346,24 @@ clicks the shared view gizmo in authored/generated scenes and Solver Lab,
 checks axis-only zoom and locked movement, and verifies Perspective restoration
 and workspace retention. Both write native state and screenshots below
 `TestOutput/skarness/`.
+
+
+### Memory display regression
+
+`python tools/validate_memory_ui.py --session TestOutput/skarness/memory-ui`
+compares the values consumed by F6 and Memory against external Windows process
+counters, then checks a 200-body prediction, paused sampling, tab switching and
+frame-owned capacity rows. This case also runs in `validate_ui.bat`. It requires
+Windows support for PROCESS_MEMORY_COUNTERS_EX2 (Windows 10/11 22H2 with the
+September 2023 cumulative update or later). All screenshots and raw Skarness
+state remain in the requested session directory.
+
+Memory dumps use `skullbonez.main_memory.v2`: process counters include an explicit
+private-working-set availability flag. Owner allocation capacity stays separate;
+the former balancing remainder and reconciliation fields have been removed.
+
+`python tools/validate_prediction_memory.py --session TestOutput/skarness/prediction-memory`
+checks all 14,401 frames of a 120-second box-pile prediction, full high-detail
+evidence, selected/published/rendered target identity, immediate shortening,
+release on disable, and a small prediction after the large buffers retire.
+It samples Windows private commit and private working-set bytes externally.

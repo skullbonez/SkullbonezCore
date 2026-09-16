@@ -140,7 +140,7 @@ UIMemoryTabFrameView InGameUIFrameData::MemoryTabFrame() const
 {
     return { diagnostics.mainMemory,
              diagnostics.renderMemory,
-             diagnostics.reserveCapacityRows,
+             diagnostics.reserveCapacityRows.data(),
              diagnostics.reserveGrowthEvents,
              diagnostics.reserveCapacityRowCount,
              diagnostics.reserveGrowthEventCount,
@@ -1217,6 +1217,15 @@ GameLayout::DiagnosticPresentation InGameUI::DiagnosticPresentation() const
     view.workerSliderBounds = profiler.workerThreadSlider.Bounds();
     view.markerSamples = m_windowInteraction.m_profilerTab.histogramCount;
     view.memorySamples = m_windowInteraction.m_memoryOverlay.sampleCount;
+    view.memoryPrivateBytes = m_windowInteraction.m_memoryOverlay.memoryPrivateBytes;
+    view.memoryWorkingSetBytes = m_windowInteraction.m_memoryOverlay.memoryWorkingSetBytes;
+    view.memoryCommitBytes = m_windowInteraction.m_memoryOverlay.memoryCommitBytes;
+    view.memoryPredictionCapacityBytes = m_windowInteraction.m_memoryOverlay.memoryPredictionCapacityBytes;
+    view.memoryCapacityTableBytes = m_windowInteraction.m_memoryOverlay.memoryCapacityTableBytes;
+    view.memorySampleSeconds = m_windowInteraction.m_memoryOverlay.memorySampleSeconds;
+    view.memoryPrivateAvailable = m_windowInteraction.m_memoryOverlay.memoryPrivateAvailable;
+    view.memoryCapacityRowsValid = m_windowInteraction.m_memoryOverlay.memoryCapacityRowsValid;
+
     view.focusedPanel = m_windowInteraction.m_presentation.focusedDiagnostic;
     view.profilerTimeline = m_windowInteraction.m_profilerTab.timelineEnabled;
     view.profilerMarkerCount = m_windowInteraction.m_profilerTab.frame.markerCount;
@@ -1831,7 +1840,7 @@ const UIDrawList& UIWindowInteractionOwner::Draw( const InGameUIFrameData& data 
         ProfilerTab::PushPerformanceHistogramSample( m_profilerTab, data.ProfilerTabFrame() );
     }
 
-    if ( memoryOverlayEnabled )
+    if ( memoryOverlayEnabled || ( m_window.isVisible && !m_window.isMinimized && GetActiveTab() == InGameUITab::Memory ) )
     {
         MemoryTab::PushOverlayFrame( m_memoryOverlay, data.MemoryTabFrame() );
     }
