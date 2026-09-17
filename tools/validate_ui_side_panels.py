@@ -5,18 +5,20 @@ import json
 import time
 from pathlib import Path
 from skarness import SkarnessConnection, launch
+from native_ui_comparison import current_library_comparisons
 from validate_ui_themes import wait_for_exit
 
 REPO = Path(__file__).resolve().parents[1]
 
 def run(directory: Path, theme: int) -> None:
+    comparison_fixtures = current_library_comparisons()
     directory = directory.resolve()
     prefs = directory.parent / (directory.name + '.preferences')
     prefs.parent.mkdir(parents=True, exist_ok=True)
     prefs.write_text('version 3\nlayout 1\nleft 280\nright 360\ndrawer 400\ndiagnostics 140\nfolded 7\ntool 4\nleftFolded 1\nrightFolded 1\ntheme %d\nreplayFolded 1\n' % theme)
     assert launch(directory, REPO/'Automation/SKULLBONEZ_CORE.exe',
                   REPO/'SkullbonezData/scenes/interaction_replay_prediction_harness.scene.json',
-                  hidden=True, layout_file=prefs) == 0
+                  hidden=True, layout_file=prefs, solver_lab_fixtures=comparison_fixtures) == 0
     connection = SkarnessConnection(directory)
     latest = {}
     offset = 0

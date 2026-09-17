@@ -76,7 +76,16 @@ def run(session: Path):
                     assert ui['physicsCompletedSteps']==steps
                     section((index+1)%4)
                     assert section(index)['physicsScroll']==retained
-                    send('capture.screenshot',path=str(session/f'{width}-{layout}-{index}.png'))
+                    screenshot=session/f'{width}-{layout}-{index}.png'
+                    send('capture.screenshot',path=str(screenshot))
+                    if index==2:
+                        # A selected body must still paint readable inspector rows
+                        # at the retained scroll position, including the bottom.
+                        from PIL import Image
+                        with Image.open(screenshot) as image:
+                            crop=image.convert('RGB').crop((round(x),round(y),round(x+w),round(y+h)))
+                            text_pixels=sum(1 for red,green,blue in crop.getdata() if min(red,green,blue)>120)
+                        assert text_pixels>30,(width,layout,retained,text_pixels)
                     checks.append(dict(width=width,layout=layout,section=index,scroll=retained,cameraUnchanged=True))
                 ui=state();center(ui['headerFourViewsBounds']);assert state()['fourViews']
                 section(2)

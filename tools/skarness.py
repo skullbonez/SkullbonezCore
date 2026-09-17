@@ -218,6 +218,7 @@ def launch(
     worker_threads: int | None = None,
     allocation_guard: str | None = None,
     perf_log: Path | None = None,
+    solver_lab_fixtures: tuple[Path, Path] | None = None,
 ) -> int:
     session.mkdir(parents=True, exist_ok=True)
     manifest = session / "session.json"
@@ -254,6 +255,9 @@ def launch(
     process_environment["SKULLBONEZ_UI_LAYOUT_FILE"] = str(layout_file.resolve())
     if render_defaults_file is not None:
         process_environment["SKULLBONEZ_RENDER_DEFAULTS_FILE"] = str(render_defaults_file.resolve())
+    if solver_lab_fixtures is not None:
+        for variable, fixture in zip(("SKULLBONEZ_TEST_RAGDOLL_COMPARISON", "SKULLBONEZ_TEST_WALL_COMPARISON"), solver_lab_fixtures):
+            process_environment[variable] = str(fixture.resolve())
     stdout = open(session / "process.stdout.log", "wb")
     stderr = open(session / "process.stderr.log", "wb")
     try:

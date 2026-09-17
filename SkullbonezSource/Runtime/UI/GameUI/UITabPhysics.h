@@ -28,6 +28,7 @@ namespace UI
 {
 
 struct UIPhysicsTabFrameView;
+struct UIPhysicsInspector;
 
 namespace PhysicsTab
 {
@@ -101,6 +102,7 @@ inline bool EmitPhysicsToggleCommand( int toggleIndex, UIPhysicsCommands& comman
 struct UIPhysicsTabState
 {
     int section = 0;
+    int bodyContentHeight = 48;
     bool advancedOpen = false, tornadoOpen = false;
     UIRect advancedButton, tornadoButton;
     UISlider timeScaleSlider;
@@ -154,6 +156,7 @@ struct UIPhysicsTabState
 };
 
 int ContentHeight( int section = 0, bool advancedOpen = false, bool tornadoOpen = false );
+int BodyContentHeight( const UIPhysicsInspector& body );
 void ResetPreviewState( UIPhysicsTabState& state );
 
 bool HandleContentClick( UIPhysicsTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY, float contentX, float rowBase, float contentW );

@@ -481,7 +481,8 @@ bool UIWindowInteractionOwner::HandlePhysicsDockInput( const InputControl::UIInp
     }
     m_blocksCameraMouse = true;
     result.unhandledWheelDelta = 0;
-    const float maximum = (std::max)( 0.0f, static_cast<float>( PhysicsTab::ContentHeight( m_physicsTab.section, m_physicsTab.advancedOpen, m_physicsTab.tornadoOpen ) ) - bounds.h );
+    const int height = m_physicsTab.section == 2 ? m_physicsTab.bodyContentHeight : PhysicsTab::ContentHeight( m_physicsTab.section, m_physicsTab.advancedOpen, m_physicsTab.tornadoOpen );
+    const float maximum = (std::max)( 0.0f, static_cast<float>( height ) - bounds.h );
     m_presentation.physicsScroll = std::clamp( m_presentation.physicsScroll - input.wheelDelta * ( 34.0f / 120.0f ), 0.0f, maximum );
     if ( captured )
     {

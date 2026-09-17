@@ -7,8 +7,9 @@ Summary:
   The format is presentation-first: metadata is deduplicated into a body
   dictionary, v3 dense frames preserve complete replay-owned body visual state,
   v4 adds exact per-tick replay packet rows plus typed prediction state, and v5
-  stores canonical Hamilton quaternion components. Optional solver chunks
-  provide restore evidence.
+  stores canonical Hamilton quaternion components. V6 adds collider dimensions,
+  terrain identity and pose-continuity evidence. Optional solver chunks provide
+  restore evidence.
 
 Glossary:
   MANI: UTF-8 JSON manifest chunk with human-readable file facts.
@@ -24,9 +25,10 @@ Glossary:
 Invariants:
   - Numeric payloads are emitted in the host little-endian layout used by the
     Windows runtime. The manifest marks the file as little-endian.
-  - V3+ visual rows are 76 bytes and v3+ dictionary rows are 80 bytes.
+  - V3+ visual rows are 76 bytes; dictionaries use 80-byte rows in v3-v5
+    and 112-byte rows with shape evidence in v6.
   - V2-v4 hashes are checked against historical bytes before quaternion
-    migration; v5 is native and versions newer than v5 fail closed.
+    migration; v5-v6 are canonical and versions newer than v6 fail closed.
   - Nested Physics snapshot versions are independent of the outer artifact;
     snapshot v4 appends counted motion state after v3 point-joint rows.
   - Save entry points classify allocation-heavy encoding and stream ownership as

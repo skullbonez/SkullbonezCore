@@ -49,6 +49,7 @@ from replay_query import (
     TORNADO_SYSTEM_HEADER,
     U32,
     ChunkReader,
+    FrameIndex,
     ReplayQueryError,
     ReplayV2,
 )
@@ -715,9 +716,31 @@ def build_legacy_version_fixture(current):
     ):
         manifest.pop(key, None)
 
-    presentation = bytearray(current._chunk_bytes("PRES"))
-    migrated_frame_count = 0
+    # Strip v6-only shape and terrain evidence before encoding authentic v3
+    # offsets and quaternion hashes. Do not relabel newer bytes as a legacy file.
+    source_presentation = current._chunk_bytes("PRES")
+    presentation = bytearray(U32.pack(len(current.frames)))
+    index = bytearray(U32.pack(len(current.frames)))
+    legacy_frames = []
     for frame in current.frames:
+        offset = len(presentation)
+        size = FRAME_HEADER.size + frame.body_count * BODY_VISUAL_STATE_V3.size
+        presentation.extend(source_presentation[frame.presentation_offset:frame.presentation_offset + size])
+        for body in range(frame.body_count):
+            flags = offset + FRAME_HEADER.size + body * BODY_VISUAL_STATE_V3.size + 56
+            presentation[flags] &= 15
+            presentation[flags + 1:flags + 4] = b"\0\0\0"
+        legacy_frames.append(FrameIndex(frame.frame_index, offset, frame.body_count))
+        index.extend(struct.pack("<QQII", frame.frame_index, offset, frame.body_count, 0))
+    source_bodies = current._chunk_bytes("BODY")
+    dictionary = bytearray(U32.pack(len(current.bodies)))
+    stride = current.manifest["bodyDictionaryEntryBytes"]
+    for body in range(len(current.bodies)):
+        offset = 4 + body * stride
+        dictionary.extend(source_bodies[offset:offset + BODY_RECORD_V3.size])
+    manifest["bodyDictionaryEntryBytes"] = BODY_RECORD_V3.size
+    migrated_frame_count = 0
+    for frame in legacy_frames:
         canonical_hash = struct.unpack_from("<Q", presentation, frame.presentation_offset + 24)[0]
         if presentation_state_hash(presentation, frame, current.bodies) != canonical_hash:
             raise RuntimeError("current presentation state hash did not reproduce before legacy conversion")
@@ -741,19 +764,19 @@ def build_legacy_version_fixture(current):
     manifest_raw = json.dumps(manifest, separators=(",", ":")).encode("utf-8")
     chunks = [
         ("MANI", manifest_raw, 1),
-        ("BODY", current._chunk_bytes("BODY"), current.chunks["BODY"].record_count),
+        ("BODY", bytes(dictionary), current.chunks["BODY"].record_count),
         ("PRES", bytes(presentation), current.chunks["PRES"].record_count),
-        ("INDX", current._chunk_bytes("INDX"), current.chunks["INDX"].record_count),
+        ("INDX", bytes(index), current.chunks["INDX"].record_count),
     ]
     write_versioned_file(LEGACY_ARTIFACT, chunks, 3)
 
 
 def validate_version_policy():
     current = ReplayV2(ARTIFACT)
-    if current.version != 5 or current.manifest.get("version") != 5:
-        raise RuntimeError("current writer did not emit replay version 5")
-    if current.manifest.get("bodyDictionaryEntryBytes") != 80 or current.manifest.get("bodyPoseBytes") != 76:
-        raise RuntimeError("current writer did not retain the complete visual-state ABI in v5")
+    if current.version != 6 or current.manifest.get("version") != 6:
+        raise RuntimeError("current writer did not emit replay version 6")
+    if current.manifest.get("bodyDictionaryEntryBytes") != 112 or current.manifest.get("bodyPoseBytes") != 76:
+        raise RuntimeError("current writer did not retain the complete visual-state and shape ABI in v6")
     if not current.presentation_packet_hashes():
         raise RuntimeError("current writer produced no exact presentation packet hashes")
 
@@ -783,12 +806,12 @@ def validate_version_policy():
         raise RuntimeError("runtime did not scrub the deterministic legacy-version migration fixture")
 
     future_bytes = bytearray(ARTIFACT.read_bytes())
-    struct.pack_into("<I", future_bytes, 8, 6)
+    struct.pack_into("<I", future_bytes, 8, 7)
     FUTURE_ARTIFACT.write_bytes(future_bytes)
     try:
         ReplayV2(FUTURE_ARTIFACT)
     except ReplayQueryError as error:
-        if "unsupported replay version 6" not in str(error):
+        if "unsupported replay version 7" not in str(error):
             raise RuntimeError(f"future-version tooling failed for the wrong reason: {error}") from error
     else:
         raise RuntimeError("future-version artifact was accepted by replay_query")
@@ -847,9 +870,9 @@ def validate_version_policy():
         text=True,
     )
     if mutation_result.returncode == 0:
-        raise RuntimeError("runtime accepted a v5 artifact with a mutated visual-state float")
+        raise RuntimeError("runtime accepted a v6 artifact with a mutated visual-state float")
     print(
-        "  Version policy passed: writer=5 legacy=3 future=6-rejected visual-float=rejected "
+        "  Version policy passed: writer=6 legacy=3 future=7-rejected visual-float=rejected "
         f"legacy_frames={len(legacy.frames)}"
     )
 
@@ -860,15 +883,15 @@ def query_artifact():
     print("    tools\\replay_query.bat TestOutput\\validation\\replay_v2\\replay_save_probe.skreplay summary")
     summary_stdout, summary = run_json(summary_command, REPO)
 
-    if summary.get("version") != 5 or summary.get("track") != "presentation":
+    if summary.get("version") != 6 or summary.get("track") != "presentation":
         raise RuntimeError(f"unexpected current replay summary: {summary}")
     if int(summary.get("frameCount") or 0) < 24:
         raise RuntimeError(f"expected at least 24 replay frames, found {summary.get('frameCount')}")
     if int(summary.get("bodyDictionaryCount") or 0) <= 0:
         raise RuntimeError("expected at least one body dictionary entry")
-    if int(summary.get("bodyDictionaryEntryBytes") or 0) != 80:
+    if int(summary.get("bodyDictionaryEntryBytes") or 0) != 112:
         raise RuntimeError(
-            f"expected 80-byte visual metadata rows, found {summary.get('bodyDictionaryEntryBytes')}"
+            f"expected 112-byte shape metadata rows, found {summary.get('bodyDictionaryEntryBytes')}"
         )
     if int(summary.get("bodyPoseBytes") or 0) != 76:
         raise RuntimeError(f"expected 76-byte visual-state rows, found {summary.get('bodyPoseBytes')}")

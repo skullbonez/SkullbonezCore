@@ -5,12 +5,14 @@ import json
 import time
 from pathlib import Path
 from skarness import SkarnessConnection, launch
+from native_ui_comparison import current_library_comparisons
 REPO = Path(__file__).resolve().parents[1]
 
 
 def run(session: Path) -> None:
+    comparison_fixtures = current_library_comparisons()
     scene = REPO / "SkullbonezData/scenes/interaction_replay_prediction_harness.scene.json"
-    assert launch(session, REPO / "Automation/SKULLBONEZ_CORE.exe", scene, hidden=True) == 0
+    assert launch(session, REPO / "Automation/SKULLBONEZ_CORE.exe", scene, hidden=True, solver_lab_fixtures=comparison_fixtures) == 0
     connection = SkarnessConnection(session)
     latest: dict[str, dict] = {}
     offset = 0
@@ -63,14 +65,14 @@ def run(session: Path) -> None:
         assert not ui["toolsVisible"] and ui["replayControlsBounds"][2] == 0, ui
         assert ui["causeControlsBounds"][2] == 0, ui
 
-    def loaded(label: str, suffix: str) -> dict:
+    def loaded(label: str, fixture: Path) -> dict:
         deadline = time.monotonic() + 90
         while True:
             ui = sample(label)
             comparison = latest["comparison"]
             assert not comparison["loadError"], comparison
             if comparison["active"] and not comparison["loading"]:
-                assert comparison["bundle"].replace("\\", "/").endswith(suffix), comparison
+                assert Path(comparison["bundle"]).resolve() == fixture, comparison
                 assert all(comparison["coverage"]) and comparison["lastTick"] > 0, comparison
                 return ui
             assert time.monotonic() < deadline, comparison
@@ -153,7 +155,7 @@ def run(session: Path) -> None:
         ui = key(0x1b, "escape-details")
         fullscreen(ui)
         press("headerWorkspaceBounds")
-        ui = loaded("first-lab", "ragdoll-wall/comparison.json")
+        ui = loaded("first-lab", comparison_fixtures[0])
         assert ui["workspace"] == "Solver Lab"
         capture("first-lab")
         press("headerLayoutBounds")
@@ -168,7 +170,7 @@ def run(session: Path) -> None:
         assert latest["comparison"]["libraryPopupOpen"]
         px, py, pw, ph = latest["comparison"]["libraryPopup"]
         click(px+pw/2, py+ph*.75)
-        ui = loaded("second-lab", "wall-only/comparison.json")
+        ui = loaded("second-lab", comparison_fixtures[1])
         capture("second-lab")
         cx, cy, cw, ch = ui["replayControlsBounds"]
         click(cx+cw*.75, cy+114)
@@ -176,7 +178,7 @@ def run(session: Path) -> None:
         fullscreen(ui)
         assert latest["comparison"]["active"]
         press("headerWorkspaceBounds")
-        ui = loaded("retained-lab", "wall-only/comparison.json")
+        ui = loaded("retained-lab", comparison_fixtures[1])
         ui = key(0x1b, "escape-lab")
         fullscreen(ui)
         # Escape has priority over a focused native popup on a docked surface.

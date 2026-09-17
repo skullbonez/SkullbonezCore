@@ -1455,6 +1455,9 @@ void UIWindowInteractionOwner::DrawPhysicsDock( const InGameUIFrameData& data )
     draw.PopClip();
     m_physicsTab.section = m_presentation.preferences.physicsSection;
     m_physicsTab.liveEditable = data.world.physicsInspector.liveEditable;
+    m_physicsTab.bodyContentHeight = PhysicsTab::BodyContentHeight( data.world.physicsInspector );
+    const int contentHeight = m_physicsTab.section == 2 ? m_physicsTab.bodyContentHeight : PhysicsTab::ContentHeight( m_physicsTab.section, m_physicsTab.advancedOpen, m_physicsTab.tornadoOpen );
+    m_presentation.physicsScroll = std::clamp( m_presentation.physicsScroll, 0.0f, (std::max)( 0.0f, static_cast<float>( contentHeight ) - bounds.h ) );
     draw.PushClip( bounds );
     PhysicsTab::Draw( m_physicsTab, draw, data.PhysicsTabFrame(), bounds.x, bounds.y, bounds.w, bounds.h, bounds.y - m_presentation.physicsScroll, m_activeSlider, m_mouseX, m_mouseY );
     draw.PopClip();

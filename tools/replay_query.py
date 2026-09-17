@@ -75,7 +75,7 @@ SOLVER_STATS = struct.Struct("<iiiiiiiff")
 # two local anchors, slack/stiffness/damping/accumulated impulse, group, flags.
 # Snapshot v4 appends counted uint8 motion-eligibility state after these rows;
 # v5 widens tornado elapsed time and v6 widens sleep counters to uint32.
-# the nested schema is independent of outer replay artifact versions 2 through 5.
+# the nested schema is independent of outer replay artifact versions 2 through 6.
 POINT_JOINT_RECORD_V3 = struct.Struct("<3I10fIB")
 # Snapshot v7 adds the Y/Z components of the world-space impulse.
 POINT_JOINT_RECORD = struct.Struct("<3I12fIB")

@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 from PIL import Image
 from skarness import SkarnessConnection, launch
+from native_ui_comparison import current_wall_comparison, wait_for_comparison
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -27,6 +28,7 @@ def wait_for_exit(directory: Path) -> None:
 
 
 def run(root: Path) -> None:
+    comparison_fixture = current_wall_comparison()
     root = root.resolve()
     root.mkdir(parents=True, exist_ok=False)
     prefs = root / 'ui-layout.preferences'
@@ -100,8 +102,8 @@ def run(root: Path) -> None:
                         send('input.set_key', key=key, down=True)
                         sample('diagnostic-close-key')
                         send('input.set_key', key=key, down=False)
-                    send('comparison.load', path=str(REPO/'SkullbonezData/solver-lab/wall-only/comparison.json'))
-                    ui = sample('lab')
+                    send('comparison.load', path=str(comparison_fixture))
+                    ui = wait_for_comparison(send, sample, comparison_fixture, 'lab')
                     assert ui['theme'] == 2 and ui['workspace'] == 'Solver Lab'
                     capture('light-solver-lab')
                 return
@@ -142,11 +144,14 @@ def run(root: Path) -> None:
     session('live', 0, True)
     saved = prefs.read_text()
     assert 'folded 7\n' in saved, saved
-    assert 'version 6\n' in saved and 'theme 2\n' in saved and 'drawer 480\n' in saved, saved
+    assert 'version 7\n' in saved and 'theme 2\n' in saved and 'drawer 480\n' in saved, saved
     session('reload', 2)
-    prefs.write_text(saved.replace('version 6', 'version 4').replace('toolsOpen 1\n', '').replace('folded 7\n', 'folded 0\n'))
+    # A legacy fixture must omit fields introduced after its declared version.
+    version_four = saved.replace('version 7', 'version 4').replace('toolsOpen 1\n', '')
+    version_four = version_four.replace('physicsPeer 0\n', '').replace('physicsSection 0\n', '')
+    prefs.write_text(version_four.replace('folded 7\n', 'folded 0\n'))
     session('version-4-summary-defaults', 2)
-    assert 'version 6\n' in prefs.read_text() and 'folded 7\n' in prefs.read_text()
+    assert 'version 7\n' in prefs.read_text() and 'folded 7\n' in prefs.read_text()
     prefs.write_text(saved.replace('folded 7\n', 'folded 0\n'))
     session('current-summary-choice', 2)
     assert 'folded 0\n' in prefs.read_text()

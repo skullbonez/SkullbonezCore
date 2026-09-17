@@ -4,11 +4,13 @@ import argparse
 import json
 from pathlib import Path
 from skarness import SkarnessConnection, launch
+from native_ui_comparison import current_wall_comparison, wait_for_comparison
 from validate_ui_themes import wait_for_exit
 
 REPO = Path(__file__).resolve().parents[1]
 
 def run(directory: Path, theme: int = 0) -> None:
+    comparison_fixture = current_wall_comparison()
     directory = directory.resolve()
     prefs = directory.parent / (directory.name + '.preferences')
     prefs.parent.mkdir(parents=True, exist_ok=True)
@@ -165,8 +167,8 @@ def run(directory: Path, theme: int = 0) -> None:
         capture('preview-exit-half')
         clock(now+1)
         sample('before-lab')
-        send('comparison.load', path=str(REPO/'SkullbonezData/solver-lab/wall-only/comparison.json'))
-        ui=sample('lab')
+        send('comparison.load', path=str(comparison_fixture))
+        ui=wait_for_comparison(send, sample, comparison_fixture, 'lab')
         assert ui['workspace']=='Solver Lab'
         clock(now+1)
         ui=sample('lab-settled')

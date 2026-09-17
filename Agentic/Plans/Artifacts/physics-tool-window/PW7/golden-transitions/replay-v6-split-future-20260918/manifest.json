@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "physics_plan": "Agentic/Plans/TODO/physics-tool-window.md",
+  "phase": "PW7",
+  "transition_id": "replay-v6-split-future-20260918",
+  "source_commit": "f3a4186314c77546d00045ea2cbe3008028d4b85",
+  "goldens": [
+    {
+      "path": "TestOutput/baselines/replay_visual_fidelity_200_box.json",
+      "old_sha256": "98355e8644a387baa8267ba6602ed14ddb329027a05582dc34ee30d26c865889",
+      "new_sha256": "78ae9fe85f7d458484cafb6127bcb4261595ae428e4ba734f0d157c9770b7119"
+    },
+    {
+      "path": "TestOutput/baselines/replay_visual_fidelity_200_box_causal.json",
+      "old_sha256": "be0169645cd77aa34360e0a3bb12bdff757f6318355dca68e10d25e34d630341",
+      "new_sha256": "1fa73e13357078fbc1705e83c44730916ab5a0434fb8d373493202fb6c6aac5b"
+    }
+  ],
+  "old_behavior": {
+    "source_commit": "39bd94d2602c47ac73b4b75cb0db49b3aec1e097",
+    "golden_sha256": {
+      "TestOutput/baselines/replay_visual_fidelity_200_box.json": "98355e8644a387baa8267ba6602ed14ddb329027a05582dc34ee30d26c865889",
+      "TestOutput/baselines/replay_visual_fidelity_200_box_causal.json": "be0169645cd77aa34360e0a3bb12bdff757f6318355dca68e10d25e34d630341"
+    },
+    "executables": [
+      {
+        "configuration": "Automation|x64",
+        "path": "Agentic/Plans/Artifacts/physics-tool-window/PW7/golden-transitions/replay-v6-split-future-20260918/old/SKULLBONEZ_CORE-Automation.exe",
+        "size": 5283840,
+        "sha256": "4f890d0e26615490a2a08772bbebd31aa2a7e24328b8ef29e55c958d2bd5fe02",
+        "launch_command": "\"Agentic/Plans/Artifacts/physics-tool-window/PW7/golden-transitions/replay-v6-split-future-20260918/old/SKULLBONEZ_CORE-Automation.exe\" --renderer dx12 --vsync on --shadows off --hide-top-text --automation-hidden-window --scene SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json --interaction-script SkullbonezData/interaction/prediction_ragdoll_wall_200_full_reveal.json --interaction-report TestOutput/replay-transition.json --frames 6800 --replay on --replay-seconds 21 --fixed-step",
+        "dependency_scan_command": "\"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\dumpbin.exe\" /DEPENDENTS \"Agentic/Plans/Artifacts/physics-tool-window/PW7/golden-transitions/replay-v6-split-future-20260918/old/SKULLBONEZ_CORE-Automation.exe\"",
+        "first_party_dlls": []
+      }
+    ]
+  },
+  "new_behavior": {
+    "source_commit": "f3a4186314c77546d00045ea2cbe3008028d4b85",
+    "golden_sha256": {
+      "TestOutput/baselines/replay_visual_fidelity_200_box.json": "78ae9fe85f7d458484cafb6127bcb4261595ae428e4ba734f0d157c9770b7119",
+      "TestOutput/baselines/replay_visual_fidelity_200_box_causal.json": "1fa73e13357078fbc1705e83c44730916ab5a0434fb8d373493202fb6c6aac5b"
+    },
+    "executables": [
+      {
+        "configuration": "Automation|x64",
+        "path": "Agentic/Plans/Artifacts/physics-tool-window/PW7/golden-transitions/replay-v6-split-future-20260918/new/SKULLBONEZ_CORE-Automation.exe",
+        "size": 5705728,
+        "sha256": "893c96565793d85de8b308ecceeb8160b92b62acfdd049c4dc54b374a6435817",
+        "launch_command": "\"Agentic/Plans/Artifacts/physics-tool-window/PW7/golden-transitions/replay-v6-split-future-20260918/new/SKULLBONEZ_CORE-Automation.exe\" --renderer dx12 --vsync on --shadows off --hide-top-text --automation-hidden-window --scene SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json --interaction-script SkullbonezData/interaction/prediction_ragdoll_wall_200_full_reveal.json --interaction-report TestOutput/replay-transition.json --frames 6800 --replay on --replay-seconds 21 --fixed-step",
+        "dependency_scan_command": "\"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\dumpbin.exe\" /DEPENDENTS \"Agentic/Plans/Artifacts/physics-tool-window/PW7/golden-transitions/replay-v6-split-future-20260918/new/SKULLBONEZ_CORE-Automation.exe\"",
+        "first_party_dlls": []
+      }
+    ]
+  }
+}

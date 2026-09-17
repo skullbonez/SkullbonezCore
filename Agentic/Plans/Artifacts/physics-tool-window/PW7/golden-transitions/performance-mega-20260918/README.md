@@ -1,0 +1,15 @@
+# PW7 performance reference transition
+
+The combined PR intentionally adds two fixed grass caches (22,820,400 bytes), inherited convex-hull/contact cache storage, and the Physics diagnostics. Three alternating old/new captures per renderer use the exact retained BR0 Profile producer and final current Profile producer. The old side uses git-archived data from 39bd94d2602c47ac73b4b75cb0db49b3aec1e097; all pinned shader source and bytecode hashes matched without edits. No old executable was measured against current assets.
+
+The selected references are complete actual new run 1 artifacts for both renderers, selected as the median of three Frame.avg values. The matching old medians are DX12 run 3 and Physics bench run 2. No individual counter was selected or synthesized. All CPU markers pass the unchanged comparator against those contemporaneous old medians. The earlier absolute Physics maximum failure did not repeat in the isolated final gate or the three matched new runs; no absolute ceiling was changed.
+
+Only memory comparisons fail: DX12 adds 24.20 MiB at start and 25.33 MiB after restart; Physics bench adds 23.55 and 24.78 MiB. Restart equals end in both selected runs. Logged fixed capacity grows by 14,599,148 bytes in the DX12 scenario: persistent contact cache +8,542,208, Physics debug contact rows +3,737,216, persistent contact rows +1,067,776, three stage-owned contact arrays +1,201,248, and smaller hull/inertia stores. The grass owners add another 22,820,400 bytes. Reserved bytes and resident working set are different measures; these values explain the owners and scale, not an exact summation of working-set pages.
+
+The performance snapshots and matched-runs.json retain every measured CPU sample summary, including input overhead. Both absolute performance budgets remain unchanged. Independent review accepted the exact candidates. The final full validate_perf gate passes against the new references in 127.10 seconds, including absolute budgets and the scale/joint/gravity matrix.
+
+Reproduce each retained producer with its side's source commit and data in a separate repository-shaped directory, installing system/third-party dependencies from the pinned setup. The exact launch commands and dumpbin dependency scans are in manifest.json. Only first-party executables are retained. Source commits name the source parent of the atomic transition commit, as required by the artifact contract.
+
+Focused negative controls reject a tripled CPU Frame average/median, an added 6 MiB resident cost, and a 20 ms Physics maximum using the unchanged comparison/budget tools. Commands and exit results are in negative-controls.json.
+
+Independent review approved both exact candidate hashes after checking all twelve successful launches and median selection. The raw old and new analyzer JSON commit labels both name f3a418631 because analysis ran in this checkout. That label is not old-producer identity: the old executable SHA-256 and source 39bd94d2602c47ac73b4b75cb0db49b3aec1e097 are bound in manifest.json and its pinned input hashes were verified. Raw measurements are preserved unchanged.

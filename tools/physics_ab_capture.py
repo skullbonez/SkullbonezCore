@@ -64,7 +64,7 @@ def validate_recording(path: Path, ticks: int) -> dict:
     if path.stat().st_size > MEMORY_BYTES // 2:
         raise ValueError("Recording exceeds the per-side comparison memory budget")
     replay = ReplayV2(path)
-    if replay.version not in (3, 4, 5):
+    if replay.version not in (3, 4, 5, 6):
         raise ValueError("Comparison requires a replay with recorded motion and sleep fields (v3 or later)")
     headers = replay.presentation_frame_headers()
     if len(headers) != ticks:

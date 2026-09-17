@@ -2,35 +2,28 @@
 
 Date: 2026-09-18
 Branch: `nightrunner-17th-SEP-26`
-Status: Mega PR terminal validation; INTERACTIVE_GRASS 6/7, PHYSICS_WINDOW 7/8; portfolio 158/167. CONVEX_HULL CH7 acceptance and PHYSICS_AB remain outside this execution queue.
+Status: Local mega PR closure complete; INTERACTIVE_GRASS 7/7 and PHYSICS_WINDOW 8/8; live portfolio 145/152. Final-head CI remains required for delivery.
 
-## Terminal implementation checkpoint - 2026-09-18
+## Terminal closure - 2026-09-18
 
-Both features are implemented and independently reviewed with no remaining
-reviewed correctness blockers. Their TODO plans now contain the accepted
-contracts, bounds, limitations and exact native evidence. Grass stays Demo-only
-by default; authored validation scenes explicitly opt in.
+Mega PR #175 contains Split Future, PR #174 with hull ancestry, the preserved Catto work, Demo-only interactive grass and the Physics dock:
+https://github.com/skullbonez/SkullbonezCore/pull/175
 
-Latest native acceptance: grass acceptance-12, hidden-02, heightmap-01,
-cinematic-shadows-01, cinematic-relief-01, recording-gap-01, non-lockstep-01,
-retention-reset-01 and short-teleport-01; Physics actions-14 (20 checks),
-layouts-07 (25 checks), policy-05 (saved continuation with zero allocation
-violations), and dock-03 (184 checks). Grass performance-final-02 meets the
-1080p target: CPU p95 sum .1561 ms, GPU .0246 ms. Four-view desktop CPU is
-.9803 ms; its GPU marker is last-pane only. Grass casts but does not receive
-shadows; nonzero cinematic terrain relief is ineligible.
+Implementation is in f3a418631. The closure commit fixes Body scroll bounds, replay-v6 consumers, current-build native comparison fixtures, preference migration expectations and the LF shader-manifest provenance mismatch that stopped the first hosted scene replicas. Independent grass and Physics reviews have no remaining correctness blockers.
 
-Profile and Automation builds pass, shaders pass 56 stages, and project filters
-and dependency checks pass. Source-design initially found two issues; focused
-recheck passes after helper extraction. The cumulative preflight and terminal
-agent_validate --plan-completion gate are in progress under
-TestOutput/mega-20260917. No closure, commit, push, PR or green CI is claimed yet.
+All mapped local requirements pass across the preserved terminal run and focused recovery: full preflight (145 sources / 1,299 contexts), CPU lanes, 1,115 Profile tests with 3.82 million assertions and one existing skip, byte-exact core Physics, deep Physics, Automation/Skarness (877.92 seconds), DX12 renderer, UI/graphics stress, all native UI cases, replay artifact (84.60 seconds), replay fidelity (370.58 seconds), and final performance (127.10 seconds). Profile and Debug are built; the unchanged Profile rebuild passes. The initial umbrella's stale-v5 failure remains recorded as failed; subsequent focused gates supply closure evidence.
 
-User Profile process 44840 stays running. Its locked build image was preserved
-as Profile/SKULLBONEZ_CORE.running-44840.exe, allowing a fresh normal Profile
-build without terminating it. Unrelated Agentic/Audits 2026-09-18 files remain
-user-owned and must not be staged. Ledger pricing/session limitations below
-remain recorded; no telemetry estimates were substituted.
+Governed reference transitions retain exact old/new producers and negative controls. Every physical/body/trajectory/topology/causal value remains unchanged; replay line counts account for requested Split Future corner lights. Matched performance timing passes unchanged thresholds; fixed grass and inherited contact/hull stores explain memory changes. No numerical Physics golden or absolute budget was relaxed. Full evidence: `Agentic/Plans/Artifacts/physics-tool-window/PW7/terminal-validation.md`.
+
+The informational replay frame-spike diagnostic still fails its fixed-frame horizon-complete assertion; existing state-based long-horizon checks pass. It is non-blocking by the existing gate contract and provides no accepted frame-time conclusion.
+
+Both completed plan checklists are removed. Acceptance moves 158/167 to 160/167; removing their 15 completed phases leaves 145/152, matching MASTER-PLAN. The remaining CONVEX_HULL CH7 owner acceptance and PHYSICS_AB work are outside this requested queue. Additional solver algorithms remain parked.
+
+## Live Queue
+
+Push the closure commit, verify every required hosted check against the exact final PR #175 head, then mark it ready. Leave the PR unmerged. Keep the overall goal active until that delivery is complete; local plan acceptance is not a claim of green final-head CI.
+
+User Profile process 44840 remains untouched, with its original locked image preserved as Profile/SKULLBONEZ_CORE.running-44840.exe. Catto's original worktree and unrelated Agentic/Audits files remain untouched. The existing work ledger belongs to another session; the supported isolated ledger cannot obtain verified model pricing. No token/cost counters or completion-ledger artifacts were fabricated. Raw evidence remains under TestOutput/mega-20260917 and TestOutput/skarness.
 
 ## Mega PR execution - 2026-09-17
 
@@ -2410,11 +2403,12 @@ passed on FP5. Fresh runs will be dispatched after the FP6 push.
 
 ## Current State
 
-Current objective: FP8/FP9 are committed and the requested sleep investigation
-is complete; normal push awaits explicit remote approval.
-Plan progress: RAGDOLL_PHYSICS 10/10 closed; UNIFIED_UI 8/8 closed; portfolio 138/144.
-Next binding task: resolve the pending push approval and hand off the sleep
-results. PHYSICS_AB AB1-AB6 remains queued at 0/6 outside this goal.
+Current objective: complete the owner-approved unmerged mega PR #175 on
+nightrunner-17th-SEP-26 with Catto, PR #174, Demo grass and the Physics dock.
+Plan progress: INTERACTIVE_GRASS 7/7 and PHYSICS_WINDOW 8/8 complete; live portfolio 145/152 after deleting completed checklists.
+Next binding task: push local closure and obtain green final-head CI for PR #175, then mark it ready without merging. CONVEX_HULL CH7 and PHYSICS_AB remain outside
+this user-requested execution queue. Feature commits, normal pushes and this PR
+are authorized; do not merge it.
 The live ledger limitation and final evidence are recorded at the top of this file.
 
 The owner activated `SKARNESS` SK0-SK6 and directed the Night Runner to finish

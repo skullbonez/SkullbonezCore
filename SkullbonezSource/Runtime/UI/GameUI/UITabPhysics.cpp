@@ -712,6 +712,18 @@ bool CommitActiveSlider( UIPhysicsTabState& state, int activeSlider, InGameUIInp
 }
 
 
+int BodyContentHeight( const UIPhysicsInspector& body )
+{
+    if ( !body.selected )
+    {
+        return 48;
+    }
+    // Keep the last actual inspector row reachable without allowing scrolling
+    // through the unused part of the bounded contact array.
+    const int lines = 12 + ( body.volume > 0 ? 1 : 0 ) + ( body.historicalContext ? 1 : 0 ) + body.contactCount * 4 + ( body.droppedContacts > 0 ? 1 : 0 );
+    return 578 + 24 + lines * 22;
+}
+
 void DrawInspector( const UIDrawContext& draw, const UIPhysicsInspector& body, const UIRect& bounds, bool statistics )
 {
     const auto& color = Style::Palette().textPrimary;

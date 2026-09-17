@@ -1,7 +1,7 @@
 # MASTER PLAN
 
-Date: 2026-09-16
-Status: 158/167 tasks complete; INTERACTIVE_GRASS at 6/7 terminal validation; PHYSICS_WINDOW at 7/8 terminal validation; CONVEX_HULL active at 7/8; BASELINE_REPAIR complete at 1/1; PHYSICS_SCALE complete at 7/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
+Date: 2026-09-18
+Status: 145/152 live tasks complete; INTERACTIVE_GRASS complete at 7/7; PHYSICS_WINDOW complete at 8/8; CONVEX_HULL active at 7/8; BASELINE_REPAIR complete at 1/1; PHYSICS_SCALE complete at 7/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
 
 ## Owner Direction
 
@@ -540,12 +540,16 @@ machine-local performance drift; it changes no runtime source or threshold.
 Accepting BR0 takes 138/145 to 139/145; deleting the completed one-task checklist
 returns the live inventory to 138/144. PHYSICS_AB remains queued at 0/6.
 
+## Mega PR local closure - 2026-09-18
+
+INTERACTIVE_GRASS IG0-IG6 and PHYSICS_WINDOW PW0-PW7 are complete with independent review and cumulative mapped local gates. Demo-only grass, replay continuity, the four-section Physics dock and its live edits/diagnostics are accepted. The final native UI cases, performance and replay artifact/fidelity gates pass. Core numerical Physics remains byte-exact. The explained performance/replay reference transitions retain old/new producers and negative controls. Evidence is in `Artifacts/physics-tool-window/PW7/terminal-validation.md`.
+
+The one terminal umbrella failure and its focused recovery are preserved; no failed invocation is relabeled successful. Final-head hosted CI is still required for delivery of PR #175. The overall goal stays active and the PR stays unmerged. Completing the two remaining phases moves 158/167 to 160/167; removing the two completed checklists subtracts 15/15 and leaves 145/152.
+
 ## Active Plans
 
 | Plan | Code | Total | Complete | Next task | File |
 |---|---|---|---|---|---|
-| Interactive Grass For Legacy Rendering | `INTERACTIVE_GRASS` | 7 | 6 | IG6: terminal closure | `TODO/interactive-legacy-grass.md` |
-| Physics Tool Window Beside Causal | `PHYSICS_WINDOW` | 8 | 7 | PW7: terminal closure | `TODO/physics-tool-window.md` |
 | Convex Hull Collision Response And Sleep Quality | `CONVEX_HULL` | 8 | 7 | CH7: owner visual/cost review | `TODO/convex-hull-collision-response-and-sleep.md` |
 | Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
 
@@ -564,6 +568,8 @@ an owner decision, not a run decision.
 
 | Plan | Status | Phases | File |
 |---|---|---|---|
+| Interactive Grass For Legacy Rendering | Complete 2026-09-18 | 7/7 | Git history; `Artifacts/physics-tool-window/PW7/terminal-validation.md` |
+| Physics Tool Window Beside Causal | Complete 2026-09-18 | 8/8 | Git history; `Artifacts/physics-tool-window/PW7/terminal-validation.md` |
 | Skarness Command And State Harness | Complete 2026-09-05 | 7/7 | Git history |
 | Governance Simplification And Scar Removal | Complete 2026-08-28 | 5/5 | Git history |
 | Recorded Interaction Playback Cursor | Complete 2026-08-28 | 4/4 | `DONE/recorded-interaction-playback-cursor.md` |
@@ -596,8 +602,8 @@ One detail in that table is recorded:
 
 Owner override 2026-09-17: integrate the existing branches/workspace and Catto
 changes on `nightrunner-17th-SEP-26`, complete INTERACTIVE_GRASS IG0-IG6, then
-PHYSICS_WINDOW PW0-PW7 and the combined PR gates. Current portfolio is 145/167.
-Earlier queue notes below are historical and do not override this request.
+PHYSICS_WINDOW PW0-PW7 and the combined PR gates. Portfolio at activation was 145/167.
+Local feature closure is complete on 2026-09-18. The binding delivery task is to push the closure commit, obtain green checks on that exact PR head and mark PR #175 ready without merging. CONVEX_HULL CH7 and PHYSICS_AB are outside this execution request. Earlier queue notes below are historical and do not override this request.
 
 CONVEX_HULL CH7 remains: obtain owner visual/cost review. Required mechanical
 lanes pass after harness repairs and fresh current-build UI captures. CH0-CH6 are complete. Retain the owning TODO plan for
@@ -653,8 +659,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-Current live total: **158/167**, including INTERACTIVE_GRASS 6/7, PHYSICS_WINDOW
-7/8, CONVEX_HULL 7/8 and PHYSICS_AB 0/6. Reactivation adds 15 phases.
+Current live total: **145/152**, including CONVEX_HULL 7/8 and PHYSICS_AB 0/6. INTERACTIVE_GRASS 7/7 and PHYSICS_WINDOW 8/8 are complete and removed from the live inventory. Terminal acceptance moved 158/167 to 160/167; removing their 15 completed phases produced 145/152.
 Activation adds eight incomplete phases to the prior 138/144 inventory.
 
 The prior portfolio remains 143/143 complete and all 126 bug-ledger rows are

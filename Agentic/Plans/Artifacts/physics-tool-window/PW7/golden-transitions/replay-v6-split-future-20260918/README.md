@@ -1,0 +1,11 @@
+# PW7 replay reference transition
+
+The integrated branch adds replay v6 shape/terrain/continuity evidence and v10 effective solver settings. The retained sample artifact passes round-trip and corruption checks. Default simulation is unchanged: all 2,401 body visual, ghost, trajectory, topology, header and marker hashes match the prior reference, as do every final-state metric and the complete causal topology/timeline.
+
+Only eight line-submission fields change over 2,300 ticks. Commit 686db59cf intentionally emits eight coincident line segments per box corner set for Precision corner lights. The added vertex delta is divisible by 16 for every frame; combined counts and bytes increase exactly with those priority vertices. The native reveal_complete.bmp screenshot was inspected: the expected cyan/orange corner lights and the authored Split Future terrain/sky are visible. The authored look was requested in 745aae05a. Grass is disabled for this authored scene, and all Physics settings remain defaults.
+
+The old producer is copied byte-for-byte from the retained BR0 replay-20260913 new producer. Its archived reference differs from current HEAD only by previously reconciled shadersSha256 and the dependent visualBaselineSha256, not behavior. This manifest binds the actual current predecessor golden hashes. Reproduce the old executable with resources/config/script from 39bd94d2602c47ac73b4b75cb0db49b3aec1e097; use the new producer with source/resources from the recorded source_commit. No old executable run with incompatible current resources is claimed.
+
+The new physical settings are independently covered by corruption/range/legacy-continuation tests and native saved noncheckpoint restore with zero gameplay allocation violations. The final mapped visual gate passes against these candidates in 370.58 seconds, including all planted geometry, artifact-byte, causal and determinism negative controls. The transition does not relax comparison thresholds or omit previously checked fields.
+
+The fresh final native run after normalizing surface_blades.hlsl to committed LF bytes exactly matches every tick and final-state field. Only shadersSha256 and the dependent causal visualBaselineSha256 change. The pinned rebake modifies four source/compile-input hash fields and no DXIL bytes.

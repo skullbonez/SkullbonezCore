@@ -2070,7 +2070,6 @@ void Run::RestartRecordingForPhysicsEdit()
 void Run::ApplyInteractivePhysicsSetting( const UI::UIPhysicsCommands& commands )
 {
     using Setting = Physics::InteractivePhysicsSetting;
-    const auto replay = m_replayRuntime.BuildInputView();
     if ( !m_replayRuntime.LivePhysicsEditable() )
     {
         return;
