@@ -517,6 +517,7 @@ struct DebugOverlayPassInputs
     const ReplayVisualPacket& replayVisualPacket;
     const Rendering::RetainedGeometryPacket& retainedOverlay;
     const Rendering::ContactManifoldPresentation& contactPresentation;
+    bool precisionReplayLines = false;
 };
 
 struct ShadowPassInputs

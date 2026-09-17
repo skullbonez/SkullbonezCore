@@ -55,6 +55,7 @@ The stacked branches preserve each implementation stage and follow-up:
 8. `feature/split-future-08-startup-shader`
 9. `feature/split-future-09-replay-reset`
 10. `feature/split-future-10-smaa`
+11. `feature/split-future-11-precision-lines`
 
 Run the native scene-isolation check with:
 
@@ -79,3 +80,10 @@ The replay check settles both bodies to sleep, presses R, and verifies natural
 playback and replay seeking. The SMAA check captures identical off/on states,
 checks the pass graph and resized targets, and compares silhouette and coating
 pixels. These tests use the Automation build.
+
+Direction A (precision glow) styles this scene's replay paths with narrow
+antialiased cores and restrained halos. The default root path is warm gold;
+contact outlines remain cyan, while ending-pose and resting ghosts are dimmer.
+Occluded geometry retains a faint hint. The presentation consumes the existing
+prediction packet without changing its paths, contact poses, timing or caches.
+Other object styles retain the original overlay presentation.

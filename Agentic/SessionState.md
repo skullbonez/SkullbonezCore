@@ -6,6 +6,23 @@ Status: CONVEX_HULL CH0-CH6 complete at 7/8; CH7 acceptance pending; portfolio 1
 
 ## Split Future showcase - 2026-09-17
 
+Direction A follow-up: `feature/split-future-11-precision-lines` gives style 14
+crisp cyan contact outlines, a warm default root path, faint resting/horizon
+ghosts, depth hints, and narrow analytic halos. It reuses existing line/ribbon
+pipelines and retained packets. Width, opacity, feather and selected-emphasis
+inputs still drive the presentation. Other styles keep the original branch.
+To opt another scene in, enable cinematic rendering and set the third
+`cinematic.styleModes` value to 14; the full showcase style tuple is
+`[22, 16, 14, 5]`. Lighting values remain separately authored.
+
+Native evidence under `TestOutput/skarness/precision-lines-final-reviewed/`
+checks both target IDs, unchanged ball packet bytes/hash against the before
+capture, 51-second resting markers, camera input and resize. Fast validation
+and exact Physics regression passed. The full-reveal native report was
+`ok: true`; the replay provenance gate still rejects the changed shader-set
+hash against the prior approved manifest. No approved reference was changed.
+Final gate logs and timings use the `TestOutput/precision-` prefix.
+
 Replay/reset and SMAA follow-up: branches `feature/split-future-09-replay-reset`
 and `feature/split-future-10-smaa`. Use `tools/launch_split_future.bat`; the old
 bare `--scene` command intentionally disabled replay by startup policy. The

@@ -137,28 +137,53 @@ Vector3 NormalizeOr( const Vector3& value, const Vector3& fallback )
     return lenSq <= TOLERANCE * TOLERANCE ? fallback : value * ( 1.0f / sqrtf( lenSq ) );
 }
 
-void RenderReplayVisualPacket( const ReplayVisualPacket& packet, const Matrix4& viewProjection, Rendering::Dx12GeometryOwner& renderCommands )
+void RenderReplayVisualPacket( const ReplayVisualPacket& packet, const Matrix4& viewProjection, Rendering::Dx12GeometryOwner& renderCommands, bool precision )
 {
     if ( !packet.HasGeometry() )
     {
         return;
     }
 
+    // Presentation only: retain every published path, marker, and cache token.
+    const auto hintStyle = precision ? Rendering::TransientTriangleStyle::PrecisionRibbonDepthHint : Rendering::TransientTriangleStyle::InstancedRibbonDepthHint;
+    const auto visibleStyle = precision ? Rendering::TransientTriangleStyle::PrecisionRibbon : Rendering::TransientTriangleStyle::InstancedRibbon;
+    const auto lineStyle = precision ? Rendering::LineAppearance::Precision : Rendering::LineAppearance::Plain;
+    const auto lineRaster = precision
+                                ? Rendering::MakePassRasterStateBucket( 3, { true,
+                                                                             false,
+                                                                             true,
+                                                                             Rendering::BlendFactor::SrcAlpha,
+                                                                             Rendering::BlendFactor::OneMinusSrcAlpha,
+                                                                             Rendering::CullMode::None } )
+                                : REPLAY_LINE_RASTER;
+
     const Rendering::RetainedGeometryStreamToken retainedStream = { packet.retainedPredictionStreamId, packet.retainedPredictionRevision };
 
     if ( !packet.retainedPredictionOrdinaryLines.empty() )
     {
-        renderCommands.DrawRetainedLinesColored( packet.retainedPredictionOrdinaryLines, retainedStream, false, viewProjection, REPLAY_LINE_RASTER );
+        if ( precision )
+        {
+            renderCommands.DrawRetainedLinesColored( packet.retainedPredictionOrdinaryLines, retainedStream, false, viewProjection, REPLAY_LINE_RASTER, Rendering::LineAppearance::PrecisionDepthHint );
+        }
+        renderCommands.DrawRetainedLinesColored( packet.retainedPredictionOrdinaryLines, retainedStream, false, viewProjection, lineRaster, lineStyle );
     }
 
     if ( !packet.retainedPredictionPriorityLines.empty() )
     {
-        renderCommands.DrawRetainedLinesColored( packet.retainedPredictionPriorityLines, retainedStream, true, viewProjection, REPLAY_LINE_RASTER );
+        if ( precision )
+        {
+            renderCommands.DrawRetainedLinesColored( packet.retainedPredictionPriorityLines, retainedStream, true, viewProjection, REPLAY_LINE_RASTER, Rendering::LineAppearance::PrecisionDepthHint );
+        }
+        renderCommands.DrawRetainedLinesColored( packet.retainedPredictionPriorityLines, retainedStream, true, viewProjection, lineRaster, lineStyle );
     }
 
     if ( !packet.combinedLines.empty() )
     {
-        renderCommands.DrawLinesColored( packet.combinedLines, viewProjection, REPLAY_LINE_RASTER );
+        if ( precision )
+        {
+            renderCommands.DrawLinesColored( packet.combinedLines, viewProjection, REPLAY_LINE_RASTER, 1.0f, Rendering::LineAppearance::PrecisionDepthHint );
+        }
+        renderCommands.DrawLinesColored( packet.combinedLines, viewProjection, lineRaster, 1.0f, lineStyle );
     }
 
     if ( !packet.retainedPredictionRibbonVertices.empty() )
@@ -167,13 +192,13 @@ void RenderReplayVisualPacket( const ReplayVisualPacket& packet, const Matrix4& 
                                                    retainedStream,
                                                    Rendering::RetainedRibbonInput::ExpandedOrdinary,
                                                    viewProjection,
-                                                   Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                   hintStyle,
                                                    REPLAY_RIBBON_DEPTH_HINT_RASTER );
         renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionRibbonVertices,
                                                    retainedStream,
                                                    Rendering::RetainedRibbonInput::ExpandedOrdinary,
                                                    viewProjection,
-                                                   Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                   visibleStyle,
                                                    REPLAY_RIBBON_VISIBLE_RASTER );
     }
 
@@ -183,13 +208,13 @@ void RenderReplayVisualPacket( const ReplayVisualPacket& packet, const Matrix4& 
                                                    retainedStream,
                                                    Rendering::RetainedRibbonInput::ExpandedPriority,
                                                    viewProjection,
-                                                   Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                   hintStyle,
                                                    REPLAY_RIBBON_DEPTH_HINT_RASTER );
         renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionPriorityRibbonVertices,
                                                    retainedStream,
                                                    Rendering::RetainedRibbonInput::ExpandedPriority,
                                                    viewProjection,
-                                                   Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                   visibleStyle,
                                                    REPLAY_RIBBON_VISIBLE_RASTER );
     }
 
@@ -201,13 +226,13 @@ void RenderReplayVisualPacket( const ReplayVisualPacket& packet, const Matrix4& 
                                                    secondaryStream,
                                                    Rendering::RetainedRibbonInput::CompactOrdinary,
                                                    viewProjection,
-                                                   Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                   hintStyle,
                                                    REPLAY_RIBBON_DEPTH_HINT_RASTER );
         renderCommands.DrawRetainedGeometryRibbon( packet.retainedSecondaryOrdinaryRecords,
                                                    secondaryStream,
                                                    Rendering::RetainedRibbonInput::CompactOrdinary,
                                                    viewProjection,
-                                                   Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                   visibleStyle,
                                                    REPLAY_RIBBON_VISIBLE_RASTER );
     }
 
@@ -217,13 +242,13 @@ void RenderReplayVisualPacket( const ReplayVisualPacket& packet, const Matrix4& 
                                                    secondaryStream,
                                                    Rendering::RetainedRibbonInput::CompactPriority,
                                                    viewProjection,
-                                                   Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                   hintStyle,
                                                    REPLAY_RIBBON_DEPTH_HINT_RASTER );
         renderCommands.DrawRetainedGeometryRibbon( packet.retainedSecondaryPriorityRecords,
                                                    secondaryStream,
                                                    Rendering::RetainedRibbonInput::CompactPriority,
                                                    viewProjection,
-                                                   Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                   visibleStyle,
                                                    REPLAY_RIBBON_VISIBLE_RASTER );
     }
 
@@ -233,29 +258,26 @@ void RenderReplayVisualPacket( const ReplayVisualPacket& packet, const Matrix4& 
                                                    packet.retainedPredictionRibbonRanges,
                                                    retainedStream,
                                                    viewProjection,
-                                                   Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                   hintStyle,
                                                    REPLAY_RIBBON_DEPTH_HINT_RASTER );
         renderCommands.DrawRetainedGeometryRanges( packet.retainedPredictionCompactRibbonRecords,
                                                    packet.retainedPredictionRibbonRanges,
                                                    retainedStream,
                                                    viewProjection,
-                                                   Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                   visibleStyle,
                                                    REPLAY_RIBBON_VISIBLE_RASTER );
     }
 
     if ( !packet.expandedRibbonVertices.empty() )
     {
-        renderCommands.DrawTransientColoredTriangles( packet.expandedRibbonVertices, viewProjection, Rendering::TransientTriangleStyle::InstancedRibbonDepthHint, REPLAY_RIBBON_DEPTH_HINT_RASTER );
-        renderCommands.DrawTransientColoredTriangles( packet.expandedRibbonVertices, viewProjection, Rendering::TransientTriangleStyle::InstancedRibbon, REPLAY_RIBBON_VISIBLE_RASTER );
+        renderCommands.DrawTransientColoredTriangles( packet.expandedRibbonVertices, viewProjection, hintStyle, REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        renderCommands.DrawTransientColoredTriangles( packet.expandedRibbonVertices, viewProjection, visibleStyle, REPLAY_RIBBON_VISIBLE_RASTER );
     }
 
     if ( !packet.priorityExpandedRibbonVertices.empty() )
     {
-        renderCommands.DrawTransientColoredTriangles( packet.priorityExpandedRibbonVertices,
-                                                      viewProjection,
-                                                      Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
-                                                      REPLAY_RIBBON_DEPTH_HINT_RASTER );
-        renderCommands.DrawTransientColoredTriangles( packet.priorityExpandedRibbonVertices, viewProjection, Rendering::TransientTriangleStyle::InstancedRibbon, REPLAY_RIBBON_VISIBLE_RASTER );
+        renderCommands.DrawTransientColoredTriangles( packet.priorityExpandedRibbonVertices, viewProjection, hintStyle, REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        renderCommands.DrawTransientColoredTriangles( packet.priorityExpandedRibbonVertices, viewProjection, visibleStyle, REPLAY_RIBBON_VISIBLE_RASTER );
     }
 }
 constexpr SkullbonezCore::Rendering::PassRasterStateBucket DEBUG_LINE_RASTER = SkullbonezCore::Rendering::MakePassRasterStateBucket( 0, { false,
@@ -1516,7 +1538,7 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     // Invariant: production submission and validation observe this same
     // replay-owned packet; neither may rebuild geometry from tracer internals.
     PROFILE_GPU_BEGIN( gpuTiming, "Frame/Render/DebugOverlay/ReplayVisuals" );
-    RenderReplayVisualPacket( inputs.replayVisualPacket, inputs.camera.viewProjection, inputs.renderGeometry );
+    RenderReplayVisualPacket( inputs.replayVisualPacket, inputs.camera.viewProjection, inputs.renderGeometry, inputs.precisionReplayLines );
     PROFILE_GPU_END( gpuTiming, "Frame/Render/DebugOverlay/ReplayVisuals" );
 
     if ( inputs.retainedOverlay.HasGeometry() )

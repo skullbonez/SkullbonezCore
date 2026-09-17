@@ -121,7 +121,17 @@ enum class TransientTriangleStyle
     Color,
     SoftAdditiveRibbon,
     InstancedRibbon,
-    InstancedRibbonDepthHint
+    InstancedRibbonDepthHint,
+    PrecisionRibbon,
+    PrecisionRibbonDepthHint
+};
+
+// Presentation variants share the ordinary line pipeline and retained bytes.
+enum class LineAppearance
+{
+    Plain,
+    Precision,
+    PrecisionDepthHint
 };
 
 enum class RetainedGeometryLane : uint8_t

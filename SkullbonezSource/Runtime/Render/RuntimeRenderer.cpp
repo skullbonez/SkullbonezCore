@@ -2313,7 +2313,8 @@ bool RuntimeRenderer::RenderFrameOverlays( const WorldOverlayTransaction& world,
                                                debugSnapshot,
                                                *world.m_replayVisual,
                                                overlays.retainedOverlay,
-                                               overlays.replayContactPresentation };
+                                               overlays.replayContactPresentation,
+                                               world.m_useCinematicTarget && world.m_cinematic.objectStyle == 14 };
 
     const bool debugOverlayRendered = ExecuteDebugOverlayThroughRenderGraph( { debugInputs, world.m_useCinematicTarget } );
 
