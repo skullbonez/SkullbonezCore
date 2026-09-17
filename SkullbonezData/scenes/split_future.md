@@ -87,3 +87,15 @@ contact outlines remain cyan, while ending-pose and resting ghosts are dimmer.
 Occluded geometry retains a faint hint. The presentation consumes the existing
 prediction packet without changing its paths, contact poses, timing or caches.
 Other object styles retain the original overlay presentation.
+
+Press **F7** anywhere in the main scene views to toggle the Split Future look.
+The shortcut is available in every camera mode, including with the UI hidden.
+Holding the key toggles once. The session-wide override survives scene changes
+and R resets, applies HDR/style modes 22/16/14/5 (including SMAA and precision
+lines), and leaves authored lighting and saved scene/default files untouched.
+Switching off restores an ordinary or other cinematic scene's own settings.
+In an already-authored Split Future scene, switching off uses ordinary rendering
+so the first press provides an actual before/after comparison. Restarting the
+application returns to the scene's authored presentation.
+
+Follow-up branch: `feature/split-future-12-f7-toggle`.

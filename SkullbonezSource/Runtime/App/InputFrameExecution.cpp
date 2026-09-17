@@ -727,6 +727,13 @@ bool Run::HandlePreUiDiagnosticsAction( const InputActionEvent& event, OverlayDe
                                            ProjectDiagnosticsKeyboardCommand( event.action ),
                                            true );
         return true;
+    case RuntimeInputAction::ToggleSplitFutureLook:
+    {
+        const auto& authored = ActiveSceneCinematicConfig( m_sceneController.State(), m_config );
+        const bool authoredRendering = IsSceneCinematicRenderingEnabled( m_sceneController.State(), m_config, m_launchOptions, false, true );
+        Renderer().ToggleSplitFutureLook( authoredRendering && authored.objectStyle == 14 );
+        return true;
+    }
     case RuntimeInputAction::ReloadShadersFromSource:
     {
         if ( !m_shaderDevelopment )

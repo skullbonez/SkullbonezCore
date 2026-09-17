@@ -655,7 +655,7 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport,
         const float titleSz = 0.013f;
         const float entrySz = 0.011f;
         const float lineH = 0.020f;
-        const int nRows = 15;
+        const int nRows = 16;
         const float panPad = 0.012f;
         const float titleGap = 0.016f; // space between title baseline and first entry
         const float keyW = 0.058f;     // key-name column width
@@ -704,7 +704,8 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport,
                                                { "Space", "Play paused scene" },
                                                { "R/Bksp", "Reset scene" },
                                                { "F3", "Screenshot" },
-                                               { "F5", "CPU histogram" }, };
+                                               { "F5", "CPU histogram" },
+                                               { "F7", "Split Future look" }, };
 
         static const KeyEntry kRight[nRows] = { { "Esc", "Min/expand UI" },
                                                 { "Esc Esc", "Quit" },
@@ -720,7 +721,8 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport,
                                                 { "O", "Terrain probe" },
                                                 { "PgUp/Dn", "Water height" },
                                                 { "[/]", "Pipeline stage" },
-                                                { "F8", "Record repro" }, };
+                                                { "F8", "Record repro" },
+                                                { "F6", "Memory overlay" }, };
 
         for ( int i = 0; i < nRows; ++i )
         {

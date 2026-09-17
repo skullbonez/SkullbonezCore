@@ -145,9 +145,9 @@ void Run::Render( const RuntimeRenderFrameViews& renderFrame, float presentation
     renderCamera.viewCenter = m_sceneController.Scene().Cameras().GetRenderCameraView();
     renderCamera.up = m_sceneController.Scene().Cameras().GetRenderCameraUp();
 
-    const SkullbonezCore::Core::CinematicRenderConfig& activeCinematic = ActiveSceneCinematicConfig( m_sceneController.State(), m_config );
-
-    const bool cinematicRequested = IsSceneCinematicRenderingEnabled( m_sceneController.State(), m_config, m_launchOptions, debug.isTextOnly, true );
+    const bool authoredRendering = IsSceneCinematicRenderingEnabled( m_sceneController.State(), m_config, m_launchOptions, debug.isTextOnly, true );
+    const auto activeCinematic = renderer.ResolveCinematicLook( ActiveSceneCinematicConfig( m_sceneController.State(), m_config ), authoredRendering );
+    const bool cinematicRequested = activeCinematic.enabled && !debug.isTextOnly;
 
     int attachedTargetIndex = -1;
 

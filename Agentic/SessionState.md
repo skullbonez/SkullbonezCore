@@ -6,6 +6,17 @@ Status: CONVEX_HULL CH0-CH6 complete at 7/8; CH7 acceptance pending; portfolio 1
 
 ## Split Future showcase - 2026-09-17
 
+F7 follow-up: `feature/split-future-12-f7-toggle`. F7 globally toggles the live
+Split Future look without changing scene files or render defaults. Its renderer
+policy survives scene loads and R, restores other scenes exactly on disable,
+and disables HDR when the authored scene already uses Split Future. The key is
+edge-triggered, registered in the shared binding table, and listed in Keys.
+Native evidence: `TestOutput/skarness/f7-global-toggle/result.json` reports zero
+restoration pixel RMS for ordinary and cinematic scenes, stable held-key input,
+scene/reset persistence, hidden-UI toggling and unchanged scene file hashes.
+The pre-existing Profile window was preserved by renaming its loaded executable
+to `Profile/SKULLBONEZ_CORE.before-f7.exe` while the updated Profile path rebuilds.
+
 Direction A follow-up: `feature/split-future-11-precision-lines` gives style 14
 crisp cyan contact outlines, a warm default root path, faint resting/horizon
 ghosts, depth hints, and narrow analytic halos. It reuses existing line/ribbon

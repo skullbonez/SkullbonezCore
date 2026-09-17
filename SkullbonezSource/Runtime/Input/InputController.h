@@ -170,6 +170,7 @@ enum class RuntimeInputAction
     ComparisonStepBackward,
     ComparisonStepForward,
     ComparisonPlayPause,
+    ToggleSplitFutureLook,
     Count
 };
 

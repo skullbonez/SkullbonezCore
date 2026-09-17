@@ -189,6 +189,16 @@ class RuntimeRenderer
     void UpdateGravityField( Rendering::RenderInstanceStore& instances, const RuntimeRenderDebugViews& debug, const RuntimeRenderFramePolicy& policy );
     void UpdateDebugVisualizers( float secondsPerFrame, const RuntimeRenderDebugViews& debug, const RuntimeRenderFramePolicy& policy );
 
+    void ToggleSplitFutureLook( bool authoredSplitFutureEnabled )
+    {
+        m_splitFutureLook.Toggle( authoredSplitFutureEnabled );
+    }
+
+    SkullbonezCore::Core::CinematicRenderConfig ResolveCinematicLook( const SkullbonezCore::Core::CinematicRenderConfig& authored, bool authoredRendering ) const
+    {
+        return m_splitFutureLook.Resolve( authored, authoredRendering );
+    }
+
     const RenderPresentationSettings& PresentationSettings() const
     {
         return m_presentationSettings;
@@ -428,6 +438,7 @@ class RuntimeRenderer
     // Owner: render presentation policy survives backend rebuilds here; physics
     // state remains in its respective owner.
     RenderPresentationSettings m_presentationSettings;
+    SplitFutureLookOverride m_splitFutureLook; // Survives scene-specific presentation resets.
     Rendering::PairedViewRenderer m_pairedViews;
     Environment::WorldEnvironment& m_world; // Fluid surface and gravity owner for pass contexts.
     CollisionVisualizer m_collisionVisualizer;
