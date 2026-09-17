@@ -1203,12 +1203,16 @@
       "stage": "vs",
       "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/lit_textured_instanced.vs.dxil",
-      "dependencies": [],
-      "source_sha256": "b60176166de86d57c140447f414e0390b3d5ea294d2417c093c0b0d35d409a3a",
-      "compile_inputs_sha256": "b22263bc845c29f3b4fe7fd34fc8ac31ce1118a3cff1ac0786edee380d6b6049",
+      "dependencies": [
+        "SkullbonezData/shaders/split_environment.hlsli"
+      ],
+      "source_sha256": "20c25eeeee4f1f3b570b518fc8851485994b24231708ef7051f1045ef26e09c7",
+      "compile_inputs_sha256": "d30bca10fc8aa3ddb1f929796593f895972ca9911a37351dd555cf1efd1c19d8",
       "bytecode_sha256": "765bb64332d5576a41388ed9c29a2308d900211048525917039eb2e177858aa9",
       "bytecode_size": 9972,
-      "dependencies_sha256": {},
+      "dependencies_sha256": {
+        "SkullbonezData/shaders/split_environment.hlsli": "e07e94cb94d01bbbd3830f71b3701d8fcacd83d28c19a81c06ab4ba8dfec8590"
+      },
       "reflection": {
         "cbuffers": [
           {
@@ -1429,12 +1433,16 @@
       "stage": "ps",
       "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/lit_textured_instanced.ps.dxil",
-      "dependencies": [],
-      "source_sha256": "b60176166de86d57c140447f414e0390b3d5ea294d2417c093c0b0d35d409a3a",
-      "compile_inputs_sha256": "37b0946ca209ec82de065f06f5e741752f76de6fb6c897e580219b9a21369f69",
-      "bytecode_sha256": "d39da78a6c8c4cebf476435d84c5a8bd9dc6445ab17034b3eb9f2c65bc47c78e",
-      "bytecode_size": 23320,
-      "dependencies_sha256": {},
+      "dependencies": [
+        "SkullbonezData/shaders/split_environment.hlsli"
+      ],
+      "source_sha256": "20c25eeeee4f1f3b570b518fc8851485994b24231708ef7051f1045ef26e09c7",
+      "compile_inputs_sha256": "7c14fa0026b19055cad5dbbe1d4b6f0c3a1fd9eb08246c593d88a33dbb936fd8",
+      "bytecode_sha256": "5b510434ba0041d7d73aa27e5cdd33afecff12e0111e496d7a980de8d802a0b1",
+      "bytecode_size": 58672,
+      "dependencies_sha256": {
+        "SkullbonezData/shaders/split_environment.hlsli": "e07e94cb94d01bbbd3830f71b3701d8fcacd83d28c19a81c06ab4ba8dfec8590"
+      },
       "reflection": {
         "cbuffers": [
           {
@@ -2643,14 +2651,16 @@
       "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/sky_atmosphere.vs.dxil",
       "dependencies": [
-        "SkullbonezData/shaders/shader_behavior.hlsli"
+        "SkullbonezData/shaders/shader_behavior.hlsli",
+        "SkullbonezData/shaders/split_environment.hlsli"
       ],
-      "source_sha256": "5fef8e4d0395824ab85b104b8bcb43a478acdfab49c752d4b30913b8c208e4d2",
-      "compile_inputs_sha256": "1e6a8b6d42f149f36f54936d41f05b665f9d86a3273fb478787606d9c1c53dc4",
+      "source_sha256": "703fabc8a462a70de86a355bc27ff1fa0f31135f40483c8699075b82118fd2be",
+      "compile_inputs_sha256": "5e3232d8bd936920b539ab1c351d65d89594af866533ac9880c7fd50c6ad791a",
       "bytecode_sha256": "b20f26d18ef915b03f3dfc9837fc80d161a5fb80f4bdf3883ed616386fa0a708",
       "bytecode_size": 3092,
       "dependencies_sha256": {
-        "SkullbonezData/shaders/shader_behavior.hlsli": "34a4c9af8026d2fbc0cc704f4e52681eb039ec1fef72e57a5b3847270af99570"
+        "SkullbonezData/shaders/shader_behavior.hlsli": "34a4c9af8026d2fbc0cc704f4e52681eb039ec1fef72e57a5b3847270af99570",
+        "SkullbonezData/shaders/split_environment.hlsli": "e07e94cb94d01bbbd3830f71b3701d8fcacd83d28c19a81c06ab4ba8dfec8590"
       },
       "reflection": {
         "cbuffers": [],
@@ -2684,14 +2694,16 @@
       "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/sky_atmosphere.ps.dxil",
       "dependencies": [
-        "SkullbonezData/shaders/shader_behavior.hlsli"
+        "SkullbonezData/shaders/shader_behavior.hlsli",
+        "SkullbonezData/shaders/split_environment.hlsli"
       ],
-      "source_sha256": "5fef8e4d0395824ab85b104b8bcb43a478acdfab49c752d4b30913b8c208e4d2",
-      "compile_inputs_sha256": "30ea4a7effbb2d0732e0ac28379919cc75bd140b432c4735a473d405fd0a16be",
-      "bytecode_sha256": "6784e74b75beaf9a57cd5fe8cd5c07780545f4e47b0e3820494cefbc2e275644",
-      "bytecode_size": 16360,
+      "source_sha256": "703fabc8a462a70de86a355bc27ff1fa0f31135f40483c8699075b82118fd2be",
+      "compile_inputs_sha256": "8c22b82a152b1c12c22586986e4906731fddc83740e630b70294da3cbcf2c62b",
+      "bytecode_sha256": "bb1024a81d9ac087951181d7e787f1fc45e151556a91ed28b7e7ffeb4ddca1ef",
+      "bytecode_size": 18896,
       "dependencies_sha256": {
-        "SkullbonezData/shaders/shader_behavior.hlsli": "34a4c9af8026d2fbc0cc704f4e52681eb039ec1fef72e57a5b3847270af99570"
+        "SkullbonezData/shaders/shader_behavior.hlsli": "34a4c9af8026d2fbc0cc704f4e52681eb039ec1fef72e57a5b3847270af99570",
+        "SkullbonezData/shaders/split_environment.hlsli": "e07e94cb94d01bbbd3830f71b3701d8fcacd83d28c19a81c06ab4ba8dfec8590"
       },
       "reflection": {
         "cbuffers": [

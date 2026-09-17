@@ -40,7 +40,7 @@
     "fog": true,
     "terrainReliefEnabled": false,
     "styleModes": [
-      0,
+      22,
       15,
       14,
       0
@@ -111,7 +111,7 @@
     "shadowSlopeBias": 0.0003,
     "shadowMaxDistance": 1800,
     "sunScreenX": 0.61,
-    "sunScreenY": 0.18
+    "sunScreenY": 0.195
   },
   "cameras": [
     {

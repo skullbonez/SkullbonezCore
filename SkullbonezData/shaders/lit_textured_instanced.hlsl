@@ -43,6 +43,7 @@ Related:
 // =============================================================================
 
 #pragma pack_matrix(column_major)
+#include "split_environment.hlsli"
 
 cbuffer Uniforms : register(b0)
 {
@@ -561,13 +562,20 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 
     // Invariant: style 14 is opt-in in the Split Future scene. Existing
     // cinematic and ordinary materials keep their established shading paths.
-    if (cinematicMode && DecodeObjectStyle(uObjectStyle) == 14)
+    if (cinematicMode && DecodeObjectStyle(uObjectStyle) == SPLIT_OBJECT_STYLE)
     {
         float surfaceRoughness = clamp(input.material1.x, 0.08f, 1.0f);
         float surfaceSpecular = max(input.material1.z, 0.0f);
         float shadow = ShadowVisibility(SphereShadowReceiverWorldPos(input.worldPos, input.sphereShadowInfo), N, L);
         float3 color = OrdinaryMaterialBRDF(materialColor, emissive, surfaceRoughness, metallic,
                                            surfaceSpecular, worldN, N, V, L, shadow);
+        float3 worldV = normalize(mul(transpose((float3x3)uView), V));
+        float3 f0 = lerp(float3(0.04f, 0.04f, 0.04f) * surfaceSpecular, materialColor, metallic);
+        float3 F = FresnelSchlick(saturate(dot(worldN, worldV)), f0);
+        // Replace the legacy flat ambient with diffuse and glossy environment response.
+        color -= materialColor * OrdinaryHemisphereAmbient(worldN);
+        color += materialColor * (1.0f - metallic) * (1.0f - F) * SplitDiffuseLight(worldN);
+        color += SplitSpecularLight(reflect(-worldV, worldN), surfaceRoughness) * F;
         return float4(lerp(color, float3(1.0f, 1.0f, 1.0f), contactFlash), materialAlpha);
     }
 
