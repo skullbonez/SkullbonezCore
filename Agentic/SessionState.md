@@ -8,15 +8,27 @@ Status: CONVEX_HULL CH0-CH6 complete at 7/8; CH7 acceptance pending; portfolio 1
 
 Added the isolated `split_future` scene with PBR objects, warm/cool procedural
 environment lighting, coating detail and a rounded cube, wet reflective ground,
-and an authored camera with restrained bloom and thin emissive traces. Playback
-is static with Physics off. Traces are scene decoration. Existing scenes and
+and an authored camera with restrained bloom. The follow-up enables Physics,
+drops both dynamic objects with initial motion, and removes fixed decorative
+traces so they cannot obstruct play. Existing scenes and
 engine settings are unchanged; the new style values opt into the rendering paths.
 
 Five stacked branches preserve the requested parts: `feature/split-future-01-pbr`,
 `feature/split-future-02-environment`, `feature/split-future-03-surfaces`,
 `feature/split-future-04-wet-ground`, and `feature/split-future-05-finish`.
-The combined review branch is `feature/split-future`. Scene notes and launch
-instructions are in `SkullbonezData/scenes/split_future.md`.
+The combined review branch is `feature/split-future`. Follow-up branches
+`feature/split-future-06-smooth-edges` and `feature/split-future-07-interactive`
+separate the derivative-filtered panel edges from the playable scene changes.
+Scene notes and controls are in `SkullbonezData/scenes/split_future.md`.
+
+Follow-up native evidence: `TestOutput/skarness/split-future-interactive/`.
+The test binds IDs to falling, rebound, terrain support, selection, a real
+pointer drag in Manipulator, and a projectile fired through N/M/left click.
+Reset restores authored poses while retaining launched objects; switching to
+another scene and back restores the two-object scene. Prior rendering controls
+still compare with zero world-pixel RMS. Follow-up gate logs are under
+`TestOutput/split-future-fix/`; renderer regression passes with zero DX12 errors.
+Physics solver, interaction routing and previous scene data are unchanged.
 
 Validation: all 48 shader stages bake; Automation/Profile builds pass; fast
 validation passes 1,094 tests / 3,821,291 assertions (one existing skip).
