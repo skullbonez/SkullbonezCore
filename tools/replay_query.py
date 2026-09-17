@@ -91,6 +91,13 @@ PRESENTATION_PACKET_FNV_OFFSET = 1469598103934665603
 PRESENTATION_PACKET_FNV_PRIME = 1099511628211
 
 
+def evidence_digest(raw: bytes) -> int:
+    value = 14695981039346656037
+    for byte in raw:
+        value = ((value ^ byte) * 1099511628211) & 0xFFFFFFFFFFFFFFFF
+    return value
+
+
 class ReplayQueryError(RuntimeError):
     pass
 
@@ -112,6 +119,8 @@ class BodyInfo:
     name: str
     mass: float = 0.0
     fixed: bool = False
+    local_center: tuple[float, float, float] = (0, 0, 0)
+    half_extents: tuple[float, float, float] = (0, 0, 0)
 
     @property
     def shape(self) -> str:
@@ -526,7 +535,7 @@ class ReplayV2:
             if self.data[:1] == b"{":
                 raise ReplayQueryError("this is a legacy JSON replay artifact, not v2 binary")
             raise ReplayQueryError("unrecognized replay magic")
-        if version not in (2, 3, 4, 5):
+        if version not in (2, 3, 4, 5, 6):
             raise ReplayQueryError(f"unsupported replay version {version}")
         if header_size != HEADER.size:
             raise ReplayQueryError(f"unexpected v2 header size {header_size}")
@@ -580,6 +589,16 @@ class ReplayV2:
                 mass = 0.0
                 fixed = 0
             cursor += record_struct.size
+            center = extents = (0.0, 0.0, 0.0)
+            if self.version >= 6:
+                evidence = read_exact_range(raw, cursor, 32, "BODY shape evidence")
+                values = struct.unpack("<6fQ", evidence)
+                center, extents = values[:3], values[3:6]
+                if evidence_digest(struct.pack("<I", body_id) + evidence[:24]) != values[6]:
+                    raise ReplayQueryError("BODY shape digest mismatch")
+                if any(values[:6]) and (not all(math.isfinite(v) for v in values[:6]) or not all(v > 0 for v in extents)):
+                    raise ReplayQueryError("BODY shape is nonfinite or partial")
+                cursor += 32
             bodies.append(
                 BodyInfo(
                     dictionary_index=dictionary_index,
@@ -589,6 +608,8 @@ class ReplayV2:
                     name=clean_name(name_raw),
                     mass=mass,
                     fixed=bool(fixed),
+                    local_center=center,
+                    half_extents=extents,
                 )
             )
         if cursor != len(raw):
@@ -609,6 +630,14 @@ class ReplayV2:
             cursor += 24
             frames.append(FrameIndex(frame_index, presentation_offset, body_count))
         self.frames = frames
+        if self.version >= 6:
+            presentation = self._chunk_bytes("PRES")
+            for frame in frames:
+                tail = frame.presentation_offset + FRAME_HEADER.size + frame.body_count * BODY_VISUAL_STATE_V3.size
+                evidence = read_exact_range(presentation, tail, 16, "PRES terrain evidence")
+                fingerprint, digest = struct.unpack("<QQ", evidence)
+                if evidence_digest(struct.pack("<QQ", frame.frame_index, fingerprint)) != digest:
+                    raise ReplayQueryError("PRES terrain digest mismatch")
 
     def _parse_solver_hashes(self) -> None:
         chunk = self.chunks.get("HASH")
@@ -807,7 +836,7 @@ class ReplayV2:
             struct.Struct("<IiiBB2s")
         )
         reader.unpack(TORNADO_CONFIG)
-        if version < 1 or version > 9:
+        if version < 1 or version > 10:
             raise ReplayQueryError(f"unsupported solver snapshot version {version}")
         tornado_system_vortex_count = 0
         if version >= 2:
@@ -853,12 +882,24 @@ class ReplayV2:
         sleep_pose_anchor_orientation_count = ReplayV2._skip_counted(reader, struct.Struct("<4f")) if version >= 6 else 0
         sleep_pose_anchor_valid_count = ReplayV2._skip_counted(reader, COUNTED_U8) if version >= 6 else 0
         body_inertia_count = ReplayV2._skip_counted(reader, struct.Struct("<II6f")) if version >= 9 else 0
+        settings = reader.unpack(struct.Struct("<28f")) if version >= 10 else None
+        if settings is not None and not all(math.isfinite(value) for value in settings):
+            raise ReplayQueryError("solver settings contain nonfinite values")
+        if settings is not None and (
+            any(value < 0 or value > 1000000 for value in settings[:21])
+            or any(settings[i] not in (0, 1) for i in (12, 21, 22, 23, 24, 25, 26))
+            or any(settings[i] > 1 for i in (9, 10, 15))
+            or any(settings[i] != math.floor(settings[i]) for i in (11, 19))
+            or settings[11] < 1 or settings[20] < struct.unpack("<f", struct.pack("<f", .0001))[0] or abs(settings[27]) > 1000000
+        ):
+            raise ReplayQueryError("solver settings outside retained numerical ranges")
         return {
             "version": int(version),
             "modelCount": int(model_count),
             "persistentContactCount": persistent_contact_count,
             "contactCacheCount": contact_cache_count,
             "bodyInertiaCount": body_inertia_count,
+            "physicsSettings": settings,
             "debugContactCount": debug_contact_count,
             "pipelineTraceCount": pipeline_trace_count,
             "collisionCellKeyCount": collision_cell_key_count,
@@ -1196,6 +1237,8 @@ class ReplayV2:
                     max_penetration,
                     normal_impulse_sum,
                 ) = values[8:]
+                if self.version >= 6 and _reserved_flags[0] != (visual_flags ^ 0xa5):
+                    raise ReplayQueryError("PRES visual evidence check failed")
             else:
                 lvx = lvy = lvz = avx = avy = avz = 0.0
                 visual_flags = sleep_island_visual_id = body_contact_count = 0
@@ -1212,6 +1255,8 @@ class ReplayV2:
                     "shape": body.shape if body else "unknown",
                     "mass": round_float(body.mass) if body else 0.0,
                     "fixed": body.fixed if body else False,
+                    "shapeLocalCenter": list(body.local_center) if body else None,
+                    "shapeHalfExtents": list(body.half_extents) if body else None,
                     "position": [round_float(px), round_float(py), round_float(pz)],
                     "orientation": [round_float(qx), round_float(qy), round_float(qz), round_float(qw)],
                     "linearVelocity": [round_float(lvx), round_float(lvy), round_float(lvz)],
@@ -1220,6 +1265,7 @@ class ReplayV2:
                     "sleepSupported": bool(visual_flags & 2),
                     "sleepInhibited": bool(visual_flags & 4),
                     "collisionContact": bool(visual_flags & 8),
+                    "sweepContinuous": self.version >= 6 and bool(visual_flags & 16),
                     "sleepIslandVisualId": sleep_island_visual_id,
                     "contactCount": body_contact_count,
                     "maxPenetration": round_float(max_penetration),
@@ -1237,6 +1283,7 @@ class ReplayV2:
             "pipelineRecordCount": pipeline_record_count,
             "checkpointBoundary": bool(checkpoint_boundary),
             "world": {
+                "terrainFingerprint": hash_text(struct.unpack_from("<Q", raw, cursor)[0]) if self.version >= 6 else None,
                 "gravity": round_float(gravity),
                 "fluidHeight": round_float(fluid_height),
                 "fluidDensity": round_float(fluid_density),

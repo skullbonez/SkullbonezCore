@@ -160,10 +160,8 @@ TEST_CASE( "SimulationSystem resolves scene-requested lockstep only for finite u
     CHECK( ResolveSimulationPacingPolicy( false, true, 0, false ) == SimulationPacingPolicy::WallClock );
     CHECK( ResolveSimulationPacingPolicy( false, true, 120, true ) == SimulationPacingPolicy::WallClock );
     CHECK( ResolveSimulationPacingPolicy( false, true, 120, false ) == SimulationPacingPolicy::RenderFrameLockstep );
-    CHECK( ResolveSimulationPacingPolicy( false, false, -1, false ) ==
-           ResolveSimulationPacingPolicy( false, true, -1, false ) );
-    CHECK( ResolveSimulationPacingPolicy( false, false, 120, false ) !=
-           ResolveSimulationPacingPolicy( false, true, 120, false ) );
+    CHECK( ResolveSimulationPacingPolicy( false, false, -1, false ) == ResolveSimulationPacingPolicy( false, true, -1, false ) );
+    CHECK( ResolveSimulationPacingPolicy( false, false, 120, false ) != ResolveSimulationPacingPolicy( false, true, 120, false ) );
 
     // Invariant: explicit startup intent wins even for an interactive,
     // unlimited scene; it is the opt-in deterministic automation seam.
@@ -256,8 +254,7 @@ TEST_CASE( "SimulationSystem produces even 144 Hz presentation cadence over 120 
         const SimulationTickResult result = simulation.Tick( input );
         currentPose += result.committedPhysicsTicks;
         const int previousPose = ( currentPose > 0 ) ? currentPose - 1 : 0;
-        const float presentedPose = static_cast<float>( previousPose ) +
-                                    result.presentationAlpha * static_cast<float>( currentPose - previousPose );
+        const float presentedPose = static_cast<float>( previousPose ) + result.presentationAlpha * static_cast<float>( currentPose - previousPose );
 
         if ( frame >= 2 )
         {
@@ -281,8 +278,7 @@ TEST_CASE( "SimulationSystem wall-clock hitch drops whole ticks and carries only
     input.physicsAdvance = PhysicsAdvanceState::Running;
 
     constexpr int excessWholeTicks = 3;
-    input.secondsPerFrame = PHYSICS_FIXED_DT_SECONDS *
-                            ( static_cast<double>( PHYSICS_MAX_STEPS_PER_FRAME + excessWholeTicks ) + 0.75 );
+    input.secondsPerFrame = PHYSICS_FIXED_DT_SECONDS * ( static_cast<double>( PHYSICS_MAX_STEPS_PER_FRAME + excessWholeTicks ) + 0.75 );
 
     const SimulationTickResult hitch = simulation.Tick( input );
     CHECK( hitch.committedPhysicsTicks <= PHYSICS_MAX_STEPS_PER_FRAME );
@@ -310,18 +306,16 @@ TEST_CASE( "SimulationSystem bounds enormous and non-finite scheduling inputs" )
     input.pacingPolicy = SimulationPacingPolicy::WallClock;
     input.physicsAdvance = PhysicsAdvanceState::Running;
 
-    input.secondsPerFrame = PHYSICS_FIXED_DT_SECONDS *
-                            ( static_cast<double>( (std::numeric_limits<int>::max)() ) + 0.5 );
+    input.secondsPerFrame = PHYSICS_FIXED_DT_SECONDS * ( static_cast<double>( ( std::numeric_limits<int>::max )() ) + 0.5 );
     const SimulationTickResult enormousWallClock = simulation.Tick( input );
     CHECK( enormousWallClock.committedPhysicsTicks == PHYSICS_MAX_STEPS_PER_FRAME );
-    CHECK( enormousWallClock.droppedPhysicsTicks ==
-           (std::numeric_limits<int>::max)() - PHYSICS_MAX_STEPS_PER_FRAME );
+    CHECK( enormousWallClock.droppedPhysicsTicks == ( std::numeric_limits<int>::max )() - PHYSICS_MAX_STEPS_PER_FRAME );
 
     input.secondsPerFrame = PHYSICS_FIXED_DT_SECONDS * 0.5;
     CHECK( simulation.Tick( input ).committedPhysicsTicks == 1 );
 
     simulation.Reset();
-    input.secondsPerFrame = (std::numeric_limits<double>::infinity)();
+    input.secondsPerFrame = ( std::numeric_limits<double>::infinity )();
     const SimulationTickResult nonFiniteWallClock = simulation.Tick( input );
     CHECK( nonFiniteWallClock.committedPhysicsTicks == 0 );
     CHECK( nonFiniteWallClock.droppedPhysicsTicks == 0 );
@@ -331,13 +325,13 @@ TEST_CASE( "SimulationSystem bounds enormous and non-finite scheduling inputs" )
     simulation.Reset();
     input.secondsPerFrame = 1.0 / 60.0;
     input.pacingPolicy = SimulationPacingPolicy::RenderFrameLockstep;
-    input.timeScale = (std::numeric_limits<float>::max)();
+    input.timeScale = ( std::numeric_limits<float>::max )();
     const SimulationTickResult enormousLockstep = simulation.Tick( input );
     CHECK( enormousLockstep.committedPhysicsTicks == 5 );
-    CHECK( enormousLockstep.droppedPhysicsTicks == (std::numeric_limits<int>::max)() - 5 );
+    CHECK( enormousLockstep.droppedPhysicsTicks == ( std::numeric_limits<int>::max )() - 5 );
 
     simulation.Reset();
-    input.timeScale = (std::numeric_limits<float>::infinity)();
+    input.timeScale = ( std::numeric_limits<float>::infinity )();
     const SimulationTickResult nonFiniteLockstep = simulation.Tick( input );
     CHECK( nonFiniteLockstep.committedPhysicsTicks == 0 );
     CHECK( nonFiniteLockstep.droppedPhysicsTicks == 0 );
@@ -423,4 +417,37 @@ TEST_CASE( "SimulationSystem observes each cleared scene generation exactly once
     simulation.ObserveSceneLifecycle( generation, true );
     CHECK( simulation.DroppedPhysicsTickCount() == 0u );
     CHECK( simulation.PhysicsHitchEventCount() == 0u );
+}
+
+TEST_CASE( "SimulationSystem explicit single tick ignores pace and clears accumulated time" )
+{
+    for ( const auto pace : { SimulationPacingPolicy::WallClock, SimulationPacingPolicy::RenderFrameLockstep } )
+    {
+        for ( const float scale : { 0.0f, .1f, 1.0f, 4.0f } )
+        {
+            for ( const double frameSeconds : { .001, .1, 1.0 } )
+            {
+                SimulationSystem simulation;
+                SimulationTickInput input;
+                input.secondsPerFrame = frameSeconds;
+                input.timeScale = scale;
+                input.pacingPolicy = pace;
+                input.physicsAdvance = PhysicsAdvanceState::RunWhileStepHeld;
+                input.isStepRequested = true;
+                input.exactSingleTick = true;
+                input.canStepPhysics = true;
+                const auto step = simulation.Tick( input );
+                CHECK( step.committedPhysicsTicks == 1 );
+                CHECK( step.simulationDt == doctest::Approx( PHYSICS_FIXED_DT ) );
+                CHECK( step.droppedPhysicsTicks == 0 );
+                input.isStepRequested = false;
+                input.exactSingleTick = false;
+                CHECK( simulation.Tick( input ).committedPhysicsTicks == 0 );
+                input.exactSingleTick = true;
+                input.isStepRequested = true;
+                input.canStepPhysics = false;
+                CHECK( simulation.Tick( input ).committedPhysicsTicks == 0 );
+            }
+        }
+    }
 }

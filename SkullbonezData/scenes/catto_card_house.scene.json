@@ -1,0 +1,1806 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 5,
+  "name": "Catto - Card House",
+  "simulation": {
+    "seed": 20240205,
+    "physics": true,
+    "text": false,
+    "timeScale": 1,
+    "world": {
+      "gravity": -40.0,
+      "fluidHeight": -1844.0,
+      "fluidDensity": 0
+    }
+  },
+  "cinematic": {
+    "rendering": true,
+    "skyAtmosphere": true,
+    "clouds": false,
+    "fog": false,
+    "godRays": false,
+    "volumetricLighting": false,
+    "bloom": false,
+    "skyHorizonR": 0.16,
+    "skyHorizonG": 0.2,
+    "skyHorizonB": 0.27,
+    "skyZenithR": 0.06,
+    "skyZenithG": 0.08,
+    "skyZenithB": 0.12,
+    "exposure": 1.0,
+    "gamma": 2.2
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true,
+    "exitOnComplete": false,
+    "pauseSnapshotState": false
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -844.0,
+      "slopeX": 0,
+      "slopeZ": 0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true
+  },
+  "cameras": [
+    {
+      "name": "catto_front",
+      "position": [
+        515.15,
+        161.72,
+        546.7410121122549
+      ],
+      "view": [
+        515.15,
+        161.72,
+        512.0
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fovDegrees": 50
+    }
+  ],
+  "objects": [
+    {
+      "name": "ground_00",
+      "sceneObjectId": 1001,
+      "position": [
+        363.42857142857144,
+        152.0,
+        512.0
+      ],
+      "mass": 22.857142857142858,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        8.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_01",
+      "sceneObjectId": 1002,
+      "position": [
+        386.2857142857143,
+        152.0,
+        512.0
+      ],
+      "mass": 22.857142857142858,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        8.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_02",
+      "sceneObjectId": 1003,
+      "position": [
+        409.1428571428571,
+        152.0,
+        512.0
+      ],
+      "mass": 22.857142857142858,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        8.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_03",
+      "sceneObjectId": 1004,
+      "position": [
+        432.0,
+        152.0,
+        512.0
+      ],
+      "mass": 22.857142857142858,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        8.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_04",
+      "sceneObjectId": 1005,
+      "position": [
+        454.85714285714283,
+        152.0,
+        512.0
+      ],
+      "mass": 22.857142857142858,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        8.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_05",
+      "sceneObjectId": 1006,
+      "position": [
+        477.7142857142857,
+        152.0,
+        512.0
+      ],
+      "mass": 22.857142857142858,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        8.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_06",
+      "sceneObjectId": 1007,
+      "position": [
+        500.57142857142856,
+        152.0,
+        512.0
+      ],
+      "mass": 22.857142857142858,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        8.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_07",
+      "sceneObjectId": 1008,
+      "position": [
+        523.4285714285714,
+        152.0,
+        512.0
+      ],
+      "mass": 22.857142857142858,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        8.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_08",
+      "sceneObjectId": 1009,
+      "position": [
+        546.2857142857142,
+        152.0,
+        512.0
+      ],
+      "mass": 22.857142857142858,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        8.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_09",
+      "sceneObjectId": 1010,
+      "position": [
+        569.1428571428571,
+        152.0,
+        512.0
+      ],
+      "mass": 22.857142857142858,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        8.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_10",
+      "sceneObjectId": 1011,
+      "position": [
+        592.0,
+        152.0,
+        512.0
+      ],
+      "mass": 22.857142857142858,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        8.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_11",
+      "sceneObjectId": 1012,
+      "position": [
+        614.8571428571429,
+        152.0,
+        512.0
+      ],
+      "mass": 22.857142857142858,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        8.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_12",
+      "sceneObjectId": 1013,
+      "position": [
+        637.7142857142857,
+        152.0,
+        512.0
+      ],
+      "mass": 22.857142857142858,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        8.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_13",
+      "sceneObjectId": 1014,
+      "position": [
+        660.5714285714286,
+        152.0,
+        512.0
+      ],
+      "mass": 22.857142857142858,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        8.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "cap_0_0",
+      "sceneObjectId": 1015,
+      "position": [
+        513.0,
+        161.46,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        90
+      ]
+    },
+    {
+      "name": "left_0_0",
+      "sceneObjectId": 1016,
+      "position": [
+        512.0,
+        160.72,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        -25
+      ]
+    },
+    {
+      "name": "right_0_0",
+      "sceneObjectId": 1017,
+      "position": [
+        512.7,
+        160.72,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        25
+      ]
+    },
+    {
+      "name": "cap_0_1",
+      "sceneObjectId": 1018,
+      "position": [
+        514.4,
+        161.46,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        90
+      ]
+    },
+    {
+      "name": "left_0_1",
+      "sceneObjectId": 1019,
+      "position": [
+        513.4,
+        160.72,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        -25
+      ]
+    },
+    {
+      "name": "right_0_1",
+      "sceneObjectId": 1020,
+      "position": [
+        514.1,
+        160.72,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        25
+      ]
+    },
+    {
+      "name": "cap_0_2",
+      "sceneObjectId": 1021,
+      "position": [
+        515.8,
+        161.46,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        90
+      ]
+    },
+    {
+      "name": "left_0_2",
+      "sceneObjectId": 1022,
+      "position": [
+        514.8,
+        160.72,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        -25
+      ]
+    },
+    {
+      "name": "right_0_2",
+      "sceneObjectId": 1023,
+      "position": [
+        515.5,
+        160.72,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        25
+      ]
+    },
+    {
+      "name": "cap_0_3",
+      "sceneObjectId": 1024,
+      "position": [
+        517.2,
+        161.46,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        90
+      ]
+    },
+    {
+      "name": "left_0_3",
+      "sceneObjectId": 1025,
+      "position": [
+        516.2,
+        160.72,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        -25
+      ]
+    },
+    {
+      "name": "right_0_3",
+      "sceneObjectId": 1026,
+      "position": [
+        516.9,
+        160.72,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        25
+      ]
+    },
+    {
+      "name": "left_0_4",
+      "sceneObjectId": 1027,
+      "position": [
+        517.6,
+        160.72,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        -25
+      ]
+    },
+    {
+      "name": "right_0_4",
+      "sceneObjectId": 1028,
+      "position": [
+        518.3,
+        160.72,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        25
+      ]
+    },
+    {
+      "name": "cap_1_0",
+      "sceneObjectId": 1029,
+      "position": [
+        513.7,
+        162.94,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        90
+      ]
+    },
+    {
+      "name": "left_1_0",
+      "sceneObjectId": 1030,
+      "position": [
+        512.7,
+        162.2,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        -25
+      ]
+    },
+    {
+      "name": "right_1_0",
+      "sceneObjectId": 1031,
+      "position": [
+        513.4,
+        162.2,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        25
+      ]
+    },
+    {
+      "name": "cap_1_1",
+      "sceneObjectId": 1032,
+      "position": [
+        515.1,
+        162.94,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        90
+      ]
+    },
+    {
+      "name": "left_1_1",
+      "sceneObjectId": 1033,
+      "position": [
+        514.1,
+        162.2,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        -25
+      ]
+    },
+    {
+      "name": "right_1_1",
+      "sceneObjectId": 1034,
+      "position": [
+        514.8,
+        162.2,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        25
+      ]
+    },
+    {
+      "name": "cap_1_2",
+      "sceneObjectId": 1035,
+      "position": [
+        516.5,
+        162.94,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        90
+      ]
+    },
+    {
+      "name": "left_1_2",
+      "sceneObjectId": 1036,
+      "position": [
+        515.5,
+        162.2,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        -25
+      ]
+    },
+    {
+      "name": "right_1_2",
+      "sceneObjectId": 1037,
+      "position": [
+        516.2,
+        162.2,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        25
+      ]
+    },
+    {
+      "name": "left_1_3",
+      "sceneObjectId": 1038,
+      "position": [
+        516.9,
+        162.2,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        -25
+      ]
+    },
+    {
+      "name": "right_1_3",
+      "sceneObjectId": 1039,
+      "position": [
+        517.6,
+        162.2,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        25
+      ]
+    },
+    {
+      "name": "cap_2_0",
+      "sceneObjectId": 1040,
+      "position": [
+        514.4,
+        164.42,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        90
+      ]
+    },
+    {
+      "name": "left_2_0",
+      "sceneObjectId": 1041,
+      "position": [
+        513.4,
+        163.68,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        -25
+      ]
+    },
+    {
+      "name": "right_2_0",
+      "sceneObjectId": 1042,
+      "position": [
+        514.1,
+        163.68,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        25
+      ]
+    },
+    {
+      "name": "cap_2_1",
+      "sceneObjectId": 1043,
+      "position": [
+        515.8,
+        164.42,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        90
+      ]
+    },
+    {
+      "name": "left_2_1",
+      "sceneObjectId": 1044,
+      "position": [
+        514.8,
+        163.68,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        -25
+      ]
+    },
+    {
+      "name": "right_2_1",
+      "sceneObjectId": 1045,
+      "position": [
+        515.5,
+        163.68,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        25
+      ]
+    },
+    {
+      "name": "left_2_2",
+      "sceneObjectId": 1046,
+      "position": [
+        516.2,
+        163.68,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        -25
+      ]
+    },
+    {
+      "name": "right_2_2",
+      "sceneObjectId": 1047,
+      "position": [
+        516.9,
+        163.68,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        25
+      ]
+    },
+    {
+      "name": "cap_3_0",
+      "sceneObjectId": 1048,
+      "position": [
+        515.1,
+        165.9,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        90
+      ]
+    },
+    {
+      "name": "left_3_0",
+      "sceneObjectId": 1049,
+      "position": [
+        514.1,
+        165.16,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        -25
+      ]
+    },
+    {
+      "name": "right_3_0",
+      "sceneObjectId": 1050,
+      "position": [
+        514.8,
+        165.16,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        25
+      ]
+    },
+    {
+      "name": "left_3_1",
+      "sceneObjectId": 1051,
+      "position": [
+        515.5,
+        165.16,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        -25
+      ]
+    },
+    {
+      "name": "right_3_1",
+      "sceneObjectId": 1052,
+      "position": [
+        516.2,
+        165.16,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        25
+      ]
+    },
+    {
+      "name": "left_4_0",
+      "sceneObjectId": 1053,
+      "position": [
+        514.8,
+        166.64,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        -25
+      ]
+    },
+    {
+      "name": "right_4_0",
+      "sceneObjectId": 1054,
+      "position": [
+        515.5,
+        166.64,
+        512.0
+      ],
+      "mass": 0.0008,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.004,
+        0.8,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        25
+      ]
+    }
+  ],
+  "objectMaterials": [
+    {
+      "target": "ground_00",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_01",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_02",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_03",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_04",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_05",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_06",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_07",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_08",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_09",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_10",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_11",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_12",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_13",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "cap_0_0",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "left_0_0",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "right_0_0",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "cap_0_1",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "left_0_1",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "right_0_1",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "cap_0_2",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "left_0_2",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "right_0_2",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "cap_0_3",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "left_0_3",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "right_0_3",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "left_0_4",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "right_0_4",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "cap_1_0",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "left_1_0",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "right_1_0",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "cap_1_1",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "left_1_1",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "right_1_1",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "cap_1_2",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "left_1_2",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "right_1_2",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "left_1_3",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "right_1_3",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "cap_2_0",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "left_2_0",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "right_2_0",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "cap_2_1",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "left_2_1",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "right_2_1",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "left_2_2",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "right_2_2",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "cap_3_0",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "left_3_0",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "right_3_0",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "left_3_1",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "right_3_1",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "left_4_0",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "right_4_0",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    }
+  ]
+}

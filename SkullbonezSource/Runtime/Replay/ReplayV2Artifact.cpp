@@ -68,15 +68,19 @@ using Json = nlohmann::ordered_json;
 // Invariant: these byte counts describe the on-disk ABI for replay artifacts.
 // Version 5 retains v2-v4 layouts while changing raw quaternion components to
 // the canonical Hamilton representation.
+// Version 6 adds identity-bound collider dimensions to the visual dictionary.
+// Their separate digest preserves every historical solver/presentation hash.
 // Readers accept the full supported migration interval and reject future files.
 constexpr uint32_t REPLAY_MINIMUM_VERSION = 2;
 constexpr uint32_t REPLAY_PRESENTATION_VISUAL_VERSION = 3;
 constexpr uint32_t REPLAY_CANONICAL_QUATERNION_VERSION = 5;
-constexpr uint32_t REPLAY_CURRENT_VERSION = 5;
+constexpr uint32_t REPLAY_SHAPE_EVIDENCE_VERSION = 6;
+constexpr uint32_t REPLAY_CURRENT_VERSION = 6;
 constexpr uint32_t REPLAY_V2_HEADER_BYTES = 40;
 constexpr uint32_t REPLAY_V2_CHUNK_ENTRY_BYTES = 28;
 constexpr uint32_t REPLAY_V2_BODY_DICTIONARY_ENTRY_BYTES = 76;
 constexpr uint32_t REPLAY_V3_BODY_DICTIONARY_ENTRY_BYTES = 80;
+constexpr uint32_t REPLAY_V6_BODY_DICTIONARY_ENTRY_BYTES = 112;
 constexpr uint32_t REPLAY_V2_FRAME_HEADER_BYTES = 92;
 constexpr uint32_t REPLAY_V2_INDEX_ENTRY_BYTES = 24;
 constexpr uint32_t REPLAY_V2_BODY_POSE_BYTES = 32;
@@ -126,6 +130,7 @@ struct BodyDictionaryEntry
     // Physics::PhysicsSceneObjectId remains the sole durable identity.
     int32_t bodyOrder = -1;
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
+    ReplayPresentationShape shape;
     float mass = 0.0f;
     bool fixed = false;
     char name[64] = {};
@@ -319,7 +324,8 @@ const char* ShapeKindName( ReplayBodyShapeKind kind )
 
 bool SameDictionaryBody( const BodyDictionaryEntry& entry, const ReplayBodyPresentationSample& body )
 {
-    return entry.id == body.id.value;
+    return entry.id == body.id.value && entry.shapeKind == body.shapeKind && entry.mass == body.mass && entry.fixed == body.fixed &&
+           entry.shape.Digest( entry.id ) == body.shape.Digest( body.id.value ) && std::memcmp( entry.name, body.name, sizeof( entry.name ) ) == 0;
 }
 
 bool SameDictionaryBody( const BodyDictionaryEntry& entry, const ReplaySolverBodySample& body )
@@ -340,6 +346,7 @@ uint32_t FindOrAddBody( std::vector<BodyDictionaryEntry>& dictionary, const Repl
     entry.id = body.id.value;
     entry.bodyOrder = body.modelRow.value;
     entry.shapeKind = body.shapeKind;
+    entry.shape = body.shape;
     entry.mass = body.mass;
     entry.fixed = body.fixed;
     std::memcpy( entry.name, body.name, sizeof( entry.name ) );
@@ -378,6 +385,9 @@ void AppendBodyDictionary( std::vector<uint8_t>& out, const std::vector<BodyDict
         AppendBytes( out, reserved );
         AppendPod( out, entry.mass );
         AppendBytes( out, entry.name );
+        AppendVec3( out, entry.shape.localCenter );
+        AppendVec3( out, entry.shape.halfExtents );
+        AppendPod( out, entry.shape.Digest( entry.id ) );
     }
 }
 
@@ -407,15 +417,28 @@ void AppendFrameHeader( std::vector<uint8_t>& out, const ReplayPresentationSampl
     AppendPod( out, bodyCount );
 }
 
+uint64_t TerrainEvidenceDigest( uint64_t frame, uint64_t fingerprint )
+{
+    uint64_t hash = 14695981039346656037ull;
+    for ( const uint64_t value : { frame, fingerprint } )
+    {
+        for ( int byte = 0; byte < 8; ++byte )
+        {
+            hash = ( hash ^ ( ( value >> ( byte * 8 ) ) & 255u ) ) * 1099511628211ull;
+        }
+    }
+    return hash;
+}
+
 void AppendPresentationFrame( std::vector<uint8_t>& out, std::vector<BodyDictionaryEntry>& dictionary, const ReplayPresentationSample& sample )
 {
     AppendFrameHeader( out, sample );
 
     for ( const ReplayBodyPresentationSample& body : sample.bodies )
     {
-        const uint8_t flags = static_cast<uint8_t>( ( body.sleeping ? 1u : 0u ) | ( body.sleepSupported ? 2u : 0u ) | ( body.sleepInhibited ? 4u : 0u ) | ( body.collisionContact ? 8u : 0u ) );
+        const uint8_t flags = static_cast<uint8_t>( ( body.sleeping ? 1u : 0u ) | ( body.sleepSupported ? 2u : 0u ) | ( body.sleepInhibited ? 4u : 0u ) | ( body.collisionContact ? 8u : 0u ) | ( body.sweepContinuous ? 16u : 0u ) );
 
-        const uint8_t reservedFlags[3] = {};
+        const uint8_t reservedFlags[3] = { static_cast<uint8_t>( flags ^ 0xa5u ), 0, 0 };
 
         const uint16_t reservedContact = 0;
         const uint32_t dictionaryIndex = FindOrAddBody( dictionary, body );
@@ -432,6 +455,8 @@ void AppendPresentationFrame( std::vector<uint8_t>& out, std::vector<BodyDiction
         AppendPod( out, body.maxPenetration );
         AppendPod( out, body.normalImpulseSum );
     }
+    AppendPod( out, sample.world.terrainFingerprint );
+    AppendPod( out, TerrainEvidenceDigest( sample.frameIndex, sample.world.terrainFingerprint ) );
 }
 
 template <typename T> void AppendCountedPodVector( std::vector<uint8_t>& out, const std::vector<T>& values )
@@ -749,6 +774,13 @@ void AppendSolverSnapshot( std::vector<uint8_t>& out, const SkullbonezCore::Runt
             AppendVec3( out, tensor.inverseProducts );
         }
     }
+    if ( physics.version >= SkullbonezCore::Physics::PHYSICS_SETTINGS_SOLVER_SNAPSHOT_VERSION )
+    {
+        for ( float value : physics.settings )
+        {
+            AppendPod( out, value );
+        }
+    }
 }
 
 bool AppendSolverBodyRecord( std::vector<uint8_t>& out, const std::vector<BodyDictionaryEntry>& dictionary, const ReplaySolverBodySample& body )
@@ -987,6 +1019,8 @@ const ChunkTableEntry* FindChunk( const std::vector<ChunkTableEntry>& chunks, co
     return nullptr;
 }
 
+bool ReadVec3( ByteCursor& cursor, Vector3& out );
+
 bool ParseBodyDictionary( const std::vector<uint8_t>& fileBytes, const ChunkTableEntry& chunk, uint32_t version, std::vector<BodyDictionaryEntry>& outDictionary )
 {
     outDictionary.clear();
@@ -1005,7 +1039,7 @@ bool ParseBodyDictionary( const std::vector<uint8_t>& fileBytes, const ChunkTabl
         return false;
     }
 
-    if ( !RecordsFit( cursor, bodyCount, version >= REPLAY_PRESENTATION_VISUAL_VERSION ? REPLAY_V3_BODY_DICTIONARY_ENTRY_BYTES : REPLAY_V2_BODY_DICTIONARY_ENTRY_BYTES ) )
+    if ( !RecordsFit( cursor, bodyCount, version >= REPLAY_SHAPE_EVIDENCE_VERSION ? REPLAY_V6_BODY_DICTIONARY_ENTRY_BYTES : ( version >= REPLAY_PRESENTATION_VISUAL_VERSION ? REPLAY_V3_BODY_DICTIONARY_ENTRY_BYTES : REPLAY_V2_BODY_DICTIONARY_ENTRY_BYTES ) ) )
     {
         return false;
     }
@@ -1043,6 +1077,23 @@ bool ParseBodyDictionary( const std::vector<uint8_t>& fileBytes, const ChunkTabl
             return false;
         }
 
+        if ( version >= REPLAY_SHAPE_EVIDENCE_VERSION )
+        {
+            uint64_t digest = 0;
+            if ( !ReadVec3( cursor, entry.shape.localCenter ) || !ReadVec3( cursor, entry.shape.halfExtents ) || !ReadPod( cursor, digest ) || digest != entry.shape.Digest( entry.id ) )
+            {
+                return false;
+            }
+            // Unavailable legacy/unsupported geometry uses the all-zero value.
+            // Reject partial or nonfinite evidence rather than publishing it.
+            const bool absent = entry.shape.localCenter.x == 0 && entry.shape.localCenter.y == 0 && entry.shape.localCenter.z == 0 && entry.shape.halfExtents.x == 0 &&
+                                entry.shape.halfExtents.y == 0 && entry.shape.halfExtents.z == 0;
+            if ( !absent && !entry.shape.Available() )
+            {
+                return false;
+            }
+        }
+
         if ( shapeKind <= static_cast<uint8_t>( ReplayBodyShapeKind::ConvexHull ) )
         {
             entry.shapeKind = static_cast<ReplayBodyShapeKind>( shapeKind );
@@ -1055,7 +1106,9 @@ bool ParseBodyDictionary( const std::vector<uint8_t>& fileBytes, const ChunkTabl
         outDictionary.push_back( entry );
     }
 
-    const uint32_t entryBytes = version >= REPLAY_PRESENTATION_VISUAL_VERSION ? REPLAY_V3_BODY_DICTIONARY_ENTRY_BYTES : REPLAY_V2_BODY_DICTIONARY_ENTRY_BYTES;
+    const uint32_t entryBytes = version >= REPLAY_SHAPE_EVIDENCE_VERSION
+                                    ? REPLAY_V6_BODY_DICTIONARY_ENTRY_BYTES
+                                    : ( version >= REPLAY_PRESENTATION_VISUAL_VERSION ? REPLAY_V3_BODY_DICTIONARY_ENTRY_BYTES : REPLAY_V2_BODY_DICTIONARY_ENTRY_BYTES );
 
     return cursor.offset == cursor.size && cursor.size == sizeof( uint32_t ) + static_cast<std::size_t>( bodyCount ) * entryBytes;
 }
@@ -1404,17 +1457,23 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes,
             if ( version >= REPLAY_PRESENTATION_VISUAL_VERSION )
             {
                 uint8_t flags = 0;
+                uint8_t evidenceCheck = 0;
                 int32_t sleepIslandVisualId = 0;
                 uint16_t reservedContact = 0;
 
-                if ( !ReadVec3( frameCursor, body.linearVelocity ) || !ReadVec3( frameCursor, body.angularVelocity ) || !ReadPod( frameCursor, flags ) || !SkipBytes( frameCursor, 3 ) ||
-                     !ReadPod( frameCursor, sleepIslandVisualId ) || !ReadPod( frameCursor, body.contactCount ) || !ReadPod( frameCursor, reservedContact ) ||
+                if ( !ReadVec3( frameCursor, body.linearVelocity ) || !ReadVec3( frameCursor, body.angularVelocity ) || !ReadPod( frameCursor, flags ) || !ReadPod( frameCursor, evidenceCheck ) ||
+                     !SkipBytes( frameCursor, 2 ) || !ReadPod( frameCursor, sleepIslandVisualId ) || !ReadPod( frameCursor, body.contactCount ) || !ReadPod( frameCursor, reservedContact ) ||
                      !ReadPod( frameCursor, body.maxPenetration ) || !ReadPod( frameCursor, body.normalImpulseSum ) )
                 {
                     return false;
                 }
 
                 (void)reservedContact;
+                if ( version >= REPLAY_SHAPE_EVIDENCE_VERSION && evidenceCheck != static_cast<uint8_t>( flags ^ 0xa5u ) )
+                {
+                    return false;
+                }
+                body.sweepContinuous = version >= REPLAY_SHAPE_EVIDENCE_VERSION && ( flags & 16u ) != 0;
                 body.sleeping = ( flags & 1u ) != 0;
                 body.sleepSupported = ( flags & 2u ) != 0;
                 body.sleepInhibited = ( flags & 4u ) != 0;
@@ -1426,15 +1485,25 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes,
             body.id.value = entry.id;
             body.modelRow = SkullbonezCore::Physics::MakeModelRowHint( entry.bodyOrder );
             body.shapeKind = entry.shapeKind;
+            body.shape = entry.shape;
             body.mass = entry.mass;
             body.fixed = entry.fixed;
             std::memcpy( body.name, entry.name, sizeof( body.name ) );
             sample.bodies.push_back( body );
         }
 
+        if ( version >= REPLAY_SHAPE_EVIDENCE_VERSION )
+        {
+            uint64_t digest = 0;
+            if ( !ReadPod( frameCursor, sample.world.terrainFingerprint ) || !ReadPod( frameCursor, digest ) || digest != TerrainEvidenceDigest( sample.frameIndex, sample.world.terrainFingerprint ) )
+            {
+                return false;
+            }
+        }
+
         const uint32_t bodyBytes = version >= REPLAY_PRESENTATION_VISUAL_VERSION ? REPLAY_V3_BODY_VISUAL_STATE_BYTES : REPLAY_V2_BODY_POSE_BYTES;
 
-        const std::size_t expectedFrameBytes = REPLAY_V2_FRAME_HEADER_BYTES + static_cast<std::size_t>( bodyCount ) * bodyBytes;
+        const std::size_t expectedFrameBytes = REPLAY_V2_FRAME_HEADER_BYTES + static_cast<std::size_t>( bodyCount ) * bodyBytes + ( version >= REPLAY_SHAPE_EVIDENCE_VERSION ? 16u : 0u );
 
         nextFrameOffset += expectedFrameBytes;
         if ( frameCursor.offset != expectedFrameBytes )
@@ -1822,7 +1891,7 @@ bool ReadSolverSnapshot( ByteCursor& cursor, SkullbonezCore::Runtime::ReplaySolv
         return false;
     }
 
-    if ( physics.version < 1 || physics.version > SkullbonezCore::Physics::PHYSICS_HULL_SOLVER_SNAPSHOT_VERSION )
+    if ( physics.version < 1 || physics.version > SkullbonezCore::Physics::PHYSICS_SETTINGS_SOLVER_SNAPSHOT_VERSION )
     {
         return false;
     }
@@ -1908,6 +1977,21 @@ bool ReadSolverSnapshot( ByteCursor& cursor, SkullbonezCore::Runtime::ReplaySolv
         return false;
     }
 
+    if ( physics.version >= SkullbonezCore::Physics::PHYSICS_SETTINGS_SOLVER_SNAPSHOT_VERSION )
+    {
+        for ( float& value : physics.settings )
+        {
+            if ( !ReadPod( cursor, value ) )
+            {
+                return false;
+            }
+        }
+        SkullbonezCore::Physics::PhysicsRuntimeSettings settings;
+        if ( !SkullbonezCore::Physics::DecodePhysicsSettings( physics.settings, settings ) )
+        {
+            return false;
+        }
+    }
     physics.modelCount = modelCount;
     physics.nextSleepIslandVisualId = nextSleepIslandVisualId;
     physics.sleepEnabled = sleepEnabled != 0;
@@ -2522,7 +2606,8 @@ std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>&
     manifest["lastFrame"] = last.frameIndex;
     manifest["firstTimeSeconds"] = first.simulationSeconds;
     manifest["lastTimeSeconds"] = last.simulationSeconds;
-    manifest["bodyDictionaryEntryBytes"] = REPLAY_V3_BODY_DICTIONARY_ENTRY_BYTES;
+    manifest["bodyDictionaryEntryBytes"] = REPLAY_V6_BODY_DICTIONARY_ENTRY_BYTES;
+    manifest["terrainEvidenceBytesPerFrame"] = 16;
     manifest["bodyPoseBytes"] = REPLAY_V3_BODY_VISUAL_STATE_BYTES;
     manifest["branchEntryBytes"] = REPLAY_V2_BRANCH_ENTRY_BYTES;
     manifest["eventEntryBytes"] = eventCount > 0 ? REPLAY_V2_EVENT_ENTRY_BYTES : 0u;
@@ -2532,9 +2617,9 @@ std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>&
     manifest["visualPacketEntryBytes"] = visualPacketCount > 0 ? REPLAY_V4_VISUAL_PACKET_ENTRY_BYTES : 0u;
     manifest["chunks"] = chunks;
     manifest["authoritative"] = false;
-    manifest["notes"] = "Presentation v4 retains v3 per-body visual state and adds exact full-packet semantic/render "
-                        "digests for "
-                        "prediction-disabled saved/load/scrub verification. Older chunk layouts remain readable.";
+    manifest["notes"] = "Presentation v6 adds identity-bound collider geometry and per-frame terrain fingerprints for rooted surface reconstruction. "
+                        "Existing solver and presentation hashes retain their prior meaning; the added evidence has independent integrity checks. "
+                        "Older supported layouts load with explicit unavailable geometry and terrain evidence.";
 
     const std::string jsonText = manifest.dump();
     return std::vector<uint8_t>( jsonText.begin(), jsonText.end() );
@@ -3068,6 +3153,10 @@ bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& r
 
 bool ReplayV2Artifact::LoadPresentation( const char* path, std::vector<ReplayPresentationSample>& outSamples, ReplayV2LoadResult* result )
 {
+    // File decoding materializes bounded temporary artifact payloads outside
+    // steady gameplay; the caller's phase is restored before simulation resumes.
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope captureAllocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Capture );
+
     outSamples.clear();
 
     std::vector<uint8_t> fileBytes;

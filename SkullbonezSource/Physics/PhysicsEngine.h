@@ -71,6 +71,19 @@ class WorkerPool;
 
 namespace Physics
 {
+// Local application points are offsets from COM; world points are absolute.
+// An accepted request queues one impulse for the next fixed tick.
+struct PhysicsPointImpulse
+{
+    PhysicsBodyHandle body;
+    Math::Vector::Vector3 impulse, point;
+    bool local = false;
+};
+struct PhysicsPointImpulseWorld
+{
+    Math::Vector::Vector3 center, impulse, point;
+};
+
 struct PhysicsAuthoredBodyRefreshView;
 struct PhysicsAuthoredBodyRegistration;
 struct PhysicsBodyUpdateDesc;
@@ -96,6 +109,20 @@ class PhysicsEngine
     void BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept;
 
     void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
+    uint64_t CompletedStepCount() const noexcept
+    {
+        return m_completedStepCount;
+    }
+    const PhysicsRuntimeSettings& RuntimeSettings() const noexcept
+    {
+        return m_runtimeSettings;
+    }
+    static bool EditRuntimeConfig( SkullbonezCore::Core::EngineConfig& config, InteractivePhysicsSetting setting, float requested );
+    // Between fixed ticks only: discard cached contact/joint impulses and wake
+    // every body whose support solution was computed with the previous settings.
+    void InvalidateSolverSettings();
+    void CopyRuntimeSettingsToConfig( SkullbonezCore::Core::EngineConfig& config ) const;
+    static void WriteSettingsToConfig( const PhysicsRuntimeSettings& settings, SkullbonezCore::Core::EngineConfig& config );
 
     // Cold conversion seam used by config stamping and field-faithfulness tests.
     // Fixed-step code receives only the returned Physics-owned value snapshot.
@@ -148,6 +175,8 @@ class PhysicsEngine
     // Cold editor/replay authoring edits enter by stable handle; no caller can
     // mutate a descriptor row independently from its live body record.
     bool UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update );
+    bool CanSetAuthoredBodyMass( PhysicsBodyHandle body, float mass ) const;
+    bool SetAuthoredBodyMass( PhysicsBodyHandle body, float mass );
     bool RestoreAuthoredBodyState();
     bool UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& update, PhysicsColliderCreateDesc collider );
     void ClearPendingBodyImpulses();
@@ -202,6 +231,8 @@ class PhysicsEngine
 
     // Queues a one-shot impulse and wakes by body handle without borrowing the
     // model owner.
+    bool ResolvePointImpulse( const PhysicsPointImpulse& request, PhysicsPointImpulseWorld& result ) const;
+    bool ApplyPointImpulse( const PhysicsPointImpulse& request );
     void ApplyBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse, const Math::Vector::Vector3& worldApplicationOffset );
     void SetSleepEnabled( bool enabled );
     bool IsSleepEnabled() const;
@@ -281,6 +312,8 @@ class PhysicsEngine
 #endif
 
   private:
+    void ApplySettingsSnapshot( const PhysicsRuntimeSettings& settings );
+    bool m_interactiveSettingsEvidence = false;
     void LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
     void ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& worldForces );
 
@@ -295,6 +328,7 @@ class PhysicsEngine
     PhysicsMaterial m_physicsMaterial;                  // Runtime material policy copied into body/collider descriptors.
     BodySimulationLimits m_bodySimulationLimits;        // Runtime body caps copied at authoring/import boundaries.
     ContactPolicy m_contactPolicy;                      // Runtime contact thresholds copied at authoring/import boundaries.
+    uint64_t m_completedStepCount = 0;                  // Observational steps since body-store clear; excluded from solver state.
     PhysicsRuntimeSettings m_runtimeSettings;           // Physics-owned process settings stamped before fixed stepping.
     PhysicsWorldForces m_lastWorldForces;               // Last real step boundary forces used by explicit wake commands.
     bool m_hasLastWorldForces = false;                  // False until the first physics step supplies world forces.

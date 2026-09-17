@@ -50,7 +50,7 @@ enum class Workspace : uint8_t
 // simulation clock, comparison recording, or functional editor mode.
 struct PresentationPreferences
 {
-    static constexpr uint32_t VERSION = 6;
+    static constexpr uint32_t VERSION = 7;
     LayoutMode layout = LayoutMode::Canvas;
     Style::Theme theme = Style::Theme::Blue;
     float leftWidth = 280.0f;
@@ -60,6 +60,8 @@ struct PresentationPreferences
     // Independent evidence sections; all start folded.
     uint32_t foldedSections = 7;
     int lastTool = 1;
+    bool physicsPeer = false;
+    int physicsSection = 0;
     bool leftFolded = true;
     bool replayFolded = true;
     bool rightFolded = true;
@@ -80,6 +82,8 @@ struct PresentationState
     int focusedDiagnostic = 0;
     float replayScroll = 0.0f;
     float editorScroll = 0.0f;
+    float physicsScroll = 0.0f;
+    std::array<float, 4> physicsSectionScroll {};
 };
 
 struct PresentationRects
@@ -102,6 +106,9 @@ struct PresentationRects
     UIRect drawerResize;
     UIRect replayControls;
     UIRect replayDetails;
+    UIRect physicsHeader;
+    UIRect physicsControls;
+    UIRect physicsTab;
     UIRect causeControls;
     UIRect causeDetail;
     UIRect detailsReplayTab;
@@ -114,6 +121,9 @@ struct PresentationRects
     UIRect replayFold;
     UIRect rightFold;
     float editorScroll = 0.0f;
+    float physicsScroll = 0.0f;
+    int physicsSection = 0;
+    bool physicsPeer = false;
     float replayScroll = 0.0f;
 };
 
@@ -125,6 +135,7 @@ struct HeaderRects
     UIRect scenes;
     UIRect camera;
     UIRect fourViews;
+    UIRect physics;
     UIRect workspace;
     UIRect layout;
     UIRect tools;

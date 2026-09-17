@@ -89,6 +89,7 @@ PresentationPreferences SanitizePreferences( const PresentationPreferences& pref
     result.rightWidth = FiniteDimension( result.rightWidth, 360.0f );
     result.drawerHeight = FiniteDimension( result.drawerHeight, 360.0f );
     result.diagnosticsHeight = FiniteDimension( result.diagnosticsHeight, 140.0f );
+    result.physicsSection = std::clamp( result.physicsSection, 0, 3 );
     result.lastTool = std::clamp( result.lastTool, 0, 10 );
     if ( result.foldedSections > 7 )
     {
@@ -191,17 +192,24 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
         if ( preferences.rightFolded )
         {
             result.rightResize = {};
-            result.causeTab = { result.right.x + 2, contentY + 30, 20, (std::min)( 160.0f, (std::max)( 0.0f, contentHeight - 32 ) ) };
+            const float tabHeight = (std::min)( 120.0f, (std::max)( 0.0f, ( contentHeight - 36 ) * 0.5f ) );
+            result.causeTab = { result.right.x + 2, contentY + 30, 20, tabHeight };
+            result.physicsTab = { result.right.x + 2, contentY + 34 + tabHeight, 20, tabHeight };
         }
         else
         {
+            const float tabWidth = (std::max)( 0.0f, ( result.right.w - 30 ) * 0.5f );
+            result.detailsCausesTab = { result.right.x + 26, result.right.y + 2, tabWidth, 26 };
+            result.physicsTab = { result.right.x + 26 + tabWidth, result.right.y + 2, tabWidth, 26 };
             result.causeControls = { result.right.x, result.right.y + 30, result.right.w, (std::max)( 0.0f, result.right.h - 30 ) };
         }
     }
     else if ( !editor && result.right.w > 0.0f )
     {
-        result.detailsReplayTab = { result.right.x + 6.0f, result.right.y + 4.0f, result.right.w * 0.5f - 9.0f, 24.0f };
-        result.detailsCausesTab = { result.right.x + result.right.w * 0.5f + 3.0f, result.right.y + 4.0f, result.right.w * 0.5f - 9.0f, 24.0f };
+        const float tabWidth = (std::max)( 0.0f, ( result.right.w - 16 ) / 3 );
+        result.detailsReplayTab = { result.right.x + 4, result.right.y + 4, tabWidth, 24 };
+        result.detailsCausesTab = { result.right.x + 8 + tabWidth, result.right.y + 4, tabWidth, 24 };
+        result.physicsTab = { result.right.x + 12 + 2 * tabWidth, result.right.y + 4, tabWidth, 24 };
         if ( !state.detailsCauses )
         {
             result.replayControls = { result.right.x, result.right.y + 30, result.right.w, (std::max)( 0.0f, result.right.h - 30 ) };
@@ -209,6 +217,19 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
         if ( state.detailsCauses )
         {
             result.causeControls = { result.right.x, result.right.y + 30.0f, result.right.w, (std::max)( 0.0f, result.right.h - 30.0f ) };
+        }
+    }
+    if ( preferences.physicsPeer && result.right.w > 24 )
+    {
+        result.physicsControls = { result.right.x + 10, result.right.y + 32, (std::max)( 0.0f, result.right.w - 20 ), (std::max)( 0.0f, result.right.h - 32 ) };
+        result.physicsHeader = result.physicsControls;
+        result.physicsHeader.h = (std::min)( 112.0f, result.physicsControls.h );
+        result.physicsControls.y += result.physicsHeader.h;
+        result.physicsControls.h -= result.physicsHeader.h;
+        result.causeControls = {};
+        if ( !editor )
+        {
+            result.replayControls = {};
         }
     }
     if ( state.causeDetailOpen && result.causeControls.w > 0.0f )
@@ -229,6 +250,9 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
     result.replayDetails = { w - detailsWidth, result.transport.y, detailsWidth, result.transport.h };
     result.transport.w = (std::min)( result.transport.w, result.replayDetails.x - result.transport.x );
     // Diagnostics own floating bounds and do not reserve layout space.
+    result.physicsScroll = state.physicsScroll;
+    result.physicsSection = preferences.physicsSection;
+    result.physicsPeer = preferences.physicsPeer;
     result.replayScroll = std::clamp( state.replayScroll, 0.0f, 1.0f );
     result.editorScroll = std::clamp( state.editorScroll, 0.0f, (std::max)( 0.0f, EditorContentHeight( result.editorControls.w ) - result.editorControls.h ) );
     if ( state.toolsOpen )
@@ -267,7 +291,8 @@ HeaderRects ComputeHeaderRects( const UIRect& header, Workspace workspace )
     const float cameraWidth = header.w >= 600.0f ? 120.0f : 74.0f * unit;
     result.camera = { result.workspace.x - cameraWidth - pad, y, cameraWidth, height };
     result.fourViews = { result.camera.x - 70.0f * unit, y, 62.0f * unit, height };
-    result.scene = { result.skull.x + result.skull.w + pad, y, (std::max)( 0.0f, result.fourViews.x - result.skull.x - result.skull.w - pad * 2.0f ), height };
+    result.physics = { result.fourViews.x - 70.0f * unit, y, 62.0f * unit, height };
+    result.scene = { result.skull.x + result.skull.w + pad, y, (std::max)( 0.0f, result.physics.x - result.skull.x - result.skull.w - pad * 2.0f ), height };
     return result;
 }
 

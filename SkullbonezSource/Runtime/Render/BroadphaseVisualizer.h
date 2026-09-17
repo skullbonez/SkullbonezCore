@@ -67,28 +67,31 @@ class BroadphaseVisualizer
 
     enum class CellState : uint8_t
     {
-        Empty,                                    // White — no objects
-        Entering,                                 // Yellow→Blue fade
-        Occupied,                                 // Blue (steady)
-        Colliding,                                // Red→Black (active collision heat)
-        Fading,                                   // Red/Black→Blue (collision ended, fading back)
+        Empty,     // White — no objects
+        Entering,  // Yellow→Blue fade
+        Occupied,  // Blue (steady)
+        Colliding, // Red→Black (active collision heat)
+        Fading,    // Red/Black→Blue (collision ended, fading back)
     };
 
     struct TrackedCell
     {
-        int64_t key;                              // Packed cell coordinate key, stable across frames.
+        int64_t key; // Packed cell coordinate key, stable across frames.
         int ix, iy, iz;
         CellState state;
-        float timer;                              // Seconds since the current visual state began.
-        int collisionHeat;                        // Collision count driving the red-to-black gradient.
+        float timer;       // Seconds since the current visual state began.
+        int collisionHeat; // Collision count driving the red-to-black gradient.
         bool activeThisFrame;
-        bool collidedThisFrame;                   // Received a narrowphase collision this specific frame
+        bool collidedThisFrame; // Received a narrowphase collision this specific frame
     };
 
     TrackedCell m_cells[MAX_TRACKED_CELLS];
     int m_cellCount = 0;
     float m_cellSize = 24.0f;
     bool m_enabled = false;
+    bool m_selectedOnly = false, m_hasSelection = false;
+    Math::Vector::Vector3 m_selectionCenter;
+    float m_selectionRadius = 0;
 
     // Line vertex buffer: each vertex = [x,y,z,r,g,b] = 6 floats
     // Each cell wireframe cube = 12 edges × 2 verts = 24 verts × 6 floats = 144 floats
@@ -151,13 +154,18 @@ class BroadphaseVisualizer
     // Call once per frame after broadphase + narrowphase complete.
     // activeCells: cells that have objects this frame.
     // collisionCells: packed keys of cells where narrowphase collisions occurred.
-    void Update( float dt, std::span<const Physics::PhysicsBroadphaseActiveCell> activeCells,
-                 std::span<const int64_t> collisionKeys );
+    void SetSelectionFilter( bool enabled, bool hasSelection, const Math::Vector::Vector3& center, float radius )
+    {
+        m_selectedOnly = enabled;
+        m_hasSelection = hasSelection;
+        m_selectionCenter = center;
+        m_selectionRadius = radius;
+    }
+    void Update( float dt, std::span<const Physics::PhysicsBroadphaseActiveCell> activeCells, std::span<const int64_t> collisionKeys );
 
     // Generates line vertex data and submits it through the frame command context.
     // The caller owns renderer readiness and debug-line capability for the frame.
-    void Render( const Math::Transformation::Matrix4& viewProj, Rendering::Dx12GeometryOwner& renderCommands,
-                 bool supportsDebugLines );
+    void Render( const Math::Transformation::Matrix4& viewProj, Rendering::Dx12GeometryOwner& renderCommands, bool supportsDebugLines );
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -20,6 +20,7 @@ Invariants:
 #include "RuntimeRenderPasses.h"
 #include "BroadphaseVisualizer.h"
 #include "GravityGridVisualizer.h"
+#include "GrassPresentation.h"
 #include "CollisionVisualizer.h"
 #include "PhysicsDebugVisualizer.h"
 #include "RenderResourceLifecycle.h"
@@ -186,6 +187,22 @@ class RuntimeRenderer
     // Runs after Core FrameBegin and before draw-call counters reset. This
     // reads completed GPU samples and publishes the preceding render counters.
     void BeginProfilerFrame();
+    const GrassPresentation& Grass() const noexcept
+    {
+        return m_grass;
+    }
+    GrassPresentation& Grass() noexcept
+    {
+        return m_grass;
+    }
+    GrassPresentation& HistoricalGrass() noexcept
+    {
+        return m_historicalGrass;
+    }
+    const GrassPresentation& PresentedGrass() const noexcept
+    {
+        return m_presentHistoricalGrass ? m_historicalGrass : m_grass;
+    }
     void UpdateGravityField( Rendering::RenderInstanceStore& instances, const RuntimeRenderDebugViews& debug, const RuntimeRenderFramePolicy& policy );
     void UpdateDebugVisualizers( float secondsPerFrame, const RuntimeRenderDebugViews& debug, const RuntimeRenderFramePolicy& policy );
 
@@ -240,6 +257,14 @@ class RuntimeRenderer
         collisionVisualizer.ResetTransientState();
         physicsDebugVisualizer.ResetTransientState();
         broadphaseVisualizer.ResetTransientState();
+    }
+    std::array<std::size_t, 6> PhysicsDebugGeometryCounts() const noexcept
+    {
+        return m_physicsDebugVisualizer.DiagnosticGeometryCounts();
+    }
+    void ResetPhysicsDebugHistory()
+    {
+        m_physicsDebugVisualizer.ResetTransientState();
     }
     void SetSceneIdentity( int sceneIndex, int sceneLoadCount )
     {
@@ -421,6 +446,7 @@ class RuntimeRenderer
                                                     Rendering::RenderGpuTimingOwner& gpuTiming );
     void ExecuteObjectThroughRenderGraph( const ObjectGraphInputs& inputs );
     void ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs );
+    void ExecuteGrassThroughRenderGraph( const RenderCameraLighting& camera, std::span<const float> patches, bool useCinematicTarget );
     void ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs );
     bool ExecuteWorldExtensionThroughRenderGraph( const WorldExtensionGraphInputs& inputs );
     DebugOverlaySnapshot BuildDebugOverlaySnapshot( RuntimeRenderWorldExtensionDebugView worldExtensionDebug, const RenderToolOverlayView& toolOverlay, const RuntimeRenderFramePolicy& policy ) const;
@@ -444,6 +470,11 @@ class RuntimeRenderer
     CollisionVisualizer m_collisionVisualizer;
     BroadphaseVisualizer m_broadphaseVisualizer;
     GravityGridVisualizer m_gravityGrid;
+    GrassPresentation m_grass;
+    // Discardable reconstruction cache. Replay remains the only history owner;
+    // live marks survive inspection without being overwritten by historical ones.
+    GrassPresentation m_historicalGrass;
+    bool m_presentHistoricalGrass = false;
     PhysicsDebugVisualizer m_physicsDebugVisualizer;
     SkullbonezCore::Core::Profiler* m_profiler = nullptr; // Startup-bound diagnostics source; null in non-profile builds.
     std::array<Math::Transformation::Matrix4, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_dxrReflectionTransforms =

@@ -45,6 +45,92 @@ using namespace SkullbonezCore::Runtime;
 using SkullbonezCore::Math::Vector::Vector3;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
+namespace
+{
+GrassFootprint RecordedGrassFootprint( const ReplayBodyPresentationSample& body )
+{
+    GrassFootprint footprint;
+    footprint.sceneObjectId = body.id.value;
+    footprint.shape = body.shapeKind == ReplayBodyShapeKind::Box ? GrassFootprintShape::Box : GrassFootprintShape::Sphere;
+    footprint.halfExtents = body.shape.halfExtents;
+    footprint.orientation = SkullbonezCore::Math::Orientation::Quaternion( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
+    const auto rotation = footprint.orientation.GetOrientationMatrix();
+    footprint.center = body.position + rotation * body.shape.localCenter;
+    footprint.axes = { rotation * Vector3( 1, 0, 0 ), rotation * Vector3( 0, 1, 0 ), rotation * Vector3( 0, 0, 1 ) };
+    return footprint;
+}
+void StampRecordedGrass( GrassPresentation& grass, const ReplayPresentationSample& sample, const ReplayPresentationSample* previous, SkullbonezCore::Geometry::Terrain& terrain )
+{
+    grass.SetSampleTime( sample.frameIndex, sample.physicsDt, sample.world.fluidHeight );
+    for ( std::size_t row = 0; row < sample.bodies.size(); ++row )
+    {
+        const auto& body = sample.bodies[row];
+        if ( body.shapeKind != ReplayBodyShapeKind::Sphere && body.shapeKind != ReplayBodyShapeKind::Box )
+        {
+            continue;
+        }
+        if ( !body.shape.Available() )
+        {
+            grass.MarkHistoryMissing();
+            continue;
+        }
+        const auto footprint = RecordedGrassFootprint( body );
+        // Capture keeps body order stable between ordinary ticks. A topology
+        // change ends the sweep; matching by dense row alone is never sufficient.
+        const auto* prior = previous && row < previous->bodies.size() ? &previous->bodies[row] : nullptr;
+        if ( body.sweepContinuous && prior && prior->id == body.id && prior->shapeKind == body.shapeKind && prior->shape.Digest( body.id.value ) == body.shape.Digest( body.id.value ) )
+        {
+            const auto oldFootprint = RecordedGrassFootprint( *prior );
+            grass.StampSwept( footprint, &oldFootprint, terrain );
+        }
+        else
+        {
+            grass.StampSwept( footprint, nullptr, terrain );
+        }
+    }
+}
+void ReconstructGrass( GrassPresentation& grass, ReplayRuntime& replay, const ReplayPresentationSample& target, GrassTimeCursor::Context context, SkullbonezCore::Geometry::Terrain& terrain )
+{
+    // Copy target metadata before reading the timeline's separate exact-frame
+    // scratch. Only the last finite recovery window can contribute pressure.
+    const auto selectedTick = target.frameIndex;
+    const float physicsDt = target.physicsDt;
+    const float waterHeight = target.world.fluidHeight;
+    const auto terrainFingerprint = terrain.ContentFingerprint();
+    context.recording = replay.PresentationRevision();
+    context.branch = target.branch.branchId;
+    grass.SetScene( context, true, waterHeight );
+    const auto update = grass.SelectHistory( context, selectedTick );
+    if ( update == GrassTimeCursor::Update::Unchanged )
+    {
+        return;
+    }
+    // Replay retains terrain identity, not another mutable terrain mesh. Roots
+    // are reconstructible only when today's surface matches recorded evidence.
+    if ( target.world.terrainFingerprint == 0 || target.world.terrainFingerprint != terrainFingerprint || !std::isfinite( physicsDt ) || physicsDt <= 0 )
+    {
+        grass.MarkHistoryMissing();
+        return;
+    }
+    const auto recovery = static_cast<uint64_t>( std::ceil( grass.RecoverySeconds() / physicsDt ) );
+    const auto start = update == GrassTimeCursor::Update::Advance ? selectedTick : selectedTick > recovery ? selectedTick - recovery : 0;
+    const ReplayPresentationSample* previous = start > 0 ? replay.PresentationSampleAtFrame( start - 1 ) : nullptr;
+    for ( auto tick = start; tick <= selectedTick; ++tick )
+    {
+        const auto* sample = replay.PresentationSampleAtFrame( tick );
+        if ( !sample || sample->branch.branchId != context.branch || sample->physicsDt != physicsDt || sample->world.terrainFingerprint != terrainFingerprint )
+        {
+            grass.MarkHistoryMissing();
+            previous = nullptr;
+            continue;
+        }
+        StampRecordedGrass( grass, *sample, previous, terrain );
+        previous = sample;
+    }
+    grass.SetSampleTime( selectedTick, physicsDt, waterHeight );
+}
+} // namespace
+
 RuntimeRenderFramePolicy Run::ProjectRenderFramePolicy( const RuntimeOverlayFramePolicy& overlay )
 {
     RuntimeRenderFramePolicy policy;
@@ -64,9 +150,24 @@ RuntimeRenderFramePolicy Run::ProjectRenderFramePolicy( const RuntimeOverlayFram
     policy.gravityField = overlay.gravityField;
     policy.physicsDebugFlags = overlay.physicsDebugFlags;
     policy.physicsDebugPipelineStageCursor = overlay.physicsDebugPipelineStageCursor;
+    policy.physicsImpulseScale = overlay.physicsImpulseScale;
+    policy.physicsImpulseThreshold = overlay.physicsImpulseThreshold;
     policy.physicsDebugContactLinger = overlay.physicsDebugContactLinger;
     policy.simulationSeconds = overlay.simulationSeconds;
     policy.totalSimulationSeconds = overlay.totalSimulationSeconds;
+    const auto preview = m_operatorUi->PointImpulsePreview();
+    const auto& world = m_sceneController.Scene();
+    const Physics::PhysicsPointImpulse request { world.BodyStore().HandleForSceneObjectId( { preview.sceneObjectId } ),
+                                                 { preview.impulse[0], preview.impulse[1], preview.impulse[2] },
+                                                 { preview.point[0], preview.point[1], preview.point[2] },
+                                                 preview.local };
+    Physics::PhysicsPointImpulseWorld resolved;
+    const auto replay = m_replayRuntime.BuildInputView();
+    if ( m_replayRuntime.LivePhysicsEditable() && world.Physics().ResolvePointImpulse( request, resolved ) )
+    {
+        policy.physicsDebugFlags |= Physics::PHYSICS_DEBUG_TEST_IMPULSE;
+        policy.physicsTestImpulse = { std::array<float, 3> { resolved.center.x, resolved.center.y, resolved.center.z }, { resolved.point.x, resolved.point.y, resolved.point.z }, { resolved.impulse.x, resolved.impulse.y, resolved.impulse.z } };
+    }
     return policy;
 }
 
@@ -183,7 +284,7 @@ void Run::Render( const RuntimeRenderFrameViews& renderFrame, float presentation
         destination.hit = source.hit;
     }
 
-    const RuntimeRenderFramePolicy framePolicy = ProjectRenderFramePolicy( m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(), m_timers.SimulationTotalSeconds() ) );
+    RuntimeRenderFramePolicy framePolicy = ProjectRenderFramePolicy( m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(), m_timers.SimulationTotalSeconds() ) );
 
     // Invariant: Run owns the cross-domain ordering. Model interpolation must
     // finish before replay substitutes read-only historical/future poses, and
@@ -225,6 +326,44 @@ void Run::Render( const RuntimeRenderFrameViews& renderFrame, float presentation
                                                                                       debug.isCollisionVisualizer,
                                                                                       debugTransparentBodyPass );
     const Rendering::RetainedGeometryPacket continuousOverlay = m_continuousForecast.PreparePresentation();
+    const std::string* grassScenePath = m_sceneController.CurrentPath();
+    renderer.Grass().Configure( m_config.ordinaryRender.grass );
+    renderer.HistoricalGrass().Configure( m_config.ordinaryRender.grass );
+    framePolicy.grassEnabled = ( ( grassScenePath && grassScenePath->empty() ) || renderer.Grass().FixtureEnabled( m_sceneController.LifecyclePacket().generation ) ) &&
+                               m_config.ordinaryRender.grass.quality >= .5f && !( cinematicRequested && activeCinematic.terrainReliefEnabled && activeCinematic.terrainRelief > 0 );
+    // Visual-only relief moves the rendered ground away from Physics. Such a
+    // surface is ineligible for rooted, collider-driven grass until those
+    // surfaces share one geometry owner; ordinary Demo terrain remains enabled.
+    GrassTimeCursor::Context grassContext;
+    grassContext.generation = m_sceneController.LifecyclePacket().generation;
+    grassContext.recording = m_replayRuntime.LiveRecordingEpoch();
+    grassContext.branch = m_replayRuntime.CaptureBranchId();
+    grassContext.terrainRevision = m_sceneController.Scene().Terrain().Get() ? m_sceneController.Scene().Terrain().Get()->EditRevision() : 0;
+    renderer.Grass().SetScene( grassContext, framePolicy.grassEnabled, m_sceneController.Scene().Environment().GetFluidSurfaceHeight() );
+
+    if ( framePolicy.grassEnabled && m_sceneController.Scene().Terrain().Get() )
+    {
+        renderer.Grass().RefreshHeld( m_sceneController.Scene().MutableRenderInstances(), m_sceneController.Scene().Colliders(), *m_sceneController.Scene().Terrain().Get() );
+    }
+
+    framePolicy.grassHistorical = replayFrame.time.presentationSample || replayFrame.time.solverSample || replayFrame.time.predictionFrame;
+    framePolicy.grassHistoryAvailable = !replayFrame.time.predictionFrame;
+    if ( framePolicy.grassEnabled && framePolicy.grassHistorical && m_sceneController.Scene().Terrain().Get() )
+    {
+        const auto* sample = replayFrame.time.presentationSample;
+        if ( !sample && replayFrame.time.solverSample )
+        {
+            sample = m_replayRuntime.PresentationSampleAtFrame( replayFrame.time.solverSample->frameIndex );
+        }
+        if ( sample && !replayFrame.time.predictionFrame )
+        {
+            ReconstructGrass( renderer.HistoricalGrass(), m_replayRuntime, *sample, grassContext, *m_sceneController.Scene().Terrain().Get() );
+        }
+        else
+        {
+            framePolicy.grassHistoryAvailable = false;
+        }
+    }
 
 
     Gameplay::TornadoVisualTimeCandidates visualTime;

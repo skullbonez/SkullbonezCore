@@ -361,7 +361,8 @@ PhysicsDebugFrameView BuildPhysicsDebugFrameView( const RuntimeRenderPhysicsDebu
     return PhysicsDebugFrameView { bodies,
                                    PhysicsDebugContactView { physicsDebug.bodyStore, physicsDebug.physicsDebugContacts },
                                    PhysicsDebugSleepView { bodies, physicsDebug.sleepStates, physicsDebug.sleepSupportedStates, physicsDebug.sleepInhibitedStates },
-                                   PhysicsDebugPipelineView { physicsDebug.bodyStore, physicsDebug.physicsPipelineTrace }, };
+                                   PhysicsDebugPipelineView { physicsDebug.bodyStore, physicsDebug.physicsPipelineTrace },
+                                   physicsDebug.joints, };
 }
 
 void BindRenderTextureSlots( SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures, uint32_t slot0, uint32_t slot1, uint32_t slot2, uint32_t slot3, uint32_t slot4 = 0, uint32_t slot5 = 0 )
@@ -905,27 +906,21 @@ SkullbonezCore::Rendering::ShadowFrameData ShadowPass::BuildObjectFrameData( con
 }
 
 
-void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target,
-                                  Rendering::RenderInstanceRenderer& instanceRenderer,
-                                  Rendering::Dx12Diagnostics& renderDiagnostics,
-                                  const char* shadowShaderBaseName,
+void ShadowPass::RenderShadowMap( const ShadowPassInputs& inputs,
+                                  Rendering::FramebufferDX12& target,
                                   const Rendering::ShadowFrameData& shadowFrame,
-                                  const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                  Rendering::Dx12FrameOwner& renderFrame,
-                                  Rendering::Dx12TextureOwner& renderTextures,
                                   bool renderTerrain,
-                                  const Rendering::ShadowCasterBatches& objectCasters,
-                                  Geometry::Terrain* terrain )
+                                  const Rendering::ShadowCasterBatches& objectCasters )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap" );
-    DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap" );
+    DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap" );
 
     if ( !shadowFrame.valid )
     {
         return;
     }
 
-    if ( ( !renderTerrain || !cinematic.shadow.terrainCasts ) && !cinematic.shadow.objectsCast )
+    if ( ( !renderTerrain || !inputs.cinematic->shadow.terrainCasts ) && !inputs.cinematic->shadow.objectsCast )
     {
         return;
     }
@@ -935,32 +930,32 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target,
     // color target on some backends, but receivers sample only the depth texture
     // handle stored in ShadowFrameData.
     target.Bind();
-    renderFrame.SetViewport( 0, 0, target.GetWidth(), target.GetHeight() );
-    renderFrame.Clear( {} );
+    inputs.renderFrame.SetViewport( 0, 0, target.GetWidth(), target.GetHeight() );
+    inputs.renderFrame.Clear( {} );
 
     // The bucket applies opaque depth writes, back-face culling, and the
     // rasterizer bias to each caster PSO without mutating later passes.
     // Pass contract: shadow depth shaders write depth only and sample no
     // textures. Clear inherited slots so descriptor state from the visible
     // scene cannot leak into this off-screen pass.
-    ClearAllRenderTextureSlots( renderTextures );
+    ClearAllRenderTextureSlots( inputs.renderTextures );
 
-    if ( renderTerrain && cinematic.shadow.terrainCasts && !m_activeTerrainHidden && terrain )
+    if ( renderTerrain && inputs.cinematic->shadow.terrainCasts && !m_activeTerrainHidden && inputs.terrain )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
-        DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
+        DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
 
         // Terrain must cast with the same optional render-only relief that the
         // visible terrain uses. Otherwise cinematic basin relief would receive
         // shadows from the flat CPU height map and the contact would visibly
         // detach. With normal rendering the relief amount is zero by default.
-        terrain->RenderShadowDepth( m_profiler, shadowFrame.lightView, shadowFrame.lightProjection, SHADOW_DEPTH_RASTER, &cinematic );
+        inputs.terrain->RenderShadowDepth( m_profiler, shadowFrame.lightView, shadowFrame.lightProjection, SHADOW_DEPTH_RASTER, inputs.cinematic );
     }
 
-    if ( cinematic.shadow.objectsCast && !m_activeCollisionVisualizerVisible )
+    if ( inputs.cinematic->shadow.objectsCast && !m_activeCollisionVisualizerVisible )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
-        DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
+        DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
 
         // Balls, boxes, and pine-style box visuals all write depth here. The
         // prepared render store keeps separate instanced batches so each caster
@@ -972,11 +967,25 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target,
         // Invariant: shadow collection always targets the frame-owned batches
         // reserved during RuntimeRenderResources construction. A stack fallback
         // would begin with zero-capacity vectors inside the render phase.
-        instanceRenderer.SubmitShadowCasterBatches( m_profiler, shadowShaderBaseName, objectCasters, shadowFrame.lightView, shadowFrame.lightProjection, &cinematic, visibilityView );
+        inputs.instanceRenderer
+            .SubmitShadowCasterBatches( m_profiler, inputs.shadowShaderBaseName, objectCasters, shadowFrame.lightView, shadowFrame.lightProjection, inputs.cinematic, visibilityView );
+    }
+
+    if ( inputs.surfaceGeometry && !inputs.surfacePatches.empty() && !inputs.terrainHidden && inputs.cinematic->shadow.terrainCasts )
+    {
+        // Invariant: the light pass consumes the exact selected-time blade
+        // geometry, including compressed tips and the visible distance fade.
+        // Only the camera-local bounded patch set casts vegetation shadows.
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/SurfaceCasters" );
+        const auto surfaceRaster = Rendering::MakePassRasterStateBucket( 0, { true, true, false, Rendering::BlendFactor::One, Rendering::BlendFactor::Zero, Rendering::CullMode::None } );
+        inputs.surfaceGeometry->DrawTransientColoredTriangles( inputs.surfacePatches,
+                                                               shadowFrame.lightProjection * shadowFrame.lightView,
+                                                               Rendering::TransientTriangleStyle::SurfaceBlades,
+                                                               surfaceRaster );
     }
 
     target.Unbind();
-    renderFrame.RestorePresentationViewport();
+    inputs.renderFrame.RestorePresentationViewport();
 }
 
 
@@ -1023,17 +1032,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
 
             if ( m_resources.terrainTarget )
             {
-                RenderShadowMap( *m_resources.terrainTarget,
-                                 inputs.instanceRenderer,
-                                 inputs.renderDiagnostics,
-                                 inputs.shadowShaderBaseName,
-                                 m_resources.terrainFrame,
-                                 *inputs.cinematic,
-                                 inputs.renderFrame,
-                                 inputs.renderTextures,
-                                 true,
-                                 objectCasters,
-                                 inputs.terrain );
+                RenderShadowMap( inputs, *m_resources.terrainTarget, m_resources.terrainFrame, true, objectCasters );
             }
 
             // Anchor the tight object-shadow map to the render look target, not
@@ -1043,17 +1042,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
 
             if ( m_resources.objectTarget )
             {
-                RenderShadowMap( *m_resources.objectTarget,
-                                 inputs.instanceRenderer,
-                                 inputs.renderDiagnostics,
-                                 inputs.shadowShaderBaseName,
-                                 m_resources.objectFrame,
-                                 *inputs.cinematic,
-                                 inputs.renderFrame,
-                                 inputs.renderTextures,
-                                 false,
-                                 objectCasters,
-                                 inputs.terrain );
+                RenderShadowMap( inputs, *m_resources.objectTarget, m_resources.objectFrame, false, objectCasters );
             }
         }
         PROFILE_GPU_END( inputs.gpuTiming, "Frame/Shadows/ShadowMap" );
@@ -1599,6 +1588,10 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
             // while renderer readiness/capability stays with this frame pass.
             const bool supportsDebugLines = inputs.renderDiagnostics.GetCapabilities().supportsDebugLines;
             m_physicsDebugVisualizer.Render( frameView, inputs.camera.viewProjection, inputs.renderGeometry, supportsDebugLines, inputs.terrain );
+        }
+        else
+        {
+            m_physicsDebugVisualizer.ResetTransientState();
         }
 
         if ( detailMarkers )

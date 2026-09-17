@@ -310,6 +310,7 @@ Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
     m_operatorUi->SceneNavigation().RefreshBrowserList();
     m_operatorUi->SceneNavigation().RefreshInteractionRecordings();
     m_sceneController.Scene().ApplyRuntimeConfig( cfg );
+    m_startupPhysicsSettings = m_sceneController.Scene().Physics().RuntimeSettings();
     m_renderDefaults.CaptureStartupCinematicBaseline( cfg.cinematicRender );
     m_startup.ApplyStartupConfig( cfg );
 }

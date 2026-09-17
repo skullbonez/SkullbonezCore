@@ -114,12 +114,15 @@ UITooltipTarget UIWindowInteractionOwner::FindToolsTooltip( const UIRect& conten
         {
         case InGameUITab::Scene:
         {
-            const UITooltipTarget playback[] = { { 2520, m_sceneTab.pauseLockToggle.Bounds(), { "Keep scene simulation paused across scene changes." } }, { 2521,
-                                                                                                                                                            m_sceneTab.singleStepButton.Bounds(),
-                                                                                                                                                            { "Advance one scene turn while Pause lock is enabled.", "One turn", "Space holds stepping", "Enable Pause lock to step once." },
-                                                                                                                                                            false,
-                                                                                                                                                            false,
-                                                                                                                                                            m_sceneTab.lastPauseLocked }, };
+            const UITooltipTarget playback[] = { { 2520, m_sceneTab.pauseLockToggle.Bounds(), { "Pause simulation across scene changes. Uncheck to resume." } }, { 2521,
+                                                                                                                                                                   m_sceneTab.singleStepButton.Bounds(),
+                                                                                                                                                                   { "Advance one scene turn while Pause across scenes is enabled.",
+                                                          "One turn",
+                                                          "Space holds stepping",
+                                                          "Enable Pause across scenes to step once." },
+                                                                                                                                                                   false,
+                                                                                                                                                                   false,
+                                                                                                                                                                   m_sceneTab.lastPauseLocked }, };
             return HitTooltip( playback, m_mouseX, m_mouseY );
         }
         case InGameUITab::Physics:

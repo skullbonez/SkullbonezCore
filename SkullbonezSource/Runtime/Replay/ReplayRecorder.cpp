@@ -35,6 +35,8 @@ Related:
 #include "../../Core/ByteView.h"
 #include "../../Core/FatalError.h"
 #include "../../Physics/ColliderStore.h"
+#include "../../Physics/BoundingSphere.h"
+#include "../../Physics/BoundingBox.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../World/WorldEnvironment.h"
@@ -601,6 +603,7 @@ ReplayVisualBodyMetadata VisualMetadataFromBody( const ReplayBodyPresentationSam
     metadata.modelRow = body.modelRow;
     std::memcpy( metadata.name, body.name, sizeof( metadata.name ) );
     metadata.shapeKind = body.shapeKind;
+    metadata.shape = body.shape;
     metadata.mass = body.mass;
     metadata.fixed = body.fixed;
     return metadata;
@@ -620,6 +623,7 @@ ReplayVisualBodyState VisualStateFromBody( const ReplayBodyPresentationSample& b
     state.sleepSupported = body.sleepSupported;
     state.sleepInhibited = body.sleepInhibited;
     state.collisionContact = body.collisionContact;
+    state.sweepContinuous = body.sweepContinuous;
     state.sleepIslandVisualId = body.sleepIslandVisualId;
     state.contactCount = body.contactCount;
     state.maxPenetration = body.maxPenetration;
@@ -629,16 +633,16 @@ ReplayVisualBodyState VisualStateFromBody( const ReplayBodyPresentationSample& b
 
 bool SameVisualMetadata( const ReplayVisualBodyMetadata& a, const ReplayVisualBodyMetadata& b )
 {
-    return a.id.value == b.id.value && a.modelRow.value == b.modelRow.value && a.shapeKind == b.shapeKind && SameFloatBits( a.mass, b.mass ) && a.fixed == b.fixed &&
-           std::memcmp( a.name, b.name, sizeof( a.name ) ) == 0;
+    return a.id.value == b.id.value && a.modelRow.value == b.modelRow.value && a.shapeKind == b.shapeKind && SameVectorBits( a.shape.localCenter, b.shape.localCenter ) &&
+           SameVectorBits( a.shape.halfExtents, b.shape.halfExtents ) && SameFloatBits( a.mass, b.mass ) && a.fixed == b.fixed && std::memcmp( a.name, b.name, sizeof( a.name ) ) == 0;
 }
 
 bool SameVisualState( const ReplayVisualBodyState& a, const ReplayVisualBodyState& b )
 {
     return SameVectorBits( a.position, b.position ) && SameVectorBits( a.linearVelocity, b.linearVelocity ) && SameVectorBits( a.angularVelocity, b.angularVelocity ) &&
            SameOrientationBits( a.orientation, b.orientation ) && a.sleeping == b.sleeping && a.sleepSupported == b.sleepSupported && a.sleepInhibited == b.sleepInhibited &&
-           a.collisionContact == b.collisionContact && a.sleepIslandVisualId == b.sleepIslandVisualId && a.contactCount == b.contactCount && SameFloatBits( a.maxPenetration, b.maxPenetration ) &&
-           SameFloatBits( a.normalImpulseSum, b.normalImpulseSum );
+           a.sweepContinuous == b.sweepContinuous && a.collisionContact == b.collisionContact && a.sleepIslandVisualId == b.sleepIslandVisualId && a.contactCount == b.contactCount &&
+           SameFloatBits( a.maxPenetration, b.maxPenetration ) && SameFloatBits( a.normalImpulseSum, b.normalImpulseSum );
 }
 
 void CopyPresentationHeader( const ReplayPresentationSample& source, ReplayPresentationSample& out )
@@ -664,6 +668,7 @@ void BuildPresentationBodyFromVisual( const ReplayVisualBodyMetadata& metadata, 
     out.modelRow = metadata.modelRow;
     std::memcpy( out.name, metadata.name, sizeof( out.name ) );
     out.shapeKind = metadata.shapeKind;
+    out.shape = metadata.shape;
     out.position = state.position;
     out.linearVelocity = state.linearVelocity;
     out.angularVelocity = state.angularVelocity;
@@ -677,6 +682,7 @@ void BuildPresentationBodyFromVisual( const ReplayVisualBodyMetadata& metadata, 
     out.sleepSupported = state.sleepSupported;
     out.sleepInhibited = state.sleepInhibited;
     out.collisionContact = state.collisionContact;
+    out.sweepContinuous = state.sweepContinuous;
     out.sleepIslandVisualId = state.sleepIslandVisualId;
     out.contactCount = state.contactCount;
     out.maxPenetration = state.maxPenetration;
@@ -772,6 +778,7 @@ void CopyTornadoSystemConfigWithReserve( Gameplay::TornadoSystemConfig& target, 
 void CopySolverWorldScalarsFromSnapshot( ReplaySolverWorldScalarState& target, const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& source, ReplayFrameIndex frameIndex, const char* targetName )
 {
     target.version = source.physics.version;
+    target.settings = source.physics.settings;
     target.modelCount = source.physics.modelCount;
     target.nextSleepIslandVisualId = source.physics.nextSleepIslandVisualId;
     target.sleepEnabled = source.physics.sleepEnabled;
@@ -786,6 +793,7 @@ void CopySolverWorldScalarsFromSnapshot( ReplaySolverWorldScalarState& target, c
 void ApplySolverWorldScalarsToSnapshot( const ReplaySolverWorldScalarState& source, SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& target, ReplayFrameIndex frameIndex, const char* targetName )
 {
     target.physics.version = source.version;
+    target.physics.settings = source.settings;
     target.physics.modelCount = source.modelCount;
     target.physics.nextSleepIslandVisualId = source.nextSleepIslandVisualId;
     target.physics.sleepEnabled = source.sleepEnabled;
@@ -815,6 +823,7 @@ template <typename T> void ClearSolverVectorDelta( ReplaySolverVectorDelta<T>& d
 void ClearSolverWorldDeltaFrame( ReplaySolverWorldDeltaFrame& frame )
 {
     frame.scalarState.version = Physics::PHYSICS_SOLVER_SNAPSHOT_VERSION;
+    frame.scalarState.settings = {};
     frame.scalarState.modelCount = 0;
     frame.scalarState.nextSleepIslandVisualId = 1;
     frame.scalarState.sleepEnabled = true;
@@ -865,6 +874,7 @@ void CopySolverWorldSnapshotWithReserve( SkullbonezCore::Runtime::ReplaySolverWo
                                          const char* targetName )
 {
     target.physics.version = source.physics.version;
+    target.physics.settings = source.physics.settings;
     target.physics.modelCount = source.physics.modelCount;
     target.physics.nextSleepIslandVisualId = source.physics.nextSleepIslandVisualId;
     target.physics.sleepEnabled = source.physics.sleepEnabled;
@@ -1391,6 +1401,24 @@ uint64_t HashPersistentContact( uint64_t hash, const SkullbonezCore::Physics::Ph
     return hash;
 }
 
+ReplayPresentationShape PresentationShapeForCollider( const ColliderRecord& collider )
+{
+    ReplayPresentationShape shape;
+    using namespace SkullbonezCore::Math::CollisionDetection;
+    if ( const auto* sphere = GetShapeIf<BoundingSphere>( &collider.shape ) )
+    {
+        shape.localCenter = sphere->GetPosition();
+        const float radius = sphere->GetRadius();
+        shape.halfExtents = Vector3( radius, radius, radius );
+    }
+    else if ( const auto* box = GetShapeIf<BoundingBox>( &collider.shape ) )
+    {
+        shape.localCenter = box->GetPosition();
+        shape.halfExtents = box->GetHalfExtents();
+    }
+    return shape;
+}
+
 // Concept: App projects stable display-name pointers for this synchronous
 // capture. Physics values still come from the dense stores.
 bool BuildReplayPresentationBodySample( int modelIndex,
@@ -1425,6 +1453,7 @@ bool BuildReplayPresentationBodySample( int modelIndex,
     }
 
     outBody.shapeKind = ShapeKindForCollider( colliderRecord );
+    outBody.shape = PresentationShapeForCollider( colliderRecord );
     outBody.position = Physics::PhysicsBodyPosition( hotFields, bodyIndex );
     outBody.linearVelocity = Physics::PhysicsBodyLinearVelocity( hotFields, bodyIndex );
     outBody.angularVelocity = Physics::PhysicsBodyAngularVelocity( hotFields, bodyIndex );
@@ -1556,6 +1585,13 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const SkullbonezCore::Runtime::
 {
     const SkullbonezCore::Physics::PhysicsSolverSnapshot& physics = snapshot.physics;
     hash = HashUint32( hash, physics.version );
+    if ( physics.version >= Physics::PHYSICS_SETTINGS_SOLVER_SNAPSHOT_VERSION )
+    {
+        for ( float value : physics.settings )
+        {
+            hash = HashFloat( hash, value );
+        }
+    }
     hash = HashInt( hash, physics.modelCount );
     hash = HashInt( hash, physics.nextSleepIslandVisualId );
     hash = HashBool( hash, physics.sleepEnabled );
@@ -2121,7 +2157,8 @@ void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch,
                                    const ReplayWorldPresentationSample& world,
                                    const ReplayCameraSample& camera,
                                    Physics::PhysicsEngine& physics,
-                                   std::span<const char* const> entityDisplayNames )
+                                   std::span<const char* const> entityDisplayNames,
+                                   std::span<const uint8_t> sweepContinuity )
 {
     if ( !m_config.enabled )
     {
@@ -2204,6 +2241,7 @@ void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch,
             continue;
         }
 
+        body.sweepContinuous = bodyIndex < sweepContinuity.size() && sweepContinuity[bodyIndex] != 0;
         body.sleeping = bodyIndex < sleepStates.size() && sleepStates[bodyIndex] != 0;
         body.sleepSupported = bodyIndex < sleepSupportedStates.size() && sleepSupportedStates[bodyIndex] != 0;
         body.sleepInhibited = bodyIndex < sleepInhibitedStates.size() && sleepInhibitedStates[bodyIndex] != 0;
@@ -2234,7 +2272,7 @@ void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch,
     }
 }
 
-void ReplayRecorder::CaptureFrameFromSolverSample( const ReplaySolverFrameSample& solverSample )
+void ReplayRecorder::CaptureFrameFromSolverSample( const ReplaySolverFrameSample& solverSample, const Physics::ColliderStore* colliders, std::span<const uint8_t> sweepContinuity )
 {
     if ( !m_config.enabled )
     {
@@ -2271,6 +2309,15 @@ void ReplayRecorder::CaptureFrameFromSolverSample( const ReplaySolverFrameSample
         body.modelRow = solverBody.modelRow;
         strncpy_s( body.name, sizeof( body.name ), solverBody.name, _TRUNCATE );
         body.shapeKind = solverBody.shapeKind;
+        // Collider rows are hints: validate stable identity before copying shape
+        // evidence from this same committed tick. Missing evidence stays explicit.
+        const int row = body.modelRow.value;
+        body.sweepContinuous = row >= 0 && static_cast<std::size_t>( row ) < sweepContinuity.size() && sweepContinuity[static_cast<std::size_t>( row )] != 0;
+        if ( colliders && row >= 0 && row < colliders->Count() && colliders->Records()[row].sceneObjectId == body.id )
+        {
+            body.shape = PresentationShapeForCollider( colliders->Records()[row] );
+        }
+
         body.position = solverBody.position;
         body.linearVelocity = solverBody.linearVelocity;
         body.angularVelocity = solverBody.angularVelocity;
@@ -2397,12 +2444,37 @@ const ReplayPresentationSample* ReplayRecorder::SampleAtNormalized( float normal
     const std::size_t maxOffset = m_sampleCount - 1;
     const std::size_t offset = static_cast<std::size_t>( static_cast<float>( maxOffset ) * t + 0.5f );
     const std::size_t resolvedOffset = (std::min)( offset, maxOffset );
-    ReplayPresentationSample& resolved = m_resolvedPresentationSamples[m_nextResolvedPresentationSample % m_resolvedPresentationSamples.size()];
+    ReplayPresentationSample& resolved = m_resolvedPresentationSamples[m_nextResolvedPresentationSample % PRESENTATION_RESOLVE_CACHE_COUNT];
 
-    m_nextResolvedPresentationSample = ( m_nextResolvedPresentationSample + 1u ) % m_resolvedPresentationSamples.size();
+    m_nextResolvedPresentationSample = ( m_nextResolvedPresentationSample + 1u ) % PRESENTATION_RESOLVE_CACHE_COUNT;
     return ResolveSampleAtOffset( resolvedOffset, resolved ) ? &resolved : nullptr;
 }
 
+
+const ReplayPresentationSample* ReplayRecorder::SampleAtFrame( ReplayFrameIndex frame ) const
+{
+    std::size_t low = 0;
+    std::size_t high = m_sampleCount;
+    while ( low < high )
+    {
+        const std::size_t middle = low + ( high - low ) / 2;
+        const ReplayFrameIndex candidate = m_samples[( m_sampleHead + middle ) % m_samples.size()].frameIndex;
+        if ( candidate < frame )
+        {
+            low = middle + 1;
+        }
+        else
+        {
+            high = middle;
+        }
+    }
+    if ( low >= m_sampleCount || m_samples[( m_sampleHead + low ) % m_samples.size()].frameIndex != frame )
+    {
+        return nullptr;
+    }
+    ReplayPresentationSample& resolved = m_resolvedPresentationSamples[PRESENTATION_RESOLVE_CACHE_COUNT + ( frame % 2u )];
+    return ResolveSampleAtOffset( low, resolved ) ? &resolved : nullptr;
+}
 
 std::size_t ReplayRecorder::AcquireSampleSlotIndex()
 {
@@ -2850,6 +2922,9 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch,
 
     sample.pipelineRecordCount = SaturatingUint16( Physics::PhysicsEngine::ReadPipelineRecordCount( physics ) );
     physics.CaptureReplaySolverSnapshot( m_solverCaptureWorldSnapshot.physics, Physics::MakePhysicsBodyCountFromNonNegativeInt( static_cast<int>( modelCount ) ) );
+    // Recorded continuation owns all effective settings, including custom startup
+    // policy. Direct Physics snapshots keep their numerical baseline format.
+    m_solverCaptureWorldSnapshot.physics.version = Physics::PHYSICS_SETTINGS_SOLVER_SNAPSHOT_VERSION;
 
     m_solverCaptureWorldSnapshot.tornadoConfig = tornadoGameplay.GetFieldConfig();
     CopyTornadoSystemConfigWithReserve( m_solverCaptureWorldSnapshot.tornadoSystemConfig, tornadoGameplay.GetSystemConfig(), sample.frameIndex, "ReplaySolverCapture::tornadoSystem" );
@@ -3027,6 +3102,33 @@ const ReplaySolverFrameSample* ReplaySolverRecorder::SampleAtNormalized( float n
     const std::size_t offset = static_cast<std::size_t>( static_cast<float>( maxOffset ) * t + 0.5f );
     const std::size_t resolvedOffset = (std::min)( offset, maxOffset );
 
+    return ResolveScrubAtOffset( resolvedOffset );
+}
+
+const ReplaySolverFrameSample* ReplaySolverRecorder::SampleAtFrame( ReplayFrameIndex frame ) const
+{
+    std::size_t low = 0, high = m_sampleCount;
+    while ( low < high )
+    {
+        const auto middle = low + ( high - low ) / 2;
+        if ( m_samples[( m_sampleHead + middle ) % m_samples.size()].frameIndex < frame )
+        {
+            low = middle + 1;
+        }
+        else
+        {
+            high = middle;
+        }
+    }
+    if ( low >= m_sampleCount || m_samples[( m_sampleHead + low ) % m_samples.size()].frameIndex != frame )
+    {
+        return nullptr;
+    }
+    return ResolveScrubAtOffset( low );
+}
+
+const ReplaySolverFrameSample* ReplaySolverRecorder::ResolveScrubAtOffset( std::size_t resolvedOffset ) const
+{
     if ( m_scrubResolveCacheValid && m_scrubResolveCacheOffset == resolvedOffset && m_scrubResolveCacheRevision == m_contentRevision )
     {
         return &m_resolvedSolverSample;

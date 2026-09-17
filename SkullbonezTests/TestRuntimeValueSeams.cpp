@@ -53,6 +53,7 @@
 
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionCommands.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h"
+#include "../SkullbonezSource/Runtime/Render/GrassDeformation.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneNavigationModel.h"
 #include "../SkullbonezSource/Runtime/UI/OperatorUiPhase.h"
@@ -1255,11 +1256,28 @@ TEST_CASE( "Replay overlay: cause filtering preserves source ancestry and identi
 
     state.filter = RunReplayCauseTreeFilter::Contacts;
     BuildReplayCauseWindowProjection( state, projection );
-    REQUIRE( projection.count == 4 );
+    REQUIRE( projection.count == 3 );
     CHECK( projection.SourceRow( 0 ) == 0 );
     CHECK( projection.SourceRow( 1 ) == 1 );
     CHECK( projection.SourceRow( 2 ) == 2 );
-    CHECK( projection.SourceRow( 3 ) == 3 );
+    CHECK( projection.VisibleRow( 3 ) == -1 );
+
+    state.filter = RunReplayCauseTreeFilter::Prediction;
+    BuildReplayCauseWindowProjection( state, projection );
+    REQUIRE( projection.count == 4 );
+    CHECK( projection.SourceRow( 0 ) == 0 );
+    CHECK( projection.SourceRow( 1 ) == 1 );
+    CHECK( projection.SourceRow( 2 ) == 4 );
+    CHECK( projection.SourceRow( 3 ) == 5 );
+    CHECK( projection.VisibleRow( 2 ) == -1 );
+    CHECK( projection.VisibleRow( 3 ) == -1 );
+
+    strcpy_s( state.filterText, "clamp" );
+    BuildReplayCauseWindowProjection( state, projection );
+    CHECK( projection.count == 0 );
+    state.filter = RunReplayCauseTreeFilter::Contacts;
+    BuildReplayCauseWindowProjection( state, projection );
+    CHECK( projection.count == 0 );
 
     state.filter = RunReplayCauseTreeFilter::All;
     strcpy_s( state.filterText, "CLAMP" );
@@ -1469,4 +1487,93 @@ TEST_CASE( "Scene activation does not reapply an Inspect pause after camera chan
     controller.EnterLive();
     controller.ObserveSceneLifecycle( 2, true, true, true );
     CHECK( controller.Workspace() == RuntimeWorkspace::Live );
+}
+
+
+TEST_CASE( "Grass footprints intersect rooted blades and reject airborne shapes" )
+{
+    using namespace SkullbonezCore::Runtime;
+    using SkullbonezCore::Math::Vector::Vector3;
+    GrassFootprint footprint;
+    footprint.sceneObjectId = 7;
+    footprint.center = Vector3( 0.0f, 1.0f, 0.0f );
+    footprint.halfExtents = Vector3( 1.0f, 1.0f, 1.0f );
+    const Vector3 root( 0.0f, 0.0f, 0.0f );
+    const Vector3 up( 0.0f, 1.0f, 0.0f );
+    CHECK( GrassFootprintCompression( footprint, root, up, 0.5f ) == doctest::Approx( 1.0f ) );
+    footprint.center.y = 1.25f;
+    CHECK( GrassFootprintCompression( footprint, root, up, 0.5f ) == doctest::Approx( 0.5f ) );
+    footprint.center.y = 5.0f;
+    CHECK( GrassFootprintCompression( footprint, root, up, 0.5f ) == 0.0f );
+    footprint.center.y = -5.0f;
+    CHECK( GrassFootprintCompression( footprint, root, up, 0.5f ) == 0.0f );
+    footprint.center = Vector3( 0.0f, 0.75f, 0.0f );
+    footprint.shape = GrassFootprintShape::Box;
+    footprint.halfExtents = Vector3( 2.0f, 0.5f, 0.25f );
+    CHECK( GrassFootprintCompression( footprint, root, up, 0.5f ) == doctest::Approx( 0.5f ) );
+    CHECK( GrassFootprintCompression( footprint, Vector3( 1.0f, 0.0f, 0.0f ), up, 0.5f ) > 0.0f );
+    CHECK( GrassFootprintCompression( footprint, Vector3( 0.0f, 0.0f, 1.0f ), up, 0.5f ) == 0.0f );
+    footprint.axes = { Vector3( 0.0f, 0.0f, 1.0f ), up, Vector3( -1.0f, 0.0f, 0.0f ) };
+    CHECK( GrassFootprintCompression( footprint, Vector3( 1.0f, 0.0f, 0.0f ), up, 0.5f ) == 0.0f );
+    CHECK( GrassFootprintCompression( footprint, Vector3( 0.0f, 0.0f, 1.0f ), up, 0.5f ) > 0.0f );
+    footprint.sceneObjectId = 0;
+    CHECK( GrassFootprintCompression( footprint, root, up, 0.5f ) == 0.0f );
+}
+
+TEST_CASE( "Grass recovery has an exact finite endpoint and order independent pressure" )
+{
+    using namespace SkullbonezCore::Runtime;
+    GrassFootprint left;
+    left.sceneObjectId = 7;
+    left.bendX = -2.0f;
+    GrassFootprint right;
+    right.sceneObjectId = 11;
+    right.bendX = 3.0f;
+    GrassDeformationCell cell;
+    cell.Stamp( 120.0, 360.0, 1.0f, left );
+    CHECK( cell.Compression( 120.0, 360.0 ) == 1.0f );
+    CHECK( cell.Compression( 300.0, 360.0 ) == doctest::Approx( 0.5f ) );
+    CHECK( cell.Compression( 480.0, 360.0 ) == 0.0f );
+    CHECK( cell.Compression( 1000.0, 360.0 ) == 0.0f );
+    cell.Stamp( 120.0, 360.0, 1.0f, right );
+    CHECK( cell.SourceId() == 7 );
+    CHECK( cell.BendX() == -1.0f );
+    GrassDeformationCell reversed;
+    reversed.Stamp( 120.0, 360.0, 1.0f, right );
+    reversed.Stamp( 120.0, 360.0, 1.0f, left );
+    CHECK( reversed.SourceId() == cell.SourceId() );
+    CHECK( reversed.Compression( 300.0, 360.0 ) == cell.Compression( 300.0, 360.0 ) );
+    // A resting body refreshes pressure even when it emits no new impact.
+    cell.Stamp( 300.0, 360.0, 1.0f, right );
+    CHECK( cell.Compression( 300.0, 360.0 ) == 1.0f );
+    CHECK( cell.SourceId() == 11 );
+    cell.Stamp( 301.0, 360.0, 0.0f, left );
+    CHECK( cell.SourceId() == 11 );
+    CHECK( cell.Compression( 660.0, 360.0 ) == 0.0f );
+    CHECK( cell.Compression( 301.0, 0.0 ) == 0.0f );
+    cell.Stamp( 999.0, 360.0, std::numeric_limits<float>::quiet_NaN(), left );
+    CHECK( cell.SourceId() == 11 );
+}
+
+TEST_CASE( "Grass time cache isolates pause seeks branches and terrain revisions" )
+{
+    using namespace SkullbonezCore::Runtime;
+    GrassTimeCursor cursor;
+    GrassTimeCursor::Context context { 1, 3, 5, 7 };
+    using Update = GrassTimeCursor::Update;
+    CHECK( cursor.Select( context, 100 ) == Update::Rebuild );
+    CHECK( cursor.Select( context, 100 ) == Update::Unchanged );
+    CHECK( cursor.Select( context, 101 ) == Update::Advance );
+    CHECK( cursor.Select( context, 103 ) == Update::Rebuild );
+    CHECK( cursor.Select( context, 102 ) == Update::Rebuild );
+    ++context.branch;
+    CHECK( cursor.Select( context, 102 ) == Update::Rebuild );
+    ++context.generation;
+    CHECK( cursor.Select( context, 102 ) == Update::Rebuild );
+    ++context.recording;
+    CHECK( cursor.Select( context, 102 ) == Update::Rebuild );
+    ++context.terrainRevision;
+    CHECK( cursor.Select( context, 102 ) == Update::Rebuild );
+    cursor.Reset();
+    CHECK( cursor.Select( context, 102 ) == Update::Rebuild );
 }

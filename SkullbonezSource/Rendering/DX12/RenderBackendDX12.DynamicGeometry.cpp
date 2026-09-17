@@ -71,6 +71,8 @@ std::size_t TransientTriangleStyleIndex( TransientTriangleStyle style )
 {
     switch ( style )
     {
+    case TransientTriangleStyle::SurfaceBlades:
+        return 4;
     case TransientTriangleStyle::PrecisionRibbonDepthHint:
     case TransientTriangleStyle::InstancedRibbonDepthHint:
         return 3;
@@ -89,6 +91,8 @@ const char* TransientTriangleShaderBaseName( TransientTriangleStyle style )
 {
     switch ( style )
     {
+    case TransientTriangleStyle::SurfaceBlades:
+        return "shaders/surface_blades";
     case TransientTriangleStyle::PrecisionRibbonDepthHint:
     case TransientTriangleStyle::InstancedRibbonDepthHint:
     case TransientTriangleStyle::PrecisionRibbon:
@@ -106,6 +110,8 @@ const char* TransientTriangleTraceLabel( TransientTriangleStyle style )
 {
     switch ( style )
     {
+    case TransientTriangleStyle::SurfaceBlades:
+        return "SurfaceBlades";
     case TransientTriangleStyle::PrecisionRibbonDepthHint:
     case TransientTriangleStyle::InstancedRibbonDepthHint:
         return "InstancedRibbonDepthHint";
@@ -690,13 +696,16 @@ void Dx12GeometryOwner::SubmitColoredTriangleBuffer( std::size_t packedFloatCoun
     {
         return;
     }
+    const bool surfaceBlades = style == TransientTriangleStyle::SurfaceBlades;
+    const bool extendedRecord = IsInstancedRibbonStyle( style ) || surfaceBlades;
+    const bool instanced = compactRibbonInstances || surfaceBlades;
     DynamicVBDX12 vertexLayout = {};
-    vertexLayout.numAttribs = IsInstancedRibbonStyle( style ) ? 6 : 3;
+    vertexLayout.numAttribs = surfaceBlades ? 9 : extendedRecord ? 6 : 3;
     vertexLayout.attribComponents[0] = 3;
     vertexLayout.attribComponents[1] = 4;
     vertexLayout.attribComponents[2] = 4;
 
-    if ( IsInstancedRibbonStyle( style ) )
+    if ( extendedRecord )
     {
         vertexLayout.attribComponents[3] = 2;
         vertexLayout.attribComponents[4] = 3;
@@ -708,8 +717,15 @@ void Dx12GeometryOwner::SubmitColoredTriangleBuffer( std::size_t packedFloatCoun
         vertexLayout.floatsPerVertex = 11;
     }
 
+    if ( surfaceBlades )
+    {
+        vertexLayout.attribComponents[6] = 4;
+        vertexLayout.attribComponents[7] = 3;
+        vertexLayout.attribComponents[8] = 4;
+        vertexLayout.floatsPerVertex = 30;
+    }
     vertexLayout.stride = vertexLayout.floatsPerVertex * static_cast<int>( sizeof( float ) );
-    vertexLayout.perInstance = compactRibbonInstances;
+    vertexLayout.perInstance = instanced;
 
     if ( packedFloatCount % static_cast<size_t>( vertexLayout.floatsPerVertex ) != 0 )
     {
@@ -717,8 +733,8 @@ void Dx12GeometryOwner::SubmitColoredTriangleBuffer( std::size_t packedFloatCoun
     }
 
     const int recordCount = static_cast<int>( packedFloatCount / vertexLayout.floatsPerVertex );
-    const int vertexCount = compactRibbonInstances ? 6 : recordCount;
-    const int instanceCount = compactRibbonInstances ? recordCount : 1;
+    const int vertexCount = surfaceBlades ? 144 : ( compactRibbonInstances ? 6 : recordCount );
+    const int instanceCount = instanced ? recordCount : 1;
     const UINT64 dataSize = static_cast<UINT64>( packedFloatCount * sizeof( float ) );
 
     if ( !drawGate.PreparePipelineDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout, rasterState ) )
@@ -1169,7 +1185,7 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( std::span<const float> pa
 {
     RequireSubmissionEpoch( "DrawTransientColoredTriangles" );
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
-    const UINT64 floatsPerVertex = IsInstancedRibbonStyle( style ) ? 19u : 11u;
+    const UINT64 floatsPerVertex = style == TransientTriangleStyle::SurfaceBlades ? 30u : IsInstancedRibbonStyle( style ) ? 19u : 11u;
 
     if ( packedVertices.empty() || packedVertices.size() % floatsPerVertex != 0 || !m_resourceFrame->DrawGate().PrepareDraw() )
     {

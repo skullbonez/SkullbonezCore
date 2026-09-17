@@ -118,10 +118,8 @@ inline ReplayMemoryPolicy ReplayMemoryPresetPolicy( ReplayMemoryPreset preset )
 
 inline ReplayMemoryPolicy ResolveReplayMemoryPolicy( ReplayMemoryPolicy policy )
 {
-    policy.requestedRetentionSeconds = std::clamp( policy.requestedRetentionSeconds, REPLAY_MEMORY_POLICY_MIN_SECONDS,
-                                                   REPLAY_MEMORY_POLICY_MAX_SECONDS );
-    policy.requestedBudgetMiB = std::clamp( policy.requestedBudgetMiB, REPLAY_MEMORY_POLICY_MIN_BUDGET_MIB,
-                                            REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB );
+    policy.requestedRetentionSeconds = std::clamp( policy.requestedRetentionSeconds, REPLAY_MEMORY_POLICY_MIN_SECONDS, REPLAY_MEMORY_POLICY_MAX_SECONDS );
+    policy.requestedBudgetMiB = std::clamp( policy.requestedBudgetMiB, REPLAY_MEMORY_POLICY_MIN_BUDGET_MIB, REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB );
     policy.presentationRetentionSeconds = policy.requestedRetentionSeconds;
     policy.solverRetentionSeconds = policy.requestedRetentionSeconds;
 
@@ -152,13 +150,10 @@ inline ReplayMemoryPolicy ResolveReplayMemoryPolicy( ReplayMemoryPolicy policy )
         policy.presentationRetentionSeconds = (std::min)( policy.presentationRetentionSeconds, 30 );
     }
 
-    policy.solverRetentionSeconds = std::clamp( policy.solverRetentionSeconds, REPLAY_SOLVER_MEMORY_POLICY_MIN_SECONDS,
-                                                REPLAY_MEMORY_POLICY_MAX_SECONDS );
-    policy.presentationRetentionSeconds = std::clamp( policy.presentationRetentionSeconds, REPLAY_MEMORY_POLICY_MIN_SECONDS,
-                                                      REPLAY_MEMORY_POLICY_MAX_SECONDS );
+    policy.solverRetentionSeconds = std::clamp( policy.solverRetentionSeconds, REPLAY_SOLVER_MEMORY_POLICY_MIN_SECONDS, REPLAY_MEMORY_POLICY_MAX_SECONDS );
+    policy.presentationRetentionSeconds = std::clamp( policy.presentationRetentionSeconds, REPLAY_MEMORY_POLICY_MIN_SECONDS, REPLAY_MEMORY_POLICY_MAX_SECONDS );
     policy.solverWindowReduced = policy.solverRetentionSeconds < policy.requestedRetentionSeconds;
-    policy.budgetClamped = policy.solverWindowReduced ||
-                           policy.presentationRetentionSeconds < policy.requestedRetentionSeconds;
+    policy.budgetClamped = policy.solverWindowReduced || policy.presentationRetentionSeconds < policy.requestedRetentionSeconds;
     return policy;
 }
 
@@ -177,19 +172,14 @@ inline ReplayMemoryPolicy ResolveReplayMemoryPolicyForBodyCapacity( ReplayMemory
     const uint64_t bodyCapacity = static_cast<uint64_t>( (std::max)( 1, runtimeBodyCapacity ) );
     const uint64_t requestedBytes = static_cast<uint64_t>( policy.requestedBudgetMiB ) * 1024u * 1024u;
     const uint64_t retainedBytes = requestedBytes * retainedBudgetNumerator / retainedBudgetDenominator;
-    const uint64_t estimatedBytesPerSecond = bodyCapacity * static_cast<uint64_t>( REPLAY_CAPTURE_TICKS_PER_SECOND ) *
-                                             estimatedBytesPerBodyTick;
-    const int solverMemoryLimitedSeconds = static_cast<int>(
-        (std::max)( static_cast<uint64_t>( REPLAY_SOLVER_MEMORY_POLICY_MIN_SECONDS ),
-                    retainedBytes / estimatedBytesPerSecond ) );
+    const uint64_t estimatedBytesPerSecond = bodyCapacity * static_cast<uint64_t>( REPLAY_CAPTURE_TICKS_PER_SECOND ) * estimatedBytesPerBodyTick;
+    const int solverMemoryLimitedSeconds = static_cast<int>( (std::max)( static_cast<uint64_t>( REPLAY_SOLVER_MEMORY_POLICY_MIN_SECONDS ), retainedBytes / estimatedBytesPerSecond ) );
     const int presentationMemoryLimitedSeconds = (std::max)( REPLAY_MEMORY_POLICY_MIN_SECONDS, solverMemoryLimitedSeconds );
 
-    policy.presentationRetentionSeconds = (std::min)( policy.presentationRetentionSeconds,
-                                                      presentationMemoryLimitedSeconds );
+    policy.presentationRetentionSeconds = (std::min)( policy.presentationRetentionSeconds, presentationMemoryLimitedSeconds );
     policy.solverRetentionSeconds = (std::min)( policy.solverRetentionSeconds, solverMemoryLimitedSeconds );
     policy.solverWindowReduced = policy.solverRetentionSeconds < policy.requestedRetentionSeconds;
-    policy.budgetClamped = policy.solverWindowReduced ||
-                           policy.presentationRetentionSeconds < policy.requestedRetentionSeconds;
+    policy.budgetClamped = policy.solverWindowReduced || policy.presentationRetentionSeconds < policy.requestedRetentionSeconds;
     return policy;
 }
 } // namespace ReplayTimelineOperations
@@ -253,6 +243,14 @@ class ReplayTimeline
     {
         return m_loadedPresentation;
     }
+    uint64_t LiveRecordingEpoch() const noexcept
+    {
+        return m_liveRecordingEpoch;
+    }
+    uint64_t PresentationRevision() const noexcept
+    {
+        return m_presentationRevision;
+    }
     bool RecordingConfigured() const noexcept
     {
         return m_recordingConfigured;
@@ -266,8 +264,7 @@ class ReplayTimeline
         return !m_recordingHashLogPath.empty();
     }
 
-    ReplayRecordingConfigResult ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath,
-                                                    int runtimeBodyCapacity );
+    ReplayRecordingConfigResult ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath, int runtimeBodyCapacity );
     bool SetRecordingEnabled( bool enabled ) noexcept;
     ReplayMemoryPolicyApplyResult ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& request );
     void FlushHashLogs();
@@ -277,11 +274,16 @@ class ReplayTimeline
     // Cold-I/O command: decode and install one retained presentation without
     // exposing temporary sample storage to the composition root.
     bool LoadPresentationArtifact( const char* path );
-    const ReplaySolverFrameSample*
-    CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorldPresentationSample& world,
-                  const ReplayCameraSample& camera, const ReplayLauncherVisualSample& launcherVisual,
-                  Physics::PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay,
-                  std::span<const char* const> entityDisplayNames, const ReplayBranchInfo& branch );
+    const ReplaySolverFrameSample* CaptureFrame( int sceneFrame,
+                                                 float physicsDt,
+                                                 const ReplayWorldPresentationSample& world,
+                                                 const ReplayCameraSample& camera,
+                                                 const ReplayLauncherVisualSample& launcherVisual,
+                                                 Physics::PhysicsEngine& physics,
+                                                 const Gameplay::TornadoGameplay& tornadoGameplay,
+                                                 std::span<const char* const> entityDisplayNames,
+                                                 const ReplayBranchInfo& branch,
+                                                 std::span<const uint8_t> sweepContinuity = {} );
     void RecordEvent( const ReplayEventInput& input );
 
     // Concept: event sequencing belongs to the timeline owner. The caller
@@ -293,8 +295,11 @@ class ReplayTimeline
     void ResetCaptureMismatchDiagnostics() noexcept;
 
   private:
-    void InstallLoadedPresentation( const char* path, std::vector<ReplayPresentationSample>& samples,
-                                    std::size_t bodyDictionaryCount, std::size_t fileBytes, ReplayFrameIndex firstFrame,
+    void InstallLoadedPresentation( const char* path,
+                                    std::vector<ReplayPresentationSample>& samples,
+                                    std::size_t bodyDictionaryCount,
+                                    std::size_t fileBytes,
+                                    ReplayFrameIndex firstFrame,
                                     ReplayFrameIndex lastFrame );
     void ReportLatestCaptureMismatch();
     ReplayRecorder m_presentation;
@@ -310,7 +315,10 @@ class ReplayTimeline
     int m_recordingRuntimeBodyCapacity = 0;
     uint32_t m_captureMismatchReports = 0;
     bool m_captureMismatchSuppressed = false;
+    uint64_t m_liveRecordingEpoch = 1;
+    uint64_t m_presentationRevision = 1;
     bool m_recordingConfigured = false;
+    bool m_captureGapPending = false;
     bool m_recordingEnabled = false;
 };
 

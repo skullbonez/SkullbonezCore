@@ -40,8 +40,19 @@ enum PhysicsDebugFlags : uint32_t
     PHYSICS_DEBUG_SLEEP = 1u << 2,
     PHYSICS_DEBUG_PIPELINE = 1u << 3,
     PHYSICS_DEBUG_TERRAIN_CONTACT = 1u << 4,
-    PHYSICS_DEBUG_ALL = PHYSICS_DEBUG_AXES | PHYSICS_DEBUG_CONTACTS | PHYSICS_DEBUG_SLEEP | PHYSICS_DEBUG_PIPELINE |
-                        PHYSICS_DEBUG_TERRAIN_CONTACT,
+    PHYSICS_DEBUG_NORMALS = 1u << 5,
+    PHYSICS_DEBUG_NORMAL_IMPULSES = 1u << 6,
+    PHYSICS_DEBUG_FRICTION_IMPULSES = 1u << 7,
+    PHYSICS_DEBUG_COM = 1u << 8,
+    PHYSICS_DEBUG_AABBS = 1u << 9,
+    PHYSICS_DEBUG_JOINTS = 1u << 10,
+    PHYSICS_DEBUG_JOINT_ERROR = 1u << 11,
+    PHYSICS_DEBUG_MOTION = 1u << 12,
+    PHYSICS_DEBUG_SELECTED_ONLY = 1u << 13,
+    PHYSICS_DEBUG_SHAPES = 1u << 14,
+    PHYSICS_DEBUG_CONTACT_LAYERS = PHYSICS_DEBUG_CONTACTS | PHYSICS_DEBUG_NORMALS | PHYSICS_DEBUG_NORMAL_IMPULSES | PHYSICS_DEBUG_FRICTION_IMPULSES,
+    PHYSICS_DEBUG_TEST_IMPULSE = 1u << 15,
+    PHYSICS_DEBUG_ALL = ( 1u << 16 ) - 1u,
 };
 
 enum class PhysicsPipelineStage : uint8_t
@@ -143,6 +154,11 @@ struct PhysicsDebugContact
     Math::Vector::Vector3 tangent2 = Math::Vector::ZERO_VECTOR;
     float penetration = 0.0f;
     float normalImpulse = 0.0f;
+    // Live solver impulse convention: + on B, - on A. Terrain's displayed
+    // outward normal is separate from the solver row's signed normal.
+    Math::Vector::Vector3 solverNormal = Math::Vector::ZERO_VECTOR;
+    float tangentImpulse1 = 0, tangentImpulse2 = 0;
+    uint32_t sceneObjectA = 0, sceneObjectB = 0;
 
     // Velocity target attributable only to overlap separation. Restitution
     // leaves this zero so energy audits cannot disguise bounce as repair work.

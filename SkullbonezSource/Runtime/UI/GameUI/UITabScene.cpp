@@ -1057,7 +1057,7 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
         if ( IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_PLAYBACK_BUTTON_Y, 24.0f ) )
         {
             const auto& accent = Style::Accent();
-            state.pauseLockToggle.DrawToggle( draw, "Pause lock", data.crossScenePauseLocked, accent.r, accent.g, accent.b );
+            state.pauseLockToggle.DrawToggle( draw, "Pause across scenes", data.crossScenePauseLocked, accent.r, accent.g, accent.b );
             UIVisualState buttonState = UIVisualState::Visible;
             if ( data.crossScenePauseLocked )
             {

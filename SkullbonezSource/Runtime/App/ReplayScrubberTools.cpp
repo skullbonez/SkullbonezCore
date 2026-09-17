@@ -171,7 +171,9 @@ bool ReplayScrubber::BuildRestoreRequest( const ReplayScrubberRestoreSources& so
         return true;
     }
 
-    if ( m_state.historicalSamplePaused && m_state.activeTrack == RunReplayTrack::Solver && sources.solverSample )
+    const bool matchingPresentation = m_state.activeTrack == RunReplayTrack::Presentation && sources.presentationSample && sources.solverSample &&
+                                      sources.presentationSample->frameIndex == sources.solverSample->frameIndex;
+    if ( m_state.historicalSamplePaused && sources.solverSample && ( m_state.activeTrack == RunReplayTrack::Solver || matchingPresentation ) )
     {
         outRequest.kind = ReplayLiveRestoreKind::SolverSample;
         outRequest.solverSample = sources.solverSample;
@@ -787,13 +789,15 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
                                                     ReplayWorkspaceOutput& output )
 {
     ReplayCauseInspection& transition = m_planningOwner.CauseInspection();
+    const bool wasTransporting = transition.View().Transport().mode == ReplayCauseInspectionMode::Transporting;
     transition.Advance( input.now );
     const ReplayCauseInspectionView view = transition.View();
 
-    if ( view.Transport().mode == ReplayCauseInspectionMode::Transporting )
+    if ( wasTransporting )
     {
-        // Invariant: the same Planning-owned sample selects replay time and the
-        // visible detail-camera pose. CameraCollection owns interpolation only.
+        // Invariant: Planning owns the camera curve through its final sample.
+        // Equal-time selections can finish inside Advance without a restore;
+        // omitting their endpoint restarts CameraCollection's fallback clock.
         world.Cameras().SetTweenProgress( view.Transport().easedProgress );
     }
 
@@ -2285,11 +2289,17 @@ void ReplayRuntime::EnterReplayTransportWorkspace( RuntimeInteractionController&
 }
 
 
+RunReplayTrack ReplayRuntime::TransportTrackForCurrentData() const
+{
+    const bool predictionAvailable = !HasLoadedPresentation() && ( Prediction().ActiveFrames().size() >= 2u || Prediction().State().BuildPrefixShouldBePresented() );
+    return predictionAvailable ? RunReplayTrack::Solver : RunReplayTrack::Presentation;
+}
+
 bool ReplayRuntime::SetTransportCursor( float normalized, RuntimeInteractionController& interaction, double now, ReplayWorkspaceOutput& output )
 {
     const bool loaded = HasLoadedPresentation();
     const bool predictionAvailable = !loaded && ( Prediction().ActiveFrames().size() >= 2u || Prediction().State().BuildPrefixShouldBePresented() );
-    const RunReplayTrack track = loaded || !predictionAvailable ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
+    const RunReplayTrack track = TransportTrackForCurrentData();
     const std::size_t retainedCount = track == RunReplayTrack::Presentation ? ( loaded ? m_timeline.LoadedPresentation().samples.size() : m_timeline.Presentation().GetStats().sampleCount )
                                                                             : m_timeline.Solver().GetStats().sampleCount;
 
@@ -2427,19 +2437,37 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayScrubCommand& command, Ru
 
 bool ReplayRuntime::SeekReplayFrame( ReplayFrameIndex frame, RuntimeInteractionController& interaction, double now, ReplayWorkspaceOutput& output, ReplayFrameIndex& appliedFrame )
 {
-    const RunReplayTrack track = m_scrubberOwner.View().activeTrack;
+    // SetTransportCursor chooses the available track. Resolve this request in
+    // that same track before changing modes: solver and presentation windows
+    // can retain different oldest frames, even when their newest tick agrees.
+    const RunReplayTrack track = TransportTrackForCurrentData();
+    if ( HasLoadedPresentation() )
+    {
+        const auto& samples = m_timeline.LoadedPresentation().samples;
+        if ( samples.empty() )
+        {
+            return false;
+        }
+        auto found = std::lower_bound( samples.begin(), samples.end(), frame, []( const ReplayPresentationSample& sample, ReplayFrameIndex value ) { return sample.frameIndex < value; } );
+        if ( found == samples.end() )
+        {
+            found = samples.end() - 1;
+        }
+        appliedFrame = found->frameIndex;
+        const float normalized = samples.size() > 1 ? static_cast<float>( found - samples.begin() ) / static_cast<float>( samples.size() - 1 ) : 0;
+        return SetTransportCursor( normalized, interaction, now, output );
+    }
     const ReplayRecorderStats stats = track == RunReplayTrack::Solver ? m_timeline.Solver().GetStats() : m_timeline.Presentation().GetStats();
-
-    if ( stats.sampleCount == 0u )
+    if ( stats.sampleCount == 0 )
     {
         return false;
     }
-
     const ReplayFrameIndex oldest = stats.nextFrameIndex - static_cast<ReplayFrameIndex>( stats.sampleCount );
-    const ReplayFrameIndex newest = stats.nextFrameIndex - 1u;
+    const ReplayFrameIndex newest = stats.nextFrameIndex - 1;
     appliedFrame = std::clamp( frame, oldest, newest );
-    const float normalized = stats.sampleCount > 1u ? static_cast<float>( appliedFrame - oldest ) / static_cast<float>( stats.sampleCount - 1u ) : 0.0f;
-    return SetTransportCursor( normalized, interaction, now, output );
+    const float normalized = stats.sampleCount > 1 ? static_cast<float>( appliedFrame - oldest ) / static_cast<float>( stats.sampleCount - 1 ) : 0;
+    const float position = track == RunReplayTrack::Solver ? normalized * SolverPresentTrackPosition() : normalized;
+    return SetTransportCursor( position, interaction, now, output );
 }
 
 
@@ -2535,6 +2563,13 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayRestoreBranchCommand&, Ru
     sources.hasLoadedPresentation = HasLoadedPresentation();
     sources.presentationSample = CurrentScrubSample();
     sources.solverSample = CurrentSolverScrubSample();
+    if ( !sources.hasLoadedPresentation && sources.presentationSample && !sources.solverSample )
+    {
+        // The presentation window may outlive solver retention. Restore only
+        // the exact selected frame when its solver state is still retained;
+        // never clamp an older presentation target into a newer solver frame.
+        sources.solverSample = m_timeline.Solver().SampleAtFrame( sources.presentationSample->frameIndex );
+    }
     sources.loadedPresentationPath = m_timeline.LoadedPresentation().path;
     HandleReplayBranchPressed( m_scrubberOwner, interaction, sources, now, output.restoreRequest );
 }

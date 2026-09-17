@@ -39,6 +39,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
+#include "PhysicsRuntimeSettings.h"
 
 #include "PhysicsDebugData.h"
 #include "PersistentContactSolver.h"
@@ -56,6 +57,7 @@ inline constexpr const char* PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER = "replay_sol
 // v8 remains the exact primitive encoding; v9 adds hull contact geometry.
 inline constexpr uint32_t PHYSICS_SOLVER_SNAPSHOT_VERSION = 8u;
 inline constexpr uint32_t PHYSICS_HULL_SOLVER_SNAPSHOT_VERSION = 9u;
+inline constexpr uint32_t PHYSICS_SETTINGS_SOLVER_SNAPSHOT_VERSION = 10u;
 
 // Test probe: the strict two-generation prediction probe measured 3,401,552 bytes.
 // Eight MiB preserves 2.466112x measured headroom.
@@ -151,6 +153,7 @@ struct PhysicsSolverSnapshot
     // Physics-owned continuation state. The caller records body poses; this
     // snapshot carries solver caches and optional full-inertia products.
     uint32_t version = PHYSICS_SOLVER_SNAPSHOT_VERSION;
+    PhysicsSettingsPacket settings {};
     int modelCount = 0;
     int nextSleepIslandVisualId = 1;
     bool sleepEnabled = true;
@@ -192,6 +195,7 @@ struct PhysicsSolverSnapshot
         // Clear logical state without replacing vectors so the reserve-phase
         // storage remains registered and reusable by the next prediction.
         version = PHYSICS_SOLVER_SNAPSHOT_VERSION;
+        settings = {};
         modelCount = 0;
         nextSleepIslandVisualId = 1;
         sleepEnabled = true;

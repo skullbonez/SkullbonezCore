@@ -189,6 +189,13 @@ struct TerrainGraphInvocation
     const TerrainPassInputs* inputs = nullptr;
 };
 
+struct GrassGraphInvocation
+{
+    SkullbonezCore::Rendering::Dx12GeometryOwner* geometry = nullptr;
+    const RenderCameraLighting* camera = nullptr;
+    std::span<const float> patches;
+};
+
 struct WaterGraphInvocation
 {
     WaterPass* waterPass = nullptr;
@@ -424,6 +431,21 @@ void ExecuteTerrainGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
     }
 
     data.terrainPass->Render( *data.inputs );
+}
+
+void ExecuteGrassGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext&, GrassGraphInvocation& data )
+{
+    if ( !data.geometry || !data.camera )
+    {
+        SB_FATAL( "RunRender", "Grass graph callback missing execution data." );
+    }
+    const auto raster = SkullbonezCore::Rendering::MakePassRasterStateBucket( 0, { true,
+                                                                                   true,
+                                                                                   false,
+                                                                                   SkullbonezCore::Rendering::BlendFactor::One,
+                                                                                   SkullbonezCore::Rendering::BlendFactor::Zero,
+                                                                                   SkullbonezCore::Rendering::CullMode::None } );
+    data.geometry->DrawTransientColoredTriangles( data.patches, data.camera->viewProjection, SkullbonezCore::Rendering::TransientTriangleStyle::SurfaceBlades, raster );
 }
 
 void ExecuteWaterGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, WaterGraphInvocation& data )
@@ -1263,6 +1285,24 @@ void RuntimeRenderer::ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs
 }
 
 
+void RuntimeRenderer::ExecuteGrassThroughRenderGraph( const RenderCameraLighting& camera, std::span<const float> patches, bool useCinematicTarget )
+{
+    if ( patches.empty() )
+    {
+        return;
+    }
+    Rendering::RenderGraph& graph = BeginRenderPassGraph();
+    const uint32_t pass = graph.AddPass( "GrassPass", Rendering::RenderGraphQueueType::Graphics );
+    AddFrameTargetWrites( graph, pass, useCinematicTarget );
+    GrassGraphInvocation data { &m_resources.RenderGeometry(), &camera, patches };
+    graph.SetPassCallback<ExecuteGrassGraphCallback>( pass, data, true, "Frame/Render/Grass" );
+    CompileRenderPassGraph( graph );
+    PROFILE_GPU_BEGIN( &m_resources.GpuTiming(), "Frame/Render/Grass" );
+    DRAW_CALL_TRACE_SCOPE( m_resources.RenderDiagnostics(), "Frame/Render/Grass" );
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "Grass" );
+    PROFILE_GPU_END( &m_resources.GpuTiming(), "Frame/Render/Grass" );
+}
+
 void RuntimeRenderer::ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs )
 {
     const WaterPassInputs& pass = inputs.pass;
@@ -1816,6 +1856,18 @@ void RuntimeRenderer::UpdateDebugVisualizers( float secondsPerFrame, const Runti
 
     PROFILE_BEGIN( "Frame/PostPhysics/BroadphaseVisualizer" );
     m_broadphaseVisualizer.SetEnabled( policy.broadphaseOverlay );
+    const auto selectedHandle = debug.physics.bodyStore.HandleForSceneObjectId( { policy.physicsSelectedBody } );
+    const int selectedRow = debug.physics.bodyStore.ModelIndexForHandle( selectedHandle );
+    const bool hasSelectedBounds = selectedRow >= 0 && selectedRow < static_cast<int>( debug.physics.colliders.Records().size() );
+    Math::Vector::Vector3 selectedCenter;
+    float selectedRadius = 0;
+    if ( hasSelectedBounds )
+    {
+        selectedCenter = Physics::PhysicsBodyPosition( debug.physics.bodyStore.HotFields(), static_cast<std::size_t>( selectedRow ) );
+        const auto& collider = debug.physics.colliders.Records()[static_cast<std::size_t>( selectedRow )];
+        selectedRadius = collider.boundingRadius + Math::Vector::VectorMag( Math::CollisionDetection::GetShapePosition( collider.shape ) );
+    }
+    m_broadphaseVisualizer.SetSelectionFilter( ( policy.physicsDebugFlags & Physics::PHYSICS_DEBUG_SELECTED_ONLY ) != 0, hasSelectedBounds, selectedCenter, selectedRadius );
 
     if ( policy.broadphaseOverlay )
     {
@@ -1839,6 +1891,10 @@ void RuntimeRenderer::UpdateDebugVisualizers( float secondsPerFrame, const Runti
 
     PROFILE_BEGIN( "Frame/PostPhysics/PhysicsDebugVisualizer" );
     m_physicsDebugVisualizer.SetFlags( policy.physicsDebugFlags );
+    m_physicsDebugVisualizer.SetSelectedBody( policy.physicsSelectedBody );
+    const auto& testImpulse = policy.physicsTestImpulse;
+    m_physicsDebugVisualizer.SetTestImpulse( { Math::Vector::Vector3 { testImpulse[0][0], testImpulse[0][1], testImpulse[0][2] }, { testImpulse[1][0], testImpulse[1][1], testImpulse[1][2] }, { testImpulse[2][0], testImpulse[2][1], testImpulse[2][2] } } );
+    m_physicsDebugVisualizer.SetImpulseDisplay( policy.physicsImpulseScale, policy.physicsImpulseThreshold );
     m_physicsDebugVisualizer.SetContactLingerSeconds( policy.physicsDebugContactLinger );
     m_physicsDebugVisualizer.SetPipelineStageCursor( policy.physicsDebugPipelineStageCursor );
     m_physicsDebugVisualizer.Update( secondsPerFrame, debug.physics.physicsDebugContacts );
@@ -2042,6 +2098,16 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
         m_shadowPass.EnsureGpuResources( renderResources, *activeShadowConfig );
     }
 
+    m_presentHistoricalGrass = policy.grassEnabled && policy.grassHistorical;
+    std::span<const float> grassPatches;
+    if ( policy.grassEnabled && !policy.terrainHidden && world.terrain )
+    {
+        auto& grass = policy.grassHistorical ? m_historicalGrass : m_grass;
+        const Vector3 grassLight( camera.lightPosition[0], camera.lightPosition[1], camera.lightPosition[2] );
+        const Vector3 grassTint( ordinaryLighting.ambientStrength * .4f + ordinaryLighting.sunColorR * ordinaryLighting.sunIntensity * .6f, ordinaryLighting.ambientStrength * .4f + ordinaryLighting.sunColorG * ordinaryLighting.sunIntensity * .6f, ordinaryLighting.ambientStrength * .4f + ordinaryLighting.sunColorB * ordinaryLighting.sunIntensity * .6f );
+        grassPatches = grass.Prepare( *world.terrain, camera.eye, policy.grassHistoryAvailable, grassLight, grassTint, camera.viewProjection );
+    }
+
     ShadowPassOutput shadowPass;
     bool shadowPassExecuted = false;
 
@@ -2062,7 +2128,9 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
                                               windowHeight,
                                               activeShadowConfig,
                                               policy.terrainHidden,
-                                              policy.collisionVisualizer };
+                                              policy.collisionVisualizer,
+                                              &renderGeometry,
+                                              grassPatches };
 
         shadowPass = ExecuteShadowThroughRenderGraph( shadowInputs );
 
@@ -2201,6 +2269,9 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
 
     ExecuteTerrainThroughRenderGraph( { terrainInputs, useCinematicTarget } );
 
+    ExecuteGrassThroughRenderGraph( camera, grassPatches, useCinematicTarget );
+
+
     // Water is deliberately downstream of ReflectionPass; it samples the
     // reflection texture but never rebuilds it.
     const WaterPassInputs waterInputs { camera,
@@ -2332,6 +2403,13 @@ bool RuntimeRenderer::RenderFrameOverlays( const WorldOverlayTransaction& world,
                                                                         m_resources.GpuTiming(),
                                                                         world.m_windowWidth,
                                                                         world.m_windowHeight } );
+    }
+
+    if ( ( world.m_policy.physicsDebugFlags & ( Physics::PHYSICS_DEBUG_NORMAL_IMPULSES | Physics::PHYSICS_DEBUG_FRICTION_IMPULSES ) ) != 0 )
+    {
+        const UiTextViewport viewport { world.m_windowWidth, world.m_windowHeight };
+        const auto& labels = m_resources.UiText().BuildContactLabels( m_physicsDebugVisualizer.ContactLabels(), world.m_camera.viewProjection, viewport );
+        SubmitUiDrawList( labels, viewport );
     }
 
     m_frameGraphSnapshot.volumetricPassExecuted = cinematicPostOutput.volumetricPassExecuted;

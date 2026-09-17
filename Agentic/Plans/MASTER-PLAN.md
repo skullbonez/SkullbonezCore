@@ -1,9 +1,16 @@
 # MASTER PLAN
 
 Date: 2026-09-16
-Status: 145/152 tasks complete; CONVEX_HULL active at 7/8; BASELINE_REPAIR complete at 1/1; PHYSICS_SCALE complete at 7/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
+Status: 158/167 tasks complete; INTERACTIVE_GRASS at 6/7 terminal validation; PHYSICS_WINDOW at 7/8 terminal validation; CONVEX_HULL active at 7/8; BASELINE_REPAIR complete at 1/1; PHYSICS_SCALE complete at 7/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
 
 ## Owner Direction
+
+- On 2026-09-17 the owner authorized one combined Night Runner PR containing
+  the current Split Future workspace (including PRs #173/#174), all Catto
+  work, Interactive Grass and Physics Tool Window. Implement grass first,
+  enabled only in the demo scene, then the complete current-solver window.
+  Both WNF plans are reactivated; selectable solver algorithms stay parked.
+  Validate the integrated result and obtain green CI; do not merge the PR.
 
 - On 2026-09-16 the owner activated CONVEX_HULL after PR #172 and confirmed
   implementation plus all permanent hull scenes with varying terrain. Start from
@@ -537,6 +544,8 @@ returns the live inventory to 138/144. PHYSICS_AB remains queued at 0/6.
 
 | Plan | Code | Total | Complete | Next task | File |
 |---|---|---|---|---|---|
+| Interactive Grass For Legacy Rendering | `INTERACTIVE_GRASS` | 7 | 6 | IG6: terminal closure | `TODO/interactive-legacy-grass.md` |
+| Physics Tool Window Beside Causal | `PHYSICS_WINDOW` | 8 | 7 | PW7: terminal closure | `TODO/physics-tool-window.md` |
 | Convex Hull Collision Response And Sleep Quality | `CONVEX_HULL` | 8 | 7 | CH7: owner visual/cost review | `TODO/convex-hull-collision-response-and-sleep.md` |
 | Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
 
@@ -567,8 +576,6 @@ an owner decision, not a run decision.
 | Selectable Solvers 1: Skullbonez Foundation | Owner-parked 2026-09-17 | 0/5 | `WNF/selectable-solvers-01-foundation.md` |
 | Selectable Solvers 2: Eight Solver Implementations | Owner-parked 2026-09-17 | 0/14 | `WNF/selectable-solvers-02-tgs.md` |
 | Selectable Solvers 3: Product Integration And Acceptance | Owner-parked 2026-09-17 | 0/6 | `WNF/selectable-solvers-03-integration.md` |
-| Physics Tool Window Beside Causal | Owner-parked 2026-09-17 | 0/8 | `WNF/physics-tool-window.md` |
-| Interactive Grass For Legacy Rendering | Owner-parked 2026-09-17 | 0/7 | `WNF/interactive-legacy-grass.md` |
 
 Owner scope revision, 2026-09-17: the three selectable-solver plans preserve
 the custom **Skullbonez** solver and add eight separate implementations: PGS,
@@ -586,6 +593,11 @@ One detail in that table is recorded:
   disagree with the directory. A review decision should settle which it is.
 
 ## Binding Order
+
+Owner override 2026-09-17: integrate the existing branches/workspace and Catto
+changes on `nightrunner-17th-SEP-26`, complete INTERACTIVE_GRASS IG0-IG6, then
+PHYSICS_WINDOW PW0-PW7 and the combined PR gates. Current portfolio is 145/167.
+Earlier queue notes below are historical and do not override this request.
 
 CONVEX_HULL CH7 remains: obtain owner visual/cost review. Required mechanical
 lanes pass after harness repairs and fresh current-build UI captures. CH0-CH6 are complete. Retain the owning TODO plan for
@@ -641,7 +653,8 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-Current live total: **145/152**, including CONVEX_HULL 7/8 and PHYSICS_AB 0/6.
+Current live total: **158/167**, including INTERACTIVE_GRASS 6/7, PHYSICS_WINDOW
+7/8, CONVEX_HULL 7/8 and PHYSICS_AB 0/6. Reactivation adds 15 phases.
 Activation adds eight incomplete phases to the prior 138/144 inventory.
 
 The prior portfolio remains 143/143 complete and all 126 bug-ledger rows are

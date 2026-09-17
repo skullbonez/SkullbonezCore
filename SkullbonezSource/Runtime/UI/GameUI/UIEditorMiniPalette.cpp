@@ -485,6 +485,19 @@ float RenderValueForParam( const SkullbonezCore::Core::OrdinaryRenderConfig& ord
         return ordinary.replayTrajectory.markerEdgeFeather;
     case UIRenderParam::TrajectorySelectedEmphasis:
         return ordinary.replayTrajectory.selectedEmphasis;
+    case UIRenderParam::GrassQuality:
+        return ordinary.grass.quality;
+    case UIRenderParam::GrassDensity:
+        return ordinary.grass.density;
+    case UIRenderParam::GrassDistance:
+        return ordinary.grass.distance;
+    case UIRenderParam::GrassHeight:
+        return ordinary.grass.height;
+    case UIRenderParam::GrassBend:
+        return ordinary.grass.bend;
+    case UIRenderParam::GrassRecovery:
+        return ordinary.grass.recoverySeconds;
+
     default:
         return 0.0f;
     }

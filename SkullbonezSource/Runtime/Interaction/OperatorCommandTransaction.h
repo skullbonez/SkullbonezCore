@@ -96,14 +96,10 @@ class OperatorCommandPhaseCursor
 
     static constexpr bool IsLegalTransition( Phase from, Phase to )
     {
-        return ( from == Phase::Idle && to == Phase::DeviceAndMode ) ||
-               ( from == Phase::DeviceAndMode && to == Phase::PhysicsControl ) ||
-               ( from == Phase::PhysicsControl && to == Phase::RuntimePresentation ) ||
-               ( from == Phase::RuntimePresentation && to == Phase::SimulationPolicy ) ||
-               ( from == Phase::SimulationPolicy && to == Phase::PhysicsMaterial ) ||
-               ( from == Phase::PhysicsMaterial && to == Phase::WorldPolicy ) ||
-               ( from == Phase::WorldPolicy && to == Phase::CinematicPolicy ) ||
-               ( from == Phase::CinematicPolicy && to == Phase::Complete );
+        return ( from == Phase::Idle && to == Phase::DeviceAndMode ) || ( from == Phase::DeviceAndMode && to == Phase::PhysicsControl ) ||
+               ( from == Phase::PhysicsControl && to == Phase::RuntimePresentation ) || ( from == Phase::RuntimePresentation && to == Phase::SimulationPolicy ) ||
+               ( from == Phase::SimulationPolicy && to == Phase::PhysicsMaterial ) || ( from == Phase::PhysicsMaterial && to == Phase::WorldPolicy ) ||
+               ( from == Phase::WorldPolicy && to == Phase::CinematicPolicy ) || ( from == Phase::CinematicPolicy && to == Phase::Complete );
     }
 
     bool TryAdvance( Phase next )
@@ -175,19 +171,27 @@ class OperatorCommandTransaction
     OperatorCommandTransaction( const OperatorCommandTransaction& ) = delete;
     OperatorCommandTransaction& operator=( const OperatorCommandTransaction& ) = delete;
 
+    // UI and automation share the same bounded, typed render-setting mutation.
+    static void ApplyOrdinaryRenderParam( Core::OrdinaryRenderConfig& ordinary, UI::UIRenderParam param, float rawValue );
     void ApplyDeviceAndMode( RuntimeRenderer& renderer, Rendering::Dx12RenderDevice& renderDevice );
     void ApplyPhysicsControl( SceneWorld& world );
-    void ApplyRuntimePresentation( OverlayDebugState& debug, SceneSessionState& scene, Core::EngineConfig& config,
-                                   RunLaunchOptions& launchOptions, RenderDefaultsStore& renderDefaults, bool graphicsReady,
+    void ApplyRuntimePresentation( OverlayDebugState& debug,
+                                   SceneSessionState& scene,
+                                   Core::EngineConfig& config,
+                                   RunLaunchOptions& launchOptions,
+                                   RenderDefaultsStore& renderDefaults,
+                                   bool graphicsReady,
                                    double simulationSeconds );
-    void ApplySimulationPolicy( SceneSessionState& scene, UI::RunSceneUIOverrideState& uiOverrides,
-                                Core::EngineConfig& config, Threading::WorkerPool& workerPool );
+    void ApplySimulationPolicy( SceneSessionState& scene, UI::RunSceneUIOverrideState& uiOverrides, Core::EngineConfig& config, Threading::WorkerPool& workerPool );
     void ApplyPhysicsMaterial( Core::EngineConfig& config, SceneWorld& world );
     void ApplyWorldPolicy( Environment::WorldEnvironment& world );
-    void ApplyCinematicPolicy( RunLaunchOptions& launchOptions, SceneController& sceneController,
-                               UI::RunSceneBrowserState& sceneBrowser, const Assets::AssetSystem& assets,
+    void ApplyCinematicPolicy( RunLaunchOptions& launchOptions,
+                               SceneController& sceneController,
+                               UI::RunSceneBrowserState& sceneBrowser,
+                               const Assets::AssetSystem& assets,
                                Core::CinematicRenderConfig& activeCinematic,
-                               const Core::CinematicRenderConfig& defaultCinematic, RenderDefaultsStore& renderDefaults );
+                               const Core::CinematicRenderConfig& defaultCinematic,
+                               RenderDefaultsStore& renderDefaults );
     void Complete();
 
     OperatorCommandPhaseCursor::Phase Phase() const
@@ -204,7 +208,7 @@ class OperatorCommandTransaction
     friend struct OperatorCommandTransactionTestAccess;
 
     void AdvanceOrFatal( OperatorCommandPhaseCursor::Phase next, const char* operation );
-    static void ApplyOrdinaryRenderParam( Core::OrdinaryRenderConfig& ordinary, UI::UIRenderParam param, float rawValue );
+
 
     UI::InGameUICommands m_commands;
     OperatorCommandAcceptanceLedger m_acceptance;

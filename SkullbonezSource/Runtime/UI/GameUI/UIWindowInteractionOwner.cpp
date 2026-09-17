@@ -180,13 +180,24 @@ void UIWindowInteractionOwner::UpdatePresentationInput( const InputControl::UIIn
         if ( m_presentationRects.detailsReplayTab.Contains( input.mouseX, input.mouseY ) )
         {
             m_presentation.detailsCauses = false;
+            m_presentation.preferences.physicsPeer = false;
             m_tooltip.Dismiss();
         }
         else if ( m_presentationRects.detailsCausesTab.Contains( input.mouseX, input.mouseY ) )
         {
             m_presentation.detailsCauses = true;
+            m_presentation.preferences.physicsPeer = false;
             m_tooltip.Dismiss();
         }
+    }
+    if ( input.leftPressed && !HasOpenPopup() && !input.rightDown && !input.middleDown && m_presentationRects.physicsTab.Contains( input.mouseX, input.mouseY ) )
+    {
+        CancelActiveSliderPreview();
+        m_presentation.preferences.physicsPeer = true;
+        m_presentation.preferences.rightFolded = false;
+        m_presentation.detailsOpen = true;
+        m_presentationPressHandled = true;
+        m_tooltip.Dismiss();
     }
     UpdateDockPresentationInput( input );
     UpdateToolsDrawerBounds( input, width, height );
@@ -361,6 +372,7 @@ void UIWindowInteractionOwner::UpdateDockPresentationInput( const InputControl::
         else if ( m_presentationRects.causeTab.Contains( input.mouseX, input.mouseY ) )
         {
             m_presentation.preferences.rightFolded = false;
+            m_presentation.preferences.physicsPeer = false;
             m_tooltip.Dismiss();
             m_presentationPressHandled = true;
         }
@@ -419,6 +431,84 @@ bool UIWindowInteractionOwner::HandleEditorDockInput( const InputControl::UIInpu
         {
             result.commands.ui.userInteracted = true;
         }
+    }
+    return true;
+}
+
+bool UIWindowInteractionOwner::HandlePhysicsDockInput( const InputControl::UIInputSnapshot& input, InGameUIInputResult& result )
+{
+    const auto& header = m_presentationRects.physicsHeader;
+    if ( m_presentationEnabled && !HasOpenPopup() && header.w > 0 && header.Contains( m_mouseX, m_mouseY ) )
+    {
+        m_blocksCameraMouse = true;
+        result.unhandledWheelDelta = 0;
+        if ( input.leftPressed )
+        {
+            const float localY = m_mouseY - header.y;
+            if ( localY >= 24 && localY < 50 && m_physicsTab.liveEditable )
+            {
+                const int button = std::clamp( static_cast<int>( ( m_mouseX - header.x ) * 3 / header.w ), 0, 2 );
+                if ( button == 0 )
+                {
+                    result.commands.scene.toggleCrossScenePause = true;
+                }
+                if ( button == 1 )
+                {
+                    result.commands.scene.requestSingleStep = true;
+                }
+                if ( button == 2 )
+                {
+                    result.commands.scene.resetScene = true;
+                }
+            }
+            else if ( localY >= 54 && localY < 108 )
+            {
+                CancelActiveSliderPreview();
+                m_presentation.physicsSectionScroll[m_presentation.preferences.physicsSection] = m_presentation.physicsScroll;
+                m_presentation.preferences.physicsSection = ( localY >= 81 ? 2 : 0 ) + ( m_mouseX >= header.x + header.w * 0.5f ? 1 : 0 );
+                m_presentation.physicsScroll = m_presentation.physicsSectionScroll[m_presentation.preferences.physicsSection];
+            }
+            result.commands.ui.userInteracted = true;
+        }
+        return true;
+    }
+    m_physicsTab.section = m_presentation.preferences.physicsSection;
+    const UIRect& bounds = m_presentationRects.physicsControls;
+    const bool captured = m_activeSlider >= PhysicsTab::SLIDER_PHYSICS_BASE && m_activeSlider < PhysicsTab::SLIDER_PHYSICS_BASE + 100;
+    if ( !m_presentationEnabled || m_interaction.isResizing || HasOpenPopup() || bounds.w <= 0 || ( !captured && !bounds.Contains( m_mouseX, m_mouseY ) ) )
+    {
+        return false;
+    }
+    m_blocksCameraMouse = true;
+    result.unhandledWheelDelta = 0;
+    const float maximum = (std::max)( 0.0f, static_cast<float>( PhysicsTab::ContentHeight( m_physicsTab.section, m_physicsTab.advancedOpen, m_physicsTab.tornadoOpen ) ) - bounds.h );
+    m_presentation.physicsScroll = std::clamp( m_presentation.physicsScroll - input.wheelDelta * ( 34.0f / 120.0f ), 0.0f, maximum );
+    if ( captured )
+    {
+        if ( input.leftDown )
+        {
+            PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result );
+        }
+        if ( input.leftReleased )
+        {
+            PhysicsTab::CommitActiveSlider( m_physicsTab, m_activeSlider, result );
+            m_activeSlider = 0;
+            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
+        }
+        else if ( !input.leftDown )
+        {
+            CancelActiveSliderPreview();
+            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
+        }
+    }
+    else if ( input.leftPressed )
+    {
+        PhysicsTab::HandleContentClick( m_physicsTab, result, m_activeSlider, m_mouseX, m_mouseY, bounds.x, bounds.y + 42 - m_presentation.physicsScroll, bounds.w );
+        if ( m_activeSlider != 0 )
+        {
+            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
+        }
+        result.commands.ui.userInteracted = true;
     }
     return true;
 }
@@ -1824,19 +1914,14 @@ bool UIWindowInteractionOwner::HandleDiagnosticTabPress( const InputControl::UII
     }
     else if ( layout.inContent && m_activeTab == InGameUITab::Physics )
     {
-        const float contentX = layout.ContentX();
-        const float rowBase = static_cast<float>( layout.contentY ) + 42.0f - m_scrollY;
-        const float contentW = layout.ContentWidth();
-        const int previousActiveSlider = m_activeSlider;
-
-        if ( PhysicsTab::HandleContentClick( m_physicsTab, result, m_activeSlider, m_mouseX, m_mouseY, contentX, rowBase, contentW ) && m_activeSlider != 0 && m_activeSlider != previousActiveSlider )
+        const UIRect open { layout.ContentX(), layout.ScrolledY( m_scrollY ) + 20, (std::min)( 240.0f, layout.ContentWidth() ), 30 };
+        if ( open.Contains( m_mouseX, m_mouseY ) )
         {
-            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
+            m_presentation.preferences.physicsPeer = true;
+            m_presentation.preferences.rightFolded = false;
+            m_presentation.detailsOpen = true;
+            result.commands.ui.userInteracted = true;
         }
-
-        m_rendererCombo.Close();
-        CinematicTab::CloseCombo( m_cinematicTab );
-        m_editorTab.objectCombo.Close();
     }
     else if ( layout.inContent && m_activeTab == InGameUITab::Options )
     {
@@ -2318,7 +2403,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
     {
         return result;
     }
-    if ( HandleEditorDockInput( input, result ) )
+    if ( HandlePhysicsDockInput( input, result ) || HandleEditorDockInput( input, result ) )
     {
         return result;
     }
@@ -2368,6 +2453,13 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
             {
                 result.commands.run.requestedCameraMode = 2;
             }
+        }
+        if ( input.leftPressed && ComputeHeaderRects( m_presentationRects.header, m_presentation.workspace ).physics.Contains( m_mouseX, m_mouseY ) )
+        {
+            m_presentation.preferences.physicsPeer = true;
+            m_presentation.preferences.rightFolded = false;
+            m_presentation.detailsOpen = true;
+            result.commands.ui.userInteracted = true;
         }
         // Presentation clicks do not enter the interactive scene or mutate
         // simulation state. The router still observes mouse capture below.

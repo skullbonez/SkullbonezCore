@@ -424,7 +424,8 @@ Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail 
 {
     const auto loading = BuildCauseLoading( replay );
     const auto inspector = BuildReplayCauseInspectorLayout( replay.causeInspection, replay.causeTree, 0, 0, replay.causeInspection.drawerProgress );
-    Json payload = { { "rowCount", replay.causeTree.rows.size() },
+    Json payload = { { "visibleRowCount", replay.causeVisibleRowCount },
+                     { "rowCount", replay.causeTree.rows.size() },
                      { "window", { replay.causeTree.x, replay.causeTree.y, replay.causeTree.width, replay.causeTree.height } },
                      { "loading", loading.active },
                      { "loadingProgress", loading.progress },
@@ -487,6 +488,27 @@ Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail 
                               { "detail", row.detail } } );
         }
         payload["rows"] = std::move( rows );
+        // Publish the drawing projection so native tests can distinguish an
+        // accepted filter click from an actual change to displayed evidence.
+        Json visibleRows = Json::array();
+
+        for ( std::size_t sourceRow = 0; sourceRow < replay.causeTree.rows.size(); ++sourceRow )
+        {
+            if ( replay.causeVisibleRows.test( sourceRow ) )
+            {
+                visibleRows.push_back( sourceRow );
+            }
+        }
+
+        payload["visibleRows"] = std::move( visibleRows );
+        Json filterBounds = Json::array();
+
+        for ( const auto& bounds : replay.causeFilterBounds )
+        {
+            filterBounds.push_back( { bounds.x, bounds.y, bounds.w, bounds.h } );
+        }
+
+        payload["filterBounds"] = std::move( filterBounds );
     }
     return payload;
 }
@@ -1007,6 +1029,15 @@ void BuildSkarnessStateTopics( const SkarnessFrameState& state, const ReplayAuto
                            { "gravityGridFirstSourceId", state.presentation.gravityGridFirstSourceId },
                            { "gravityGridFirstSourcePosition", state.presentation.gravityGridFirstSourcePosition },
                            { "gravityGridMinimumHeight", state.presentation.gravityGridMinimumHeight },
+                           { "grassEnabled", state.presentation.grassEnabled },
+                           { "grassTick", state.presentation.grassTick },
+                           { "grassPatchCount", state.presentation.grassPatchCount },
+                           { "grassStampedCells", state.presentation.grassStampedCells },
+                           { "grassDroppedCells", state.presentation.grassDroppedCells },
+                           { "grassRootTests", state.presentation.grassRootTests },
+                           { "grassCacheBytes", state.presentation.grassCacheBytes },
+                           { "grassPatchBytes", state.presentation.grassPatchBytes },
+                           { "grassHistoryAvailable", state.presentation.grassHistoryAvailable },
                            { "gravityFieldHeight", state.presentation.gravityFieldHeight },
                            { "gravityFieldOpacity", state.presentation.gravityFieldOpacity },
                            { "gravityFieldColor", state.presentation.gravityFieldColor },
@@ -1020,7 +1051,12 @@ void BuildSkarnessStateTopics( const SkarnessFrameState& state, const ReplayAuto
                            { "modelCapacity", state.presentation.modelCapacity },
                            { "fileDialogResponsesConsumed", state.presentation.fileDialogResponsesConsumed },
                            { "cinematicShadows", state.presentation.cinematicShadows },
+                           { "physicsCompletedSteps", state.presentation.physicsCompletedSteps },
+                           { "physicsSettings", state.presentation.physicsSettings },
+                           { "headerPhysicsBounds", state.presentation.headerPhysicsBounds },
                            { "physicsParameters", state.presentation.physicsParameters },
+                           { "physicsAdditionalLayers", state.presentation.physicsAdditionalLayers },
+                           { "physicsGeometryCounts", state.presentation.physicsGeometryCounts },
                            { "physicsToggles", state.presentation.physicsToggles },
                            { "physicsPipelineStage", state.presentation.physicsPipelineStage },
                            { "physicsPipelineStages", state.presentation.physicsPipelineStages },
@@ -1028,6 +1064,12 @@ void BuildSkarnessStateTopics( const SkarnessFrameState& state, const ReplayAuto
                            { "cinematicParameters", state.presentation.cinematicParameters },
                            { "cinematicFeatures", state.presentation.cinematicFeatures },
                            { "toolsScroll", state.presentation.toolsScroll },
+                           { "physicsPeer", state.presentation.physicsPeer },
+                           { "physicsSection", state.presentation.physicsSection },
+                           { "physicsScroll", state.presentation.physicsScroll },
+                           { "physicsTabBounds", state.presentation.physicsTabBounds },
+                           { "physicsHeaderBounds", state.presentation.physicsHeaderBounds },
+                           { "physicsControlsBounds", state.presentation.physicsControlsBounds },
                            { "theme", state.presentation.theme },
                            { "panelVisibility", state.presentation.panelVisibility },
                            { "panelsAnimating", state.presentation.panelsAnimating },

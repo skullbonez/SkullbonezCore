@@ -2273,3 +2273,69 @@ TEST_CASE( "Hull CCD: exact hit wakes once and a loose-radius miss preserves bot
         }
     }
 }
+
+TEST_CASE( "Interactive Physics settings normalize finite budgets at their owner" )
+{
+    using namespace SkullbonezCore::Physics;
+    SkullbonezCore::Core::EngineConfig config;
+    CHECK( PhysicsEngine::EditRuntimeConfig( config, InteractivePhysicsSetting::Iterations, 1000000 ) );
+    CHECK( config.persistentContactSolver.iterations == 32 );
+    CHECK( PhysicsEngine::EditRuntimeConfig( config, InteractivePhysicsSetting::Iterations, 3.7f ) );
+    CHECK( config.persistentContactSolver.iterations == 4 );
+    CHECK( PhysicsEngine::EditRuntimeConfig( config, InteractivePhysicsSetting::WarmStart, 0 ) );
+    CHECK_FALSE( PhysicsEngine::RuntimeSettingsFromConfig( config ).solver.warmStart );
+    CHECK_FALSE( PhysicsEngine::EditRuntimeConfig( config, InteractivePhysicsSetting::None, 1 ) );
+    CHECK_FALSE( PhysicsEngine::EditRuntimeConfig( config, InteractivePhysicsSetting::Iterations, std::numeric_limits<float>::quiet_NaN() ) );
+    CHECK( config.persistentContactSolver.iterations == 4 );
+    for ( int i = 0; i < static_cast<int>( InteractivePhysicsSetting::Count ); ++i )
+    {
+        const auto parameter = static_cast<InteractivePhysicsSetting>( i );
+        CHECK( PhysicsEngine::EditRuntimeConfig( config, parameter, -100 ) );
+        CHECK( InteractivePhysicsValues( PhysicsEngine::RuntimeSettingsFromConfig( config ) )[i] == INTERACTIVE_PHYSICS_RANGES[i].minimum );
+        CHECK( PhysicsEngine::EditRuntimeConfig( config, parameter, 1000000 ) );
+        CHECK( InteractivePhysicsValues( PhysicsEngine::RuntimeSettingsFromConfig( config ) )[i] == INTERACTIVE_PHYSICS_RANGES[i].maximum );
+    }
+}
+
+TEST_CASE( "Physics settings packet retains effective values and rejects invalid wire input" )
+{
+    using namespace SkullbonezCore::Physics;
+    PhysicsRuntimeSettings source;
+    source.solver.iterations = 7;
+    source.solver.warmStart = false;
+    source.material.objectFrictionCoefficient = .42f;
+    source.sleep.frames = 48;
+    source.execution.parallel = false;
+    const auto packet = EncodePhysicsSettings( source );
+    PhysicsRuntimeSettings restored;
+    REQUIRE( DecodePhysicsSettings( packet, restored ) );
+    CHECK( EncodePhysicsSettings( restored ) == packet );
+    for ( std::size_t i = 0; i < packet.size(); ++i )
+    {
+        auto corrupt = packet;
+        corrupt[i] = std::numeric_limits<float>::infinity();
+        CHECK_FALSE( DecodePhysicsSettings( corrupt, restored ) );
+    }
+    auto corrupt = packet;
+    corrupt[11] = 2.5f;
+    CHECK_FALSE( DecodePhysicsSettings( corrupt, restored ) );
+    corrupt = packet;
+    corrupt[12] = 2;
+    CHECK_FALSE( DecodePhysicsSettings( corrupt, restored ) );
+    for ( std::size_t i = 0; i <= 20; ++i )
+    {
+        corrupt = packet;
+        corrupt[i] = -1;
+        CHECK_FALSE( DecodePhysicsSettings( corrupt, restored ) );
+    }
+    for ( int i : { 9, 10, 15 } )
+    {
+        corrupt = packet;
+        corrupt[i] = 1.01f;
+        CHECK_FALSE( DecodePhysicsSettings( corrupt, restored ) );
+    }
+    corrupt = packet;
+    corrupt[19] = 0;
+    REQUIRE( DecodePhysicsSettings( corrupt, restored ) );
+    CHECK( restored.sleep.frames == 0 );
+}

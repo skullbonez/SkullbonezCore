@@ -1657,6 +1657,15 @@
           },
           {
             "semantic": "TEXCOORD",
+            "index": 10,
+            "mask": "xyzw",
+            "register": 8,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xw"
+          },
+          {
+            "semantic": "TEXCOORD",
             "index": 6,
             "mask": "xyz",
             "register": 9,
@@ -3679,6 +3688,176 @@
       }
     },
     {
+      "source": "SkullbonezData/shaders/surface_blades.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_6",
+      "bytecode": "SkullbonezData/shaders/surface_blades.vs.dxil",
+      "dependencies": [],
+      "source_sha256": "007e24d02d8a389d18ad5836a1039903c42b3f8c9d1025daf0f06f7dd31b8ef8",
+      "compile_inputs_sha256": "9cd7d2ebb8c88f18718f03e55cfbefaa98f7feb247d4c8debcd9b5fcdf24eff1",
+      "bytecode_sha256": "96d483f40eb57e113bfb98cf7268fd2cee117bc776f89cd6da061102b1c61859",
+      "bytecode_size": 7896,
+      "dependencies_sha256": {},
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 64,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uViewProj",
+                "offset": 0,
+                "size": 64
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xyz",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xyzw",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 2,
+            "mask": "xy",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 3,
+            "mask": "xyz",
+            "register": 4,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 4,
+            "mask": "xyz",
+            "register": 5,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 5,
+            "mask": "xyzw",
+            "register": 6,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 6,
+            "mask": "xyz",
+            "register": 7,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 7,
+            "mask": "xyzw",
+            "register": 8,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "SV_VertexID",
+            "index": 0,
+            "mask": "x",
+            "register": 9,
+            "system_value": "VERTID",
+            "format": "uint",
+            "used": "x"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/surface_blades.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_6",
+      "bytecode": "SkullbonezData/shaders/surface_blades.ps.dxil",
+      "dependencies": [],
+      "source_sha256": "007e24d02d8a389d18ad5836a1039903c42b3f8c9d1025daf0f06f7dd31b8ef8",
+      "compile_inputs_sha256": "0c06c0289cdbd3d6ec7eecdc4550acbb1fc28468ce7503eb58776ec7fc0da54c",
+      "bytecode_sha256": "c7ac38fac22e4d33bbf787f685eba38113ba3c7640e53c98c469e627f636e627",
+      "bytecode_size": 3232,
+      "dependencies_sha256": {},
+      "reflection": {
+        "cbuffers": [],
+        "resources": [],
+        "inputs": [
+          {
+            "semantic": "COLOR",
+            "index": 0,
+            "mask": "xyz",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "w",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "w"
+          }
+        ]
+      }
+    },
+    {
       "source": "SkullbonezData/shaders/text.hlsl",
       "entry": "main_vs",
       "stage": "vs",
@@ -4972,6 +5151,15 @@
         "inputs": [
           {
             "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyw"
+          },
+          {
+            "semantic": "TEXCOORD",
             "index": 1,
             "mask": "xy",
             "register": 2,
@@ -5313,6 +5501,15 @@
           }
         ],
         "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyw"
+          },
           {
             "semantic": "TEXCOORD",
             "index": 1,

@@ -1,4 +1,4 @@
-"""Verify native Physics tab toggles, sliders and pipeline navigation."""
+"""Verify native Physics dock toggles, sliders and pipeline navigation."""
 from __future__ import annotations
 import argparse
 import json
@@ -45,41 +45,51 @@ def run(session: Path) -> None:
         assert width > 0 and height > 0, bounds
         click(x + width / 2, y + height / 2)
     def reveal(ui: dict, row: float) -> tuple[dict, float]:
-        x, y, w, h = ui['toolsContentBounds']
+        x, y, w, h = ui['physicsControlsBounds']
         desired = max(0, row - h / 2)
-        delta = round((ui['toolsScroll'] - desired) * 120 / 42)
+        delta = round((ui['physicsScroll'] - desired) * 120 / 34)
         if delta:
             send('input.pointer_wheel', x=int(x+60), y=int(y+h/2), wheelDelta=delta)
             ui = sample()
-        py = y + row - ui['toolsScroll'] + 12
+        py = y + row - ui['physicsScroll'] + 12
         assert y <= py < y+h
         return ui, py
     metadata = (REPO / 'SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h').read_text()
     constants = {name: float(value) for name, value in re.findall(r'constexpr float (UI_\w+) = ([-\d.]+)f;', metadata)}
-    sliders = [('PHYSICS_ALPHA',302), ('CONTACT_LINGER',350), ('RAY_IMPULSE',414),
-               ('LAUNCHER_PROJECTILE_SPEED',454), ('WORLD_GRAVITY',526), ('FRICTION_COEFF',612),
-               ('FRICTION_COEFF',652), ('ROLLING_FRICTION_COEFF',692), ('TORNADO_RADIUS',778),
-               ('TORNADO_HEIGHT',818), ('TORNADO_INWARD',858), ('TORNADO_SWIRL',898), ('TORNADO_LIFT',938)]
-    positions = [(0,0),(0,1),(1,1),(2,1),(1,0),(2,0),(3,1),(3,0),(4,0),(4,1),(5,0),(5,1),(6,1)]
+    sliders = [('PHYSICS_ALPHA',1,374), ('CONTACT_LINGER',1,418), ('RAY_IMPULSE',0,312),
+               ('LAUNCHER_PROJECTILE_SPEED',0,356), ('WORLD_GRAVITY',0,268), ('FRICTION_COEFF',0,482),
+               ('FRICTION_COEFF',0,526), ('ROLLING_FRICTION_COEFF',0,570), ('TORNADO_RADIUS',0,1080),
+               ('TORNADO_HEIGHT',0,1124), ('TORNADO_INWARD',0,1168), ('TORNADO_SWIRL',0,1212), ('TORNADO_LIFT',0,1256)]
+    positions = [(1,20),(1,50),(1,80),(1,110),(1,140),(1,170),(0,614),(1,200),(1,230),(0,1046),(1,260),(1,290),(1,320)]
+    groups_open=False
+    def section(ui, index):
+        if ui['physicsSection'] != index:
+            x,y,w,h = ui['physicsHeaderBounds']
+            click(x+(index%2+.5)*w/2, y+66+27*(index//2))
+            ui=sample()
+        assert ui['physicsSection']==index
+        return ui
     try:
         assert 'input.pointer_drag' in send('capabilities.get')['commands']
         send('state.subscribe', topics=[], detail='normal')
         ui = sample()
-        for layout in ('Editor',):
+        for layout in ('Canvas', 'Editor'):
             if ui['layout'] != layout:
                 middle(ui['headerLayoutBounds'])
                 ui = sample()
-            if not ui['toolsVisible']:
-                middle(ui['replayDetailsBounds'])
-                ui = sample()
-            top = ui['viewport'][1]+ui['viewport'][3]+(28 if layout=='Editor' else 0)
-            click(14+(ui['window'][0]-28)*3.5/11,top+66)
-            ui = sample()
-            assert ui['activeTool']==3
-            x,y,w,h = ui['toolsContentBounds']
-            for index,(row,column) in enumerate(positions):
-                ui,py = reveal(ui,42+row*30)
-                px = x+(max(148,w*.46)+18 if column else 0)+30
+            middle(ui['headerPhysicsBounds'])
+            ui=sample()
+            assert ui['physicsPeer'] and ui['causeControlsBounds'][2]==0
+            x,y,w,h = ui['physicsControlsBounds']
+            if not groups_open:
+                ui=section(ui,0)
+                ui,py=reveal(ui,444);click(x+20,py);ui=sample()
+                ui,py=reveal(ui,1012);click(x+20,py);ui=sample()
+                groups_open=True
+            for index,(tab,row) in enumerate(positions):
+                ui = section(ui,tab)
+                ui,py = reveal(ui,row)
+                px = x+30
                 before = list(ui['physicsToggles'])
                 click(px,py,70)
                 ui=sample()
@@ -96,7 +106,8 @@ def run(session: Path) -> None:
                     restored[10]=restored[9]
                 assert ui['physicsToggles']==restored,(layout,index,restored,ui['physicsToggles'])
                 checks.append(dict(layout=layout,toggle=index,heldClick=True,restored=True))
-            ui,py=reveal(ui,254)
+            ui=section(ui,1)
+            ui,py=reveal(ui,466)
             stage=ui['physicsPipelineStage']
             count=ui['physicsPipelineStages']
             click(x+w-13,py,70)
@@ -106,7 +117,8 @@ def run(session: Path) -> None:
             ui=sample()
             assert ui['physicsPipelineStage']==stage
             checks.append(dict(layout=layout,pipelineNext=True,pipelinePrevious=True))
-            for index,(name,row) in enumerate(sliders):
+            for index,(name,tab,row) in enumerate(sliders):
+                ui=section(ui,tab)
                 ui,py=reveal(ui,row)
                 lo,hi,step=(constants['UI_'+name+'_'+suffix] for suffix in ('MIN','MAX','STEP'))
                 for fraction in (0,1,.37):
@@ -121,6 +133,21 @@ def run(session: Path) -> None:
                     assert math.isclose(actual,expected,rel_tol=2e-5,abs_tol=max(1e-6,step*.01)),(layout,name,index,fraction,expected,actual)
                     checks.append(dict(layout=layout,parameter=name,index=index,fraction=fraction,expected=expected,actual=actual))
                 print(f'PASS {layout}/{name}/{index}',flush=True)
+            ui=section(ui,0)
+            ranges=[(1,32),(0,.1),(0,1),(0,1),(0,.1),(0,1),(0,20),(0,2),(0,20),(0,5),(0,5),(1,600),(0,1)]
+            for index,(lo,hi) in enumerate(ranges):
+                row=24+index*44 if index<4 else 200 if index==12 else 650+(index-4)*44
+                ui,py=reveal(ui,row)
+                step=1 if index in (0,11,12) else .001
+                for fraction in (0,1,.37):
+                    px=int(x+1 if fraction==0 else x+w-1 if fraction==1 else x+118+(w-190)*fraction)
+                    t=min(1,max(0,(px-x-118)/max(80,w-190)))
+                    expected=min(hi,max(lo,lo+math.floor((hi-lo)*t/step+.5)*step))
+                    click(px,py)
+                    ui=sample()
+                    actual=ui['physicsSettings'][index]
+                    assert math.isclose(actual,expected,rel_tol=2e-5,abs_tol=max(1e-6,step*.01)),(layout,'solver',index,fraction,expected,actual)
+                    checks.append(dict(layout=layout,solverSetting=index,expected=expected,actual=actual))
             send('capture.screenshot',path=str((session/(layout+'-physics.png')).resolve()))
         print(f'PASS: {len(checks)} Physics toggle and slider checks',flush=True)
     finally:

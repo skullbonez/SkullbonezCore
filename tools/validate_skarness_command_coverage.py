@@ -19,6 +19,8 @@ from skarness import SkarnessConnection
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_SCENE = REPO / "SkullbonezData" / "scenes" / "interaction_replay_prediction_harness.scene.json"
 EXPECTED_COMMANDS = {
+    # Dedicated native grass and Physics dock suites exercise these commands.
+    "scene.object.set_position", "scene.object.set_visible", "grass.enable_fixture", "grass.sample", "render.set_parameter", "camera.set_pose", "editor.set_enabled",
     "editor.set_terrain_brush", "scene.save", "scene.create",
     "capabilities.get", "session.stop", "capture.screenshot", "scene.load", "scene.reset", "scene.load_demo",
     "scene.object.list", "scene.object.resolve", "scene.object.select", "scene.object.clear_selection", "run.pause",

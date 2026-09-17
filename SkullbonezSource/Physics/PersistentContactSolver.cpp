@@ -449,6 +449,7 @@ PersistentContactSolverStepPolicy PhysicsContactSolverStage::ResolveStepPolicy( 
     // Invariant: these are the historical use-site guards, collected without
     // changing their bounds so every row in the solve shares one interpretation.
     PersistentContactSolverStepPolicy policy;
+    policy.warmStart = settings.solver.warmStart;
     policy.objectSlop = (std::max)( 0.0f, settings.solver.slop );
     policy.objectBaumgarteBeta = (std::max)( 0.0f, settings.solver.baumgarteBeta );
     policy.objectPositionCorrectionPercent = (std::max)( 0.0f, (std::min)( settings.solver.positionCorrectionPercent, 1.0f ) );
@@ -1081,7 +1082,9 @@ void ConstraintSolveTransaction::BuildTerrainRows( PhysicsContactSolverStage& st
         // redirected velocity will integrate. Full-step resting rows retain
         // the historical value because their remaining time equals dt.
         const float contactInterval = ResolveContactInterval( hotRead, sleepState, timeRemaining, manifold.bodyA, TERRAIN_BODY_INDEX, dt );
-        const float warmStartTotal = bodyRecords[static_cast<size_t>( manifold.bodyA )].mass * stepPolicy.gravityMagnitude * fabsf( manifold.normal.y ) * contactInterval * supportSeedScale;
+        const float warmStartTotal = stepPolicy.warmStart
+                                         ? bodyRecords[static_cast<size_t>( manifold.bodyA )].mass * stepPolicy.gravityMagnitude * fabsf( manifold.normal.y ) * contactInterval * supportSeedScale
+                                         : 0.0f;
 
         const float warmStartPerContact = warmStartTotal / static_cast<float>( manifold.pointCount );
 
@@ -1356,7 +1359,7 @@ void ConstraintSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stag
         // lookup does not linearly scan every previous-frame contact.
         // Why: warm-start cache is a stack-support tool. In elastic space it
         // can preserve last frame's push and make grazing bodies look glued.
-        const bool canUseCachedWarmStart = !continuation && ( c.supportsRestingPolicy || materialFriction >= 0.0f ) && !stepPolicy.elasticCollisions;
+        const bool canUseCachedWarmStart = stepPolicy.warmStart && !continuation && ( c.supportsRestingPolicy || materialFriction >= 0.0f ) && !stepPolicy.elasticCollisions;
         const PersistentContactCacheEntry* cachedEntry = nullptr;
 
         if ( canUseCachedWarmStart )
@@ -1529,6 +1532,10 @@ void ConstraintSolveTransaction::PrepareJoints( PhysicsContactSolverStage& stage
         {
             descriptor.accumulatedImpulse = block.AccumulatedImpulse();
         }
+        if ( !policy.warmStart && !continuation )
+        {
+            descriptor.accumulatedImpulse = Math::Vector::ZERO_VECTOR;
+        }
         block.Prepare( descriptor, bodyStore, m_bodies, policy.stepDurationSeconds, source );
         if ( continuation && !wasActive && block.Active() )
         {
@@ -1612,6 +1619,7 @@ void ConstraintSolveTransaction::SolveRowsIterations( PhysicsContactSolverStage&
     // its current violation, adds that to the accumulated total, clamps the total
     // to valid bounds, then applies only the difference.
     const int maximumSweeps = m_jointBlocks.empty() ? stepPolicy.iterations : (std::max)( stepPolicy.iterations, POINT_JOINT_SOLVER_ITERATIONS );
+    stage.m_persistentContactSolverStats.solverSweepBudget = maximumSweeps;
     for ( int iter = 0; iter < maximumSweeps; ++iter )
     {
         m_islands.BeginSweep();
@@ -1729,6 +1737,7 @@ void ConstraintSolveTransaction::SolveRowsIterations( PhysicsContactSolverStage&
                 materialLimit = stepPolicy.elasticCollisions || !c.allowsTangentFriction ? 0.0f : m_materialFriction[contactIndex] * c.accN;
                 c.frictionLimit = materialLimit;
             }
+            c.appliedFrictionLimit = materialLimit;
             Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, materialLimit );
             float deltaT1 = c.accT1 - oldAccT1;
             float deltaT2 = c.accT2 - oldAccT2;
@@ -1953,6 +1962,11 @@ void ConstraintSolveTransaction::PublishDebugContacts( PhysicsContactSolverStage
         out.tangent2 = c.tangent2;
         out.penetration = c.penetration;
         out.normalImpulse = c.accN;
+        out.solverNormal = c.normal;
+        out.tangentImpulse1 = c.accT1;
+        out.tangentImpulse2 = c.accT2;
+        out.sceneObjectA = bodyStore.Records()[static_cast<std::size_t>( c.bodyA )].sceneObjectId.value;
+        out.sceneObjectB = c.bodyB >= 0 ? bodyStore.Records()[static_cast<std::size_t>( c.bodyB )].sceneObjectId.value : 0;
         out.separationBias = c.separationBias;
         out.preSolveNormalSpeed = c.preSolveNormalSpeed;
         out.preSolveClosingSpeed = c.preSolveClosingSpeed;

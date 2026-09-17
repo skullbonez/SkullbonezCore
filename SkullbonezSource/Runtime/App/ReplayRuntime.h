@@ -632,6 +632,27 @@ class ReplayRuntime
     // RenderPathVisualizer remains read-only and must follow this command.
     bool PrepareTerrainEdit();
     void PreparePredictionPresentation( Physics::PhysicsEngine& physics, const SceneEntityStore& entities );
+    // Exact recorded visual evidence; returned bodies must be consumed before
+    // further resolving reads. Loaded artifacts and the live ring share this seam.
+    const ReplayPresentationSample* PresentationSampleAtFrame( ReplayFrameIndex frame ) const;
+    uint32_t CaptureBranchId() const noexcept
+    {
+        return m_authoring.Branch().branchId;
+    }
+    bool LivePhysicsEditable() const noexcept;
+    uint64_t LiveRecordingEpoch() const noexcept
+    {
+        return m_timeline.LiveRecordingEpoch();
+    }
+    uint64_t PresentationRevision() const noexcept
+    {
+        return m_timeline.PresentationRevision();
+    }
+    bool UsingLoadedPresentation() const
+    {
+        return HasLoadedPresentation();
+    }
+
     void ClearPathVisualizerState();
 
     // Forwards the presentation-only palette command; prediction/capture state
@@ -770,7 +791,8 @@ class ReplayRuntime
                        Physics::PhysicsEngine& physics,
                        const Gameplay::TornadoGameplay& tornadoGameplay,
                        const SceneEntityStore& entities,
-                       RuntimeTools& runtimeTools );
+                       RuntimeTools& runtimeTools,
+                       const Rendering::RenderInstanceStore& instances );
     SkullbonezCore::Core::MainMemoryReplayStats CollectMemoryStats() const;
 
     // Publishes the value-only replay facts consumed by the late HUD pass.
@@ -1067,6 +1089,7 @@ class ReplayRuntime
     float SolverPresentTrackPosition() const;
     bool ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible, bool uiMinimized, RuntimeInteractionGestureKind gesture, bool sharedSurface = false ) const;
     bool HasLoadedPresentation() const;
+    RunReplayTrack TransportTrackForCurrentData() const;
     const ReplayPresentationSample* LoadedPresentationSampleAtNormalized( float normalized ) const;
     const ReplayPresentationSample* LoadedPresentationLatestSample() const;
     bool IsScrubPaused() const;

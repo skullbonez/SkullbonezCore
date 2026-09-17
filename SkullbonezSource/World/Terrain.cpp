@@ -57,6 +57,7 @@ Related:
 #endif
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <limits>
 #include <memory>
@@ -1453,3 +1454,42 @@ void Terrain::BuildFlatSlopeMesh()
     m_terrainMesh = m_resources->CreateMesh( m_renderVertexData.data(), totalVerts, true, true );
 }
 #endif
+
+uint64_t Terrain::ContentFingerprint() const noexcept
+{
+    if ( m_fingerprintRevision == m_editRevision )
+    {
+        return m_contentFingerprint;
+    }
+    // Hash collision positions, never resource handles, filenames, or edit
+    // counters: a saved/reloaded copy must identify the same physical surface.
+    uint64_t hash = 14695981039346656037ull;
+    const auto word = [&hash]( uint32_t value )
+    {
+        for ( int byte = 0; byte < 4; ++byte )
+        {
+            hash = ( hash ^ ( ( value >> ( byte * 8 ) ) & 255u ) ) * 1099511628211ull;
+        }
+    };
+    word( m_isFlatSlope ? 1u : 0u );
+    if ( m_isFlatSlope )
+    {
+        word( std::bit_cast<uint32_t>( m_slopeBaseY ) );
+        word( std::bit_cast<uint32_t>( m_slopeX ) );
+        word( std::bit_cast<uint32_t>( m_slopeZ ) );
+        word( std::bit_cast<uint32_t>( FLAT_SLOPE_EXTENT ) );
+    }
+    else
+    {
+        word( static_cast<uint32_t>( m_postsPerSide ) );
+        for ( const auto& post : m_postData )
+        {
+            word( std::bit_cast<uint32_t>( post.vPosition.x ) );
+            word( std::bit_cast<uint32_t>( post.vPosition.y ) );
+            word( std::bit_cast<uint32_t>( post.vPosition.z ) );
+        }
+    }
+    m_contentFingerprint = hash == 0 ? 1 : hash;
+    m_fingerprintRevision = m_editRevision;
+    return m_contentFingerprint;
+}

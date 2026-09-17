@@ -163,9 +163,13 @@ bool ReplayCauseContainsAscii( const char* text, const char* query ) noexcept
 
 bool ReplayCauseRowMatchesFilter( const RunReplayCauseTreeRow& row, const RunReplayCauseTreeState& state ) noexcept
 {
-    const bool familyMatches = state.filter == RunReplayCauseTreeFilter::All || ( state.filter == RunReplayCauseTreeFilter::Prediction && row.prediction ) ||
-                               ( state.filter == RunReplayCauseTreeFilter::Contacts &&
-                                 ( row.kind == RunReplayCauseTreeRowKind::Manifold || row.kind == RunReplayCauseTreeRowKind::SolverRow || row.kind == RunReplayCauseTreeRowKind::PredictionContact ) );
+    // Prediction is the body/motion overview; Contacts is the manifold overview.
+    // Source provenance alone includes every high-detail prediction row and
+    // makes both category buttons indistinguishable from All.
+    const bool predictionOverview = row.prediction && ( row.kind == RunReplayCauseTreeRowKind::Body || row.kind == RunReplayCauseTreeRowKind::PredictionMotion );
+    const bool contactOverview = row.kind == RunReplayCauseTreeRowKind::Manifold || row.kind == RunReplayCauseTreeRowKind::PredictionContact;
+    const bool familyMatches = state.filter == RunReplayCauseTreeFilter::All || ( state.filter == RunReplayCauseTreeFilter::Prediction && predictionOverview ) ||
+                               ( state.filter == RunReplayCauseTreeFilter::Contacts && contactOverview );
     return familyMatches && ( ReplayCauseContainsAscii( row.name, state.filterText ) || ReplayCauseContainsAscii( row.detail, state.filterText ) );
 }
 } // namespace

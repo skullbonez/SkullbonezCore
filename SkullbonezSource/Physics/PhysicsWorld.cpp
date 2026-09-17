@@ -348,6 +348,15 @@ void PhysicsWorld::InvalidateBodyTopology()
     m_motionEligibility.InvalidateBodyTopology();
 }
 
+void PhysicsWorld::InvalidateSolverCaches()
+{
+    m_contactSolverStage.Clear();
+    for ( auto& joint : m_pointJointConstraints )
+    {
+        joint.accumulatedImpulse = Math::Vector::ZERO_VECTOR;
+    }
+}
+
 void PhysicsWorld::ResetSimulationState()
 {
     // Invariant: restarting authored motion preserves terrain bindings and joint
@@ -636,7 +645,7 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
 
 bool PhysicsWorld::CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount, const PhysicsBodyStore& bodyStore ) const
 {
-    if ( snapshot.version < 1 || snapshot.version > PHYSICS_HULL_SOLVER_SNAPSHOT_VERSION || snapshot.modelCount != modelCount )
+    if ( snapshot.version < 1 || snapshot.version > PHYSICS_SETTINGS_SOLVER_SNAPSHOT_VERSION || snapshot.modelCount != modelCount )
     {
         return false;
     }

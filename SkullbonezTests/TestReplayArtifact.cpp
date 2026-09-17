@@ -139,6 +139,7 @@ ReplaySolverFrameSample MakeArtifactSample( ReplayFrameIndex frameIndex )
     ReplaySolverFrameSample sample;
     sample.frameIndex = frameIndex;
     sample.sceneFrame = 40 + static_cast<int>( frameIndex );
+    sample.world.terrainFingerprint = 0x726f6f74735f7636ull;
     sample.simulationSeconds = static_cast<double>( frameIndex ) / 120.0;
     sample.physicsDt = 1.0f / 120.0f;
     sample.branch.branchId = 7u;
@@ -266,8 +267,71 @@ void CheckRejected( const std::string& path, const std::vector<uint8_t>& bytes )
     CHECK( output.empty() );
 }
 
+void EraseArtifactFixtureBytes( std::vector<uint8_t>& bytes, std::size_t eraseOffset, std::size_t eraseCount )
+{
+    const auto table = static_cast<std::size_t>( ReadValue<uint64_t>( bytes, kChunkTableOffsetOffset ) );
+    const uint32_t chunks = ReadValue<uint32_t>( bytes, kChunkCountOffset );
+    for ( uint32_t chunk = 0; chunk < chunks; ++chunk )
+    {
+        const std::size_t directory = table + chunk * kChunkEntryBytes;
+        const uint64_t start = ReadValue<uint64_t>( bytes, directory + kChunkPayloadOffset );
+        const uint64_t size = ReadValue<uint64_t>( bytes, directory + kChunkSizeOffset );
+        if ( start > eraseOffset )
+        {
+            WriteValue<uint64_t>( bytes, directory + kChunkPayloadOffset, start - eraseCount );
+        }
+        else if ( start <= eraseOffset && eraseOffset < start + size )
+        {
+            WriteValue<uint64_t>( bytes, directory + kChunkSizeOffset, size - eraseCount );
+        }
+    }
+    if ( table > eraseOffset )
+    {
+        WriteValue<uint64_t>( bytes, kChunkTableOffsetOffset, table - eraseCount );
+    }
+    bytes.erase( bytes.begin() + eraseOffset, bytes.begin() + eraseOffset + eraseCount );
+}
+void RemoveShapeEvidenceForV5( std::vector<uint8_t>& bytes )
+{
+    const auto presEntry = FindChunkEntry( bytes, "PRES" );
+    const auto pres = static_cast<std::size_t>( ReadValue<uint64_t>( bytes, presEntry + kChunkPayloadOffset ) );
+    const uint32_t frames = ReadValue<uint32_t>( bytes, pres );
+    std::vector<std::size_t> tails;
+    auto frame = pres + 4u;
+    for ( uint32_t i = 0; i < frames; ++i )
+    {
+        const auto count = ReadValue<uint32_t>( bytes, frame + 88u );
+        const auto tail = frame + kPresentationFrameHeaderBytes + count * kPresentationBodyBytes;
+        tails.push_back( tail );
+        frame = tail + 16u;
+    }
+    // The index carries offsets relative to PRES, so removing each tail must
+    // also shift every later frame's index entry before moving the chunk table.
+    for ( std::size_t i = tails.size(); i > 0; --i )
+    {
+        const auto indexEntry = FindChunkEntry( bytes, "INDX" );
+        const auto index = static_cast<std::size_t>( ReadValue<uint64_t>( bytes, indexEntry + kChunkPayloadOffset ) );
+        for ( uint32_t later = static_cast<uint32_t>( i ); later < frames; ++later )
+        {
+            const auto offset = index + 4u + later * 24u + 8u;
+            WriteValue<uint64_t>( bytes, offset, ReadValue<uint64_t>( bytes, offset ) - 16u );
+        }
+        EraseArtifactFixtureBytes( bytes, tails[i - 1], 16u );
+    }
+    const auto entry = FindChunkEntry( bytes, "BODY" );
+    const auto payload = static_cast<std::size_t>( ReadValue<uint64_t>( bytes, entry + kChunkPayloadOffset ) );
+    const uint32_t bodies = ReadValue<uint32_t>( bytes, payload );
+    for ( uint32_t row = bodies; row > 0; --row )
+    {
+        EraseArtifactFixtureBytes( bytes, payload + 4u + ( row - 1u ) * 112u + 80u, 32u );
+    }
+    WriteValue<uint64_t>( bytes, kFileSizeOffset, static_cast<uint64_t>( bytes.size() ) );
+    WriteValue<uint32_t>( bytes, kVersionOffset, 5u );
+}
+
 void DowngradePresentationQuaternionsToV3( std::vector<uint8_t>& bytes, const std::vector<ReplayPresentationSample>& canonicalSamples )
 {
+    RemoveShapeEvidenceForV5( bytes );
     WriteValue<uint32_t>( bytes, kVersionOffset, 3u );
     const std::size_t entry = FindChunkEntry( bytes, "PRES" );
     const uint64_t payloadOffset = ReadValue<uint64_t>( bytes, entry + kChunkPayloadOffset );
@@ -304,7 +368,7 @@ TEST_CASE( "Replay artifact codec: presentation round-trip is complete and byte-
     const std::vector<uint8_t> firstBytes = ReadFile( firstPath );
     const std::vector<uint8_t> secondBytes = ReadFile( secondPath );
     CHECK( firstBytes == secondBytes );
-    CHECK( ReadValue<uint32_t>( firstBytes, kVersionOffset ) == 5u );
+    CHECK( ReadValue<uint32_t>( firstBytes, kVersionOffset ) == 6u );
     CHECK( saveResult.sampleCount == 2u );
     CHECK( saveResult.bodyDictionaryCount == 1u );
     CHECK( saveResult.fileBytes == firstBytes.size() );
@@ -444,7 +508,7 @@ TEST_CASE( "Replay artifact codec: malformed header and table ranges fail closed
     {
         std::vector<uint8_t> bytes = canonical;
 
-        WriteValue<uint32_t>( bytes, kVersionOffset, 6u );
+        WriteValue<uint32_t>( bytes, kVersionOffset, 7u );
         CheckRejected( ArtifactPath( "future.skreplay" ), bytes );
     }
     SUBCASE( "chunk length past EOF" )
@@ -504,6 +568,15 @@ void CheckLegacyPointJointArtifact( const char* currentPath, ReplaySolverFrameSa
     std::vector<uint8_t> bytes = ReadFile( currentPath );
     REQUIRE( checkpoint.worldSnapshot.physics.pointJoints.size() == 1u );
     auto& physics = checkpoint.worldSnapshot.physics;
+    // This fixture has one primitive checkpoint. Remove the v9 empty tensor
+    // count and v10 settings tail before converting its historical joint row.
+    REQUIRE( physics.bodyInertia.empty() );
+    const auto solverEntry = FindChunkEntry( bytes, "SCHK" );
+    const auto solverStart = ReadValue<uint64_t>( bytes, solverEntry + kChunkPayloadOffset );
+    const auto solverSize = ReadValue<uint64_t>( bytes, solverEntry + kChunkSizeOffset );
+    const std::size_t bodyTail = 4u + checkpoint.bodies.size() * 112u;
+    const std::size_t policyTail = 4u + physics.settings.size() * sizeof( float );
+    EraseArtifactFixtureBytes( bytes, static_cast<std::size_t>( solverStart + solverSize ) - bodyTail - policyTail, policyTail );
     auto& joint = physics.pointJoints[0];
     std::vector<uint8_t> jointBytes;
     AppendFixtureValue( jointBytes, joint.topologyOrdinal );
@@ -625,6 +698,11 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
 {
     bool fullTensor = false;
     bool geometricCache = false;
+    bool liveSettings = false;
+    SUBCASE( "effective live settings snapshot v10" )
+    {
+        liveSettings = true;
+    }
     SUBCASE( "primitive snapshot v8" )
     {
     }
@@ -640,6 +718,14 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     auto engineStorage = std::make_unique<PhysicsEngine>();
     PhysicsEngine& engine = *engineStorage;
     engine.Clear();
+    if ( liveSettings )
+    {
+        SkullbonezCore::Core::EngineConfig policy;
+        policy.persistentContactSolver.iterations = 7;
+        engine.ApplyRuntimeConfig( policy );
+        engine.InvalidateSolverSettings();
+    }
+
     {
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         engine.ReserveAuthoredBodyCapacity( 2, 2, 0, 0, 1 );
@@ -795,7 +881,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     const auto capturedJointImpulse = sample->worldSnapshot.physics.pointJoints[0].accumulatedImpulse;
     REQUIRE( capturedJointImpulse != SkullbonezCore::Math::Vector::ZERO_VECTOR );
     const uint64_t capturedSolverHash = sample->solverHash;
-    CHECK( sample->worldSnapshot.physics.version == ( fullTensor ? 9u : 8u ) );
+    CHECK( sample->worldSnapshot.physics.version == SkullbonezCore::Physics::PHYSICS_SETTINGS_SOLVER_SNAPSHOT_VERSION );
     CHECK( sample->worldSnapshot.physics.bodyInertia.size() == ( fullTensor ? 2u : 0u ) );
     if ( fullTensor )
     {
@@ -807,7 +893,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
         invalid.bodyInertia[1].modelRow = 0u;
         CHECK_FALSE( engine.CanRestoreReplaySolverSnapshot( invalid, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
     }
-    presentation.CaptureFrameFromSolverSample( *sample );
+    presentation.CaptureFrameFromSolverSample( *sample, &PhysicsEngine::ReadColliders( engine ) );
 
     auto changedJointSnapshot = sample->worldSnapshot.physics;
     changedJointSnapshot.pointJoints[0].accumulatedImpulse.y += 1.0f;
@@ -848,7 +934,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
 
     sample = solver.LatestSample();
     REQUIRE( sample != nullptr );
-    presentation.CaptureFrameFromSolverSample( *sample );
+    presentation.CaptureFrameFromSolverSample( *sample, &PhysicsEngine::ReadColliders( engine ) );
 
     historical = solver.SampleAtNormalized( 0.0f );
     REQUIRE( historical != nullptr );
@@ -863,6 +949,13 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     {
         CHECK( resolvedDelta->worldSnapshot.physics.bodyInertia[1].products == secondBodyDesc.rotationalInertiaProducts );
     }
+
+    REQUIRE( solver.SampleAtFrame( 0 ) != nullptr );
+    CHECK( solver.SampleAtFrame( 0 )->solverHash == capturedSolverHash );
+    REQUIRE( solver.SampleAtFrame( 1 ) != nullptr );
+    CHECK( solver.SampleAtFrame( 1 )->solverHash == sample->solverHash );
+    CHECK( solver.SampleAtFrame( 2 ) == nullptr );
+    CHECK( solver.SampleAtFrame( ( std::numeric_limits<ReplayFrameIndex>::max )() ) == nullptr );
 
     for ( ReplayFrameIndex frame = 0u; frame < 2u; ++frame )
     {
@@ -908,6 +1001,10 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     CHECK( presentationResult.lastFrame == 1u );
     REQUIRE( loadedPresentation.back().bodies.size() == 2u );
     CHECK( loadedPresentation.back().bodies[0].id.value == 501u );
+    CHECK( loadedPresentation.back().bodies[0].shape.Available() );
+    CHECK( loadedPresentation.back().bodies[0].shape.halfExtents.x == doctest::Approx( 1.0f ) );
+    CHECK( loadedPresentation.back().bodies[0].shape.halfExtents.y == doctest::Approx( 1.0f ) );
+    CHECK( loadedPresentation.back().bodies[0].shape.halfExtents.z == doctest::Approx( 1.0f ) );
     CHECK( loadedPresentation.back().bodies[0].linearVelocity.x == doctest::Approx( 2.0f ) );
 
     std::vector<ReplaySolverFrameSample> checkpoints;
@@ -968,7 +1065,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     const ReplaySolverFrameSample loadedCheckpoint = checkpoints[0];
     char continuationReason[256] = {};
     REQUIRE( SkullbonezCore::Runtime::ReplayRestoreOperations::ValidateSolverContinuation( loadedCheckpoint.worldSnapshot.physics, continuationReason, sizeof( continuationReason ) ) );
-    if ( !fullTensor )
+    if ( !fullTensor && !liveSettings )
     {
         CheckLegacyPointJointArtifact( path.c_str(), loadedCheckpoint, 6u );
         CheckLegacyPointJointArtifact( path.c_str(), loadedCheckpoint, 7u );
@@ -1064,4 +1161,99 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     CHECK_FALSE( hashes[1].checkpointBoundary );
     CHECK( hashes[1].solverHash != 0u );
     CHECK( hashes[1].presentationHash != 0u );
+}
+
+TEST_CASE( "Replay artifact codec: v6 shape evidence has integrity and v5 fallback is explicit" )
+{
+    ReplayRecorder recorder = MakeArtifactRecorder();
+    const std::string path = ArtifactPath( "shape_evidence.skreplay" );
+    REQUIRE( ReplayV2Artifact::SavePresentation( recorder, path.c_str() ) );
+    auto bytes = ReadFile( path );
+    const auto entry = FindChunkEntry( bytes, "BODY" );
+    const auto body = static_cast<std::size_t>( ReadValue<uint64_t>( bytes, entry + kChunkPayloadOffset ) ) + 4u;
+    ReplayPresentationShape shape;
+    shape.localCenter = Vector3( 0.25f, 0.5f, -0.75f );
+    shape.halfExtents = Vector3( 1, 2, 3 );
+    const float values[] = { 0.25f, 0.5f, -0.75f, 1, 2, 3 };
+    for ( std::size_t i = 0; i < 6; ++i )
+    {
+        WriteValue<float>( bytes, body + 80u + i * 4u, values[i] );
+    }
+    WriteValue<uint64_t>( bytes, body + 104u, shape.Digest( 900 ) );
+    WriteFile( path, bytes );
+    std::vector<ReplayPresentationSample> loaded;
+    REQUIRE( ReplayV2Artifact::LoadPresentation( path.c_str(), loaded ) );
+    REQUIRE( loaded.size() == 2 );
+    CHECK( loaded[0].bodies[0].shape.Available() );
+    CHECK( loaded[0].bodies[0].shape.localCenter.z == doctest::Approx( -0.75f ) );
+    CHECK( loaded[0].bodies[0].shape.halfExtents.y == doctest::Approx( 2 ) );
+    auto corrupt = bytes;
+    WriteValue<float>( corrupt, body + 92u, 4.0f );
+    CheckRejected( ArtifactPath( "shape_corrupt.skreplay" ), corrupt );
+    RemoveShapeEvidenceForV5( bytes );
+    WriteFile( path, bytes );
+    REQUIRE( ReplayV2Artifact::LoadPresentation( path.c_str(), loaded ) );
+    CHECK_FALSE( loaded[0].bodies[0].shape.Available() );
+}
+
+TEST_CASE( "Replay artifact codec: terrain evidence is retained and rejects corruption" )
+{
+    auto recorder = MakeArtifactRecorder();
+    const auto path = ArtifactPath( "terrain_evidence.skreplay" );
+    REQUIRE( ReplayV2Artifact::SavePresentation( recorder, path.c_str() ) );
+    std::vector<ReplayPresentationSample> samples;
+    REQUIRE( ReplayV2Artifact::LoadPresentation( path.c_str(), samples ) );
+    REQUIRE_FALSE( samples.empty() );
+    CHECK( samples.front().world.terrainFingerprint == 0x726f6f74735f7636ull );
+    auto bytes = ReadFile( path );
+    const auto entry = FindChunkEntry( bytes, "PRES" );
+    const auto payload = static_cast<std::size_t>( ReadValue<uint64_t>( bytes, entry + kChunkPayloadOffset ) );
+    const auto first = payload + 4u;
+    const auto bodies = ReadValue<uint32_t>( bytes, first + 88u );
+    bytes[first + kPresentationFrameHeaderBytes + bodies * kPresentationBodyBytes] ^= 1u;
+    CheckRejected( path, bytes );
+}
+
+TEST_CASE( "Replay artifact codec: continuity survives delta capture and rejects altered evidence" )
+{
+    ReplayRecorderConfig config;
+    config.enabled = true;
+    config.retentionSeconds = 1;
+    config.runtimeBodyCapacity = 1;
+    ReplayRecorder recorder;
+    REQUIRE( recorder.Configure( config ) );
+    const std::array<uint8_t, 1> continuous { 1 };
+    const std::array<uint8_t, 1> discontinuous { 0 };
+    recorder.CaptureFrameFromSolverSample( MakeArtifactSample( 10u ), nullptr, continuous );
+    recorder.CaptureFrameFromSolverSample( MakeArtifactSample( 11u ), nullptr, discontinuous );
+    CHECK( recorder.SampleAtFrame( 10u )->bodies.front().sweepContinuous );
+    CHECK_FALSE( recorder.SampleAtFrame( 11u )->bodies.front().sweepContinuous );
+    const auto path = ArtifactPath( "continuity.skreplay" );
+    REQUIRE( ReplayV2Artifact::SavePresentation( recorder, path.c_str() ) );
+    std::vector<ReplayPresentationSample> samples;
+    REQUIRE( ReplayV2Artifact::LoadPresentation( path.c_str(), samples ) );
+    CHECK( samples[0].bodies[0].sweepContinuous );
+    CHECK_FALSE( samples[1].bodies[0].sweepContinuous );
+    auto bytes = ReadFile( path );
+    const auto entry = FindChunkEntry( bytes, "PRES" );
+    const auto payload = static_cast<std::size_t>( ReadValue<uint64_t>( bytes, entry + kChunkPayloadOffset ) );
+    // Body flags follow dictionary index, pose, velocities and orientation.
+    const auto flags = payload + 4u + kPresentationFrameHeaderBytes + 56u;
+    bytes[flags] ^= 16u;
+    CheckRejected( path, bytes );
+    bytes[flags] ^= 16u;
+    RemoveShapeEvidenceForV5( bytes );
+    WriteFile( path, bytes );
+    REQUIRE( ReplayV2Artifact::LoadPresentation( path.c_str(), samples ) );
+    CHECK_FALSE( samples[0].bodies[0].sweepContinuous );
+}
+
+TEST_CASE( "Replay presentation pose endpoint detects short teleports and rotated discontinuities" )
+{
+    ReplayBodyPresentationSample prior;
+    prior.position = Vector3( 3, 2, 1 );
+    const SkullbonezCore::Math::Orientation::Quaternion rotation( 0, 0, 0, 1 );
+    CHECK( prior.MatchesPose( Vector3( 3, 2, 1 ), rotation ) );
+    CHECK_FALSE( prior.MatchesPose( Vector3( 3.1f, 2, 1 ), rotation ) );
+    CHECK_FALSE( prior.MatchesPose( Vector3( 3, 2, 1 ), SkullbonezCore::Math::Orientation::Quaternion( 0, 1, 0, 0 ) ) );
 }

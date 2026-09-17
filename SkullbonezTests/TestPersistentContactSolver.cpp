@@ -1831,6 +1831,15 @@ TEST_CASE( "Persistent contact solver: friction cone clamps diagonal tangent imp
 
     const float frictionLimit = fixture.config.material.terrainFrictionCoefficient * ( ( cached.accN > terrainWarmStart ) ? cached.accN : terrainWarmStart );
 
+    REQUIRE( fixture.diagnostics.GetDebugContacts().size() == 1 );
+    const auto& debugContact = fixture.diagnostics.GetDebugContacts()[0];
+    CHECK( debugContact.normalImpulse == cached.accN );
+    CHECK( debugContact.tangentImpulse1 == cached.accT1 );
+    CHECK( debugContact.tangentImpulse2 == cached.accT2 );
+    CHECK( debugContact.solverNormal.y < 0 ); // + impulse is on terrain B; body A receives its negative.
+    CHECK( debugContact.normal.y > 0 );       // Display normal points out of the terrain.
+    CHECK( debugContact.sceneObjectA == fixture.bodyStore.Records()[0].sceneObjectId.value );
+    CHECK( debugContact.sceneObjectB == 0 );
     CHECK( tangentMagnitude > 0.0f );
     CHECK( tangentMagnitude <= frictionLimit + 0.0001f );
 }
@@ -2757,4 +2766,39 @@ TEST_CASE( "Persistent contacts: hull Coulomb incline boundary is invariant to m
             }
         }
     }
+}
+
+TEST_CASE( "Persistent contact solver: disabling warm starts rejects old rows and terrain weight seeds" )
+{
+    SolverFixture fixture;
+    fixture.AddDynamicSphere( Vector3( 0, 1, 0 ), Vector3( 4, -1, 0 ) );
+    fixture.AddTerrainContact( 0, 77u, .05f );
+    fixture.Solve();
+    REQUIRE( fixture.solver.GetPersistentContactCache().size() == 1 );
+    fixture.config.solver.warmStart = false;
+    fixture.Solve();
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1 );
+    const auto& row = fixture.solver.GetPersistentContacts()[0];
+    CHECK_FALSE( row.warmStarted );
+    CHECK( row.terrainWarmStart == 0 );
+}
+
+TEST_CASE( "Persistent contact solver: disabling warm starts discards cached joint impulses" )
+{
+    const auto solve = []( bool warm, const Vector3& cache )
+    {
+        SolverFixture fixture;
+        fixture.config.solver.warmStart = warm;
+        fixture.AddDynamicSphere( Vector3( 0, 3, 0 ), Vector3( 2, -1, 0 ) );
+        fixture.AddDynamicSphere( Vector3( 0, 5, 0 ), ZERO_VECTOR );
+        fixture.AddPointJoint( 0, 1, Vector3( 0, 1, 0 ), Vector3( 0, -1, 0 ) );
+        fixture.joints[0].accumulatedImpulse = cache;
+        fixture.Solve();
+        const auto hot = fixture.bodyStore.HotFields();
+        return std::array<Vector3, 3> { PhysicsBodyLinearVelocity( hot, 0 ), PhysicsBodyLinearVelocity( hot, 1 ), fixture.joints[0].accumulatedImpulse };
+    };
+    const auto cold = solve( false, ZERO_VECTOR );
+    CHECK( solve( false, Vector3( 25, -30, 10 ) ) == cold );
+    CHECK( solve( false, Vector3( -4, 2, 9 ) ) == cold );
+    CHECK( solve( true, Vector3( 25, -30, 10 ) ) != cold );
 }

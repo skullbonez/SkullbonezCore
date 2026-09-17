@@ -30,6 +30,7 @@ Related:
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/PhysicsDebugData.h"
+#include "../../Physics/PointJointConstraint.h"
 #include "../../Rendering/ContactManifoldPresentation.h"
 
 namespace SkullbonezCore
@@ -88,6 +89,14 @@ struct PhysicsDebugFrameView
     PhysicsDebugContactView contacts;
     PhysicsDebugSleepView sleep;
     PhysicsDebugPipelineView pipeline;
+    std::span<const Physics::PointJointConstraint> joints {};
+};
+
+struct PhysicsContactLabel
+{
+    Math::Vector::Vector3 point;
+    std::array<char, 96> text {};
+    float fade = 1;
 };
 
 class PhysicsDebugVisualizer
@@ -97,15 +106,11 @@ class PhysicsDebugVisualizer
     // footprint. Other enabled layers share this staging and truncate only
     // visual output after it fills; they never grow storage during Render.
     static constexpr std::size_t LINE_FLOATS_PER_BODY_AXES = 3u * 3u * 12u;
-    static constexpr std::size_t LINE_FLOAT_CAPACITY = static_cast<std::size_t>( Scene::Capacity::MAX_SCENE_OBJECTS ) *
-                                                       LINE_FLOATS_PER_BODY_AXES;
+    static constexpr std::size_t LINE_FLOAT_CAPACITY = static_cast<std::size_t>( Scene::Capacity::MAX_SCENE_OBJECTS ) * LINE_FLOATS_PER_BODY_AXES;
     static constexpr std::size_t TRACKED_CONTACT_CAPACITY = Scene::Capacity::MAX_SCENE_OBJECTS;
     // Two origin triplets, the body-pair line, and eight segments per contact.
     // Each segment has an outline and a core, expanded to six 19-float vertices.
-    static constexpr std::size_t CONTACT_STROKE_FLOAT_CAPACITY = ( 2u * 3u * 3u + 1u +
-                                                                   Rendering::CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY *
-                                                                       8u ) *
-                                                                 2u * 6u * 19u;
+    static constexpr std::size_t CONTACT_STROKE_FLOAT_CAPACITY = ( 2u * 3u * 3u + 1u + Rendering::CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY * 8u ) * 2u * 6u * 19u;
 
     struct TrackedContact
     {
@@ -116,8 +121,14 @@ class PhysicsDebugVisualizer
         float lifetimeSeconds = 0.0f;
     };
 
+    std::array<PhysicsContactLabel, 32> m_contactLabels {};
+    std::size_t m_labelCount = 0, m_droppedLabels = 0;
     uint32_t m_flags = Physics::PHYSICS_DEBUG_NONE;
     int m_pipelineStageCursor = 0;
+    uint32_t m_selectedBody = 0;
+    std::array<Math::Vector::Vector3, 3> m_testImpulse {};
+    float m_impulseScale = .1f, m_impulseThreshold = .001f;
+    std::size_t m_droppedLines = 0, m_droppedContacts = 0, m_cappedArrows = 0;
     float m_contactLingerSeconds = 0.45f;
     std::vector<float> m_lineData;
     std::vector<TrackedContact> m_trackedContacts;
@@ -128,12 +139,20 @@ class PhysicsDebugVisualizer
     void EmitLine( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
     void EmitCross( const Math::Vector::Vector3& p, float size, float r, float g, float bl );
     void EmitArrow( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
-    void EmitContactGlyph( const Rendering::ContactPointPresentation& point, float normalImpulse, float fade,
-                           bool inspectionStyle = false );
+    void EmitContactGlyph( const Rendering::ContactPointPresentation& point, float normalImpulse, float fade, bool inspectionStyle = false );
     void EmitRingXZ( const Math::Vector::Vector3& center, float radius, float yOffset, float r, float g, float bl );
     void EmitObjectAxes( const PhysicsDebugBodyView& view );
     void EmitConvexHullWireframes( const PhysicsDebugBodyView& view );
     void EmitContacts( const PhysicsDebugContactView& view );
+    void EmitSphereWire( const Math::Vector::Vector3& origin, float radius );
+    void EmitWireBox( const std::array<Math::Vector::Vector3, 8>& vertices, float r, float g, float b );
+    void EmitBodyDiagnostics( const PhysicsDebugBodyView& view );
+    void EmitJointDiagnostics( const PhysicsDebugFrameView& view );
+    bool AcceptBody( uint32_t id ) const
+    {
+        return ( m_flags & Physics::PHYSICS_DEBUG_SELECTED_ONLY ) == 0 || ( id != 0 && id == m_selectedBody );
+    }
+    void EmitImpulse( const Math::Vector::Vector3& point, const Math::Vector::Vector3& impulse, float fade, bool friction );
     void EmitSleepState( const PhysicsDebugSleepView& view );
     void EmitPipelineStage( const PhysicsDebugPipelineView& view );
     void EmitTerrainContactProbe( const PhysicsDebugBodyView& view, Geometry::Terrain* terrain );
@@ -147,7 +166,7 @@ class PhysicsDebugVisualizer
     {
         m_flags = flags & Physics::PHYSICS_DEBUG_ALL;
 
-        if ( ( m_flags & Physics::PHYSICS_DEBUG_CONTACTS ) == 0 )
+        if ( ( m_flags & Physics::PHYSICS_DEBUG_CONTACT_LAYERS ) == 0 )
         {
             m_trackedContacts.clear();
         }
@@ -159,6 +178,27 @@ class PhysicsDebugVisualizer
     bool IsEnabled() const
     {
         return m_flags != Physics::PHYSICS_DEBUG_NONE;
+    }
+    void SetImpulseDisplay( float scale, float threshold ) noexcept
+    {
+        m_impulseScale = scale;
+        m_impulseThreshold = threshold;
+    }
+    std::array<std::size_t, 6> DiagnosticGeometryCounts() const noexcept
+    {
+        return { m_lineData.size() / 12, m_droppedLines, m_droppedContacts, m_cappedArrows, m_labelCount, m_droppedLabels };
+    }
+    std::span<const PhysicsContactLabel> ContactLabels() const
+    {
+        return { m_contactLabels.data(), m_labelCount };
+    }
+    void SetTestImpulse( const std::array<Math::Vector::Vector3, 3>& values )
+    {
+        m_testImpulse = values;
+    }
+    void SetSelectedBody( uint32_t id ) noexcept
+    {
+        m_selectedBody = id;
     }
     void SetContactLingerSeconds( float seconds );
     void SetPipelineStageCursor( int cursor );
@@ -182,8 +222,10 @@ class PhysicsDebugVisualizer
     }
 
     // The caller owns renderer readiness and debug-line capability for the frame.
-    void Render( const PhysicsDebugFrameView& view, const Math::Transformation::Matrix4& viewProj,
-                 Rendering::Dx12GeometryOwner& renderCommands, bool supportsDebugLines,
+    void Render( const PhysicsDebugFrameView& view,
+                 const Math::Transformation::Matrix4& viewProj,
+                 Rendering::Dx12GeometryOwner& renderCommands,
+                 bool supportsDebugLines,
                  Geometry::Terrain* terrain = nullptr );
 
     // Produces smooth strokes from the existing world-space contact glyphs.
@@ -192,7 +234,8 @@ class PhysicsDebugVisualizer
     std::span<const float> BuildContactManifoldStrokes( const Rendering::ContactManifoldPresentation& presentation );
 
     void RenderContactManifold( const Rendering::ContactManifoldPresentation& presentation,
-                                const Math::Transformation::Matrix4& viewProj, Rendering::Dx12GeometryOwner& renderCommands,
+                                const Math::Transformation::Matrix4& viewProj,
+                                Rendering::Dx12GeometryOwner& renderCommands,
                                 bool supportsDebugLines );
 };
 } // namespace Runtime

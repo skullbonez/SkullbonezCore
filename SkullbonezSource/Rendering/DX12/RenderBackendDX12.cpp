@@ -534,6 +534,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     }
 
     constexpr TransientTriangleStyle requiredTriangleStyles[] = { TransientTriangleStyle::Color,
+                                                                  TransientTriangleStyle::SurfaceBlades,
                                                                   TransientTriangleStyle::SoftAdditiveRibbon,
                                                                   TransientTriangleStyle::InstancedRibbon,
                                                                   TransientTriangleStyle::InstancedRibbonDepthHint, };

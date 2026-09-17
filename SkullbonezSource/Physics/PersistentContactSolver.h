@@ -104,6 +104,7 @@ inline bool PersistentContactCacheKeyBodiesFit( int64_t signedKey, int bodyCount
 
 struct PersistentContactSolverStepPolicy
 {
+    bool warmStart = true;
     // Lifetime: synchronous borrow of motion stage collision-path bits for this
     // solve. The stage never retains this policy or its borrowed membership.
     std::span<const uint8_t> collisionPathState;

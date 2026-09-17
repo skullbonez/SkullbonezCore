@@ -446,6 +446,16 @@ bool CaptureReplayPredictionFrame( ReplayPrediction& predictionOwner,
             continue;
         }
 
+        // Invariant: a fixed body can end a causal branch but cannot carry an
+        // incoming impulse to its other contacts. Shared floors must not mark
+        // every resting body as affected before the moving chain reaches it.
+        const int sourceModel = bodyAActive ? contact.bodyA : contact.bodyB;
+
+        if ( hotFields.fixed[static_cast<std::size_t>( sourceModel )] != 0u )
+        {
+            continue;
+        }
+
         if ( frame.debugContacts.size() >= frame.debugContacts.capacity() )
         {
             frame.contactsIncomplete = true;

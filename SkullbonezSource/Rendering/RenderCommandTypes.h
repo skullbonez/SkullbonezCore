@@ -119,6 +119,7 @@ constexpr PassRasterStateBucket MakePassRasterStateBucket( uint8_t id, RasterSta
 enum class TransientTriangleStyle
 {
     Color,
+    SurfaceBlades,
     SoftAdditiveRibbon,
     InstancedRibbon,
     InstancedRibbonDepthHint,

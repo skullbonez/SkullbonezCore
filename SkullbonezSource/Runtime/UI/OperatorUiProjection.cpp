@@ -117,6 +117,13 @@ void ProjectOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRende
     ordinaryValue( UIRenderParam::TrajectoryMarkerAlpha, ordinary.replayTrajectory.markerAlpha );
     ordinaryValue( UIRenderParam::TrajectoryMarkerEdgeFeather, ordinary.replayTrajectory.markerEdgeFeather );
     ordinaryValue( UIRenderParam::TrajectorySelectedEmphasis, ordinary.replayTrajectory.selectedEmphasis );
+    ordinaryValue( UIRenderParam::GrassQuality, ordinary.grass.quality );
+    ordinaryValue( UIRenderParam::GrassDensity, ordinary.grass.density );
+    ordinaryValue( UIRenderParam::GrassDistance, ordinary.grass.distance );
+    ordinaryValue( UIRenderParam::GrassHeight, ordinary.grass.height );
+    ordinaryValue( UIRenderParam::GrassBend, ordinary.grass.bend );
+    ordinaryValue( UIRenderParam::GrassRecovery, ordinary.grass.recoverySeconds );
+
 
     const auto cinematicValue = [&]( UICinematicParam parameter, float value ) { view.cinematicParameters[static_cast<int>( parameter )] = value; };
 

@@ -202,11 +202,48 @@ struct UIOptionsTabFrameView
     bool gravityFieldSnapBalls = false;
 };
 
+// One completed live tick, copied at App's publication boundary. Rows retain
+// stable scene identities rather than borrowed solver/body-store pointers.
+struct UIPhysicsContactSnapshot
+{
+    uint32_t bodyA = 0, bodyB = 0, feature = 0;
+    float penetration = 0, normalImpulse = 0, tangentImpulse1 = 0, tangentImpulse2 = 0;
+    float normalMass = 0, tangentMass1 = 0, tangentMass2 = 0, frictionLimit = 0;
+    bool warmStarted = false;
+};
+struct UIPhysicsInspector
+{
+    bool liveEditable = true;
+    std::array<float, 13> settings {};
+    uint32_t selectedId = 0;
+    uint64_t tick = 0, droppedTicks = 0;
+    int shape = 0;
+    float physicsMs = 0, volume = 0, density = 0, timeScale = 1;
+    std::array<std::size_t, 6> geometry {};
+    bool historicalContext = false;
+    bool massEditable = false;
+    std::array<char, 96> settingsNotice {};
+    bool selected = false, fixed = false, awake = false;
+    float mass = 0, inverseMass = 0, restitution = 0, friction = 0;
+    std::array<float, 3> origin {}, center {}, velocity {}, angularVelocity {}, inertia {}, inertiaProducts {};
+    std::array<float, 4> orientation {};
+    std::array<UIPhysicsContactSnapshot, 16> contacts {};
+    int contactCount = 0, droppedContacts = 0;
+    int awakeBodies = 0, sleepingBodies = 0, fixedBodies = 0, joints = 0;
+    int sweepBudget = 0;
+    int rows = 0, requestedIterations = 0, actualIterations = 0, cacheHits = 0, cacheMisses = 0, warmRows = 0;
+    float correctionTotal = 0, correctionMax = 0;
+    std::array<float, 64> convergence {};
+    int convergenceCount = 0;
+    uint64_t droppedIterations = 0;
+};
+
 // Invariant: the Physics presenter borrows diagnostics and value snapshots
 // only; it has no Physics owner, body store, or mutation capability.
 struct UIPhysicsTabFrameView
 {
     const UIPhysicsDebugStatus& physicsDebug;
+    const UIPhysicsInspector& inspector;
     float worldGravity = 0.0f;
     float rayCastImpulseStrength = 0.0f;
     float launcherProjectileSpeed = 0.0f;
@@ -415,6 +452,7 @@ struct UIFrameSceneData
 
 struct UIFrameWorldData
 {
+    UIPhysicsInspector physicsInspector;
     float worldGravity = 0.0f;
     float worldFluidHeight = 0.0f;
     float worldFluidDensity = 0.0f;
@@ -558,6 +596,10 @@ class InGameUI
     bool NeedsUiTextPass() const;
     void SetHitboxOverlayEnabled( bool enabled );
     void SetScrollY( float scrollY );
+    UIPhysicsPointImpulse PointImpulsePreview() const
+    {
+        return m_windowInteraction.PointImpulsePreview();
+    }
     float ToolsScroll() const noexcept;
     UIRect ToolsContentBounds() const noexcept;
     void SetMouseOverride( bool enabled, int x = 0, int y = 0 );

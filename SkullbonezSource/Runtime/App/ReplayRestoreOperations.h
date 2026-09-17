@@ -36,6 +36,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
 
 #include "../Replay/ReplayRecorder.h"
 #include "../Camera/CameraCollection.h"
@@ -70,9 +71,9 @@ class ReplayRestoreOperations
         // Why: historical checkpoints remain readable for presentation and import,
         // but their hashes describe the historical solver, not a migrated simulation.
         // Reject before App rebuilds topology or changes any live owner.
-        if ( snapshot.version != Physics::PHYSICS_SOLVER_SNAPSHOT_VERSION && snapshot.version != Physics::PHYSICS_HULL_SOLVER_SNAPSHOT_VERSION )
+        if ( snapshot.version != Physics::PHYSICS_SETTINGS_SOLVER_SNAPSHOT_VERSION )
         {
-            WriteReason( outReason, reasonSize, "saved solver version supports inspection only; authoritative continuation requires the current " "solver" );
+            WriteReason( outReason, reasonSize, "saved solver version supports inspection only; authoritative continuation requires recorded Physics settings" );
             return false;
         }
         return true;
@@ -137,7 +138,7 @@ class ReplayRestoreOperations
 
     static bool ApplySolverSampleState( SceneWorld& world, SceneSessionState& scene, OverlayDebugState& debug, const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize )
     {
-        if ( sample.worldSnapshot.physics.version < 1 || sample.worldSnapshot.physics.version > Physics::PHYSICS_HULL_SOLVER_SNAPSHOT_VERSION )
+        if ( sample.worldSnapshot.physics.version < 1 || sample.worldSnapshot.physics.version > Physics::PHYSICS_SETTINGS_SOLVER_SNAPSHOT_VERSION )
         {
             WriteReason( outReason, reasonSize, "unsupported snapshot version" );
             return false;
@@ -268,7 +269,11 @@ class ReplayRestoreOperations
                                             const ReplaySolverFrameSample& reference,
                                             ReplaySolverFrameSample& outSample )
     {
+        // Lifetime: this temporary verifier materializes an artifact hash and dies
+        // before the next restored physics step; live solving stays guarded.
+        Core::Allocation::RuntimeAllocationScope captureScope( Core::Allocation::RuntimeAllocationPhase::Capture );
         ReplayRecorderConfig config;
+        config.runtimeBodyCapacity = world.BodyStore().Count();
         config.enabled = true;
         config.retentionSeconds = 1;
         config.checkpointIntervalFrames = 1;

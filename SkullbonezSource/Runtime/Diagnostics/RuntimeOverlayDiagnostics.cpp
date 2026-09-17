@@ -137,6 +137,8 @@ RuntimeOverlayFramePolicy RuntimeOverlayDiagnostics::BuildFramePolicy( double si
     policy.gravityField = m_presentationState.gravityField;
     policy.physicsDebugFlags = m_presentationState.physicsDebugFlags;
     policy.physicsDebugPipelineStageCursor = m_presentationState.physicsDebugPipelineStageCursor;
+    policy.physicsImpulseScale = m_presentationState.physicsImpulseScale;
+    policy.physicsImpulseThreshold = m_presentationState.physicsImpulseThreshold;
     policy.physicsDebugContactLinger = m_presentationState.physicsDebugContactLinger;
     policy.simulationSeconds = simulationSeconds;
     policy.totalSimulationSeconds = totalSimulationSeconds;

@@ -1495,7 +1495,7 @@ TEST_CASE( "RenderDefaultsStore samples values at the drain checkpoint" )
     CHECK( configText.find( "ordinary_sun_intensity = 9.25" ) != std::string::npos );
     CHECK( configText.find( "replay_trajectory_future_width = 1.75" ) != std::string::npos );
     CHECK( configText.find( "replay_trajectory_selected_emphasis = 0.30" ) != std::string::npos );
-    CHECK( configText.find( "format_version = 6" ) != std::string::npos );
+    CHECK( configText.find( "format_version = 8" ) != std::string::npos );
 
     store.SubmitOrdinarySave();
     fs::current_path( testRoot, filesystemError );
@@ -1566,7 +1566,7 @@ TEST_CASE( "RenderDefaultsStore legacy writers remove retired config rows" )
         }
         CHECK( result.status.Ok() );
         CHECK( result.savedCount == 1 );
-        CHECK( configText.find( "format_version = 6" ) != std::string::npos );
+        CHECK( configText.find( "format_version = 8" ) != std::string::npos );
         CHECK( configText.find( "physics_simd_kernels" ) == std::string::npos );
         CHECK( configText.find( "contact_audio_" ) == std::string::npos );
         CHECK( configText.find( "terrain_render_step_size" ) == std::string::npos );
@@ -1590,7 +1590,7 @@ TEST_CASE( "RenderDefaultsStore rejects future config without rewriting bytes" )
     const fs::path dataRoot = testRoot / "SkullbonezData";
     fs::create_directories( dataRoot, filesystemError );
     REQUIRE_FALSE( filesystemError );
-    const std::string originalText = "format_version = 7\nordinary_sun_intensity = 1.00\n";
+    const std::string originalText = "format_version = 9\nordinary_sun_intensity = 1.00\n";
     {
         std::ofstream configFile( dataRoot / "engine.cfg", std::ios::trunc );
         REQUIRE( configFile.is_open() );

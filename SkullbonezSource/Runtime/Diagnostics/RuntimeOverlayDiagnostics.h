@@ -74,6 +74,7 @@ struct RuntimeOverlayFramePolicy
     Scene::GravityFieldSettings gravityField;
     uint32_t physicsDebugFlags = 0u;
     int physicsDebugPipelineStageCursor = 0;
+    float physicsImpulseScale = .1f, physicsImpulseThreshold = .001f;
     float physicsDebugContactLinger = 0.0f;
     double simulationSeconds = 0.0;
     double totalSimulationSeconds = 0.0;

@@ -1,8 +1,96 @@
 # Session State
 
-Date: 2026-09-17
-Branch: `feature/split-future`
-Status: CONVEX_HULL CH0-CH6 complete at 7/8; CH7 acceptance pending; portfolio 145/152; PHYSICS_AB queued at 0/6.
+Date: 2026-09-18
+Branch: `nightrunner-17th-SEP-26`
+Status: Mega PR terminal validation; INTERACTIVE_GRASS 6/7, PHYSICS_WINDOW 7/8; portfolio 158/167. CONVEX_HULL CH7 acceptance and PHYSICS_AB remain outside this execution queue.
+
+## Terminal implementation checkpoint - 2026-09-18
+
+Both features are implemented and independently reviewed with no remaining
+reviewed correctness blockers. Their TODO plans now contain the accepted
+contracts, bounds, limitations and exact native evidence. Grass stays Demo-only
+by default; authored validation scenes explicitly opt in.
+
+Latest native acceptance: grass acceptance-12, hidden-02, heightmap-01,
+cinematic-shadows-01, cinematic-relief-01, recording-gap-01, non-lockstep-01,
+retention-reset-01 and short-teleport-01; Physics actions-14 (20 checks),
+layouts-07 (25 checks), policy-05 (saved continuation with zero allocation
+violations), and dock-03 (184 checks). Grass performance-final-02 meets the
+1080p target: CPU p95 sum .1561 ms, GPU .0246 ms. Four-view desktop CPU is
+.9803 ms; its GPU marker is last-pane only. Grass casts but does not receive
+shadows; nonzero cinematic terrain relief is ineligible.
+
+Profile and Automation builds pass, shaders pass 56 stages, and project filters
+and dependency checks pass. Source-design initially found two issues; focused
+recheck passes after helper extraction. The cumulative preflight and terminal
+agent_validate --plan-completion gate are in progress under
+TestOutput/mega-20260917. No closure, commit, push, PR or green CI is claimed yet.
+
+User Profile process 44840 stays running. Its locked build image was preserved
+as Profile/SKULLBONEZ_CORE.running-44840.exe, allowing a fresh normal Profile
+build without terminating it. Unrelated Agentic/Audits 2026-09-18 files remain
+user-owned and must not be staged. Ledger pricing/session limitations below
+remain recorded; no telemetry estimates were substituted.
+
+## Mega PR execution - 2026-09-17
+
+Current Split Future tip c686f653b contains PR #174 and hull base #173.
+Catto dirty work is preserved under TestOutput/mega-20260917 with SHA-256
+manifest and source files; its source worktree is unchanged. Integrated its
+patch, retained current shader manifest (freshness passes 54 stages), and
+resolved pause-status and dependency notices. Catto fixture check passes 21
+scenes. Build/runtime acceptance remains pending.
+
+Next: INTERACTIVE_GRASS IG0-IG6, then PHYSICS_WINDOW PW0-PW7, final integrated
+review and gates, one unmerged mega PR with green CI. Grass is demo-only;
+dedicated validation fixtures may opt in. Required subjects use each plan
+commit name and TASK n/7 or n/8 with fully evidenced phase counts.
+
+Ledger limitation: existing WORK_LEDGER.csv has another session GOV1 active;
+it was backed up without replacement. The supported isolated ledger path
+also fails because verified gpt-6-astra pricing is unavailable. Do not invent
+rates/counters; preserve command evidence under TestOutput/mega-20260917.
+
+## Mega PR grass implementation checkpoint - 2026-09-18
+
+Integration Automation build passed with zero warnings/errors. Grass now has
+bounded live and reconstructed-history caches, shared sphere/rotating-box
+sweeps, finite recovery rules, a generic instanced blade shader, demo-only
+activation, and Skarness state counters. Initial rules: 3 tests / 34 assertions
+passed. Automation grass/history and terrain-relative camera builds passed.
+Replay v6 adds collider dimensions to presentation metadata with an independent
+identity-bound digest; v2-v5 retain their physics/presentation hashes and explicit
+missing geometry. Exact-frame reconstruction uses two bounded scratch slots
+separate from the four UI borrows. The existing recorder reserve owner, phase,
+hard cap and counters remain unchanged; its category accounting includes the
+larger metadata and both additional scratch slots. No second durable timeline.
+
+Main native grass acceptance passes, including live/history/loaded parity,
+four views, pause, quality, finite recovery, held contact, and allocation guard.
+Native edge matrix passes slopes, water, fast sphere, rotating box, overlap
+order, bounded capacity, branch restore, prediction isolation, and exact Physics
+output equality (960 rows). Terrain-edit acceptance now passes in terrain-edit-09: edited terrain is
+retained across reset, and loading the original terrain correctly makes the
+saved historical grass evidence unavailable.
+Replay-focused tests found an assertion-order issue after new exact lookup tests;
+the checks were reordered without changing the prior cache expectation.
+
+Grass renders the same bent blades in terrain shadows; field storage has a
+24 MiB bound across the two owners and a 131,072 root-test budget per sample.
+Valid short-run live profiler evidence is grass-perf-visible.json: GrassPrepare
+p95 0.1265 ms, Grass GPU p95 0.0215 ms on this RTX 3080. Long profiler runs that
+cycled scenes are excluded. Replay v6 also retains independently checked terrain
+fingerprints; changed/missing terrain evidence explicitly disables old grass.
+
+Physics Window implementation has started: shared right-dock peer geometry,
+version-7 active-peer/section preferences, common clipped input/draw bounds,
+fixed simulation actions, and four sections. Existing controls moved to one
+column and old Tools Physics opens the dock. Body/statistics/settings extensions
+and all dock native acceptance remain pending. No phases are accepted yet.
+No new commits or PR yet. User Profile process 44840 remains untouched.
+
+Artifacts: TestOutput/mega-20260917/ and
+TestOutput/skarness/interactive-grass/{acceptance-09,edges-03}/.
 
 ## Split Future showcase - 2026-09-17
 
@@ -4358,3 +4446,29 @@ remain byte exact. Latest active-plan checkpoint names all passing tests and
 supersedes earlier approximate-inertia tower stability. Finish corrected CCD
 wake check, full matrix and CH6 assessment, then terminal gates and independent
 review. User authorized a review PR, never merge it. No phase is accepted yet.
+
+## Physics implementation checkpoint - 2026-09-18 (body experiments)
+
+Automation builds pass with zero warnings. Native actions-08 passes exact
+held-click single ticks, explicit isolated defaults save/startup restore, ten
+independent overlay toggles, scaled mass/inertia, undo/redo, authored save,
+scene-schema preservation, and held one-shot point impulse consumption.
+The Body panel and native collider/impulse screenshots have been inspected.
+The defaults writer no longer downgrades stable-ID scenes to schema version 1.
+
+Physics owns bounded world/local point-impulse conversion and rejects fixed,
+stale, nonfinite, oversized, zero, and already-pending requests. Local points
+are COM-relative; world points are absolute. A transient yellow lever/cyan
+impulse preview is distinct from contact diagnostics. Numerical/body edits join
+prediction and start a fresh recording before mutation. Full effective settings
+use solver snapshot v10 while legacy default hashes retain v8/v9 behavior.
+Mass/impulse tests: 2 cases, 149 assertions passed (physics-point-tests-2.log).
+
+Simulation now has initially collapsed Advanced and Tornado groups, time scale,
+per-section scroll retention and release-only numerical edits. Stats expose
+actual sweep budget, early stop and bounded geometry drop/cap counts. Native
+Canvas/Editor dock-03 is running; terminal validation/review remain pending.
+The plans are not accepted complete yet. Remaining work includes the full
+historical/settings/prediction and overlay matrix, final grass cost/root checks,
+compact-window/input/persistence acceptance, source design/formatting, terminal
+review and all required gates, evidenced commits, and the unmerged green-CI PR.

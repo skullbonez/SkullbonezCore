@@ -455,6 +455,7 @@
     <ClCompile Include="SkullbonezSource\Core\Profiler.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\BroadphaseVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\GravityGridVisualizer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\GrassPresentation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\CollisionVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\PhysicsDebugVisualizer.cpp" />
   </ItemGroup>
@@ -706,6 +707,8 @@
     <ClInclude Include="ThirdPtySource\nlohmann\json.hpp" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\BroadphaseVisualizer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\GravityGridVisualizer.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Render\GrassDeformation.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Render\GrassPresentation.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\CollisionVisualizer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\PhysicsDebugVisualizer.h" />
   </ItemGroup>

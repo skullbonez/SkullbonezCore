@@ -146,6 +146,7 @@ class Terrain
     {
         return m_editingPrepared;
     }
+    uint64_t ContentFingerprint() const noexcept; // Stable collision-surface identity; cached until a terrain edit.
     uint64_t EditRevision() const noexcept
     {
         return m_editRevision;
@@ -266,6 +267,8 @@ class Terrain
     bool m_editingPrepared = false;
     bool m_edited = false;
     uint64_t m_editRevision = 0;
+    mutable uint64_t m_fingerprintRevision = ~uint64_t { 0 };
+    mutable uint64_t m_contentFingerprint = 0;
     std::string m_heightMapSource;
     friend struct TerrainRenderLifecycleTestAccess;
 

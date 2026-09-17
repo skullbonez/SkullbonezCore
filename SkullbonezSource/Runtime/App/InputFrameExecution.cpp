@@ -294,8 +294,8 @@ SceneFrameProceedPolicy Run::CompleteRuntimeInputPhase()
     if ( skarnessPolicy.pauseLocked )
     {
         proceedPolicy.crossScenePauseLocked = true;
-        proceedPolicy.stepRequested = skarnessPolicy.stepRequested;
-        proceedPolicy.proceedAllowed = skarnessPolicy.stepRequested;
+        proceedPolicy.stepRequested = skarnessPolicy.stepRequested || m_uiFixedTickRequested;
+        proceedPolicy.proceedAllowed = proceedPolicy.stepRequested;
     }
 #endif
     AuthoredScene liveStyle;
@@ -533,18 +533,18 @@ bool Run::HandlePreUiEditorAction( const InputActionEvent& event, const DeviceIn
         {
             if ( deviceFrame.keys.IsDown( VK_SHIFT ) )
             {
-                (void)m_editorTools.RedoEditorCommand( m_sceneController.Scene(), m_sceneController.State() );
+                (void)ApplyEditorHistory( true );
             }
             else
             {
-                (void)m_editorTools.UndoEditorCommand( m_sceneController.Scene(), m_sceneController.State() );
+                (void)ApplyEditorHistory( false );
             }
         }
         return true;
     case RuntimeInputAction::RedoEditor:
         if ( m_editorTools.Editor().editorModeEnabled && deviceFrame.keys.IsDown( VK_CONTROL ) )
         {
-            (void)m_editorTools.RedoEditorCommand( m_sceneController.Scene(), m_sceneController.State() );
+            (void)ApplyEditorHistory( true );
         }
         return true;
     case RuntimeInputAction::DeleteEditorSelection:
@@ -1146,6 +1146,11 @@ void Run::ApplyInputReplayRestore( RuntimeUIFrameResult& result, OverlayDebugSta
                                                  NormalizeInputCameraMode( m_replayRuntime.BuildInputView().restoreCameraMode ),
                                                  m_attachedCamera.State().activeFollow,
                                                  m_camera.director.grabbed );
+    if ( outcome.restored )
+    {
+        m_sceneController.Scene().Physics().CopyRuntimeSettingsToConfig( m_config );
+        Renderer().ResetPhysicsDebugHistory();
+    }
     m_replayRuntime.CompleteLiveRestoreScrubber( transaction, request, outcome );
     m_replayRuntime.CompletePlanningTransition( result.replayWorkspace.planningTransitionToken, outcome.restored );
     if ( outcome.enterInteractive )
@@ -1658,6 +1663,7 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
     const ReplayInputView replayInput = replayRuntime.BuildInputView();
     RuntimeInteractionFrameInput frameInput;
     frameInput.scenePhysicsEnabled = SceneState().isScenePhysics && !replayInput.velocityComparisonActive && !editorTools.Editor().editorModeEnabled;
+    m_uiFixedTickRequested = uiFrameResult.requestSceneStep;
     frameInput.stepHeld = routedDeviceFrame.keys.IsDown( VK_SPACE ) || uiFrameResult.requestSceneStep;
     frameInput.replayScrubbedHistoricalSample = replayInput.scrubPaused;
     frameInput.replayLiveHeldAtCurrentFrame = replayInput.liveAdvanceHeld;

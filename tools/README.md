@@ -35,6 +35,8 @@ Run from the repo root or from within this directory.
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
 | `validate_demo_stress.bat` | Generated demo scene plus UI interaction crash sweep | ~depends |
 | `run_graphics_stress.bat` | General DX12 graphics stress fuzzer with scene/settings churn and memory telemetry | bounded or overnight |
+| `generate_catto_solver_scenes.py [--check]` | Generate or verify the source-attributed Catto scenes, arch hulls, suites and manifest; see [scene guide](../SkullbonezData/scenes/CATTO_SOLVER_SCENES.md) | <1s |
+| `validate_catto_solver_scenes.py --check` | Check fixture regeneration, source counts, mass ratios and joint references; `--session <fresh-directory>` adds native Skarness identity/motion checks and captures | ~30s ordinary; several minutes stress |
 | `validate_physics.bat` | Standalone physics API smoke plus core physics, collision, solver, and rigid body baseline | 2 exe launches |
 | `validate_physics_deep.bat` | Opt-in bullet sweep, shooting, known-issue, and SkullScope physics baselines | ~45s+ |
 | `validate_physics_query.bat` | SkullScope query-output baseline check | ~depends |
@@ -213,6 +215,11 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_dx12_renderer.bat` | Build or reuse Profile, run only DX12 render-test scenes, check InfoQueue, and compare screenshots against DX12 baselines |
 | `validate_dx12_fault_injection.bat` | Build Debug, inject immediately before the first DX12 queue submission, and verify nonzero exit, bounded diagnostics, zero submissions, and zero InfoQueue errors |
 | `validate_deep.bat` | Opt-in broad validation pipeline for expensive sweeps |
+| `generate_catto_solver_scenes.py [--check]` | Generate or verify the source-attributed Catto scenes, arch hulls, suites and manifest; see [scene guide](../SkullbonezData/scenes/CATTO_SOLVER_SCENES.md) |
+| `validate_catto_solver_scenes.py --check` | Check fixture regeneration, source counts, mass ratios and joint references; `--session <fresh-directory>` adds native Skarness identity/motion checks and captures |
+| `validate_catto_playback.py --session <fresh-directory>` | Verify the first domino tips into its neighbour through normal resume, reset and scene switching; no forced physics steps |
+| `validate_catto_causal_playback.py --session <fresh-directory>` | Verify domino causal ancestry, early and late Manifold/Solver row scrubbing, and single camera transitions for equal-time selections |
+| `validate_cause_filters.py --session <fresh-directory>` | Click Causes category filters and verify visible evidence, text search, All restoration, and retained selection |
 | `validate_physics.bat` | Build or reuse Debug, run the shipping PhysicsEngine lifecycle smoke, and compare all 44,401 rows from `physics_bench_varied.scene.json` against `physics_regression_varied.csv` byte-for-byte |
 | `validate_physics_deep.bat` | Run the old broad physics sweep, known-issue checks, shooting reaction check, and SkullScope query baseline |
 | `watch_ui_stress.bat [--test ui\|demo] [--iterations N] [--sleep N] [--forever]` | Repeated stress watcher; defaults to a finite 25-lap UI-only run and requires `--forever` for an intentional soak |
@@ -376,3 +383,23 @@ Assertions check exact displacement and verify that other panes do not move.
 The UI gate runs this test. Skarness `input.pointer_drag` accepts optional
 `movementFrames` (1-120, default 1) and `rawInput` (default true); deltas remain
 the total displacement across the gesture.
+
+### Interactive grass and Physics window acceptance
+
+`validate_interactive_grass.py --session <fresh-path>` checks identity-bound
+live/replay grass, finite recovery, quality and allocation policy.
+`validate_interactive_grass_edges.py --session <fresh-path> [--case <name>]`
+covers terrain, hidden bodies, sweeps, teleports, recorder gaps/resets,
+non-lockstep capture and Physics isolation. `validate_interactive_grass_performance.py`
+records standard 1080p and four-view desktop timing with explicit memory/work bounds.
+The four-view GPU marker is per-pass, not an aggregate GPU total.
+
+`validate_physics_window_actions.py --session <fresh-path>` checks exact ticks,
+settings persistence, overlays, mass/inertia history and point impulses.
+`validate_physics_window_layouts.py --session <fresh-path>` exercises narrow and
+wide Canvas/Editor docks and historical input isolation.
+`validate_physics_window_policy.py --session <fresh-path>` edits during prediction,
+loads/restores the saved numerical policy and requires zero gameplay allocation
+violations. These functional scripts are registered in `validate_skarness.bat`.
+Skarness `scene.object.set_visible` routes transient Edit visibility by stable
+identity; hidden physical bodies continue interacting with grass.

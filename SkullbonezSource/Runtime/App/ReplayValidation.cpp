@@ -689,6 +689,8 @@ struct ReplayRestoreArtifactData
 
 bool LoadReplayRestoreArtifactData( const char* path, ReplayRestoreArtifactData& artifact, char* outReason, std::size_t reasonSize )
 {
+    // Cold artifact decoding owns temporary file payloads, never the catch-up solver loop.
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope captureScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Capture );
     if ( !ReplayV2Artifact::LoadSolverCheckpoints( path, artifact.checkpoints, &artifact.checkpointResult ) )
     {
         WriteReplayProbeReason( outReason, reasonSize, "failed to load v2 solver checkpoints" );
@@ -882,8 +884,9 @@ const ReplayEventSample* FindReplayGeneratedSceneConfigBeforeCheckpoint( const s
 class ScopedReplayProbeProfilerFrame
 {
   public:
-    explicit ScopedReplayProbeProfilerFrame( SkullbonezCore::Core::Profiler* profiler ) : m_profiler( profiler )
+    explicit ScopedReplayProbeProfilerFrame( SkullbonezCore::Core::Profiler* profiler ) : m_profiler( profiler && !profiler->FrameActive() ? profiler : nullptr )
     {
+        // Lifetime: startup probes own a frame; interactive restores borrow RunFrame's frame.
         PROFILE_FRAME_BEGIN( m_profiler );
     }
     ~ScopedReplayProbeProfilerFrame()
@@ -1097,7 +1100,11 @@ bool ValidateReplayRestoreSteppedFrame( ReplayRestoreTransaction& transaction,
     uint64_t stepPresentationHash = 0;
     std::size_t stepBodyCount = 0;
     ReplayLauncherVisualSample launcherVisual;
-    runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+    {
+        // This local packet is temporary verification evidence, not retained gameplay storage.
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope captureScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Capture );
+        runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+    }
 
     if ( !ReplayRestoreOperations::CaptureCurrentSolverHash( world, scene, debug, launcherVisual, stepReference, stepSolverHash, stepPresentationHash, stepBodyCount ) )
     {
@@ -1159,7 +1166,11 @@ bool CaptureAndValidateReplayRestoreTargetHash( const ReplayV2SolverHashSample& 
     reference.simulationSeconds = target.simulationSeconds;
     reference.physicsDt = PHYSICS_FIXED_DT;
     ReplayLauncherVisualSample launcherVisual;
-    runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+    {
+        // This local packet is temporary verification evidence, not retained gameplay storage.
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope captureScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Capture );
+        runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+    }
 
     if ( !ReplayRestoreOperations::CaptureCurrentSolverHash( world, scene, debug, launcherVisual, reference, result.solverHash, result.presentationHash, result.bodyCount ) )
     {
@@ -1491,7 +1502,11 @@ bool RestoreReplayLiveBackupOrFatal( ReplayRestoreTransaction& transaction, Scen
     uint64_t rollbackPresentationHash = 0;
     std::size_t rollbackBodyCount = 0;
     ReplayLauncherVisualSample launcherVisual;
-    runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+    {
+        // This local packet is temporary verification evidence, not retained gameplay storage.
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope captureScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Capture );
+        runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+    }
 
     if ( !ReplayRestoreOperations::CaptureCurrentSolverHash( world, scene, debug, launcherVisual, transaction.LiveBackup(), rollbackSolverHash, rollbackPresentationHash, rollbackBodyCount ) ||
          rollbackSolverHash != transaction.LiveBackup().solverHash )
@@ -1757,7 +1772,11 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& tran
 
     ReplaySolverFrameSample liveBackup;
     ReplayLauncherVisualSample launcherVisual;
-    runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+    {
+        // This local packet is temporary verification evidence, not retained gameplay storage.
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope captureScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Capture );
+        runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+    }
 
     if ( !ReplayRestoreOperations::CaptureCurrentSolverSample( world, scene, debug, launcherVisual, *checkpoint, liveBackup ) )
     {

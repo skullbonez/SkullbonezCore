@@ -23,6 +23,7 @@ Related:
 #include "../../Scene/GravityFieldSettings.h"
 
 #include <cstdint>
+#include <array>
 #include <span>
 
 #include "../../Core/MainMemoryStats.h"
@@ -50,6 +51,7 @@ class PhysicsEngine;
 class PhysicsBodyStore;
 struct PhysicsDebugContact;
 struct PhysicsPipelineRecord;
+struct PointJointConstraint;
 } // namespace Physics
 
 namespace Environment
@@ -100,6 +102,9 @@ struct RuntimeRenderFramePolicy
     // from which these facts were derived.
     bool textOnly = false;
     bool terrainHidden = false;
+    bool grassEnabled = false;
+    bool grassHistoryAvailable = true;
+    bool grassHistorical = false;
     bool collisionVisualizer = false;
     bool physicsDebugTransparent = false;
     float physicsDebugAlpha = 1.0f;
@@ -114,7 +119,10 @@ struct RuntimeRenderFramePolicy
     Scene::GravityFieldSettings gravityField;
     uint32_t physicsDebugFlags = 0u;
     int physicsDebugPipelineStageCursor = 0;
+    float physicsImpulseScale = .1f, physicsImpulseThreshold = .001f;
     float physicsDebugContactLinger = 0.0f;
+    uint32_t physicsSelectedBody = 0;
+    std::array<std::array<float, 3>, 3> physicsTestImpulse {}; // COM, world point, world impulse.
     double simulationSeconds = 0.0;
     double totalSimulationSeconds = 0.0;
 };
@@ -174,6 +182,7 @@ struct RuntimeRenderPhysicsDebugView
     std::span<const Physics::PhysicsDebugContact> physicsDebugContacts;
     std::span<const Physics::PhysicsPipelineRecord> physicsPipelineTrace;
     int modelCount = 0;
+    std::span<const Physics::PointJointConstraint> joints {};
 };
 
 struct RuntimeRenderDebugViews

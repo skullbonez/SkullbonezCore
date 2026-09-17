@@ -515,3 +515,48 @@ TEST_CASE( "Coverage floor contract: replay timeline applies retention and seque
     timeline->ClearLoadedPresentation();
     CHECK_FALSE( timeline->LoadedPresentation().enabled );
 }
+
+TEST_CASE( "ReplayRecorder: exact history reads preserve UI borrows and reject absent frames" )
+{
+    ReplayRecorder recorder;
+    REQUIRE( recorder.Configure( SmallRecorderConfig() ) );
+    for ( ReplayFrameIndex frame = 0; frame < 10; ++frame )
+    {
+        recorder.CaptureFrameFromSolverSample( MakeSolverSample( frame ) );
+    }
+    const auto* selected = recorder.SampleAtNormalized( 0.4f );
+    REQUIRE( selected );
+    const auto selectedFrame = selected->frameIndex;
+    const auto selectedId = selected->bodies[0].id;
+    for ( ReplayFrameIndex frame = 0; frame < 10; ++frame )
+    {
+        const auto* sample = recorder.SampleAtFrame( frame );
+        REQUIRE( sample );
+        CHECK( sample->frameIndex == frame );
+        CHECK( sample->bodies[0].id.value == 500u + frame );
+        CHECK_FALSE( sample->bodies[0].shape.Available() );
+    }
+    CHECK( selected->frameIndex == selectedFrame );
+    CHECK( selected->bodies[0].id == selectedId );
+    CHECK( recorder.SampleAtFrame( 10 ) == nullptr );
+    recorder.ResetTimeline( "new-scene" );
+    CHECK( recorder.SampleAtFrame( 0 ) == nullptr );
+}
+
+TEST_CASE( "ReplayTimeline: grass recording epoch follows recorder resets only" )
+{
+    auto timeline = std::make_unique<ReplayTimeline>();
+    const auto initial = timeline->LiveRecordingEpoch();
+    timeline->ConfigureRecording( true, 30, nullptr, 1 );
+    CHECK( timeline->LiveRecordingEpoch() == initial + 1 );
+    const auto revision = timeline->PresentationRevision();
+    timeline->ClearLoadedPresentation();
+    CHECK( timeline->LiveRecordingEpoch() == initial + 1 );
+    CHECK( timeline->PresentationRevision() > revision );
+    ReplayMemoryPolicyRequest request;
+    request.retentionSeconds = 60;
+    CHECK( timeline->ApplyMemoryPolicyRequest( request ).recordersReset );
+    CHECK( timeline->LiveRecordingEpoch() == initial + 2 );
+    timeline->Reset( "new branch" );
+    CHECK( timeline->LiveRecordingEpoch() == initial + 3 );
+}

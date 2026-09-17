@@ -870,7 +870,7 @@ class Dx12GeometryOwner
                                      LineAppearance appearance = LineAppearance::Plain );
     static constexpr size_t MAX_DYNAMIC_VERTEX_BUFFERS = 32;
     static constexpr size_t MAX_GRID_LINE_PSOS = 4;
-    static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;
+    static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 5;
     using RetainedGeometryBufferStore = std::array<RetainedGeometryBufferDX12, Dx12FrameOwner::MAX_FRAME_COUNT>;
 
     // Hazard: expanded ribbons/lines and compact ranges share one persistent

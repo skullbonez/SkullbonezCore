@@ -1,0 +1,2112 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 5,
+  "name": "Catto - Far Chain",
+  "simulation": {
+    "seed": 20240205,
+    "physics": true,
+    "text": false,
+    "timeScale": 1,
+    "world": {
+      "gravity": -40.0,
+      "fluidHeight": -37000,
+      "fluidDensity": 0
+    }
+  },
+  "cinematic": {
+    "rendering": true,
+    "skyAtmosphere": true,
+    "clouds": false,
+    "fog": false,
+    "godRays": false,
+    "volumetricLighting": false,
+    "bloom": false,
+    "skyHorizonR": 0.16,
+    "skyHorizonG": 0.2,
+    "skyHorizonB": 0.27,
+    "skyZenithR": 0.06,
+    "skyZenithG": 0.08,
+    "skyZenithB": 0.12,
+    "exposure": 1.0,
+    "gamma": 2.2
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true,
+    "exitOnComplete": false,
+    "pauseSnapshotState": false
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -36000,
+      "slopeX": 0,
+      "slopeZ": 0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true
+  },
+  "cameras": [
+    {
+      "name": "catto_front",
+      "position": [
+        40016.0,
+        -34984.0,
+        546.7410121122549
+      ],
+      "view": [
+        40016.0,
+        -34984.0,
+        512
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fovDegrees": 50
+    }
+  ],
+  "objects": [
+    {
+      "name": "anchor",
+      "sceneObjectId": 1001,
+      "position": [
+        39999.8,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.010000000000000002,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        0.2,
+        0.2,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_00",
+      "sceneObjectId": 1002,
+      "position": [
+        40000.4,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_01",
+      "sceneObjectId": 1003,
+      "position": [
+        40001.2,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_02",
+      "sceneObjectId": 1004,
+      "position": [
+        40002.0,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_03",
+      "sceneObjectId": 1005,
+      "position": [
+        40002.8,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_04",
+      "sceneObjectId": 1006,
+      "position": [
+        40003.6,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_05",
+      "sceneObjectId": 1007,
+      "position": [
+        40004.4,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_06",
+      "sceneObjectId": 1008,
+      "position": [
+        40005.2,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_07",
+      "sceneObjectId": 1009,
+      "position": [
+        40006.0,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_08",
+      "sceneObjectId": 1010,
+      "position": [
+        40006.8,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_09",
+      "sceneObjectId": 1011,
+      "position": [
+        40007.6,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_10",
+      "sceneObjectId": 1012,
+      "position": [
+        40008.4,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_11",
+      "sceneObjectId": 1013,
+      "position": [
+        40009.2,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_12",
+      "sceneObjectId": 1014,
+      "position": [
+        40010.0,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_13",
+      "sceneObjectId": 1015,
+      "position": [
+        40010.8,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_14",
+      "sceneObjectId": 1016,
+      "position": [
+        40011.6,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_15",
+      "sceneObjectId": 1017,
+      "position": [
+        40012.4,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_16",
+      "sceneObjectId": 1018,
+      "position": [
+        40013.2,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_17",
+      "sceneObjectId": 1019,
+      "position": [
+        40014.0,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_18",
+      "sceneObjectId": 1020,
+      "position": [
+        40014.8,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_19",
+      "sceneObjectId": 1021,
+      "position": [
+        40015.6,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_20",
+      "sceneObjectId": 1022,
+      "position": [
+        40016.4,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_21",
+      "sceneObjectId": 1023,
+      "position": [
+        40017.2,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_22",
+      "sceneObjectId": 1024,
+      "position": [
+        40018.0,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_23",
+      "sceneObjectId": 1025,
+      "position": [
+        40018.8,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_24",
+      "sceneObjectId": 1026,
+      "position": [
+        40019.6,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_25",
+      "sceneObjectId": 1027,
+      "position": [
+        40020.4,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_26",
+      "sceneObjectId": 1028,
+      "position": [
+        40021.2,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_27",
+      "sceneObjectId": 1029,
+      "position": [
+        40022.0,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_28",
+      "sceneObjectId": 1030,
+      "position": [
+        40022.8,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_29",
+      "sceneObjectId": 1031,
+      "position": [
+        40023.6,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_30",
+      "sceneObjectId": 1032,
+      "position": [
+        40024.4,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_31",
+      "sceneObjectId": 1033,
+      "position": [
+        40025.2,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_32",
+      "sceneObjectId": 1034,
+      "position": [
+        40026.0,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_33",
+      "sceneObjectId": 1035,
+      "position": [
+        40026.8,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_34",
+      "sceneObjectId": 1036,
+      "position": [
+        40027.6,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_35",
+      "sceneObjectId": 1037,
+      "position": [
+        40028.4,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_36",
+      "sceneObjectId": 1038,
+      "position": [
+        40029.2,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_37",
+      "sceneObjectId": 1039,
+      "position": [
+        40030.0,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_38",
+      "sceneObjectId": 1040,
+      "position": [
+        40030.8,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "link_39",
+      "sceneObjectId": 1041,
+      "position": [
+        40031.6,
+        -34984.0,
+        512.0
+      ],
+      "mass": 0.23926990816987243,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        0.4,
+        0.1,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "ragdollJoints": [
+    {
+      "bodyA": "anchor",
+      "bodyB": "link_00",
+      "localAnchorA": [
+        0.2,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_00",
+      "bodyB": "link_01",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_01",
+      "bodyB": "link_02",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_02",
+      "bodyB": "link_03",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_03",
+      "bodyB": "link_04",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_04",
+      "bodyB": "link_05",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_05",
+      "bodyB": "link_06",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_06",
+      "bodyB": "link_07",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_07",
+      "bodyB": "link_08",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_08",
+      "bodyB": "link_09",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_09",
+      "bodyB": "link_10",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_10",
+      "bodyB": "link_11",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_11",
+      "bodyB": "link_12",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_12",
+      "bodyB": "link_13",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_13",
+      "bodyB": "link_14",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_14",
+      "bodyB": "link_15",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_15",
+      "bodyB": "link_16",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_16",
+      "bodyB": "link_17",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_17",
+      "bodyB": "link_18",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_18",
+      "bodyB": "link_19",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_19",
+      "bodyB": "link_20",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_20",
+      "bodyB": "link_21",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_21",
+      "bodyB": "link_22",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_22",
+      "bodyB": "link_23",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_23",
+      "bodyB": "link_24",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_24",
+      "bodyB": "link_25",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_25",
+      "bodyB": "link_26",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_26",
+      "bodyB": "link_27",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_27",
+      "bodyB": "link_28",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_28",
+      "bodyB": "link_29",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_29",
+      "bodyB": "link_30",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_30",
+      "bodyB": "link_31",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_31",
+      "bodyB": "link_32",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_32",
+      "bodyB": "link_33",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_33",
+      "bodyB": "link_34",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_34",
+      "bodyB": "link_35",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_35",
+      "bodyB": "link_36",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_36",
+      "bodyB": "link_37",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_37",
+      "bodyB": "link_38",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    },
+    {
+      "bodyA": "link_38",
+      "bodyB": "link_39",
+      "localAnchorA": [
+        0.4,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        -0.4,
+        0.0,
+        0.0
+      ],
+      "slack": 0,
+      "frequencyHz": 40,
+      "dampingRatio": 1,
+      "flags": 0
+    }
+  ],
+  "objectMaterials": [
+    {
+      "target": "anchor",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "link_00",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_01",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_02",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_03",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_04",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_05",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_06",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_07",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_08",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_09",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_10",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_11",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_12",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_13",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_14",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_15",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_16",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_17",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_18",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_19",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_20",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_21",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_22",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_23",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_24",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_25",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_26",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_27",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_28",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_29",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_30",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_31",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_32",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_33",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_34",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_35",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_36",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_37",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "link_38",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "link_39",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    }
+  ]
+}

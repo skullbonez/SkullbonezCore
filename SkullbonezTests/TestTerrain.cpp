@@ -648,3 +648,18 @@ TEST_CASE( "Terrain: touching hull edges and tips keep friction while sleep is i
         }
     }
 }
+
+TEST_CASE( "Terrain: content identity survives copies and invalidates after editing" )
+{
+    SkullbonezCore::Core::EngineConfig config;
+    SkullbonezCore::Geometry::Terrain original( 0, .1f, 0, config ), same( 0, .1f, 0, config ), different( 0, .2f, 0, config );
+    const auto before = original.ContentFingerprint();
+    CHECK( before != 0 );
+    CHECK( before == same.ContentFingerprint() );
+    CHECK( before != different.ContentFingerprint() );
+    original.PrepareEditing();
+    CHECK( before == original.ContentFingerprint() );
+    REQUIRE( original.Sculpt( SkullbonezCore::Math::Vector::Vector3( 500, 50, 500 ), 40, 2 ) );
+    CHECK( before != original.ContentFingerprint() );
+    CHECK( original.ContentFingerprint() == original.ContentFingerprint() );
+}

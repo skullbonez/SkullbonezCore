@@ -100,9 +100,31 @@ inline bool EmitPhysicsToggleCommand( int toggleIndex, UIPhysicsCommands& comman
 
 struct UIPhysicsTabState
 {
+    int section = 0;
+    bool advancedOpen = false, tornadoOpen = false;
+    UIRect advancedButton, tornadoButton;
+    UISlider timeScaleSlider;
+    float timeScalePreview = 1;
+    bool liveEditable = true;
+    bool massEditable = false;
+    uint32_t selectedBody = 0, massDragBody = 0;
+    float massPreview = 1;
+    UISlider massSlider;
+    UIPhysicsPointImpulse pointImpulse;
+    std::array<UISlider, 6> impulseSliders;
+    std::array<float, 3> selectedCenter {};
+    bool impulseEditable = false;
+    UIRect impulseSpaceButton, applyImpulseButton, centerImpulseButton;
+    UIRect undoMassButton, redoMassButton, saveBodyButton;
+    std::array<UISlider, 13> numericalSliders;
+    std::array<float, 13> numericalPreviews {};
+
     UICheckBox toggles[13];
+    std::array<UICheckBox, 10> additionalLayers;
+    UIRect restoreStartupButton, saveDefaultsButton;
     UIRect pipelinePrevButton;
     UIRect pipelineNextButton;
+    UISlider impulseScaleSlider, impulseThresholdSlider;
     UISlider alphaSlider;
     UISlider contactLingerSlider;
     UISlider rayImpulseSlider;
@@ -118,6 +140,7 @@ struct UIPhysicsTabState
     UISlider tornadoLiftSlider;
     float previewAlpha = -1.0f;
     float previewContactLinger = -1.0f;
+    float previewWorldGravity = -1.0f;
     float previewRayImpulse = -1.0f;
     float previewLauncherProjectileSpeed = -1.0f;
     float previewTerrainFriction = -1.0f;
@@ -130,17 +153,25 @@ struct UIPhysicsTabState
     float previewTornadoLift = -1.0f;
 };
 
-int ContentHeight();
+int ContentHeight( int section = 0, bool advancedOpen = false, bool tornadoOpen = false );
 void ResetPreviewState( UIPhysicsTabState& state );
 
-bool HandleContentClick( UIPhysicsTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
-                         float contentX, float rowBase, float contentW );
+bool HandleContentClick( UIPhysicsTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY, float contentX, float rowBase, float contentW );
 
 bool UpdateActiveSlider( UIPhysicsTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 bool CommitActiveSlider( UIPhysicsTabState& state, int activeSlider, InGameUIInputResult& result );
 
-void Draw( UIPhysicsTabState& state, const UIDrawContext& draw, const UIPhysicsTabFrameView& data, float contentX,
-           float contentY, float contentW, float contentH, float scrolledY, int activeSlider, int mouseX, int mouseY );
+void Draw( UIPhysicsTabState& state,
+           const UIDrawContext& draw,
+           const UIPhysicsTabFrameView& data,
+           float contentX,
+           float contentY,
+           float contentW,
+           float contentH,
+           float scrolledY,
+           int activeSlider,
+           int mouseX,
+           int mouseY );
 
 } // namespace PhysicsTab
 } // namespace UI

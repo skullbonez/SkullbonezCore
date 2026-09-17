@@ -260,8 +260,10 @@ def reflect_job(repo: Path, dxc: Path, job: dict[str, object], bytecode_path: Pa
     signature = dump.split("; Input signature:", 1)
     if len(signature) == 2:
         body = signature[1].split("; Output signature:", 1)[0]
+        # DXC pads sparse used masks (for example x z); retain active inputs
+        # while omitting fully unused signature rows, as the CPU contract does.
         input_pattern = re.compile(
-            r"^;\s+(\w+)\s+(\d+)\s+([xyzw]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+([xyzw]+)\s*$",
+            r"^;\s+(\w+)\s+(\d+)\s+([xyzw ]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+([xyzw][xyzw ]*)\s*$",
             re.MULTILINE,
         )
         for row in input_pattern.finditer(body):
@@ -270,11 +272,11 @@ def reflect_job(repo: Path, dxc: Path, job: dict[str, object], bytecode_path: Pa
                 {
                     "semantic": name,
                     "index": int(index),
-                    "mask": mask,
+                    "mask": mask.replace(" ", ""),
                     "register": int(register),
                     "system_value": system_value,
                     "format": fmt,
-                    "used": used,
+                    "used": used.replace(" ", ""),
                 }
             )
 

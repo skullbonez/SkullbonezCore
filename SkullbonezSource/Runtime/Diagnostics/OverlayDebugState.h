@@ -64,7 +64,8 @@ struct OverlayDebugState
     bool isPhysicsDebugTransparent = false; // Draw translucent debug collision volumes behind physics debug lines
 
     // (toggle with 6)
-    float physicsDebugAlpha = 0.28f;         // Translucent debug volume alpha
+    float physicsDebugAlpha = 0.28f; // Translucent debug volume alpha
+    float physicsImpulseScale = .1f, physicsImpulseThreshold = .001f;
     float physicsDebugContactLinger = 0.45f; // Seconds to keep contact manifolds visible after their solver row
 
     // disappears

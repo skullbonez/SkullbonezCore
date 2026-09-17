@@ -1541,7 +1541,12 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
     }
 
     root["format"] = "skullbonez.scene.json";
-    root["version"] = 1;
+    // Preserve the loaded schema: stable IDs, hulls and full inertia require
+    // later versions even when this action changes only scene defaults.
+    if ( !root.contains( "version" ) )
+    {
+        root["version"] = 1;
+    }
     // Lifetime: ordered_json stores object members in a vector. Inserting a
     // sibling can invalidate borrowed child references, including world when
     // simulation gains seed/timeScale. Own edited sections until publication.

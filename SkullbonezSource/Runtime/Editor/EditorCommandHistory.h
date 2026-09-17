@@ -50,6 +50,7 @@ enum class EditorCommandKind : uint8_t
     None,
     Transform,
     Velocity,
+    Mass,
     Place,
     Delete
 };
@@ -127,6 +128,9 @@ struct EditorCommandEntry
     std::array<EditorTransformHistoryItem, EDITOR_COMMAND_TRANSFORM_CAPACITY> transforms = {};
     std::size_t transformCount = 0;
     EditorPrimitiveRecreateRecipe primitive;
+    Physics::PhysicsSceneObjectId massBody;
+    float beforeMass = 0, afterMass = 0;
+    Math::Vector::Vector3 beforeInertia {}, afterInertia {}, beforeInertiaProducts {}, afterInertiaProducts {};
 };
 
 bool TryCaptureEditorPrimitiveShape( const Math::CollisionDetection::CollisionShapeReference& shape, EditorPrimitiveShapeSnapshot& outSnapshot );

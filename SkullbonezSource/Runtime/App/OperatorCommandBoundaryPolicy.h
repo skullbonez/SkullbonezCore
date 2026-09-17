@@ -125,6 +125,12 @@ inline void PreserveComparedWorld( UI::InGameUICommands& commands ) noexcept
     commands.editor.requestUndo = false;
     commands.editor.requestRedo = false;
     commands.physics.togglePhysicsSleepPolicy = false;
+    commands.physics.setting = Physics::InteractivePhysicsSetting::None;
+    commands.physics.requestBodyMass = false;
+    commands.physics.saveBodyScene = false;
+    commands.physics.applyPointImpulse = false;
+    commands.physics.restoreStartup = false;
+    commands.physics.saveDefaults = false;
     commands.physics.toggleTornado = false;
     commands.physics.requestTornadoRadius = false;
     commands.physics.requestTornadoHeight = false;

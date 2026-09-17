@@ -55,8 +55,7 @@ int SaturatingWholeTickCount( double wholeTickCount ) noexcept
     // Hazard: converting a non-finite or out-of-range floating value to int is
     // undefined. Compare in double and cast only the proven representable case.
     constexpr double maxResult = static_cast<double>( ( std::numeric_limits<int>::max )() );
-    return !std::isfinite( wholeTickCount ) || wholeTickCount >= maxResult ? ( std::numeric_limits<int>::max )()
-                                                                           : static_cast<int>( wholeTickCount );
+    return !std::isfinite( wholeTickCount ) || wholeTickCount >= maxResult ? ( std::numeric_limits<int>::max )() : static_cast<int>( wholeTickCount );
 }
 
 double RetainSubTickFraction( double accumulator, double tickInterval, int requestedWholeTicks ) noexcept
@@ -106,11 +105,18 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
     const double timeScale = FiniteNonNegative( static_cast<double>( input.timeScale ) );
     result.cameraDt = static_cast<float>( (std::min)( frameSeconds, static_cast<double>( ( std::numeric_limits<float>::max )() ) ) );
 
-    const bool shouldStepPhysics = input.physicsAdvance == PhysicsAdvanceState::Running ||
-                                   ( input.physicsAdvance == PhysicsAdvanceState::RunWhileStepHeld &&
-                                     input.isStepRequested );
+    const bool shouldStepPhysics = input.physicsAdvance == PhysicsAdvanceState::Running || ( input.physicsAdvance == PhysicsAdvanceState::RunWhileStepHeld && input.isStepRequested );
 
     const bool canStepPhysics = shouldStepPhysics && input.canStepPhysics;
+
+    if ( input.exactSingleTick && canStepPhysics )
+    {
+        m_physicsAccumulator = 0;
+        m_renderFrameLockstepTickAccumulator = 0;
+        result.committedPhysicsTicks = 1;
+        result.simulationDt = PHYSICS_FIXED_DT;
+        return result;
+    }
 
     if ( input.pacingPolicy == SimulationPacingPolicy::RenderFrameLockstep )
     {
@@ -135,8 +141,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
         // Hazard: carrying excess whole ticks would turn one hitch into repeated
         // five-step stalls. Remove all requested whole ticks, but retain the
         // fractional remainder so ordinary time-scale cadence stays exact.
-        m_renderFrameLockstepTickAccumulator = RetainSubTickFraction( m_renderFrameLockstepTickAccumulator, 1.0,
-                                                                      requestedWholeTicks );
+        m_renderFrameLockstepTickAccumulator = RetainSubTickFraction( m_renderFrameLockstepTickAccumulator, 1.0, requestedWholeTicks );
 
         if ( droppedTicks > 0 )
         {

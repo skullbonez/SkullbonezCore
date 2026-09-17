@@ -1396,7 +1396,8 @@ TEST_CASE( "Detached manifold strokes preserve contact geometry and body origins
     CHECK( core[normal + 1] == 4.0f );
     CHECK( core[normal + 2] == 5.0f );
     CHECK( core[normal + 3] == 3.0f );
-    CHECK( core[normal + 4] == doctest::Approx( 6.9f ) );
+    // Direction length is independent of penetration and solver impulse.
+    CHECK( core[normal + 4] == doctest::Approx( 6.5f ) );
     CHECK( core[normal + 5] == 5.0f );
     CHECK( core[25u * floatsPerSegment + 3] == 4.25f );
     CHECK( core[26u * floatsPerSegment + 5] == 6.25f );
@@ -1419,7 +1420,7 @@ TEST_CASE( "Detached manifold strokes preserve contact geometry and body origins
 
     presentation.normalLengthScale = 1.2f;
     const auto pulsed = visualizer.BuildContactManifoldStrokes( presentation ).subspan( segments * floatsPerSegment );
-    CHECK( pulsed[normal + 4] == doctest::Approx( 4.0f + 2.9f * 1.2f ) );
+    CHECK( pulsed[normal + 4] == doctest::Approx( 4.0f + 2.5f * 1.2f ) );
     CHECK( pulsed[25u * floatsPerSegment + 3] == 4.25f );
     CHECK( presentation.points[0].normal.y == 1.0f );
     CHECK( presentation.Center().x == 3.0f );

@@ -261,7 +261,16 @@ void PhysicsEngine::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig
 {
     // Concept: this is the one process-config-to-Physics stamp boundary. Every
     // fixed-step consumer below receives values owned by PhysicsEngine.
-    m_runtimeSettings = RuntimeSettingsFromConfig( config );
+    if ( !config.persistentContactSolver.warmStart )
+    {
+        m_interactiveSettingsEvidence = true;
+    }
+    ApplySettingsSnapshot( RuntimeSettingsFromConfig( config ) );
+}
+
+void PhysicsEngine::ApplySettingsSnapshot( const PhysicsRuntimeSettings& settings )
+{
+    m_runtimeSettings = settings;
     m_physicsMaterial = PhysicsMaterial::FromSettings( m_runtimeSettings.material );
     m_bodySimulationLimits = BodySimulationLimits::FromSettings( m_runtimeSettings.body );
     m_contactPolicy = ContactPolicy::FromSettings( m_runtimeSettings.body, m_runtimeSettings.terrain );
@@ -274,6 +283,107 @@ void PhysicsEngine::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig
     }
 }
 
+
+bool PhysicsEngine::EditRuntimeConfig( SkullbonezCore::Core::EngineConfig& config, InteractivePhysicsSetting setting, float requested )
+{
+    float value = 0;
+    if ( !NormalizeInteractivePhysicsSetting( setting, requested, value ) )
+    {
+        return false;
+    }
+    switch ( setting )
+    {
+    case InteractivePhysicsSetting::Iterations:
+        config.persistentContactSolver.iterations = static_cast<int>( value );
+        break;
+    case InteractivePhysicsSetting::Slop:
+        config.persistentContactSolver.slop = value;
+        break;
+    case InteractivePhysicsSetting::Bias:
+        config.persistentContactSolver.baumgarteBeta = value;
+        break;
+    case InteractivePhysicsSetting::PositionCorrection:
+        config.persistentContactSolver.positionCorrectionPercent = value;
+        break;
+    case InteractivePhysicsSetting::TerrainSlop:
+        config.terrainContact.slop = value;
+        break;
+    case InteractivePhysicsSetting::TerrainBias:
+        config.terrainContact.baumgarteBeta = value;
+        break;
+    case InteractivePhysicsSetting::TerrainMaxBias:
+        config.terrainContact.maxBaumgarteBias = value;
+        break;
+    case InteractivePhysicsSetting::SpinFriction:
+        config.physicsMaterial.spinFrictionCoeff = value;
+        break;
+    case InteractivePhysicsSetting::RestitutionThreshold:
+        config.bodySimulation.contactRestitutionThreshold = value;
+        break;
+    case InteractivePhysicsSetting::SleepLinear:
+        config.physicsSleep.linearSpeed = value;
+        break;
+    case InteractivePhysicsSetting::SleepAngular:
+        config.physicsSleep.angularSpeed = value;
+        break;
+    case InteractivePhysicsSetting::SleepFrames:
+        config.physicsSleep.frames = static_cast<int>( value );
+        break;
+    case InteractivePhysicsSetting::WarmStart:
+        config.persistentContactSolver.warmStart = value != 0;
+        break;
+    default:
+        return false;
+    }
+    return true;
+}
+
+void PhysicsEngine::InvalidateSolverSettings()
+{
+    m_interactiveSettingsEvidence = true;
+    m_world->InvalidateSolverCaches();
+    for ( int row = 0; row < m_bodyStore.Count(); ++row )
+    {
+        WakeBody( m_bodyStore.HandleForModelIndex( row ) );
+    }
+}
+
+void PhysicsEngine::CopyRuntimeSettingsToConfig( SkullbonezCore::Core::EngineConfig& config ) const
+{
+    WriteSettingsToConfig( m_runtimeSettings, config );
+}
+
+void PhysicsEngine::WriteSettingsToConfig( const PhysicsRuntimeSettings& settings, SkullbonezCore::Core::EngineConfig& config )
+{
+    config.physicsMaterial.sphereDragCoeff = settings.material.sphereDragCoefficient;
+    config.physicsMaterial.frictionCoeff = settings.material.terrainFrictionCoefficient;
+    config.physicsMaterial.objectFrictionCoeff = settings.material.objectFrictionCoefficient;
+    config.physicsMaterial.rollingFrictionCoeff = settings.material.rollingFrictionCoefficient;
+    config.physicsMaterial.spinFrictionCoeff = settings.material.spinFrictionCoefficient;
+    config.bodySimulation.velocityLimit = settings.body.angularVelocityLimit;
+    config.bodySimulation.contactRestitutionThreshold = settings.body.contactRestitutionThreshold;
+    config.bodySimulation.contactEpsilon = settings.body.contactEpsilon;
+    config.persistentContactSolver.slop = settings.solver.slop;
+    config.persistentContactSolver.baumgarteBeta = settings.solver.baumgarteBeta;
+    config.persistentContactSolver.positionCorrectionPercent = settings.solver.positionCorrectionPercent;
+    config.persistentContactSolver.iterations = settings.solver.iterations;
+    config.persistentContactSolver.warmStart = settings.solver.warmStart;
+    config.terrainContact.threshold = settings.terrain.threshold;
+    config.terrainContact.slop = settings.terrain.slop;
+    config.terrainContact.baumgarteBeta = settings.terrain.baumgarteBeta;
+    config.terrainContact.maxBaumgarteBias = settings.terrain.maxBaumgarteBias;
+    config.physicsSleep.linearSpeed = settings.sleep.linearSpeed;
+    config.physicsSleep.angularSpeed = settings.sleep.angularSpeed;
+    config.physicsSleep.frames = settings.sleep.frames;
+    config.broadphase.cellSize = settings.broadphase.cellSize;
+    config.physicsExecution.parallel = settings.execution.parallel;
+    config.physicsExecution.parallelApplyForces = settings.execution.parallelApplyForces;
+    config.physicsExecution.parallelMutualGravity = settings.execution.parallelMutualGravity;
+    config.physicsExecution.parallelNarrowphase = settings.execution.parallelNarrowphase;
+    config.physicsExecution.parallelTerrainDetect = settings.execution.parallelTerrainDetect;
+    config.physicsExecution.parallelIntegrate = settings.execution.parallelIntegrate;
+    config.worldForces.gravity = settings.worldForces.gravity;
+}
 
 PhysicsRuntimeSettings PhysicsEngine::RuntimeSettingsFromConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
@@ -290,6 +400,7 @@ PhysicsRuntimeSettings PhysicsEngine::RuntimeSettingsFromConfig( const Skullbone
     settings.solver.baumgarteBeta = config.persistentContactSolver.baumgarteBeta;
     settings.solver.positionCorrectionPercent = config.persistentContactSolver.positionCorrectionPercent;
     settings.solver.iterations = config.persistentContactSolver.iterations;
+    settings.solver.warmStart = config.persistentContactSolver.warmStart;
     settings.terrain.threshold = config.terrainContact.threshold;
     settings.terrain.slop = config.terrainContact.slop;
     settings.terrain.baumgarteBeta = config.terrainContact.baumgarteBeta;
@@ -391,6 +502,7 @@ void PhysicsEngine::SeedReplayPredictionStorageFrom( const PhysicsEngine& source
     m_bodySimulationLimits = source.m_bodySimulationLimits;
     m_contactPolicy = source.m_contactPolicy;
     m_runtimeSettings = source.m_runtimeSettings;
+    m_interactiveSettingsEvidence = source.m_interactiveSettingsEvidence;
     m_lastWorldForces = source.m_lastWorldForces;
     m_hasLastWorldForces = source.m_hasLastWorldForces;
     CloneFixedListForReplayPrediction( m_fixedTreeReleaseWakeBodies, source.m_fixedTreeReleaseWakeBodies );
@@ -502,6 +614,7 @@ void PhysicsEngine::ClearTerrainView() noexcept
 
 void PhysicsEngine::Clear()
 {
+    m_completedStepCount = 0;
     m_world->Clear();
     m_authoredBodyDescs.clear();
     m_bodyStore.Clear();
@@ -659,6 +772,46 @@ bool PhysicsEngine::DestroyAuthoredBody( PhysicsBodyHandle body )
     return true;
 }
 
+
+bool PhysicsEngine::CanSetAuthoredBodyMass( PhysicsBodyHandle handle, float mass ) const
+{
+    const int row = m_bodyStore.ModelIndexForHandle( handle );
+    const auto* body = m_bodyStore.RecordForHandle( handle );
+    if ( row < 0 || !body || !std::isfinite( mass ) || mass < .001f || mass > 1000000 || !std::isfinite( body->mass ) || body->mass <= 0 || m_bodyStore.HotFields().fixed[row] != 0 )
+    {
+        return false;
+    }
+    const float scale = mass / body->mass;
+    const auto diagonal = body->rotationalInertia * scale;
+    const auto products = body->rotationalInertiaProducts * scale;
+    return diagonal.x > 0 && diagonal.y > 0 && diagonal.z > 0 && std::isfinite( diagonal.x ) && std::isfinite( diagonal.y ) && std::isfinite( diagonal.z ) && std::isfinite( products.x ) &&
+           std::isfinite( products.y ) && std::isfinite( products.z );
+}
+
+bool PhysicsEngine::SetAuthoredBodyMass( PhysicsBodyHandle handle, float mass )
+{
+    if ( !CanSetAuthoredBodyMass( handle, mass ) )
+    {
+        return false;
+    }
+    const auto* body = m_bodyStore.RecordForHandle( handle );
+    // Uniform density scaling preserves the shape's complete body-frame tensor,
+    // including hull products of inertia. Store refresh computes its inverse.
+    const float scale = mass / body->mass;
+    PhysicsBodyUpdateDesc update;
+    update.body = handle;
+    update.updateMask = PHYSICS_BODY_UPDATE_MASS | PHYSICS_BODY_UPDATE_SLEEP_STATE;
+    update.mass = mass;
+    update.rotationalInertia = body->rotationalInertia * scale;
+    update.rotationalInertiaProducts = body->rotationalInertiaProducts * scale;
+    update.sleeping = false;
+    if ( !UpdateAuthoredBody( update ) )
+    {
+        return false;
+    }
+    InvalidateSolverSettings();
+    return true;
+}
 
 bool PhysicsEngine::UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update )
 {
@@ -918,6 +1071,7 @@ void PhysicsEngine::Step( float deltaSeconds,
     m_world->EmitStepDiagnostics( m_bodyStore, m_colliderStore, deltaSeconds, diagnosticsCsvWriter );
 
     m_bodyStore.CopySleepStatesFrom( m_world->GetSleepStates() );
+    ++m_completedStepCount;
 }
 
 
@@ -1105,6 +1259,50 @@ void PhysicsEngine::SetPendingBodyImpulse( PhysicsBodyHandle body, const Math::V
     m_bodyStore.SetPendingBodyImpulse( body, impulse, worldApplicationOffset );
 }
 
+
+bool PhysicsEngine::ResolvePointImpulse( const PhysicsPointImpulse& request, PhysicsPointImpulseWorld& result ) const
+{
+    result = {};
+    const auto* body = m_bodyStore.RecordForHandle( request.body );
+    const int row = m_bodyStore.ModelIndexForHandle( request.body );
+    if ( !body || row < 0 )
+    {
+        return false;
+    }
+    const auto hot = m_bodyStore.HotFields();
+    if ( hot.fixed[static_cast<std::size_t>( row )] != 0 )
+    {
+        return false;
+    }
+    const auto bounded = []( const Vector3& value )
+    { return std::isfinite( value.x ) && std::isfinite( value.y ) && std::isfinite( value.z ) && std::abs( value.x ) <= 1000000 && std::abs( value.y ) <= 1000000 && std::abs( value.z ) <= 1000000; };
+    if ( !bounded( request.impulse ) || !bounded( request.point ) || request.impulse == Math::Vector::ZERO_VECTOR )
+    {
+        return false;
+    }
+    result.center = PhysicsBodyPosition( hot, static_cast<std::size_t>( row ) );
+    const RotationMatrix rotation = PhysicsBodyOrientation( hot, static_cast<std::size_t>( row ) ).GetOrientationMatrix();
+    result.impulse = request.local ? rotation * request.impulse : request.impulse;
+    result.point = request.local ? result.center + rotation * request.point : request.point;
+    return bounded( result.impulse ) && bounded( result.point - result.center );
+}
+
+bool PhysicsEngine::ApplyPointImpulse( const PhysicsPointImpulse& request )
+{
+    PhysicsPointImpulseWorld resolved;
+    if ( !ResolvePointImpulse( request, resolved ) )
+    {
+        return false;
+    }
+    // A paused operator cannot overwrite a queued ray or point impulse. The
+    // existing Physics tick consumes and clears this slot exactly once.
+    if ( m_bodyStore.RecordForHandle( request.body )->hasPendingImpulse )
+    {
+        return false;
+    }
+    ApplyBodyImpulse( request.body, resolved.impulse, resolved.point - resolved.center );
+    return true;
+}
 
 void PhysicsEngine::ApplyBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse, const Math::Vector::Vector3& worldApplicationOffset )
 {
@@ -1319,27 +1517,53 @@ PhysicsBroadphaseQueryResultView PhysicsEngine::QueryBroadphaseCells( const Phys
 void PhysicsEngine::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, PhysicsBodyCount bodyCount ) const
 {
     m_world->CaptureReplaySolverSnapshot( outSnapshot, CountAsInt( bodyCount ), m_bodyStore, true );
+    outSnapshot.settings = EncodePhysicsSettings( m_runtimeSettings );
+    if ( m_interactiveSettingsEvidence )
+    {
+        outSnapshot.version = PHYSICS_SETTINGS_SOLVER_SNAPSHOT_VERSION;
+    }
 }
 
 
 void PhysicsEngine::CaptureReplaySimulationSnapshot( PhysicsSolverSnapshot& outSnapshot, PhysicsBodyCount bodyCount ) const
 {
     m_world->CaptureReplaySolverSnapshot( outSnapshot, CountAsInt( bodyCount ), m_bodyStore, false );
+    outSnapshot.settings = EncodePhysicsSettings( m_runtimeSettings );
+    if ( m_interactiveSettingsEvidence )
+    {
+        outSnapshot.version = PHYSICS_SETTINGS_SOLVER_SNAPSHOT_VERSION;
+    }
 }
 
 
 bool PhysicsEngine::CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, PhysicsBodyCount bodyCount ) const
 {
+    PhysicsRuntimeSettings settings;
+    if ( snapshot.version >= PHYSICS_SETTINGS_SOLVER_SNAPSHOT_VERSION && !DecodePhysicsSettings( snapshot.settings, settings ) )
+    {
+        return false;
+    }
     return m_world->CanRestoreReplaySolverSnapshot( snapshot, CountAsInt( bodyCount ), m_bodyStore );
 }
 
 
 bool PhysicsEngine::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, PhysicsBodyCount bodyCount )
 {
+    if ( !CanRestoreReplaySolverSnapshot( snapshot, bodyCount ) )
+    {
+        return false;
+    }
     const bool restored = m_world->RestoreReplaySolverSnapshot( snapshot, CountAsInt( bodyCount ), m_bodyStore );
 
     if ( restored )
     {
+        if ( snapshot.version >= PHYSICS_SETTINGS_SOLVER_SNAPSHOT_VERSION )
+        {
+            PhysicsRuntimeSettings settings;
+            (void)DecodePhysicsSettings( snapshot.settings, settings );
+            ApplySettingsSnapshot( settings );
+            m_interactiveSettingsEvidence = true;
+        }
         m_bodyStore.CopySleepStatesFrom( m_world->GetSleepStates() );
     }
 

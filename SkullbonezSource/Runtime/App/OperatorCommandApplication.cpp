@@ -1024,6 +1024,25 @@ void OperatorCommandTransaction::ApplyOrdinaryRenderParam( SkullbonezCore::Core:
     case UIRenderParam::TrajectorySelectedEmphasis:
         ordinary.replayTrajectory.selectedEmphasis = boundedValue;
         break;
+    case UIRenderParam::GrassQuality:
+        ordinary.grass.quality = boundedValue;
+        break;
+    case UIRenderParam::GrassDensity:
+        ordinary.grass.density = boundedValue;
+        break;
+    case UIRenderParam::GrassDistance:
+        ordinary.grass.distance = boundedValue;
+        break;
+    case UIRenderParam::GrassHeight:
+        ordinary.grass.height = boundedValue;
+        break;
+    case UIRenderParam::GrassBend:
+        ordinary.grass.bend = boundedValue;
+        break;
+    case UIRenderParam::GrassRecovery:
+        ordinary.grass.recoverySeconds = boundedValue;
+        break;
+
     default:
         break;
     }

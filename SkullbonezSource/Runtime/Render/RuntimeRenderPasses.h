@@ -77,6 +77,7 @@ namespace Runtime
 class BroadphaseVisualizer;
 class CollisionVisualizer;
 class PhysicsDebugVisualizer;
+struct PhysicsContactLabel;
 struct SkyPassTestAccess;
 struct UiTextPassTestAccess;
 } // namespace Runtime
@@ -540,6 +541,8 @@ struct ShadowPassInputs
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic;
     bool terrainHidden;              // Frame snapshot of debug/scene terrain visibility.
     bool collisionVisualizerVisible; // Collision-color mode disables object shadow casters.
+    Rendering::Dx12GeometryOwner* surfaceGeometry = nullptr;
+    std::span<const float> surfacePatches; // Same rooted deformation records as the visible surface.
 };
 
 struct ShadowPassOutput
@@ -711,17 +714,11 @@ class ShadowPass
                                                      const Math::Vector::Vector3& lightDirectionWorld,
                                                      const Math::Vector::Vector3& focusHint,
                                                      Rendering::RenderInstanceRenderer& instanceRenderer );
-    void RenderShadowMap( Rendering::FramebufferDX12& target,
-                          Rendering::RenderInstanceRenderer& instanceRenderer,
-                          Rendering::Dx12Diagnostics& renderDiagnostics,
-                          const char* shadowShaderBaseName,
+    void RenderShadowMap( const ShadowPassInputs& inputs,
+                          Rendering::FramebufferDX12& target,
                           const Rendering::ShadowFrameData& shadowFrame,
-                          const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                          Rendering::Dx12FrameOwner& renderFrame,
-                          Rendering::Dx12TextureOwner& renderTextures,
                           bool renderTerrain,
-                          const Rendering::ShadowCasterBatches& objectCasters,
-                          Geometry::Terrain* terrain );
+                          const Rendering::ShadowCasterBatches& objectCasters );
 
     ShadowPassResources& m_resources;
     const SkullbonezCore::Core::EngineConfig& m_config;
@@ -1046,6 +1043,7 @@ class UiTextPass
                                Rendering::Dx12TextureOwner& renderTextures,
                                Rendering::Dx12GeometryOwner& renderGeometry,
                                Rendering::Dx12Diagnostics& renderDiagnostics );
+    const UI::UIDrawList& BuildContactLabels( std::span<const PhysicsContactLabel> labels, const Math::Transformation::Matrix4& viewProjection, const UiTextViewport& viewport );
     void SubmitDrawList( const UI::UIDrawList& drawList,
                          const UiTextViewport& viewport,
                          Rendering::Dx12TextureOwner& renderTextures,
@@ -1102,6 +1100,7 @@ class UiTextPass
     UI::UIDrawList m_testPatternDrawList;
     UI::UIDrawList m_badgeDrawList;
     UI::UIDrawList m_profilerDrawList;
+    UI::UIDrawList m_contactLabelDrawList;
     UI::UIDrawList::Stats m_detachedDrawStats;
 
     // Lifetime: backend resource release closes profile reads before the pass's

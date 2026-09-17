@@ -1,7 +1,7 @@
 # Physics Tool Window Beside Causal
 
 Date: 2026-09-17
-Status: WNF - owner-requested plan only; 0/8 phases complete.
+Status: Active by owner direction 2026-09-17; 7/8 phases complete; PW7 terminal gate in progress.
 Owner: Runtime UI composition, Physics settings/diagnostics, Planning inspection
 Impact area: right dock, operator input, live solver settings, body inspection, debug drawing, prediction/replay, tests
 Commit name: `PHYSICS_WINDOW`
@@ -14,11 +14,9 @@ solver parameterisation, impulse visualisation and selected-body properties,
 including mass. The supplied Solver2D screenshot is the feature reference;
 the window must fit SkullbonezCore's existing UI and ownership model.
 
-This plan stays in WNF until the owner explicitly activates it. It does not
-activate the selectable-solver plans, change active portfolio counts, or
-authorize implementation, PR creation or merge. On activation follow
-`Agentic/Skills/orchestrator/SKILL.md` and recheck current repository instructions.
-Drafting this documentation requires no runtime validation.
+Activated for the combined Night Runner PR on 2026-09-17. Implement all
+current-solver window phases. The selectable-solver campaign remains parked.
+Publish the combined review PR; do not merge it.
 
 The deliverable is useful with the current Skullbonez solver (custom PGS-based implementation). Additional algorithms,
 independent position-solver iterations and adjustable physics frequency are
@@ -48,6 +46,56 @@ source findings, not claims of native runtime acceptance:
 
 At activation recheck these findings, staged solver-plan work, hull acceptance,
 the actual branch and all dirty files. Do not absorb unrelated edits.
+
+## Execution Decisions - 2026-09-18
+
+The existing right dock owns the new Physics peer in both layouts. Preference
+version 7 retains active peer and section, migrating older values to Causal.
+The old Tools page is an open-window action. Its existing 13 toggles and 13
+sliders have one widget/command owner and now use narrow single-column bounds.
+Native acceptance: 53 held-click, restoration, pipeline and slider checks pass
+in `TestOutput/skarness/physics-window/dock-01/`; screenshot inspected.
+
+Provisional interactive numerical limits are owned by
+`Physics/PhysicsRuntimeSettings.h`: iterations 1-32 (integer), slop 0-.1,
+bias/correction 0-1, terrain maximum bias 0-20, spin length 0-2, restitution
+threshold 0-20, sleep linear/angular speed 0-5 and 1-600 sleep ticks.
+Warm-start off disables prior-contact reuse, terrain weight seeds and cached
+joint impulses; same-tick solver continuation remains part of the current solve.
+Existing defaults remain unchanged. Config version 8 persists the warm-start
+switch. Settings edits must invalidate caches and wake supported bodies at the
+completed-tick boundary. Live numerical controls now reset the recording and join prediction before
+mutation; solver snapshot v10 retains/restores all 28 effective settings.
+Direct Physics snapshots retain default v8/v9 hashes. Every new Replay capture
+uses v10 so even nondefault startup settings are retained. Legacy artifacts
+remain inspectable but cannot resume without recorded settings evidence.
+
+Body/contact and convergence presentation uses detached fixed storage: 16
+selected-body contact rows and 64 solver convergence samples, with explicit
+dropped counts. Physics owns the sampled data; hidden Physics docks skip this
+projection. This is intermediate implementation evidence, not phase closure.
+
+Intermediate acceptance now includes dock-02 (184 native checks), actions-08
+(exact tick, explicit defaults, ten overlays, mass/inertia/undo/redo/authored save,
+and one-shot point impulse), and the focused mass/impulse contracts (149
+assertions). Subsequent collapsed-group layout is being verified in dock-03.
+
+Startup config supplies the initial Physics policy; scene world-force values
+then apply through the existing scene owner, and session edits take precedence
+until startup restore or scene lifecycle replacement. Saving defaults is
+explicit and preserves unrelated config text. Body save uses the complete
+scene snapshot owner, including stable IDs and mass/inertia. Numerical edits
+end the current recording before mutation, and the next checkpoint owns the
+complete effective policy. Display-only edits never invalidate Physics caches.
+
+Body mass range is .001-1,000,000, restricted to standalone dynamic bodies in
+Edit; uniform density scales the full tensor and preserves Editor undo/redo.
+Point-impulse vector/point components are finite and bounded at 1,000,000 by
+Physics; UI sliders use smaller experiment ranges. Local points are offsets
+from COM and local vectors rotate with the body. World points are absolute.
+A pending impulse cannot be overwritten by another request before its fixed
+tick. Fixed bodies are rejected without release. Preview scale is .1, separate
+from normal/friction impulse display scaling.
 
 ## Placement And Interaction
 
@@ -190,10 +238,10 @@ zero work. Reuse profiler/diagnostic sources and a bounded graph history.
 
 | Work | Relationship |
 |---|---|
-| [Skullbonez foundation](selectable-solvers-01-foundation.md) | Coordinate per-world solver/settings identity if active. Basic current-Skullbonez inspection does not require activating it. |
-| [Eight solver implementations](selectable-solvers-02-tgs.md) | Owns eight new algorithms, including temporal substeps, position iterations and algorithm-specific numerical behavior. New PGS is distinct from Skullbonez; no relabelling catch-up ticks or existing sweeps as TGS. |
-| [Solver product integration](selectable-solvers-03-integration.md) | Owns selection/restart, persistence, prediction and Solver Lab compatibility across algorithms. When implemented, this Physics window is its settings surface. |
-| [Debug panel reorganisation](debug-panel-reorganization-and-sleep-policy.md) | Older proposal puts Physics under Tools and splits its overlays into Diagnostics. This newer owner direction takes precedence for Physics placement. Reconcile that overlap at activation; do not activate its wider tab redesign or new slope-sleep behavior implicitly. |
+| [Skullbonez foundation](../WNF/selectable-solvers-01-foundation.md) | Coordinate per-world solver/settings identity if active. Basic current-Skullbonez inspection does not require activating it. |
+| [Eight solver implementations](../WNF/selectable-solvers-02-tgs.md) | Owns eight new algorithms, including temporal substeps, position iterations and algorithm-specific numerical behavior. New PGS is distinct from Skullbonez; no relabelling catch-up ticks or existing sweeps as TGS. |
+| [Solver product integration](../WNF/selectable-solvers-03-integration.md) | Owns selection/restart, persistence, prediction and Solver Lab compatibility across algorithms. When implemented, this Physics window is its settings surface. |
+| [Debug panel reorganisation](../WNF/debug-panel-reorganization-and-sleep-policy.md) | Older proposal puts Physics under Tools and splits its overlays into Diagnostics. This newer owner direction takes precedence for Physics placement. Reconcile that overlap at activation; do not activate its wider tab redesign or new slope-sleep behavior implicitly. |
 | [Physics A/B comparison](../TODO/physics-ab-comparison.md) | Reuse current Solver Lab comparison, preserving independent recordings and provenance. Opening Physics does not simulate or reconstruct missing archived evidence. |
 
 The screenshot's PGS, PGS NGS, PGS NGS Block, PGS Soft, TGS Sticky, TGS Soft,
@@ -209,33 +257,33 @@ The 2D experiment is design guidance, not a ready-made 3D backend.
 
 ## Phases And Acceptance
 
-- [ ] **PW0 - Fix ownership and contracts.** Refresh the source inventory; map
+- [x] **PW0 - Fix ownership and contracts.** Refresh the source inventory; map
   every migrated control, right-dock input/layout owner, snapshot producer and
   affected saved format. Set ranges, cache/wake/restart policy, units, settings
   precedence and recording/prediction behavior. Record bounded memory and work
   budgets plus the dependencies that are implemented versus deferred.
-- [ ] **PW1 - Add the docked Physics surface.** Implement peer navigation beside
+- [x] **PW1 - Add the docked Physics surface.** Implement peer navigation beside
   Causal, four sections, folding/resizing, preference migration and input capture.
   Migrate every existing Physics-tab control without losing behavior. Retire its
   duplicate content and update shortcuts, tooltips and automation navigation.
-- [ ] **PW2 - Add body and contact inspection.** Expose coherent stable-identity
+- [x] **PW2 - Add body and contact inspection.** Expose coherent stable-identity
   snapshots for mass/inverse mass, COM, inertia, motion, materials and contacts.
   Add selected/all filtering and context labels. Prove removal/reset, fixed
   bodies and missing recorded evidence cannot show misleading values.
-- [ ] **PW3 - Add truthful overlays.** Split points/normals/impulses, publish
+- [x] **PW3 - Add truthful overlays.** Split points/normals/impulses, publish
   tangent impulses, draw COM, primitive/hull shapes, AABBs and joints. Add scale,
   labels, linger, filtering and capacity reporting. Verify vector magnitudes,
   directions, zero impulses, clipping and unchanged physics with overlays off/on.
-- [ ] **PW4 - Add live solver and environment tuning.** Implement bounded Skullbonez
+- [x] **PW4 - Add live solver and environment tuning.** Implement bounded Skullbonez
   iterations, stabilization, warm-start policy and advanced material/sleep
   controls at tick boundaries. Wire pending/applied values, reset and explicit
   persistence. Prove clone/prediction and supported replay semantics, including
   setting changes while a prediction worker runs. Keep outer frequency fixed.
-- [ ] **PW5 - Add controlled body experiments.** Implement exact one-tick
+- [x] **PW5 - Add controlled body experiments.** Implement exact one-tick
   transport, precise one-shot point impulses and supported mass edits with
   inertia updates, cache/wake handling, undo and save semantics. Verify centred
   versus off-centre impulses, invalid edits, fixed bodies and restart behavior.
-- [ ] **PW6 - Complete statistics and native integration.** Add cost/counters and
+- [x] **PW6 - Complete statistics and native integration.** Add cost/counters and
   bounded convergence graph; connect to existing Solver Lab and Causal context
   without replacing their owners. Extend Skarness commands/state where missing.
   Complete normal/narrow, Canvas/Editor, four-view and active-Causal UI cases.
@@ -308,3 +356,51 @@ golden-transition policy with retained producers, negative controls and final
 mapped gates. Preference/schema changes require owned version migration and
 legacy/current/future-format tests. No implementation or validation runs are
 authorized merely by this file being parked in WNF.
+
+## Accepted implementation and native evidence - 2026-09-18
+
+PW0-PW6 are accepted. PW7 remains open until the terminal gate and integrated
+PR checks pass. Independent Physics review has no remaining correctness
+blockers after the final lifecycle, restore, allocation and diagnostic fixes.
+
+Memory/work bounds: 16 selected-contact rows, 64 convergence samples, 8,192
+history contacts, 73,728 debug line vertices, 32 numeric contact labels with
+32 bounded placement attempts each. The label draw list uses existing fixed
+UIDrawList storage (4,096 commands, 16,384 text bytes and 32 clip levels).
+Overflow/capped arrows and unavailable diagnostics are explicit. No new
+steady-gameplay allocation privilege or Physics body field was introduced.
+
+Live numerical edits join prediction and end the current recording before
+mutation; recorded/predicted comparison inspection stays read-only. Paused live
+prediction is still editable. Undo/redo uses the same mutation boundary. Startup
+restore applies both the Physics policy and WorldEnvironment gravity. Saving
+defaults preserves unrelated text and authored body save preserves full scene
+version, stable identity and complete inertia. Exact one-tick input is independent
+of wall-clock hold duration and time scale.
+
+Recorded solver policy v10 contains all 28 effective settings. Saved noncheckpoint
+restore catches up with those settings and validates each solver hash. Startup
+verification owns a profiler frame; interactive verification borrows the active
+frame. Artifact materialization, temporary verifier snapshots and local launcher
+packets use the existing cold Capture allocation phase. The live catch-up solver
+remains guarded. Contact friction limits report the actual clamp used by the
+solver; restored unsampled limits/budgets display unavailable. Empty-world and
+branch/settings resets clear contact labels/history.
+
+Native evidence under TestOutput/skarness/physics-window:
+- dock-03: 184 migrated control, held-input and slider checks.
+- actions-14: 20 checks including exact tick at .1/10 time scale, explicit defaults
+  and gravity restore, overlay body-state equality, numeric labels, positive
+  bridge joint geometry, mass/inertia undo/redo/save, fixed rejection, and centered
+  plus off-center one-shot impulse behavior.
+- layouts-07: 25 checks across Canvas/Editor at 1680x1050, 1280x800 and 640x480,
+  retained scroll, four views, camera isolation and historical input rejection.
+- policy-05: an edit during an active prediction worker, saved noncheckpoint
+  restore and continued policy ownership, with zero gameplay allocation violations.
+
+Native screenshots were inspected for compact Body content, contact label
+placement and impulse preview. Original focused replay/settings tests passed
+182 cases / 63,678 assertions; subsequent continuity/epoch tests passed separately.
+The compiler-backed source gate's two findings were repaired by extracting the
+Physics observation projection and primitive wire drawing helpers; focused
+all-context recheck passes. Project filters and dependency ownership pass.

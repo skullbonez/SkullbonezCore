@@ -35,9 +35,7 @@ const char* ReflectionSourceForContract( const char* contractBaseName )
 {
     // Why: the Prediction owner preserves the approved physical asset identity,
     // while Rendering exposes only the feature-neutral retained-ribbon ABI.
-    return ShaderContractMatchesBaseName( "retained_ribbon", contractBaseName )
-               ? SkullbonezCore::Runtime::ReplayOverlay::PREDICTION_RETAINED_RIBBON_SHADER_BASE_NAME
-               : contractBaseName;
+    return ShaderContractMatchesBaseName( "retained_ribbon", contractBaseName ) ? SkullbonezCore::Runtime::ReplayOverlay::PREDICTION_RETAINED_RIBBON_SHADER_BASE_NAME : contractBaseName;
 }
 } // namespace
 
@@ -64,10 +62,9 @@ TEST_CASE( "Shader reflection contracts: every shipping stage is represented" )
     {
         const auto& resource = GeneratedShaderReflection::Resources[raytracingLibrary->resourceStart + i];
         foundMaterialWrap = foundMaterialWrap ||
-                            ( std::string( resource.name ) == "gSampler" && resource.registerClass == 's' &&
-                              resource.slot == UnifiedRasterRootSignature::STATIC_SAMPLERS[0].shaderRegister );
-        foundSkyClamp = foundSkyClamp || ( std::string( resource.name ) == "gSkySampler" && resource.registerClass == 's' &&
-                                           resource.slot == UnifiedRasterRootSignature::STATIC_SAMPLERS[1].shaderRegister );
+                            ( std::string( resource.name ) == "gSampler" && resource.registerClass == 's' && resource.slot == UnifiedRasterRootSignature::STATIC_SAMPLERS[0].shaderRegister );
+        foundSkyClamp = foundSkyClamp ||
+                        ( std::string( resource.name ) == "gSkySampler" && resource.registerClass == 's' && resource.slot == UnifiedRasterRootSignature::STATIC_SAMPLERS[1].shaderRegister );
     }
     CHECK( foundMaterialWrap );
     CHECK( foundSkyClamp );
@@ -161,9 +158,7 @@ TEST_CASE( "Shader reflection contracts: CPU declarations match baked DXIL" )
     for ( size_t i = 0; i < ShippingRasterShaderContractCount(); ++i )
     {
         std::string error;
-        CHECK_MESSAGE( ValidateGeneratedShaderProgramContract( ReflectionSourceForContract( contracts[i].baseName ),
-                                                               contracts[i], error ),
-                       std::string( contracts[i].baseName ), ": ", error );
+        CHECK_MESSAGE( ValidateGeneratedShaderProgramContract( ReflectionSourceForContract( contracts[i].baseName ), contracts[i], error ), std::string( contracts[i].baseName ), ": ", error );
     }
 }
 
@@ -221,11 +216,9 @@ TEST_CASE( "Shader reflection contracts: bindless texture indices are pixel-stag
 TEST_CASE( "Shader reflection contracts: separate skybox faces use the clamp sampler" )
 {
     CHECK( UnifiedRasterRootSignature::STATIC_SAMPLERS[0].shaderRegister == 0u );
-    CHECK( UnifiedRasterRootSignature::STATIC_SAMPLERS[0].addressMode ==
-           UnifiedRasterRootSignature::StaticSampler::AddressMode::Wrap );
+    CHECK( UnifiedRasterRootSignature::STATIC_SAMPLERS[0].addressMode == UnifiedRasterRootSignature::StaticSampler::AddressMode::Wrap );
     CHECK( UnifiedRasterRootSignature::STATIC_SAMPLERS[1].shaderRegister == 1u );
-    CHECK( UnifiedRasterRootSignature::STATIC_SAMPLERS[1].addressMode ==
-           UnifiedRasterRootSignature::StaticSampler::AddressMode::Clamp );
+    CHECK( UnifiedRasterRootSignature::STATIC_SAMPLERS[1].addressMode == UnifiedRasterRootSignature::StaticSampler::AddressMode::Clamp );
 
     const auto* pixelStage = FindGeneratedShaderStage( "unlit_textured.hlsl", "ps" );
     REQUIRE( pixelStage != nullptr );
@@ -252,8 +245,8 @@ TEST_CASE( "Shader reflection contracts: every raster input signature matches th
     REQUIRE( ShippingShaderVertexInputContractCount() == ShippingRasterShaderContractCount() );
     for ( size_t contractIndex = 0; contractIndex < ShippingShaderVertexInputContractCount(); ++contractIndex )
     {
-        const auto* stage = FindGeneratedShaderStage( ReflectionSourceForContract( contracts[contractIndex].baseName ),
-                                                      "vs" );
+        INFO( contracts[contractIndex].baseName );
+        const auto* stage = FindGeneratedShaderStage( ReflectionSourceForContract( contracts[contractIndex].baseName ), "vs" );
         REQUIRE( stage != nullptr );
         std::string signature;
         for ( std::uint32_t inputIndex = 0; inputIndex < stage->inputCount; ++inputIndex )
@@ -276,11 +269,7 @@ TEST_CASE( "Shader reflection contracts: every raster input signature matches th
 
 TEST_CASE( "Shader reflection contracts: shadow POSITION accepts a richer mesh layout" )
 {
-    ShaderVertexInputLayoutElement meshLayout[] = {
-        { "POSITION", 0, 3 },
-        { "NORMAL", 0, 3 },
-        { "TEXCOORD", 0, 2 },
-    };
+    ShaderVertexInputLayoutElement meshLayout[] = { { "POSITION", 0, 3 }, { "NORMAL", 0, 3 }, { "TEXCOORD", 0, 2 }, };
     const char* error = nullptr;
     CHECK( ValidateGeneratedShaderVertexInputLayout( "shadow_depth.hlsl", meshLayout, 3, error ) );
 

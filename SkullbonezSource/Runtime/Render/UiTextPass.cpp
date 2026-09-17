@@ -18,6 +18,7 @@ Invariants:
 */
 
 #include "RuntimeRenderPasses.h"
+#include "PhysicsDebugVisualizer.h"
 #include "RuntimeRenderFrameValues.h"
 #include "../../Core/Profiler.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
@@ -299,7 +300,8 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport,
             sprintf_s( sceneLine, sizeof( sceneLine ), "Scene %d/%d  Frame %d", values.currentSceneIndex + 1, values.sceneQueueSize, values.currentFrame );
         }
 
-        const char* stateLine = values.crossScenePauseLocked ? "P Pause Lock   Space advances" : ( values.sceneTestComplete ? "Scene complete" : "Pause lock off" );
+        // Only an active pause or completed run needs a second status line.
+        const char* stateLine = values.crossScenePauseLocked ? "Paused across scenes" : ( values.sceneTestComplete ? "Scene complete" : "" );
 
         const float titlePx = 11.5f;
         const float valuePx = 10.0f;
@@ -310,7 +312,7 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport,
 
 
         const float panelW = (std::min)( availableW, contentW + padX * 2.0f + 4.0f );
-        const float panelH = 38.0f;
+        const float panelH = stateLine[0] != '\0' ? 38.0f : 27.0f;
         const float x = content.x + content.w - TOP_RIGHT_BADGE_MARGIN - panelW;
         const float y = topRightBadgeY;
 
@@ -754,6 +756,74 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport,
 #endif
 }
 
+
+const SkullbonezCore::UI::UIDrawList& UiTextPass::BuildContactLabels( std::span<const PhysicsContactLabel> labels, const Math::Transformation::Matrix4& viewProjection, const UiTextViewport& viewport )
+{
+    m_contactLabelDrawList.Clear();
+    const UI::UIDrawContext draw( viewport.screenW, viewport.screenH, m_contactLabelDrawList );
+    const auto& matrix = viewProjection.m;
+    std::array<UI::UIRect, 32> occupied {};
+    std::size_t occupiedCount = 0, omitted = 0;
+    draw.PushClip( { 0, 0, static_cast<float>( viewport.screenW ), static_cast<float>( viewport.screenH ) } );
+    for ( const auto& label : labels )
+    {
+        const auto& point = label.point;
+        const float clipW = matrix[3] * point.x + matrix[7] * point.y + matrix[11] * point.z + matrix[15];
+        if ( clipW <= .0001f )
+        {
+            continue;
+        }
+        const float x = ( matrix[0] * point.x + matrix[4] * point.y + matrix[8] * point.z + matrix[12] ) / clipW;
+        const float y = ( matrix[1] * point.x + matrix[5] * point.y + matrix[9] * point.z + matrix[13] ) / clipW;
+        const float z = ( matrix[2] * point.x + matrix[6] * point.y + matrix[10] * point.z + matrix[14] ) / clipW;
+        if ( x < -1 || x > 1 || y < -1 || y > 1 || z < 0 || z > 1 )
+        {
+            continue;
+        }
+        const float width = (std::min)( UI::UIFontMetrics::MeasureText( 11, label.text.data() ) + 8, static_cast<float>( viewport.screenW ) - 8 );
+        const float px = std::clamp( ( x * .5f + .5f ) * viewport.screenW + 5, 4.0f, (std::max)( 4.0f, viewport.screenW - width - 4 ) );
+        const float desiredY = ( .5f - y * .5f ) * viewport.screenH - 16;
+        UI::UIRect box;
+        bool placed = false;
+        // Fixed attempts and rectangles bound both work and clutter. Nearby
+        // rows move vertically; dense labels are omitted visibly, never stacked.
+        for ( int attempt = 0; attempt < 32 && !placed; ++attempt )
+        {
+            const float displacement = ( ( attempt + 1 ) / 2 ) * 16.0f * ( attempt % 2 ? 1.0f : -1.0f );
+            box = { px, desiredY + displacement, width, 15 };
+            if ( box.y < 4 || box.y + box.h > viewport.screenH - 20 )
+            {
+                continue;
+            }
+            placed = true;
+            for ( std::size_t i = 0; i < occupiedCount; ++i )
+            {
+                const auto& prior = occupied[i];
+                if ( box.x < prior.x + prior.w && box.x + box.w > prior.x && box.y < prior.y + prior.h && box.y + box.h > prior.y )
+                {
+                    placed = false;
+                    break;
+                }
+            }
+        }
+        if ( !placed || occupiedCount == occupied.size() )
+        {
+            ++omitted;
+            continue;
+        }
+        occupied[occupiedCount++] = box;
+        draw.Rect( box.x, box.y, box.w, box.h, .025f, .035f, .055f, .82f );
+        draw.Text( box.x + 3, box.y + 1, 11, .6f * label.fade, 1.0f * label.fade, .7f * label.fade, label.text.data() );
+    }
+    if ( omitted > 0 )
+    {
+        char message[64] {};
+        std::snprintf( message, sizeof( message ), "%zu overlapping contact labels omitted", omitted );
+        draw.Text( 4, viewport.screenH - 17.0f, 11, 1, .8f, .2f, message );
+    }
+    draw.PopClip();
+    return m_contactLabelDrawList;
+}
 
 void UiTextPass::SubmitDrawList( const UI::UIDrawList& drawList,
                                  const UiTextViewport& viewport,

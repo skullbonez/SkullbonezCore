@@ -379,6 +379,8 @@ class EditorToolsOwner
     EditorGizmoDragPointerResult RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input, SceneWorld& world, RuntimeInteractionController& interaction );
     void RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmoDragKind gizmoKind, int selectedModelIndex );
     void RecordEditorVelocityHistory( SceneWorld& world );
+    bool CanSetEditorBodyMass( const SceneWorld& world, Physics::PhysicsSceneObjectId id, float mass ) const;
+    bool SetEditorBodyMass( SceneWorld& world, Physics::PhysicsSceneObjectId id, float mass );
     void RecordEditorPlacementHistory( SceneWorld& world, int modelCountBefore, int modelCountAfter );
     bool UndoEditorCommand( SceneWorld& world, SceneSessionState& scene );
     bool RedoEditorCommand( SceneWorld& world, SceneSessionState& scene );

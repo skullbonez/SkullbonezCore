@@ -270,7 +270,7 @@ struct OperatorEditorWorldView
 
 struct OperatorEditorRenderingView
 {
-    static constexpr int ordinaryParameterCount = 38;
+    static constexpr int ordinaryParameterCount = 44;
     static constexpr int cinematicParameterCount = 64;
     static constexpr int cinematicFeatureCount = 8;
 

@@ -527,6 +527,8 @@ RUNTIME_REPLAY_PREFIXES = (
 )
 
 RUNTIME_RENDER_PREFIXES = (
+    "GrassPresentation",
+    "GrassDeformation",
     "GravityGridVisualizer",
     *PHYSICS_DEBUG_PREFIXES,
     "RenderResourceLifecycle",
