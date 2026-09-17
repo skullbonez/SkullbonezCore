@@ -568,6 +568,7 @@ an owner decision, not a run decision.
 | Selectable Solvers 2: Eight Solver Implementations | Owner-parked 2026-09-17 | 0/14 | `WNF/selectable-solvers-02-tgs.md` |
 | Selectable Solvers 3: Product Integration And Acceptance | Owner-parked 2026-09-17 | 0/6 | `WNF/selectable-solvers-03-integration.md` |
 | Physics Tool Window Beside Causal | Owner-parked 2026-09-17 | 0/8 | `WNF/physics-tool-window.md` |
+| Interactive Grass For Legacy Rendering | Owner-parked 2026-09-17 | 0/7 | `WNF/interactive-legacy-grass.md` |
 
 Owner scope revision, 2026-09-17: the three selectable-solver plans preserve
 the custom **Skullbonez** solver and add eight separate implementations: PGS,
