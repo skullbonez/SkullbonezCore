@@ -220,6 +220,17 @@ float3 ProceduralBeachBallColorFromSphereDir(float3 localDir)
     return ProceduralBeachBallPalette(redPanel, seam);
 }
 
+// Integrate each panel boundary across its pixel footprint before combining
+// the two axes. Filtering abs(a-b) would erase the crossing when both are 0.5;
+// the coverage XOR preserves a half-covered pixel there instead.
+float3 SplitFilteredPanelColor(float2 panelDistance)
+{
+    float2 footprint = max(fwidth(panelDistance), float2(0.00001f, 0.00001f));
+    float2 coverage = saturate(0.5f + panelDistance / footprint);
+    float redPanel = coverage.x + coverage.y - 2.0f * coverage.x * coverage.y;
+    return ProceduralBeachBallPalette(redPanel, 0.0f);
+}
+
 float3 QuantizedLowPolyNormal(float3 N)
 {
     float3 qN = floor(N * 2.5f + 0.5f) / 2.5f;
@@ -552,6 +563,14 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     {
         float3 proceduralColor = uPrimitiveShape == 1 ? ProceduralBeachBallColorFromSphereDir(input.localDir)
                                                       : ProceduralBeachBallColorFromUv(input.texCoord);
+        if (cinematicMode && DecodeObjectStyle(uObjectStyle) == SPLIT_OBJECT_STYLE)
+        {
+            // Sphere planes avoid the UV wrap; periodic UV distances keep the
+            // box's repeated face borders continuous, including the bevels.
+            float2 panelDistance = uPrimitiveShape == 1 ? input.localDir.xy
+                                                        : sin(input.texCoord * 6.28318530718f);
+            proceduralColor = SplitFilteredPanelColor(panelDistance);
+        }
         if (input.material0.a < -1.5f)
         {
             proceduralColor = 1.0f - proceduralColor;
