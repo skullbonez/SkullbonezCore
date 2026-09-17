@@ -1,9 +1,68 @@
 # Session State
 
 Date: 2026-09-17
-Branch: `nightrunner-16th-SEP-26`
+Branch: `feature/space-gravity-field`
 Status: CONVEX_HULL CH0-CH6 complete at 7/8; CH7 acceptance pending; portfolio 145/152; PHYSICS_AB queued at 0/6.
 
+
+## Black-hole scene - 2026-09-17
+
+Added `space_black_hole_300.scene.json`: 300 glowing matter balls in six curved
+arms, a fixed invisible 60,000-mass core, orange gravity grid and snapping enabled
+in the saved level. Playback is unlimited. It uses Newtonian attraction and a
+small solid core; particles collect around it rather than being deleted.
+
+Fully transparent materials suppress raster/shadow submission while retaining
+physical identity. Invisible sources still contribute to the gravity surface,
+and remain excluded from ball snapping. No Physics store or allocation changes.
+
+Native evidence proves all 300 identities accelerate inward and move closer,
+301 field sources / 300 snapped balls, a stationary invisible core and uninterrupted
+playback. Screenshots were inspected before and after infall. Evidence:
+`TestOutput/skarness/black-hole-final/`; rerun with `tools/validate_black_hole.py`.
+Fast validation passes 1,093 tests / 3,811,560 assertions (one existing skip).
+DX12 passes with zero errors and unchanged references; Automation/Profile/Debug
+builds pass, followed by an unchanged Profile build without compilation/linking.
+Logs: `TestOutput/black-hole-{build,fast,dx12,profile-noop}.log`.
+This follow-up remains on PR #174; neither stacked PR is to be merged by the agent.
+
+## Space gravity field - 2026-09-17
+
+Follow-up: Tools > Options now has **Snap balls to field**, off by default and
+saved as `debug.gravityField.snapBalls`. It projects sphere bottoms onto the
+sampled surface each rendered frame after replay substitution, preserving
+physical positions, velocities, endpoint history and the field's gravity inputs.
+Grid coverage includes escaped balls deterministically, so reverse scrubs restore
+the same surface. Boxes and hidden instances are not snapped. Hiding grid lines
+does not disable the independent snap option.
+
+The native 300-ball test checks snapping, height shifts, off/on restoration,
+history/prediction repeatability and save/reset/fresh-process reload. It exposed
+an existing defaults-save lifetime defect: ordered JSON child references could
+be invalidated by sibling insertion. Edited sections now own their values until
+publication. No archived input or baseline was changed for this fix.
+
+Follow-up validation: 1,093 tests / 3,811,030 assertions pass (one existing skip),
+compiler/design/allocation/dependency preflight passes, and DX12 passes with zero
+validation errors. Logs: `TestOutput/gravity-snap-*.log`; native evidence:
+`TestOutput/skarness/gravity-snap-final/`. PR #174 remains open and unmerged.
+
+Space scenes now show a default-on, depth-tested gravity grid. Tools > Options
+provides height and opacity sliders plus Blue, Orange and Grey buttons. Level
+saving persists all three settings under `debug.gravityField`. The grid reads
+body identities and the already-presented matrices, so recorded history and
+prediction scrubbing move the wells with the visible bodies.
+
+Fixed renderer storage is about 386 KiB and does not grow with the prediction
+horizon. This is an illustrative gravitational-potential surface, with a fixed
+scene footprint and smoothly bounded well depth. It does not change Physics.
+
+The 300-ball native acceptance checks and all 1,092 CPU tests pass. The broad UI
+gate reaches an existing Solver Lab archive/current-assets mismatch at
+header_autohide; archived recordings are unchanged. See
+[the field report](Reports/gravity-field-rendering-2026-09-17.md) for final graphics,
+policy and build evidence. This feature is on a separate branch above hull PR
+#173; neither PR is to be merged by the agent. Hull CH7 remains pending below.
 
 ## Convex-hull implementation — 2026-09-17
 

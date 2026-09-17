@@ -60,6 +60,8 @@ RuntimeRenderFramePolicy Run::ProjectRenderFramePolicy( const RuntimeOverlayFram
     policy.waterFreezeDebug = overlay.waterFreezeDebug;
     policy.frozenWaterTime = overlay.frozenWaterTime;
     policy.broadphaseOverlay = overlay.broadphaseOverlay;
+    policy.gravityGrid = overlay.gravityGrid;
+    policy.gravityField = overlay.gravityField;
     policy.physicsDebugFlags = overlay.physicsDebugFlags;
     policy.physicsDebugPipelineStageCursor = overlay.physicsDebugPipelineStageCursor;
     policy.physicsDebugContactLinger = overlay.physicsDebugContactLinger;
@@ -201,6 +203,7 @@ void Run::Render( const RuntimeRenderFrameViews& renderFrame, float presentation
     const uint64_t replayGrowthEventCount = CoreAllocation::RuntimeReserveAllocator::GrowthEventCount();
     const bool debugTransparentBodyPass = debug.isPhysicsDebugTransparent && debug.physicsDebugAlpha < 1.0f;
     const ReplayFrameSelection replaySelection = m_replayRuntime.ApplyRenderPose( m_sceneController.Scene().MutableRenderInstances(), m_sceneController.Scene().Physics(), m_runtimeTools );
+    renderer.UpdateGravityField( m_sceneController.Scene().MutableRenderInstances(), renderFrame.debug, framePolicy );
 
     m_replayRuntime.PrepareRenderOverlay( m_sceneController.Scene().Physics(),
                                           m_sceneController.Scene().Entities(),

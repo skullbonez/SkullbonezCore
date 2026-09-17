@@ -261,6 +261,12 @@ constexpr SkullbonezCore::Rendering::PassRasterStateBucket DEBUG_LINE_RASTER = S
                                                                                                                                           SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
                                                                                                                                           SkullbonezCore::Rendering::BlendFactor::OneMinusSrcAlpha,
                                                                                                                                           SkullbonezCore::Rendering::CullMode::None } );
+constexpr auto WORLD_LINE_RASTER = SkullbonezCore::Rendering::MakePassRasterStateBucket( 3, { true,
+                                                                                              false,
+                                                                                              true,
+                                                                                              SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
+                                                                                              SkullbonezCore::Rendering::BlendFactor::OneMinusSrcAlpha,
+                                                                                              SkullbonezCore::Rendering::CullMode::None } );
 constexpr SkullbonezCore::Rendering::PassRasterStateBucket RETAINED_OVERLAY_DEPTH_HINT_RASTER = SkullbonezCore::Rendering::
     MakePassRasterStateBucket( 1, { false, false, true, SkullbonezCore::Rendering::BlendFactor::SrcAlpha, SkullbonezCore::Rendering::BlendFactor::One, SkullbonezCore::Rendering::CullMode::None } );
 constexpr SkullbonezCore::Rendering::PassRasterStateBucket RETAINED_OVERLAY_VISIBLE_RASTER = SkullbonezCore::Rendering::MakePassRasterStateBucket( 2, { true,
@@ -1478,6 +1484,12 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         }
     }
 
+    if ( !inputs.snapshot.gravityGridLines.empty() && inputs.renderDiagnostics.GetCapabilities().supportsDebugLines )
+    {
+        DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "GravityGrid" );
+        inputs.renderGeometry.DrawLinesColored( inputs.snapshot.gravityGridLines, inputs.camera.viewProjection, WORLD_LINE_RASTER, inputs.snapshot.gravityGridOpacity );
+    }
+
     if ( !inputs.snapshot.worldExtensionDebugLines.empty() )
     {
         if ( detailMarkers )
@@ -1584,6 +1596,11 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
     const DebugOverlaySnapshot& snapshot = inputs.snapshot;
 
     if ( snapshot.broadphaseOverlayVisible )
+    {
+        return true;
+    }
+
+    if ( !snapshot.gravityGridLines.empty() )
     {
         return true;
     }

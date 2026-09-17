@@ -90,6 +90,27 @@ void PrintRuntimeExitReason( const char* reason )
 }
 
 #if defined( SKULLBONEZ_SKARNESS )
+void ProjectGravityFieldState( SkarnessFrameState& state, const RuntimeRenderer& renderer, const OverlayDebugState& overlay )
+{
+    state.presentation.gravityGridVertexCount = overlay.isGravityGridVisible ? renderer.GravityGridVertexCount() : 0;
+    state.presentation.gravityGridSourceCount = renderer.GravityGridSourceCount();
+    state.presentation.gravityGridFirstSourceId = renderer.GravityGridFirstSourceId();
+    const auto fieldPosition = renderer.GravityGridFirstSourcePosition();
+    state.presentation.gravityGridFirstSourcePosition = { fieldPosition.x, fieldPosition.y, fieldPosition.z };
+    state.presentation.gravityGridMinimumHeight = renderer.GravityGridMinimumHeight();
+    state.presentation.gravityFieldHeight = overlay.gravityField.height;
+    state.presentation.gravityFieldOpacity = overlay.gravityField.opacity;
+    state.presentation.gravityFieldColor = overlay.gravityField.color;
+    state.presentation.gravityFieldSnapBalls = overlay.gravityField.snapBalls;
+    const auto& grid = renderer.GravityField();
+    state.presentation.gravityFieldSnappedCount = grid.SnappedCount();
+    state.presentation.gravityFieldFirstSnappedId = grid.FirstSnappedId();
+    const auto snapped = grid.FirstSnappedPosition();
+    state.presentation.gravityFieldFirstSnappedPosition = { snapped.x, snapped.y, snapped.z };
+    state.presentation.gravityFieldFirstSnappedRadius = grid.FirstSnappedRadius();
+    state.presentation.gravityFieldFirstSnappedSurfaceHeight = grid.SnappedCount() ? grid.HeightAt( snapped.x, snapped.z ) : 0.0f;
+}
+
 // Capture belongs to InputRouter; observe the Win32 result on its owning thread.
 void ProjectSkarnessInputState( SkarnessFrameState& state, const ReplayInputView& input, const InputRouter& router, HWND window )
 {
@@ -1357,7 +1378,10 @@ void Run::PublishSkarnessFrameState()
                                           overlayPresentation.isWaterHidden,
                                           overlayPresentation.isWaterFreezeDebug,
                                           overlayPresentation.isWaterFlatDebug,
-                                          cinematicRendering ? ActiveSceneCinematicConfig( scene, m_config ).shadow.enabled : m_config.ordinaryRender.shadow.enabled };
+                                          cinematicRendering ? ActiveSceneCinematicConfig( scene, m_config ).shadow.enabled : m_config.ordinaryRender.shadow.enabled,
+                                          overlayPresentation.isGravityGridVisible,
+                                          overlayPresentation.gravityField.snapBalls };
+    ProjectGravityFieldState( state, Renderer(), overlayPresentation );
     state.presentation.sceneControlValues = { static_cast<float>( scene.rngSeed ),
                                               static_cast<float>( scene.solverBallCount ),
                                               static_cast<float>( scene.solverBoxCount ),

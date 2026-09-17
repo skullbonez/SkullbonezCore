@@ -42,16 +42,14 @@ std::unique_ptr<RuntimeOverlayDiagnostics> RuntimeOverlayDiagnostics::CreateForS
 }
 
 
-StartupOperatorUiPolicy RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& overrides,
-                                                                       RunLaunchOptions& launchOptions )
+StartupOperatorUiPolicy RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions )
 {
     const RunLaunchOptions& launch = overrides.launch;
     StartupOperatorUiPolicy operatorUiPolicy;
 
     if ( overrides.hasInitialOverlayMode )
     {
-        const OverlayMode overlayMode = overrides.initialOverlayMode == StartupOverlayMode::Timers ? OverlayMode::Timers
-                                                                                                   : OverlayMode::None;
+        const OverlayMode overlayMode = overrides.initialOverlayMode == StartupOverlayMode::Timers ? OverlayMode::Timers : OverlayMode::None;
         m_presentationState.overlayMode = overlayMode;
 
         if ( overlayMode != OverlayMode::None )
@@ -113,17 +111,14 @@ StartupOperatorUiPolicy RuntimeOverlayDiagnostics::ApplyStartupPolicy( const Run
     if ( launch.hasPhysicsDebugContactLingerOverride )
     {
         launchOptions.hasPhysicsDebugContactLingerOverride = true;
-        launchOptions.physicsDebugContactLingerOverride = (std::max)( 0.0f,
-                                                                      (std::min)( launch.physicsDebugContactLingerOverride,
-                                                                                  5.0f ) );
+        launchOptions.physicsDebugContactLingerOverride = (std::max)( 0.0f, (std::min)( launch.physicsDebugContactLingerOverride, 5.0f ) );
     }
 
     return operatorUiPolicy;
 }
 
 
-RuntimeOverlayFramePolicy RuntimeOverlayDiagnostics::BuildFramePolicy( double simulationSeconds,
-                                                                       double totalSimulationSeconds ) const
+RuntimeOverlayFramePolicy RuntimeOverlayDiagnostics::BuildFramePolicy( double simulationSeconds, double totalSimulationSeconds ) const
 {
     RuntimeOverlayFramePolicy policy;
     policy.textOnly = m_presentationState.isTextOnly;
@@ -138,6 +133,8 @@ RuntimeOverlayFramePolicy RuntimeOverlayDiagnostics::BuildFramePolicy( double si
     policy.waterFreezeDebug = m_presentationState.isWaterFreezeDebug;
     policy.frozenWaterTime = m_presentationState.frozenWaterTime;
     policy.broadphaseOverlay = m_presentationState.isBroadphaseOverlay;
+    policy.gravityGrid = m_presentationState.isGravityGridVisible;
+    policy.gravityField = m_presentationState.gravityField;
     policy.physicsDebugFlags = m_presentationState.physicsDebugFlags;
     policy.physicsDebugPipelineStageCursor = m_presentationState.physicsDebugPipelineStageCursor;
     policy.physicsDebugContactLinger = m_presentationState.physicsDebugContactLinger;
@@ -153,9 +150,7 @@ void RuntimeOverlayDiagnostics::ApplyScenePresentation( const OverlayDebugState&
 }
 
 
-RuntimeOverlayPresentationEdit::RuntimeOverlayPresentationEdit( RuntimeOverlayDiagnostics& owner,
-                                                                const OverlayDebugState& state )
-    : m_owner( owner ), m_state( state )
+RuntimeOverlayPresentationEdit::RuntimeOverlayPresentationEdit( RuntimeOverlayDiagnostics& owner, const OverlayDebugState& state ) : m_owner( owner ), m_state( state )
 {
 }
 

@@ -128,8 +128,8 @@ bool IsRetainedGeometryCapacitySupported( const RetainedGeometryCapacity& capaci
 
 bool IsGridLineRasterState( const RasterStateDesc& raster )
 {
-    return !raster.depthTest && !raster.depthWrite && raster.blendEnabled && raster.sourceBlend == BlendFactor::SrcAlpha && raster.destinationBlend == BlendFactor::OneMinusSrcAlpha &&
-           raster.cullMode == CullMode::None && !raster.depthBias.enabled;
+    return !raster.depthWrite && raster.blendEnabled && raster.sourceBlend == BlendFactor::SrcAlpha && raster.destinationBlend == BlendFactor::OneMinusSrcAlpha && raster.cullMode == CullMode::None &&
+           !raster.depthBias.enabled;
 }
 } // namespace
 
@@ -140,7 +140,7 @@ void Dx12GeometryOwner::AdoptGridLineShader( std::unique_ptr<ShaderDX12> shader 
 }
 
 
-bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12PipelineOwner& pipeline, DXGI_FORMAT rtvFormat )
+bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12PipelineOwner& pipeline, DXGI_FORMAT rtvFormat, bool depthTest )
 {
     // Runtime allocation policy: PSO cache misses are legal only during
     // backend/resource warm-up. DrawLinesColored calls this too so an unexpected
@@ -152,7 +152,7 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12Pipeli
 
     for ( size_t i = 0; i < m_gridLinePSOCount; ++i )
     {
-        if ( m_gridLinePSOs[i].format == rtvFormat )
+        if ( m_gridLinePSOs[i].format == rtvFormat && m_gridLinePSOs[i].depthTest == depthTest )
         {
             return true;
         }
@@ -202,13 +202,14 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12Pipeli
     psoDesc.BlendState.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
     psoDesc.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_INV_SRC_ALPHA;
     psoDesc.BlendState.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
-    psoDesc.DepthStencilState.DepthEnable = FALSE;
+    psoDesc.DepthStencilState.DepthEnable = depthTest ? TRUE : FALSE;
+    psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
     psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
     psoDesc.SampleMask = UINT_MAX;
     psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     psoDesc.NumRenderTargets = 1;
     psoDesc.RTVFormats[0] = rtvFormat;
-    psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+    psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
     psoDesc.SampleDesc.Count = 1;
 
     ID3D12PipelineState* gridLinePSO = nullptr;
@@ -241,6 +242,7 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12Pipeli
         SB_FATAL( "RenderBackendDX12", "DX12 grid-line PSO cache exhausted. capacity=%zu format=%u", m_gridLinePSOs.size(), static_cast<unsigned int>( rtvFormat ) );
     }
 
+    m_gridLinePSOs[m_gridLinePSOCount].depthTest = depthTest;
     m_gridLinePSOs[m_gridLinePSOCount].format = rtvFormat;
     m_gridLinePSOs[m_gridLinePSOCount].pso = gridLinePSO;
     ++m_gridLinePSOCount;
@@ -483,9 +485,10 @@ void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices,
                                           Dx12PipelineOwner& pipeline,
                                           Dx12DrawGate& drawGate,
                                           Dx12Diagnostics& diagnostics,
-                                          const RasterStateDesc& rasterState )
+                                          const RasterStateDesc& rasterState,
+                                          float opacity )
 {
-    // Invariant: edge coverage requires the declared alpha-blended, depth-free,
+    // Invariant: edge coverage requires the declared alpha-blended, read-only depth,
     // two-sided recipe. Each pair of endpoints is one complete line instance.
     if ( packedVertices.empty() || packedVertices.size() % 12 != 0 || !IsGridLineRasterState( rasterState ) )
     {
@@ -498,7 +501,7 @@ void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices,
     }
 
     memcpy( uploadPointer, packedVertices.data(), packedVertices.size_bytes() );
-    DrawLinesColoredFromBuffer( packedVertices.size(), viewProjection, vbAddress, commandList, pipeline, drawGate, diagnostics, rasterState );
+    DrawLinesColoredFromBuffer( packedVertices.size(), viewProjection, vbAddress, commandList, pipeline, drawGate, diagnostics, rasterState, opacity );
 }
 
 
@@ -509,7 +512,8 @@ void Dx12GeometryOwner::DrawLinesColoredFromBuffer( std::size_t packedFloatCount
                                                     Dx12PipelineOwner& pipeline,
                                                     Dx12DrawGate& drawGate,
                                                     Dx12Diagnostics& diagnostics,
-                                                    const RasterStateDesc& rasterState )
+                                                    const RasterStateDesc& rasterState,
+                                                    float opacity )
 {
     if ( packedFloatCount == 0u || packedFloatCount % 12u != 0u || vertexAddress == 0 || !IsGridLineRasterState( rasterState ) )
     {
@@ -520,7 +524,7 @@ void Dx12GeometryOwner::DrawLinesColoredFromBuffer( std::size_t packedFloatCount
 
     for ( size_t i = 0; i < m_gridLinePSOCount; ++i )
     {
-        if ( m_gridLinePSOs[i].format == pipeline.RenderTargetFormat() )
+        if ( m_gridLinePSOs[i].format == pipeline.RenderTargetFormat() && m_gridLinePSOs[i].depthTest == rasterState.depthTest )
         {
             gridLinePSO = m_gridLinePSOs[i].pso;
             break;
@@ -549,7 +553,7 @@ void Dx12GeometryOwner::DrawLinesColoredFromBuffer( std::size_t packedFloatCount
     pipeline.InvalidateCommandState(); // Force PSO rebind on next normal draw.
 
     shader->SetMat4( "uViewProj", viewProjection );
-    shader->SetVec4( "uViewportPixels", pipeline.CurrentViewport().Width, pipeline.CurrentViewport().Height, 0, 0 );
+    shader->SetVec4( "uViewportPixels", pipeline.CurrentViewport().Width, pipeline.CurrentViewport().Height, opacity, 0 );
     D3D12_GPU_VIRTUAL_ADDRESS cbAddr = shader->FlushCB();
 
     if ( !drawGate.CanRecord() )
@@ -1115,7 +1119,7 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle, std::span<const
 }
 
 
-void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices, const Math::Transformation::Matrix4& viewProjection, const PassRasterStateBucket& bucket )
+void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices, const Math::Transformation::Matrix4& viewProjection, const PassRasterStateBucket& bucket, float opacity )
 {
     RequireSubmissionEpoch( "DrawLinesColored" );
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
@@ -1136,7 +1140,8 @@ void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices,
                       *m_submissionPipeline,
                       m_resourceFrame->DrawGate(),
                       *m_submissionDiagnostics,
-                      bucket.raster );
+                      bucket.raster,
+                      opacity );
 
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
 }

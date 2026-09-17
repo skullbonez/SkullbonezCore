@@ -1,0 +1,10669 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 5,
+  "cinematic": {
+    "rendering": true,
+    "skyAtmosphere": true,
+    "clouds": false,
+    "godRays": false,
+    "volumetricLighting": false,
+    "bloom": true,
+    "fog": false,
+    "styleModes": [
+      0,
+      3,
+      2,
+      0
+    ],
+    "exposure": 1.1,
+    "gamma": 1.25,
+    "sunScreenX": 0.58,
+    "sunScreenY": 0.66,
+    "sunColorR": 1.0,
+    "sunColorG": 0.98,
+    "sunColorB": 0.92,
+    "sunIntensity": 22.0,
+    "skyHorizonR": 0.0,
+    "skyHorizonG": 0.0,
+    "skyHorizonB": 0.0,
+    "skyZenithR": 0.0,
+    "skyZenithG": 0.0,
+    "skyZenithB": 0.0,
+    "skyGlowStrength": 0.0
+  },
+  "simulation": {
+    "seed": 17092026,
+    "physics": true,
+    "text": false,
+    "predictionPathPresentation": "allBodiesSpace",
+    "modelCapacity": 320,
+    "world": {
+      "gravity": 0.0,
+      "fluidHeight": -100000.0,
+      "fluidDensity": 0.0,
+      "mutualGravity": {
+        "enabled": true,
+        "gravitationalConstant": 4.0,
+        "softeningLength": 8.0,
+        "elasticCollisions": false
+      }
+    },
+    "timeScale": 0.45
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": false,
+    "pauseSnapshotState": false,
+    "exitOnComplete": false
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true,
+    "collisionVisualizer": false,
+    "gravityField": {
+      "height": 0.0,
+      "opacity": 0.58,
+      "color": "orange",
+      "snapBalls": true
+    }
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -100000.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "Black hole overview",
+      "position": [
+        0.0,
+        280.0,
+        430.0
+      ],
+      "view": [
+        0.0,
+        15.0,
+        0.0
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ballState",
+      "name": "black_hole_core",
+      "position": [
+        0,
+        100,
+        0
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 10.0,
+      "mass": 60000.0,
+      "restitution": 0.0,
+      "inertia": [
+        2400000.0,
+        2400000.0,
+        2400000.0
+      ],
+      "fixed": true,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_000",
+      "position": [
+        64.997442,
+        100.220046,
+        0.576658
+      ],
+      "velocity": [
+        -5.288394,
+        0,
+        13.321767
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.274561,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.649802,
+        0.649802,
+        0.649802
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_001",
+      "position": [
+        32.022147,
+        99.995282,
+        56.564849
+      ],
+      "velocity": [
+        -14.180345,
+        0,
+        2.086722
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.167432,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.545159,
+        0.545159,
+        0.545159
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_002",
+      "position": [
+        -32.839982,
+        99.678312,
+        56.093989
+      ],
+      "velocity": [
+        -8.924472,
+        0,
+        -11.215631
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.183848,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.560598,
+        0.560598,
+        0.560598
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_003",
+      "position": [
+        -64.995291,
+        99.736047,
+        0.782404
+      ],
+      "velocity": [
+        5.008713,
+        0,
+        -13.429422
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.045287,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.43705,
+        0.43705,
+        0.43705
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_004",
+      "position": [
+        -33.020388,
+        100.26764,
+        -55.987981
+      ],
+      "velocity": [
+        14.141103,
+        0,
+        -2.337907
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.915527,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.335276,
+        0.335276,
+        0.335276
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_005",
+      "position": [
+        31.854043,
+        100.194218,
+        -56.659685
+      ],
+      "velocity": [
+        9.119236,
+        0,
+        11.057854
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.265516,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.640612,
+        0.640612,
+        0.640612
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_006",
+      "position": [
+        67.898759,
+        100.335592,
+        2.865172
+      ],
+      "velocity": [
+        -5.769818,
+        0,
+        12.842034
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.215359,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.590839,
+        0.590839,
+        0.590839
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_007",
+      "position": [
+        32.767592,
+        99.653889,
+        59.537682
+      ],
+      "velocity": [
+        -13.972237,
+        0,
+        1.727775
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.208318,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.584013,
+        0.584013,
+        0.584013
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_008",
+      "position": [
+        -36.633952,
+        100.209507,
+        57.239883
+      ],
+      "velocity": [
+        -8.196067,
+        0,
+        -11.446969
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.000809,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.400647,
+        0.400647,
+        0.400647
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_009",
+      "position": [
+        -67.919197,
+        99.69848,
+        -2.33094
+      ],
+      "velocity": [
+        5.668614,
+        0,
+        -12.887026
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.955775,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.365402,
+        0.365402,
+        0.365402
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_010",
+      "position": [
+        -32.767693,
+        99.864449,
+        -59.537626
+      ],
+      "velocity": [
+        13.972235,
+        0,
+        -1.727799
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.229658,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.604824,
+        0.604824,
+        0.604824
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_011",
+      "position": [
+        37.176404,
+        100.135889,
+        -56.889064
+      ],
+      "velocity": [
+        8.086885,
+        0,
+        11.524362
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.133414,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.513851,
+        0.513851,
+        0.513851
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_012",
+      "position": [
+        70.680526,
+        100.075468,
+        5.803281
+      ],
+      "velocity": [
+        -6.306117,
+        0,
+        12.323499
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.955141,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.364918,
+        0.364918,
+        0.364918
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_013",
+      "position": [
+        30.601359,
+        100.121186,
+        63.976337
+      ],
+      "velocity": [
+        -13.822245,
+        0,
+        0.762415
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.070748,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.458601,
+        0.458601,
+        0.458601
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_014",
+      "position": [
+        -40.590217,
+        100.264801,
+        58.153668
+      ],
+      "velocity": [
+        -7.474606,
+        0,
+        -11.651867
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.30199,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.678071,
+        0.678071,
+        0.678071
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_015",
+      "position": [
+        -70.761499,
+        100.304638,
+        -4.714347
+      ],
+      "velocity": [
+        6.115628,
+        0,
+        -12.419131
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.996376,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.397106,
+        0.397106,
+        0.397106
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_016",
+      "position": [
+        -32.44459,
+        99.631573,
+        -63.061584
+      ],
+      "velocity": [
+        13.794307,
+        0,
+        -1.163112
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.151583,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.530457,
+        0.530457,
+        0.530457
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_017",
+      "position": [
+        40.597991,
+        99.741455,
+        -58.148241
+      ],
+      "velocity": [
+        7.473048,
+        0,
+        11.652866
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.079731,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.466328,
+        0.466328,
+        0.466328
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_018",
+      "position": [
+        73.548541,
+        100.085607,
+        6.964532
+      ],
+      "velocity": [
+        -6.488153,
+        0,
+        11.980974
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.931899,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.347374,
+        0.347374,
+        0.347374
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_019",
+      "position": [
+        31.471585,
+        100.186404,
+        66.83885
+      ],
+      "velocity": [
+        -13.615058,
+        0,
+        0.519686
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.982314,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.385976,
+        0.385976,
+        0.385976
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_020",
+      "position": [
+        -41.324948,
+        99.966978,
+        61.238396
+      ],
+      "velocity": [
+        -7.412683,
+        0,
+        -11.43206
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.953483,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.363652,
+        0.363652,
+        0.363652
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_021",
+      "position": [
+        -73.626442,
+        100.037869,
+        -6.086016
+      ],
+      "velocity": [
+        6.344662,
+        0,
+        -12.057576
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.032898,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.426751,
+        0.426751,
+        0.426751
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_022",
+      "position": [
+        -32.308235,
+        100.054309,
+        -66.438472
+      ],
+      "velocity": [
+        13.60746,
+        0,
+        -0.690575
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.326247,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.703572,
+        0.703572,
+        0.703572
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_023",
+      "position": [
+        43.850897,
+        99.869921,
+        -59.455793
+      ],
+      "velocity": [
+        6.92789,
+        0,
+        11.732187
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.247808,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.62281,
+        0.62281,
+        0.62281
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_024",
+      "position": [
+        76.261794,
+        100.067579,
+        9.382038
+      ],
+      "velocity": [
+        -6.844098,
+        0,
+        11.546141
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.972269,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.378123,
+        0.378123,
+        0.378123
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_025",
+      "position": [
+        29.720259,
+        100.202058,
+        70.856122
+      ],
+      "velocity": [
+        -13.420569,
+        0,
+        -0.208226
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.913042,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.333458,
+        0.333458,
+        0.333458
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_026",
+      "position": [
+        -46.711536,
+        99.627281,
+        61.007509
+      ],
+      "velocity": [
+        -6.4899,
+        0,
+        -11.748882
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.209171,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.584838,
+        0.584838,
+        0.584838
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_027",
+      "position": [
+        -76.439604,
+        100.364998,
+        -7.801971
+      ],
+      "velocity": [
+        6.603712,
+        0,
+        -11.685291
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.013879,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.41118,
+        0.41118,
+        0.41118
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_028",
+      "position": [
+        -31.167591,
+        100.306505,
+        -70.231511
+      ],
+      "velocity": [
+        13.422017,
+        0,
+        -0.067136
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.102024,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.485783,
+        0.485783,
+        0.485783
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_029",
+      "position": [
+        47.268844,
+        100.289358,
+        -60.57673
+      ],
+      "velocity": [
+        6.381923,
+        0,
+        11.807883
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.145694,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.525046,
+        0.525046,
+        0.525046
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_030",
+      "position": [
+        78.983424,
+        99.973965,
+        11.358141
+      ],
+      "velocity": [
+        -7.098346,
+        0,
+        11.168639
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.118766,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.500655,
+        0.500655,
+        0.500655
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_031",
+      "position": [
+        27.669976,
+        99.667443,
+        74.844913
+      ],
+      "velocity": [
+        -13.201791,
+        0,
+        -0.915272
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.283949,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.65941,
+        0.65941,
+        0.65941
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_032",
+      "position": [
+        -50.556892,
+        100.103782,
+        61.73645
+      ],
+      "velocity": [
+        -5.890336,
+        0,
+        -11.850272
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.940327,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.353686,
+        0.353686,
+        0.353686
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_033",
+      "position": [
+        -78.542447,
+        100.013086,
+        -14.08803
+      ],
+      "velocity": [
+        7.481067,
+        0,
+        -10.915981
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.195175,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.571377,
+        0.571377,
+        0.571377
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_034",
+      "position": [
+        -30.510593,
+        100.316291,
+        -73.732573
+      ],
+      "velocity": [
+        13.227128,
+        0,
+        0.409984
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.201607,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.577544,
+        0.577544,
+        0.577544
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_035",
+      "position": [
+        50.176939,
+        100.363413,
+        -62.045656
+      ],
+      "velocity": [
+        5.962973,
+        0,
+        11.813888
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.089439,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.474751,
+        0.474751,
+        0.474751
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_036",
+      "position": [
+        81.373271,
+        100.288226,
+        15.059802
+      ],
+      "velocity": [
+        -7.553961,
+        0,
+        10.650787
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.982944,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.386472,
+        0.386472,
+        0.386472
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_037",
+      "position": [
+        27.491969,
+        100.143942,
+        78.0551
+      ],
+      "velocity": [
+        -12.99843,
+        0,
+        -1.241934
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.104407,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.487886,
+        0.487886,
+        0.487886
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_038",
+      "position": [
+        -54.692558,
+        99.721406,
+        62.105805
+      ],
+      "velocity": [
+        -5.263311,
+        0,
+        -11.94986
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.157785,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.536186,
+        0.536186,
+        0.536186
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_039",
+      "position": [
+        -81.022916,
+        100.101758,
+        -16.843217
+      ],
+      "velocity": [
+        7.786042,
+        0,
+        -10.482325
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.326498,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.703839,
+        0.703839,
+        0.703839
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_040",
+      "position": [
+        -28.268247,
+        99.817314,
+        -77.77733
+      ],
+      "velocity": [
+        13.010158,
+        0,
+        1.112373
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.918595,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.337527,
+        0.337527,
+        0.337527
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_041",
+      "position": [
+        54.720572,
+        99.895512,
+        -62.081124
+      ],
+      "velocity": [
+        5.257919,
+        0,
+        11.952233
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.251585,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.626586,
+        0.626586,
+        0.626586
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_042",
+      "position": [
+        84.035542,
+        99.683978,
+        16.880951
+      ],
+      "velocity": [
+        -7.726989,
+        0,
+        10.321672
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.048808,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.439999,
+        0.439999,
+        0.439999
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_043",
+      "position": [
+        24.89512,
+        99.878589,
+        82.019338
+      ],
+      "velocity": [
+        -12.74936,
+        0,
+        -1.922781
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.340013,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.718254,
+        0.718254,
+        0.718254
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_044",
+      "position": [
+        -59.083805,
+        99.83875,
+        62.097043
+      ],
+      "velocity": [
+        -4.612972,
+        0,
+        -12.04009
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.199006,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.575046,
+        0.575046,
+        0.575046
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_045",
+      "position": [
+        -84.154909,
+        100.014765,
+        -16.275442
+      ],
+      "velocity": [
+        7.65247,
+        0,
+        -10.37704
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.164067,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.542021,
+        0.542021,
+        0.542021
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_046",
+      "position": [
+        -27.42077,
+        100.035845,
+        -81.209852
+      ],
+      "velocity": [
+        12.802745,
+        0,
+        1.527412
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.307211,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.68352,
+        0.68352,
+        0.68352
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_047",
+      "position": [
+        58.955572,
+        100.274989,
+        -62.218802
+      ],
+      "velocity": [
+        4.637801,
+        0,
+        12.030547
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.123311,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.504731,
+        0.504731,
+        0.504731
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_048",
+      "position": [
+        86.250173,
+        99.732156,
+        20.588633
+      ],
+      "velocity": [
+        -8.100641,
+        0,
+        9.833294
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.274379,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.649617,
+        0.649617,
+        0.649617
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_049",
+      "position": [
+        25.061951,
+        99.866252,
+        85.058114
+      ],
+      "velocity": [
+        -12.560408,
+        0,
+        -2.133121
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.9068,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.328914,
+        0.328914,
+        0.328914
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_050",
+      "position": [
+        -60.346527,
+        100.255231,
+        64.971385
+      ],
+      "velocity": [
+        -4.577668,
+        0,
+        -11.889449
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.11145,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.494128,
+        0.494128,
+        0.494128
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_051",
+      "position": [
+        -86.210366,
+        100.338823,
+        -20.754687
+      ],
+      "velocity": [
+        8.119562,
+        0,
+        -9.817676
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.017693,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.41428,
+        0.41428,
+        0.41428
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_052",
+      "position": [
+        -24.214324,
+        99.988596,
+        -85.303287
+      ],
+      "velocity": [
+        12.53856,
+        0,
+        2.258
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.295613,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.671445,
+        0.671445,
+        0.671445
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_053",
+      "position": [
+        60.500523,
+        99.621924,
+        -64.82801
+      ],
+      "velocity": [
+        4.549444,
+        0,
+        11.900278
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.157879,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.536274,
+        0.536274,
+        0.536274
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_054",
+      "position": [
+        87.578738,
+        100.330495,
+        26.953806
+      ],
+      "velocity": [
+        -8.711322,
+        0,
+        9.099203
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.94225,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.355134,
+        0.355134,
+        0.355134
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_055",
+      "position": [
+        23.64842,
+        100.327055,
+        88.5285
+      ],
+      "velocity": [
+        -12.335659,
+        0,
+        -2.55228
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.276046,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.651317,
+        0.651317,
+        0.651317
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_056",
+      "position": [
+        -66.161696,
+        99.618035,
+        63.396949
+      ],
+      "velocity": [
+        -3.710672,
+        0,
+        -12.038004
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.268078,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.643209,
+        0.643209,
+        0.643209
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_057",
+      "position": [
+        -88.38363,
+        100.211378,
+        -24.18423
+      ],
+      "velocity": [
+        8.420642,
+        0,
+        -9.368853
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.301277,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.677329,
+        0.677329,
+        0.677329
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_058",
+      "position": [
+        -20.296848,
+        100.289909,
+        -89.356483
+      ],
+      "velocity": [
+        12.230762,
+        0,
+        3.015142
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.079535,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.466158,
+        0.466158,
+        0.466158
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_059",
+      "position": [
+        66.271356,
+        99.881405,
+        -63.282308
+      ],
+      "velocity": [
+        3.689825,
+        0,
+        12.04441
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.32959,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.707124,
+        0.707124,
+        0.707124
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_060",
+      "position": [
+        90.431972,
+        100.393029,
+        27.742999
+      ],
+      "velocity": [
+        -8.702001,
+        0,
+        8.921699
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.193277,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.569564,
+        0.569564,
+        0.569564
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_061",
+      "position": [
+        20.056922,
+        99.870559,
+        92.440984
+      ],
+      "velocity": [
+        -12.038769,
+        0,
+        -3.223286
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.933945,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.348901,
+        0.348901,
+        0.348901
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_062",
+      "position": [
+        -68.594182,
+        99.837877,
+        65.134122
+      ],
+      "velocity": [
+        -3.495226,
+        0,
+        -11.962648
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.117728,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.499726,
+        0.499726,
+        0.499726
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_063",
+      "position": [
+        -90.73375,
+        100.353221,
+        -26.739523
+      ],
+      "velocity": [
+        8.602636,
+        0,
+        -9.01755
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.965915,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.373197,
+        0.373197,
+        0.373197
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_064",
+      "position": [
+        -20.377143,
+        100.261109,
+        -92.370924
+      ],
+      "velocity": [
+        12.049867,
+        0,
+        3.181548
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.283362,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.658807,
+        0.658807,
+        0.658807
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_065",
+      "position": [
+        70.795073,
+        100.096485,
+        -62.734944
+      ],
+      "velocity": [
+        3.081473,
+        0,
+        12.075846
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.934568,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.349367,
+        0.349367,
+        0.349367
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_066",
+      "position": [
+        91.454222,
+        100.193572,
+        33.94594
+      ],
+      "velocity": [
+        -9.193425,
+        0,
+        8.227252
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.922841,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.340654,
+        0.340654,
+        0.340654
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_067",
+      "position": [
+        17.148088,
+        100.399643,
+        96.031998
+      ],
+      "velocity": [
+        -11.754091,
+        0,
+        -3.748079
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.320909,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.69792,
+        0.69792,
+        0.69792
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_068",
+      "position": [
+        -73.866913,
+        100.204481,
+        63.717194
+      ],
+      "velocity": [
+        -2.769043,
+        0,
+        -12.022444
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.972894,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.378609,
+        0.378609,
+        0.378609
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_069",
+      "position": [
+        -92.605489,
+        100.186969,
+        -30.666349
+      ],
+      "velocity": [
+        8.894495,
+        0,
+        -8.549545
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.196699,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.572835,
+        0.572835,
+        0.572835
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_070",
+      "position": [
+        -16.462454,
+        100.278151,
+        -96.151907
+      ],
+      "velocity": [
+        11.727049,
+        0,
+        3.83185
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.278152,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.653469,
+        0.653469,
+        0.653469
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_071",
+      "position": [
+        72.365515,
+        99.852198,
+        -65.417381
+      ],
+      "velocity": [
+        3.047817,
+        0,
+        11.954813
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.103137,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.486764,
+        0.486764,
+        0.486764
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_072",
+      "position": [
+        93.772728,
+        99.992896,
+        36.179783
+      ],
+      "velocity": [
+        -9.289493,
+        0,
+        7.938657
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.157324,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.53576,
+        0.53576,
+        0.53576
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_073",
+      "position": [
+        15.450764,
+        100.050184,
+        99.315533
+      ],
+      "velocity": [
+        -11.515593,
+        0,
+        -4.087553
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.008606,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.406914,
+        0.406914,
+        0.406914
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_074",
+      "position": [
+        -79.388783,
+        99.86849,
+        61.641888
+      ],
+      "velocity": [
+        -2.00466,
+        0,
+        -12.053975
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.132199,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.51275,
+        0.51275,
+        0.51275
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_075",
+      "position": [
+        -93.312443,
+        99.72423,
+        -37.350892
+      ],
+      "velocity": [
+        9.38815,
+        0,
+        -7.82174
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.907753,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.329606,
+        0.329606,
+        0.329606
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_076",
+      "position": [
+        -14.681434,
+        100.252558,
+        -99.432171
+      ],
+      "velocity": [
+        11.483603,
+        0,
+        4.176581
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.050773,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.44165,
+        0.44165,
+        0.44165
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_077",
+      "position": [
+        77.87853,
+        99.84496,
+        -63.539245
+      ],
+      "velocity": [
+        2.294885,
+        0,
+        12.002103
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.32879,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.706273,
+        0.706273,
+        0.706273
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_078",
+      "position": [
+        94.542301,
+        99.827386,
+        42.043637
+      ],
+      "velocity": [
+        -9.662024,
+        0,
+        7.299225
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.305706,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.681947,
+        0.681947,
+        0.681947
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_079",
+      "position": [
+        11.618487,
+        99.639877,
+        102.815004
+      ],
+      "velocity": [
+        -11.186801,
+        0,
+        -4.63561
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.193145,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.569438,
+        0.569438,
+        0.569438
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_080",
+      "position": [
+        -82.256549,
+        99.811048,
+        62.767622
+      ],
+      "velocity": [
+        -1.767005,
+        0,
+        -11.979611
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.135455,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.515703,
+        0.515703,
+        0.515703
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_081",
+      "position": [
+        -94.611287,
+        100.327554,
+        -41.888167
+      ],
+      "velocity": [
+        9.650012,
+        0,
+        -7.315098
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.090345,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.475541,
+        0.475541,
+        0.475541
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_082",
+      "position": [
+        -14.537088,
+        100.113434,
+        -102.443093
+      ],
+      "velocity": [
+        11.314081,
+        0,
+        4.315666
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.004912,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.403939,
+        0.403939,
+        0.403939
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_083",
+      "position": [
+        82.72416,
+        100.308154,
+        -62.15004
+      ],
+      "velocity": [
+        1.677269,
+        0,
+        11.992505
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.181678,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.558545,
+        0.558545,
+        0.558545
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_084",
+      "position": [
+        97.01901,
+        99.804233,
+        43.753314
+      ],
+      "velocity": [
+        -9.687583,
+        0,
+        7.091547
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.299124,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.675089,
+        0.675089,
+        0.675089
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_085",
+      "position": [
+        12.085575,
+        99.764239,
+        105.740152
+      ],
+      "velocity": [
+        -11.05137,
+        0,
+        -4.691112
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.005372,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.404309,
+        0.404309,
+        0.404309
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_086",
+      "position": [
+        -86.855701,
+        99.898829,
+        61.507138
+      ],
+      "velocity": [
+        -1.209852,
+        0,
+        -11.944687
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.247515,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.622517,
+        0.622517,
+        0.622517
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_087",
+      "position": [
+        -96.276601,
+        100.302394,
+        -45.363607
+      ],
+      "velocity": [
+        9.804386,
+        0,
+        -6.929165
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.331634,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.7093,
+        0.7093,
+        0.7093
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_088",
+      "position": [
+        -7.858096,
+        99.663401,
+        -106.138076
+      ],
+      "velocity": [
+        10.855451,
+        0,
+        5.128205
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.155788,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.534338,
+        0.534338,
+        0.534338
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_089",
+      "position": [
+        87.169027,
+        100.35082,
+        -61.062275
+      ],
+      "velocity": [
+        1.148767,
+        0,
+        11.950717
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.218054,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.593462,
+        0.593462,
+        0.593462
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_090",
+      "position": [
+        97.301373,
+        100.21359,
+        49.981235
+      ],
+      "velocity": [
+        -10.017956,
+        0,
+        6.438969
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.903932,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.326837,
+        0.326837,
+        0.326837
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_091",
+      "position": [
+        5.731354,
+        99.816101,
+        109.237505
+      ],
+      "velocity": [
+        -10.603493,
+        0,
+        -5.420857
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.30512,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.681335,
+        0.681335,
+        0.681335
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_092",
+      "position": [
+        -92.404371,
+        99.784316,
+        58.541551
+      ],
+      "velocity": [
+        -0.472679,
+        0,
+        -11.899426
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.162502,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.540564,
+        0.540564,
+        0.540564
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_093",
+      "position": [
+        -97.505098,
+        100.08412,
+        -49.582625
+      ],
+      "velocity": [
+        9.991522,
+        0,
+        -6.479912
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.932613,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.347907,
+        0.347907,
+        0.347907
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_094",
+      "position": [
+        -9.692237,
+        100.1468,
+        -108.957522
+      ],
+      "velocity": [
+        10.793252,
+        0,
+        5.032443
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.986391,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.389187,
+        0.389187,
+        0.389187
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_095",
+      "position": [
+        91.421872,
+        100.207656,
+        -60.064318
+      ],
+      "velocity": [
+        0.669743,
+        0,
+        11.889962
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.28982,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.665454,
+        0.665454,
+        0.665454
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_096",
+      "position": [
+        98.719852,
+        100.093763,
+        53.630452
+      ],
+      "velocity": [
+        -10.145758,
+        0,
+        6.060119
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.190739,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.567144,
+        0.567144,
+        0.567144
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_097",
+      "position": [
+        2.781743,
+        99.626727,
+        112.312495
+      ],
+      "velocity": [
+        -10.314279,
+        0,
+        -5.768629
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.119753,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.501539,
+        0.501539,
+        0.501539
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_098",
+      "position": [
+        -95.180095,
+        100.278693,
+        59.687387
+      ],
+      "velocity": [
+        -0.300146,
+        0,
+        -11.814032
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.906425,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.328643,
+        0.328643,
+        0.328643
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_099",
+      "position": [
+        -98.331167,
+        99.862669,
+        -54.339822
+      ],
+      "velocity": [
+        10.189126,
+        0,
+        -5.986915
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.342901,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.721353,
+        0.721353,
+        0.721353
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_100",
+      "position": [
+        -5.549715,
+        99.714907,
+        -112.209783
+      ],
+      "velocity": [
+        10.453357,
+        0,
+        5.5126
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.254403,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.629411,
+        0.629411,
+        0.629411
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_101",
+      "position": [
+        94.821257,
+        100.164019,
+        -60.255821
+      ],
+      "velocity": [
+        0.370829,
+        0,
+        11.812025
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.073848,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.46126,
+        0.46126,
+        0.46126
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_102",
+      "position": [
+        99.995819,
+        100.378191,
+        57.413744
+      ],
+      "velocity": [
+        -10.266454,
+        0,
+        5.679109
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.273099,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.648312,
+        0.648312,
+        0.648312
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_103",
+      "position": [
+        -1.483886,
+        100.285004,
+        115.296574
+      ],
+      "velocity": [
+        -9.957941,
+        0,
+        -6.204174
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.212356,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.587923,
+        0.587923,
+        0.587923
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_104",
+      "position": [
+        -98.356922,
+        99.978072,
+        60.178217
+      ],
+      "velocity": [
+        -0.055832,
+        0,
+        -11.732401
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.022813,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.418459,
+        0.418459,
+        0.418459
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_105",
+      "position": [
+        -100.689546,
+        99.799402,
+        -56.18823
+      ],
+      "velocity": [
+        10.19633,
+        0,
+        -5.804068
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.072664,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.460243,
+        0.460243,
+        0.460243
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_106",
+      "position": [
+        -1.484216,
+        99.638687,
+        -115.29657
+      ],
+      "velocity": [
+        10.11433,
+        0,
+        5.945812
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.033755,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.42746,
+        0.42746,
+        0.42746
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_107",
+      "position": [
+        100.988661,
+        100.285496,
+        -55.648829
+      ],
+      "velocity": [
+        -0.477101,
+        0,
+        11.722829
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.262466,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.637528,
+        0.637528,
+        0.637528
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_108",
+      "position": [
+        99.244154,
+        100.090628,
+        64.321695
+      ],
+      "velocity": [
+        -10.533193,
+        0,
+        4.983331
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.121012,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.502667,
+        0.502667,
+        0.502667
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_109",
+      "position": [
+        -3.039302,
+        99.751851,
+        118.226246
+      ],
+      "velocity": [
+        -9.749816,
+        0,
+        -6.381444
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.060631,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.449975,
+        0.449975,
+        0.449975
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_110",
+      "position": [
+        -103.110641,
+        99.64603,
+        57.921312
+      ],
+      "velocity": [
+        0.48964,
+        0,
+        -11.64225
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.899677,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.323767,
+        0.323767,
+        0.323767
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_111",
+      "position": [
+        -101.71513,
+        99.944302,
+        -60.338338
+      ],
+      "velocity": [
+        10.32744,
+        0,
+        -5.396824
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.289554,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.66518,
+        0.66518,
+        0.66518
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_112",
+      "position": [
+        2.45818,
+        99.612491,
+        -118.239756
+      ],
+      "velocity": [
+        9.781063,
+        0,
+        6.333446
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.186754,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.563354,
+        0.563354,
+        0.563354
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_113",
+      "position": [
+        104.328478,
+        100.056303,
+        -55.697858
+      ],
+      "velocity": [
+        -0.739076,
+        0,
+        11.62908
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.280318,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.655686,
+        0.655686,
+        0.655686
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_114",
+      "position": [
+        100.46247,
+        99.789123,
+        67.842974
+      ],
+      "velocity": [
+        -10.601571,
+        0,
+        4.652585
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.175893,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.55309,
+        0.55309,
+        0.55309
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_115",
+      "position": [
+        -6.703456,
+        99.97141,
+        121.039004
+      ],
+      "velocity": [
+        -9.432051,
+        0,
+        -6.713886
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.139646,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.519517,
+        0.519517,
+        0.519517
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_116",
+      "position": [
+        -107.171378,
+        100.321788,
+        56.653974
+      ],
+      "velocity": [
+        0.890569,
+        0,
+        -11.543255
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.91005,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.331276,
+        0.331276,
+        0.331276
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_117",
+      "position": [
+        -100.439295,
+        99.930806,
+        -67.877279
+      ],
+      "velocity": [
+        10.603159,
+        0,
+        -4.648965
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.219135,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.594516,
+        0.594516,
+        0.594516
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_118",
+      "position": [
+        8.142218,
+        100.090196,
+        -120.950739
+      ],
+      "velocity": [
+        9.351551,
+        0,
+        6.825565
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.965414,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.37281,
+        0.37281,
+        0.37281
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_119",
+      "position": [
+        108.817038,
+        100.224813,
+        -53.424986
+      ],
+      "velocity": [
+        -1.235233,
+        0,
+        11.511475
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.963735,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.371514,
+        0.371514,
+        0.371514
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_120",
+      "position": [
+        101.454445,
+        99.670134,
+        71.614107
+      ],
+      "velocity": [
+        -10.671442,
+        0,
+        4.305605
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.210618,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.586238,
+        0.586238,
+        0.586238
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_121",
+      "position": [
+        -12.685508,
+        100.221512,
+        123.534055
+      ],
+      "velocity": [
+        -8.984012,
+        0,
+        -7.190649
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.084318,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.470298,
+        0.470298,
+        0.470298
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_122",
+      "position": [
+        -111.55371,
+        99.7211,
+        54.565141
+      ],
+      "velocity": [
+        1.351563,
+        0,
+        -11.42765
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.17502,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.552269,
+        0.552269,
+        0.552269
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_123",
+      "position": [
+        -102.051947,
+        99.82479,
+        -70.760052
+      ],
+      "velocity": [
+        10.634928,
+        0,
+        -4.395021
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.228309,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.603497,
+        0.603497,
+        0.603497
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_124",
+      "position": [
+        12.35758,
+        100.333821,
+        -123.567289
+      ],
+      "velocity": [
+        9.003066,
+        0,
+        7.166778
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.266233,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.641338,
+        0.641338,
+        0.641338
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_125",
+      "position": [
+        113.217538,
+        99.614224,
+        -51.023268
+      ],
+      "velocity": [
+        -1.710949,
+        0,
+        11.379392
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.008127,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.406528,
+        0.406528,
+        0.406528
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_126",
+      "position": [
+        100.752083,
+        99.790595,
+        77.552072
+      ],
+      "velocity": [
+        -10.81347,
+        0,
+        3.738555
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.039817,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.432488,
+        0.432488,
+        0.432488
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_127",
+      "position": [
+        -12.021361,
+        99.906579,
+        126.573271
+      ],
+      "velocity": [
+        -8.920932,
+        0,
+        -7.16414
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.350396,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.729428,
+        0.729428,
+        0.729428
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_128",
+      "position": [
+        -116.80135,
+        99.827702,
+        50.226991
+      ],
+      "velocity": [
+        2.001112,
+        0,
+        -11.265144
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.948248,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.35967,
+        0.35967,
+        0.35967
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_129",
+      "position": [
+        -103.301671,
+        99.763127,
+        -74.122
+      ],
+      "velocity": [
+        10.681709,
+        0,
+        -4.099881
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.159612,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.53788,
+        0.53788,
+        0.53788
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_130",
+      "position": [
+        15.298227,
+        99.950712,
+        -126.219136
+      ],
+      "velocity": [
+        8.732233,
+        0,
+        7.392973
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.225719,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.600955,
+        0.600955,
+        0.600955
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_131",
+      "position": [
+        116.046861,
+        100.178071,
+        -51.946436
+      ],
+      "velocity": [
+        -1.834531,
+        0,
+        11.293468
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.10343,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.487023,
+        0.487023,
+        0.487023
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_132",
+      "position": [
+        103.266369,
+        100.036313,
+        79.136578
+      ],
+      "velocity": [
+        -10.781235,
+        0,
+        3.642476
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.174525,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.551804,
+        0.551804,
+        0.551804
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_133",
+      "position": [
+        -20.480331,
+        100.125136,
+        128.479948
+      ],
+      "velocity": [
+        -8.332884,
+        0,
+        -7.750206
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.968764,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.375401,
+        0.375401,
+        0.375401
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_134",
+      "position": [
+        -120.895291,
+        100.31118,
+        48.071506
+      ],
+      "velocity": [
+        2.401731,
+        0,
+        -11.123594
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.954584,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.364492,
+        0.364492,
+        0.364492
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_135",
+      "position": [
+        -100.587721,
+        99.609303,
+        -82.514552
+      ],
+      "velocity": [
+        10.895998,
+        0,
+        -3.283272
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.213135,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.588679,
+        0.588679,
+        0.588679
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_136",
+      "position": [
+        20.336801,
+        100.081513,
+        -128.502745
+      ],
+      "velocity": [
+        8.341536,
+        0,
+        7.740893
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.932387,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.347738,
+        0.347738,
+        0.347738
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_137",
+      "position": [
+        122.149428,
+        100.044091,
+        -44.789041
+      ],
+      "velocity": [
+        -2.701262,
+        0,
+        11.054675
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.035576,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.428967,
+        0.428967,
+        0.428967
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_138",
+      "position": [
+        101.845707,
+        100.089382,
+        85.631428
+      ],
+      "velocity": [
+        -10.907745,
+        0,
+        3.035882
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.266857,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.641971,
+        0.641971,
+        0.641971
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_139",
+      "position": [
+        -23.420703,
+        100.362211,
+        130.983816
+      ],
+      "velocity": [
+        -8.071845,
+        0,
+        -7.939824
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.11803,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.499996,
+        0.499996,
+        0.499996
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_140",
+      "position": [
+        -124.989735,
+        99.601924,
+        45.638312
+      ],
+      "velocity": [
+        2.802525,
+        0,
+        -10.97002
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.097979,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.482223,
+        0.482223,
+        0.482223
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_141",
+      "position": [
+        -100.215593,
+        99.922876,
+        -87.533562
+      ],
+      "velocity": [
+        10.962965,
+        0,
+        -2.829999
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.117325,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.499366,
+        0.499366,
+        0.499366
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_142",
+      "position": [
+        23.995752,
+        100.369847,
+        -130.87969
+      ],
+      "velocity": [
+        8.036896,
+        0,
+        7.975198
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.968662,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.375322,
+        0.375322,
+        0.375322
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_143",
+      "position": [
+        124.279683,
+        99.835998,
+        -47.537878
+      ],
+      "velocity": [
+        -2.635015,
+        0,
+        11.011457
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.941642,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.354676,
+        0.354676,
+        0.354676
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_144",
+      "position": [
+        100.744304,
+        100.020307,
+        91.390025
+      ],
+      "velocity": [
+        -10.985011,
+        0,
+        2.511956
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.055586,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.445705,
+        0.445705,
+        0.445705
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_145",
+      "position": [
+        -29.378633,
+        99.627403,
+        132.809816
+      ],
+      "velocity": [
+        -7.630266,
+        0,
+        -8.292131
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.909519,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.33089,
+        0.33089,
+        0.33089
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_146",
+      "position": [
+        -129.134878,
+        100.006132,
+        42.728616
+      ],
+      "velocity": [
+        3.218983,
+        0,
+        -10.799006
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.95887,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.367773,
+        0.367773,
+        0.367773
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_147",
+      "position": [
+        -99.468026,
+        100.021461,
+        -92.777493
+      ],
+      "velocity": [
+        11.01877,
+        0,
+        -2.35947
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.310239,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.68669,
+        0.68669,
+        0.68669
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_148",
+      "position": [
+        27.256991,
+        99.650091,
+        -133.261427
+      ],
+      "velocity": [
+        7.76153,
+        0,
+        8.169397
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.297797,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.673711,
+        0.673711,
+        0.673711
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_149",
+      "position": [
+        128.842102,
+        99.758052,
+        -43.603489
+      ],
+      "velocity": [
+        -3.145665,
+        0,
+        10.820591
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.195853,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.572026,
+        0.572026,
+        0.572026
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_150",
+      "position": [
+        101.468496,
+        99.944785,
+        94.970897
+      ],
+      "velocity": [
+        -10.994117,
+        0,
+        2.231866
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.182358,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.559188,
+        0.559188,
+        0.559188
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_151",
+      "position": [
+        -34.279549,
+        99.816973,
+        134.685706
+      ],
+      "velocity": [
+        -7.256148,
+        0,
+        -8.555709
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.933626,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.348663,
+        0.348663,
+        0.348663
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_152",
+      "position": [
+        -133.080623,
+        99.741357,
+        40.060886
+      ],
+      "velocity": [
+        3.590419,
+        0,
+        -10.628299
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.306267,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.682533,
+        0.682533,
+        0.682533
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_153",
+      "position": [
+        -98.152223,
+        100.284172,
+        -98.394452
+      ],
+      "velocity": [
+        11.064184,
+        0,
+        -1.85356
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.113533,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.495982,
+        0.495982,
+        0.495982
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_154",
+      "position": [
+        32.552622,
+        99.888233,
+        -135.113485
+      ],
+      "velocity": [
+        7.365076,
+        0,
+        8.462122
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.926291,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.343206,
+        0.343206,
+        0.343206
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_155",
+      "position": [
+        133.490674,
+        100.258684,
+        -38.672562
+      ],
+      "velocity": [
+        -3.700927,
+        0,
+        10.590325
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.251795,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.626796,
+        0.626796,
+        0.626796
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_156",
+      "position": [
+        99.366244,
+        99.678742,
+        101.355639
+      ],
+      "velocity": [
+        -11.048732,
+        0,
+        1.652368
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.954451,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.364391,
+        0.364391,
+        0.364391
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_157",
+      "position": [
+        -36.206713,
+        100.229732,
+        137.243178
+      ],
+      "velocity": [
+        -7.0751,
+        0,
+        -8.645678
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.197419,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.573525,
+        0.573525,
+        0.573525
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_158",
+      "position": [
+        -136.966069,
+        100.215277,
+        37.241268
+      ],
+      "velocity": [
+        3.951687,
+        0,
+        -10.449352
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.329678,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.707217,
+        0.707217,
+        0.707217
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_159",
+      "position": [
+        -97.195196,
+        99.648534,
+        -103.439402
+      ],
+      "velocity": [
+        11.081278,
+        0,
+        -1.417766
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.337836,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.715922,
+        0.715922,
+        0.715922
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_160",
+      "position": [
+        37.121409,
+        100.122448,
+        -136.998602
+      ],
+      "velocity": [
+        7.01727,
+        0,
+        8.692681
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.932705,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.347975,
+        0.347975,
+        0.347975
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_161",
+      "position": [
+        137.86515,
+        100.009805,
+        -33.761168
+      ],
+      "velocity": [
+        -4.215011,
+        0,
+        10.34594
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.954488,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.364419,
+        0.364419,
+        0.364419
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_162",
+      "position": [
+        97.038331,
+        99.678675,
+        107.605673
+      ],
+      "velocity": [
+        -11.074705,
+        0,
+        1.088804
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.363626,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.74379,
+        0.74379,
+        0.74379
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_163",
+      "position": [
+        -42.996078,
+        99.970294,
+        138.371803
+      ],
+      "velocity": [
+        -6.589459,
+        0,
+        -8.967364
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.935649,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.350176,
+        0.350176,
+        0.350176
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_164",
+      "position": [
+        -141.4405,
+        100.331621,
+        31.464322
+      ],
+      "velocity": [
+        4.506228,
+        0,
+        -10.174895
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.186789,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.563387,
+        0.563387,
+        0.563387
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_165",
+      "position": [
+        -99.970248,
+        100.106184,
+        -104.887407
+      ],
+      "velocity": [
+        11.040449,
+        0,
+        -1.393943
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.07467,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.461966,
+        0.461966,
+        0.461966
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_166",
+      "position": [
+        44.395354,
+        99.816473,
+        -137.929225
+      ],
+      "velocity": [
+        6.498296,
+        0,
+        9.033644
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.268251,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.643384,
+        0.643384,
+        0.643384
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_167",
+      "position": [
+        141.461361,
+        99.911659,
+        -31.370399
+      ],
+      "velocity": [
+        -4.512983,
+        0,
+        10.171901
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.033817,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.427511,
+        0.427511,
+        0.427511
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_168",
+      "position": [
+        99.470685,
+        100.225536,
+        109.395235
+      ],
+      "velocity": [
+        -11.039343,
+        0,
+        1.034334
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.274049,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.64928,
+        0.64928,
+        0.64928
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_169",
+      "position": [
+        -46.87096,
+        100.048841,
+        140.231408
+      ],
+      "velocity": [
+        -6.294718,
+        0,
+        -9.127622
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.05121,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.442017,
+        0.442017,
+        0.442017
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_170",
+      "position": [
+        -145.777409,
+        100.321695,
+        24.711978
+      ],
+      "velocity": [
+        5.08633,
+        0,
+        -9.852218
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.237576,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.612638,
+        0.612638,
+        0.612638
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_171",
+      "position": [
+        -96.170165,
+        100.098888,
+        -112.307765
+      ],
+      "velocity": [
+        11.065241,
+        0,
+        -0.705261
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.281155,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.656543,
+        0.656543,
+        0.656543
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_172",
+      "position": [
+        46.157447,
+        99.720563,
+        -140.467878
+      ],
+      "velocity": [
+        6.341039,
+        0,
+        9.095503
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.231809,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.606941,
+        0.606941,
+        0.606941
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_173",
+      "position": [
+        144.883154,
+        100.092057,
+        -29.506042
+      ],
+      "velocity": [
+        -4.758653,
+        0,
+        10.014598
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.025769,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.420881,
+        0.420881,
+        0.420881
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_174",
+      "position": [
+        95.345959,
+        99.818805,
+        116.85338
+      ],
+      "velocity": [
+        -11.044838,
+        0,
+        0.345692
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.985833,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.388747,
+        0.388747,
+        0.388747
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_175",
+      "position": [
+        -55.692685,
+        99.648679,
+        140.156659
+      ],
+      "velocity": [
+        -5.676287,
+        0,
+        -9.480913
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.982582,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.386187,
+        0.386187,
+        0.386187
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_176",
+      "position": [
+        -149.439657,
+        100.322046,
+        20.33109
+      ],
+      "velocity": [
+        5.470315,
+        0,
+        -9.601229
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.23277,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.607889,
+        0.607889,
+        0.607889
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_177",
+      "position": [
+        -93.805655,
+        99.955992,
+        -118.093452
+      ],
+      "velocity": [
+        11.048421,
+        0,
+        -0.200849
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.309502,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.685918,
+        0.685918,
+        0.685918
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_178",
+      "position": [
+        51.746561,
+        99.917951,
+        -141.661066
+      ],
+      "velocity": [
+        5.939521,
+        0,
+        9.318264
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.136175,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.516357,
+        0.516357,
+        0.516357
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_179",
+      "position": [
+        148.625815,
+        99.646962,
+        -25.611161
+      ],
+      "velocity": [
+        -5.126828,
+        0,
+        9.788952
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.058484,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.448155,
+        0.448155,
+        0.448155
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_180",
+      "position": [
+        93.28727,
+        99.980097,
+        122.247261
+      ],
+      "velocity": [
+        -11.015096,
+        0,
+        -0.107799
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.181654,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.558522,
+        0.558522,
+        0.558522
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_181",
+      "position": [
+        -59.145785,
+        100.075718,
+        141.946059
+      ],
+      "velocity": [
+        -5.419585,
+        0,
+        -9.590206
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.305025,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.681236,
+        0.681236,
+        0.681236
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_182",
+      "position": [
+        -152.033541,
+        100.033054,
+        23.080508
+      ],
+      "velocity": [
+        5.386795,
+        0,
+        -9.608662
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.248615,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.623616,
+        0.623616,
+        0.623616
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_183",
+      "position": [
+        -90.905517,
+        100.172955,
+        -124.028604
+      ],
+      "velocity": [
+        11.010951,
+        0,
+        0.320815
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.349906,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.728898,
+        0.728898,
+        0.728898
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_184",
+      "position": [
+        60.756853,
+        100.052585,
+        -141.263981
+      ],
+      "velocity": [
+        5.310128,
+        0,
+        9.651243
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.080078,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.466627,
+        0.466627,
+        0.466627
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_185",
+      "position": [
+        152.818624,
+        99.620007,
+        -17.12821
+      ],
+      "velocity": [
+        -5.757769,
+        0,
+        9.391063
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.285392,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.660893,
+        0.660893,
+        0.660893
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_186",
+      "position": [
+        90.885718,
+        99.88193,
+        127.693189
+      ],
+      "velocity": [
+        -10.969141,
+        0,
+        -0.565295
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.983764,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.387117,
+        0.387117,
+        0.387117
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_187",
+      "position": [
+        -64.504778,
+        99.959177,
+        142.845714
+      ],
+      "velocity": [
+        -5.038689,
+        0,
+        -9.759775
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.342818,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.721264,
+        0.721264,
+        0.721264
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_188",
+      "position": [
+        -156.219653,
+        100.396748,
+        12.695836
+      ],
+      "velocity": [
+        6.101474,
+        0,
+        -9.133106
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.076085,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.463184,
+        0.463184,
+        0.463184
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_189",
+      "position": [
+        -92.746579,
+        99.647514,
+        -126.348076
+      ],
+      "velocity": [
+        10.976245,
+        0,
+        0.404544
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.217595,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.593015,
+        0.593015,
+        0.593015
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_190",
+      "position": [
+        66.292641,
+        100.298467,
+        -142.024822
+      ],
+      "velocity": [
+        4.915791,
+        0,
+        9.82225
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.953866,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.363944,
+        0.363944,
+        0.363944
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_191",
+      "position": [
+        155.64025,
+        99.779142,
+        -18.489914
+      ],
+      "velocity": [
+        -5.75801,
+        0,
+        9.353444
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.147351,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.526566,
+        0.526566,
+        0.526566
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_192",
+      "position": [
+        87.480691,
+        99.930152,
+        133.601135
+      ],
+      "velocity": [
+        -10.90106,
+        0,
+        -1.079195
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.242439,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.617462,
+        0.617462,
+        0.617462
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_193",
+      "position": [
+        -68.947938,
+        99.973604,
+        144.042759
+      ],
+      "velocity": [
+        -4.724786,
+        0,
+        -9.883025
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.270248,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.645412,
+        0.645412,
+        0.645412
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_194",
+      "position": [
+        -159.471259,
+        99.74953,
+        8.429232
+      ],
+      "velocity": [
+        6.414729,
+        0,
+        -8.879698
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.031375,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.425494,
+        0.425494,
+        0.425494
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_195",
+      "position": [
+        -88.725775,
+        100.054771,
+        -132.777526
+      ],
+      "velocity": [
+        10.910672,
+        0,
+        0.977244
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.908569,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.330199,
+        0.330199,
+        0.330199
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_196",
+      "position": [
+        70.207899,
+        100.01532,
+        -143.432861
+      ],
+      "velocity": [
+        4.637974,
+        0,
+        9.92406
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.968819,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.375444,
+        0.375444,
+        0.375444
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_197",
+      "position": [
+        159.366364,
+        99.734665,
+        -10.222363
+      ],
+      "velocity": [
+        -6.314448,
+        0,
+        8.951286
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.143921,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.523422,
+        0.523422,
+        0.523422
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_198",
+      "position": [
+        83.527518,
+        99.937557,
+        139.567805
+      ],
+      "velocity": [
+        -10.808995,
+        0,
+        -1.604755
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.356195,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.735706,
+        0.735706,
+        0.735706
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_199",
+      "position": [
+        -78.695846,
+        100.293256,
+        142.348102
+      ],
+      "velocity": [
+        -4.043994,
+        0,
+        -10.151636
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.329639,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.707176,
+        0.707176,
+        0.707176
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_200",
+      "position": [
+        -162.506317,
+        99.759785,
+        6.907622
+      ],
+      "velocity": [
+        6.562613,
+        0,
+        -8.737374
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.954193,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.364194,
+        0.364194,
+        0.364194
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_201",
+      "position": [
+        -83.344386,
+        100.002423,
+        -139.677241
+      ],
+      "velocity": [
+        10.80688,
+        0,
+        1.618931
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.902017,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.325454,
+        0.325454,
+        0.325454
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_202",
+      "position": [
+        72.532183,
+        99.817238,
+        -145.585373
+      ],
+      "velocity": [
+        4.474714,
+        0,
+        9.96928
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.924946,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.34221,
+        0.34221,
+        0.34221
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_203",
+      "position": [
+        162.471818,
+        99.761513,
+        -7.676369
+      ],
+      "velocity": [
+        -6.521203,
+        0,
+        8.768324
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.006367,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.40511,
+        0.40511,
+        0.40511
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_204",
+      "position": [
+        83.496445,
+        100.274593,
+        143.023632
+      ],
+      "velocity": [
+        -10.752259,
+        0,
+        -1.806464
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.19999,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.57599,
+        0.57599,
+        0.57599
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_205",
+      "position": [
+        -83.568391,
+        100.126832,
+        142.981606
+      ],
+      "velocity": [
+        -3.707883,
+        0,
+        -10.253097
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.243713,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.618729,
+        0.618729,
+        0.618729
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_206",
+      "position": [
+        -165.605796,
+        99.827431,
+        -1.461467
+      ],
+      "velocity": [
+        7.054654,
+        0,
+        -8.313016
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.285709,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.661219,
+        0.661219,
+        0.661219
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_207",
+      "position": [
+        -86.352621,
+        100.067665,
+        -141.317517
+      ],
+      "velocity": [
+        10.786377,
+        0,
+        1.590111
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.05823,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.44794,
+        0.44794,
+        0.44794
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_208",
+      "position": [
+        80.175516,
+        99.882414,
+        -144.91136
+      ],
+      "velocity": [
+        3.948489,
+        0,
+        10.162865
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.065634,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.45423,
+        0.45423,
+        0.45423
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_209",
+      "position": [
+        165.540138,
+        99.667197,
+        -4.88655
+      ],
+      "velocity": [
+        -6.73087,
+        0,
+        8.577283
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.210732,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.586349,
+        0.586349,
+        0.586349
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_210",
+      "position": [
+        77.094172,
+        100.39604,
+        149.909356
+      ],
+      "velocity": [
+        -10.599168,
+        0,
+        -2.459123
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.940631,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.353915,
+        0.353915,
+        0.353915
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_211",
+      "position": [
+        -84.285422,
+        100.177852,
+        145.987308
+      ],
+      "velocity": [
+        -3.671852,
+        0,
+        -10.242419
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.069478,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.457513,
+        0.457513,
+        0.457513
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_212",
+      "position": [
+        -168.56681,
+        100.165999,
+        -1.247831
+      ],
+      "velocity": [
+        7.095541,
+        0,
+        -8.248815
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.343773,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.72229,
+        0.72229,
+        0.72229
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_213",
+      "position": [
+        -81.457987,
+        99.898955,
+        -147.583613
+      ],
+      "velocity": [
+        10.666736,
+        0,
+        2.147181
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.115203,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.497471,
+        0.497471,
+        0.497471
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_214",
+      "position": [
+        87.87451,
+        100.065086,
+        -143.855473
+      ],
+      "velocity": [
+        3.417104,
+        0,
+        10.330201
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.303706,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.67986,
+        0.67986,
+        0.67986
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_215",
+      "position": [
+        168.430722,
+        100.32083,
+        6.886098
+      ],
+      "velocity": [
+        -7.367512,
+        0,
+        8.006835
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.318579,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.69546,
+        0.69546,
+        0.69546
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_216",
+      "position": [
+        75.519328,
+        100.398046,
+        154.01163
+      ],
+      "velocity": [
+        -10.50914,
+        0,
+        -2.740629
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.244052,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.619066,
+        0.619066,
+        0.619066
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_217",
+      "position": [
+        -96.156008,
+        99.921247,
+        142.044968
+      ],
+      "velocity": [
+        -2.841507,
+        0,
+        -10.482314
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.264694,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.63978,
+        0.63978,
+        0.63978
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_218",
+      "position": [
+        -171.423034,
+        100.114107,
+        -6.074061
+      ],
+      "velocity": [
+        7.37451,
+        0,
+        -7.97306
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.10624,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.489507,
+        0.489507,
+        0.489507
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_219",
+      "position": [
+        -75.942495,
+        100.30966,
+        -153.803408
+      ],
+      "velocity": [
+        10.516635,
+        0,
+        2.711724
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.932519,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.347837,
+        0.347837,
+        0.347837
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_220",
+      "position": [
+        93.444351,
+        100.256953,
+        -143.843332
+      ],
+      "velocity": [
+        3.039828,
+        0,
+        10.426529
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.171397,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.548868,
+        0.548868,
+        0.548868
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_221",
+      "position": [
+        171.17373,
+        99.747338,
+        11.059161
+      ],
+      "velocity": [
+        -7.603369,
+        0,
+        7.755118
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.265673,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.640771,
+        0.640771,
+        0.640771
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_222",
+      "position": [
+        77.883748,
+        100.388816,
+        156.143558
+      ],
+      "velocity": [
+        -10.488564,
+        0,
+        -2.748182
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.249727,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.624727,
+        0.624727,
+        0.624727
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_223",
+      "position": [
+        -103.310992,
+        100.049274,
+        140.618376
+      ],
+      "velocity": [
+        -2.3474,
+        0,
+        -10.585471
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.961341,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.369671,
+        0.369671,
+        0.369671
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_224",
+      "position": [
+        -173.738851,
+        99.70274,
+        -16.170973
+      ],
+      "velocity": [
+        7.866237,
+        0,
+        -7.462225
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.113827,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.496244,
+        0.496244,
+        0.496244
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_225",
+      "position": [
+        -70.818621,
+        99.937056,
+        -159.472292
+      ],
+      "velocity": [
+        10.355082,
+        0,
+        3.214771
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.235128,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.610216,
+        0.610216,
+        0.610216
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_226",
+      "position": [
+        98.060464,
+        100.302382,
+        -144.32891
+      ],
+      "velocity": [
+        2.735776,
+        0,
+        10.491807
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.260007,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.635047,
+        0.635047,
+        0.635047
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_227",
+      "position": [
+        173.997572,
+        100.052298,
+        13.097092
+      ],
+      "velocity": [
+        -7.733091,
+        0,
+        7.600118
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.160752,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.538938,
+        0.538938,
+        0.538938
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_228",
+      "position": [
+        73.327009,
+        99.907612,
+        161.589882
+      ],
+      "velocity": [
+        -10.340506,
+        0,
+        -3.207776
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.363045,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.743157,
+        0.743157,
+        0.743157
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_229",
+      "position": [
+        -108.718116,
+        100.005713,
+        140.244471
+      ],
+      "velocity": [
+        -1.986843,
+        0,
+        -10.64276
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.979043,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.38341,
+        0.38341,
+        0.38341
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_230",
+      "position": [
+        -176.05968,
+        100.300246,
+        -22.161436
+      ],
+      "velocity": [
+        8.14821,
+        0,
+        -7.128994
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.941026,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.354212,
+        0.354212,
+        0.354212
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_231",
+      "position": [
+        -66.599955,
+        99.957126,
+        -164.476705
+      ],
+      "velocity": [
+        10.199404,
+        0,
+        3.631533
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.990718,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.392609,
+        0.392609,
+        0.392609
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_232",
+      "position": [
+        104.072014,
+        99.974745,
+        -143.725976
+      ],
+      "velocity": [
+        2.333943,
+        0,
+        10.572067
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.937585,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.351626,
+        0.351626,
+        0.351626
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_233",
+      "position": [
+        176.198983,
+        100.185167,
+        21.025191
+      ],
+      "velocity": [
+        -8.10205,
+        0,
+        7.181411
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.936988,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.351179,
+        0.351179,
+        0.351179
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_234",
+      "position": [
+        67.076958,
+        100.376762,
+        167.474736
+      ],
+      "velocity": [
+        -10.143532,
+        0,
+        -3.744345
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.949172,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.360371,
+        0.360371,
+        0.360371
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_235",
+      "position": [
+        -110.374948,
+        99.920216,
+        142.704157
+      ],
+      "velocity": [
+        -1.913201,
+        0,
+        -10.641947
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.111902,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.49453,
+        0.49453,
+        0.49453
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_236",
+      "position": [
+        -178.583575,
+        100.306882,
+        -25.593204
+      ],
+      "velocity": [
+        8.312381,
+        0,
+        -6.914889
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.075011,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.462259,
+        0.462259,
+        0.462259
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_237",
+      "position": [
+        -62.540449,
+        99.98028,
+        -169.22115
+      ],
+      "velocity": [
+        10.038969,
+        0,
+        4.016277
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.24019,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.615228,
+        0.615228,
+        0.615228
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_238",
+      "position": [
+        109.707568,
+        100.140776,
+        -143.217858
+      ],
+      "velocity": [
+        1.962859,
+        0,
+        10.632899
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.227828,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.603025,
+        0.603025,
+        0.603025
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_239",
+      "position": [
+        178.995705,
+        100.152021,
+        22.53093
+      ],
+      "velocity": [
+        -8.192734,
+        0,
+        7.056237
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.056456,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.44644,
+        0.44644,
+        0.44644
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_240",
+      "position": [
+        63.877106,
+        100.239203,
+        171.881643
+      ],
+      "velocity": [
+        -10.00383,
+        0,
+        -4.070698
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.317539,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.694364,
+        0.694364,
+        0.694364
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_241",
+      "position": [
+        -120.154592,
+        100.282202,
+        138.51519
+      ],
+      "velocity": [
+        -1.228477,
+        0,
+        -10.730239
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.213919,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.58944,
+        0.58944,
+        0.58944
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_242",
+      "position": [
+        -181.019999,
+        99.925474,
+        -29.246264
+      ],
+      "velocity": [
+        8.476605,
+        0,
+        -6.692859
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.249853,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.624853,
+        0.624853,
+        0.624853
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_243",
+      "position": [
+        -62.485554,
+        100.069043,
+        -172.3924
+      ],
+      "velocity": [
+        9.970596,
+        0,
+        4.151434
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.105986,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.489282,
+        0.489282,
+        0.489282
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_244",
+      "position": [
+        114.861872,
+        99.907633,
+        -142.93472
+      ],
+      "velocity": [
+        1.631035,
+        0,
+        10.676465
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.154202,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.532873,
+        0.532873,
+        0.532873
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_245",
+      "position": [
+        180.778312,
+        99.83045,
+        30.704818
+      ],
+      "velocity": [
+        -8.530292,
+        0,
+        6.624297
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.290203,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.66585,
+        0.66585,
+        0.66585
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_246",
+      "position": [
+        54.150782,
+        100.307324,
+        178.284236
+      ],
+      "velocity": [
+        -9.692115,
+        0,
+        -4.741793
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.16475,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.542657,
+        0.542657,
+        0.542657
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_247",
+      "position": [
+        -123.086244,
+        99.832501,
+        139.883354
+      ],
+      "velocity": [
+        -1.069717,
+        0,
+        -10.736731
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.241658,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.616686,
+        0.616686,
+        0.616686
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_248",
+      "position": [
+        -182.588804,
+        99.939436,
+        -37.133605
+      ],
+      "velocity": [
+        8.779918,
+        0,
+        -6.27174
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.202628,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.578526,
+        0.578526,
+        0.578526
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_249",
+      "position": [
+        -61.934919,
+        100.333757,
+        -175.731733
+      ],
+      "velocity": [
+        9.891172,
+        0,
+        4.311194
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.130598,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.511301,
+        0.511301,
+        0.511301
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_250",
+      "position": [
+        124.855306,
+        99.763573,
+        -138.306647
+      ],
+      "velocity": [
+        0.933082,
+        0,
+        10.749467
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.115451,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.497692,
+        0.497692,
+        0.497692
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_251",
+      "position": [
+        182.592939,
+        100.151948,
+        37.113266
+      ],
+      "velocity": [
+        -8.77922,
+        0,
+        6.272718
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.342024,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.720411,
+        0.720411,
+        0.720411
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_252",
+      "position": [
+        54.690226,
+        100.069882,
+        181.21275
+      ],
+      "velocity": [
+        -9.63978,
+        0,
+        -4.827831
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.961095,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.369481,
+        0.369481,
+        0.369481
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_253",
+      "position": [
+        -129.930346,
+        99.603157,
+        137.64878
+      ],
+      "velocity": [
+        -0.612263,
+        0,
+        -10.763756
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.326592,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.703939,
+        0.703939,
+        0.703939
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_254",
+      "position": [
+        -184.052031,
+        99.627947,
+        -44.203299
+      ],
+      "velocity": [
+        9.031728,
+        0,
+        -5.887377
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.308482,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.68485,
+        0.68485,
+        0.68485
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_255",
+      "position": [
+        -52.095102,
+        100.23445,
+        -181.975773
+      ],
+      "velocity": [
+        9.569806,
+        0,
+        4.965091
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.107534,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.490653,
+        0.490653,
+        0.490653
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_256",
+      "position": [
+        129.137561,
+        100.282303,
+        -138.392818
+      ],
+      "velocity": [
+        0.674079,
+        0,
+        10.760062
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.064851,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.453563,
+        0.453563,
+        0.453563
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_257",
+      "position": [
+        183.080137,
+        100.324401,
+        48.07021
+      ],
+      "velocity": [
+        -9.153731,
+        0,
+        5.695834
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.026051,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.421112,
+        0.421112,
+        0.421112
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_258",
+      "position": [
+        52.037365,
+        99.768062,
+        185.068132
+      ],
+      "velocity": [
+        -9.502437,
+        0,
+        -5.077825
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.296227,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.672082,
+        0.672082,
+        0.672082
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_259",
+      "position": [
+        -133.596156,
+        100.347668,
+        138.239531
+      ],
+      "velocity": [
+        -0.40513,
+        0,
+        -10.766452
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.009933,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.407986,
+        0.407986,
+        0.407986
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_260",
+      "position": [
+        -184.48319,
+        100.256262,
+        -54.074516
+      ],
+      "velocity": [
+        9.345647,
+        0,
+        -5.360924
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.259475,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.634511,
+        0.634511,
+        0.634511
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_261",
+      "position": [
+        -45.941559,
+        99.725845,
+        -186.674781
+      ],
+      "velocity": [
+        9.330842,
+        0,
+        5.386652
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.904656,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.327361,
+        0.327361,
+        0.327361
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_262",
+      "position": [
+        137.123405,
+        100.347918,
+        -134.741503
+      ],
+      "velocity": [
+        0.12681,
+        0,
+        10.773325
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.040743,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.433258,
+        0.433258,
+        0.433258
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_263",
+      "position": [
+        185.304857,
+        100.27259,
+        51.187993
+      ],
+      "velocity": [
+        -9.26082,
+        0,
+        5.506164
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.309506,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.685922,
+        0.685922,
+        0.685922
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_264",
+      "position": [
+        44.087625,
+        99.67095,
+        190.160234
+      ],
+      "velocity": [
+        -9.211746,
+        0,
+        -5.577274
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.898321,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.322792,
+        0.322792,
+        0.322792
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_265",
+      "position": [
+        -144.368168,
+        100.398364,
+        131.386702
+      ],
+      "velocity": [
+        0.36479,
+        0,
+        -10.762396
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.100131,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.484115,
+        0.484115,
+        0.484115
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_266",
+      "position": [
+        -186.941868,
+        99.773339,
+        -56.190492
+      ],
+      "velocity": [
+        9.416185,
+        0,
+        -5.22472
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.119812,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.501592,
+        0.501592,
+        0.501592
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_267",
+      "position": [
+        -43.516955,
+        100.386112,
+        -190.29164
+      ],
+      "velocity": [
+        9.194973,
+        0,
+        5.604884
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.126357,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.507472,
+        0.507472,
+        0.507472
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_268",
+      "position": [
+        145.946048,
+        99.939924,
+        -129.631727
+      ],
+      "velocity": [
+        -0.494877,
+        0,
+        10.757199
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.274116,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.649349,
+        0.649349,
+        0.649349
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_269",
+      "position": [
+        187.798087,
+        100.313954,
+        53.258914
+      ],
+      "velocity": [
+        -9.333292,
+        0,
+        5.371396
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.907081,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.329118,
+        0.329118,
+        0.329118
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_270",
+      "position": [
+        37.765961,
+        99.711495,
+        194.531262
+      ],
+      "velocity": [
+        -8.958042,
+        0,
+        -5.969119
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.10075,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.48466,
+        0.48466,
+        0.48466
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_271",
+      "position": [
+        -146.15534,
+        100.170347,
+        133.818146
+      ],
+      "velocity": [
+        0.410782,
+        0,
+        -10.756772
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.335578,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.713507,
+        0.713507,
+        0.713507
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_272",
+      "position": [
+        -186.062814,
+        99.749045,
+        -68.185842
+      ],
+      "velocity": [
+        9.739315,
+        0,
+        -4.585044
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.211383,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.58698,
+        0.58698,
+        0.58698
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_273",
+      "position": [
+        -37.875317,
+        99.894264,
+        -194.51
+      ],
+      "velocity": [
+        8.961396,
+        0,
+        5.964082
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.927096,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.343803,
+        0.343803,
+        0.343803
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_274",
+      "position": [
+        151.631678,
+        100.080956,
+        -127.579442
+      ],
+      "velocity": [
+        -0.860937,
+        0,
+        10.73013
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.157002,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.535461,
+        0.535461,
+        0.535461
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_275",
+      "position": [
+        186.066961,
+        100.224401,
+        68.174523
+      ],
+      "velocity": [
+        -9.739036,
+        0,
+        4.585637
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.036029,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.429342,
+        0.429342,
+        0.429342
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_276",
+      "position": [
+        29.592796,
+        99.68823,
+        198.933421
+      ],
+      "velocity": [
+        -8.638235,
+        0,
+        -6.419055
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.079333,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.465984,
+        0.465984,
+        0.465984
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_277",
+      "position": [
+        -155.2721,
+        100.135451,
+        127.831195
+      ],
+      "velocity": [
+        1.052706,
+        0,
+        -10.710517
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.904505,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.327252,
+        0.327252,
+        0.327252
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_278",
+      "position": [
+        -188.764701,
+        99.757372,
+        -69.412731
+      ],
+      "velocity": [
+        9.774858,
+        0,
+        -4.502835
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.907488,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.329414,
+        0.329414,
+        0.329414
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_279",
+      "position": [
+        -31.539306,
+        100.087967,
+        -198.634115
+      ],
+      "velocity": [
+        8.700675,
+        0,
+        6.334163
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.24115,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.616181,
+        0.616181,
+        0.616181
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_280",
+      "position": [
+        156.448989,
+        100.377503,
+        -126.388106
+      ],
+      "velocity": [
+        -1.151826,
+        0,
+        10.700312
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.991972,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.393603,
+        0.393603,
+        0.393603
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_281",
+      "position": [
+        186.701568,
+        99.693329,
+        74.784784
+      ],
+      "velocity": [
+        -9.899681,
+        0,
+        4.221338
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.121433,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.503045,
+        0.503045,
+        0.503045
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_282",
+      "position": [
+        23.898139,
+        99.851248,
+        202.677556
+      ],
+      "velocity": [
+        -8.391093,
+        0,
+        -6.737217
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.323343,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.700495,
+        0.700495,
+        0.700495
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_283",
+      "position": [
+        -159.550928,
+        99.867191,
+        127.250988
+      ],
+      "velocity": [
+        1.294939,
+        0,
+        -10.682868
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.203636,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.579496,
+        0.579496,
+        0.579496
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_284",
+      "position": [
+        -186.940084,
+        100.334691,
+        -81.870127
+      ],
+      "velocity": [
+        10.055497,
+        0,
+        -3.832428
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.127655,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.508642,
+        0.508642,
+        0.508642
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_285",
+      "position": [
+        -29.256908,
+        99.850604,
+        -201.973627
+      ],
+      "velocity": [
+        8.56656,
+        0,
+        6.512648
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.291709,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.667405,
+        0.667405,
+        0.667405
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_286",
+      "position": [
+        164.804947,
+        100.274906,
+        -120.368776
+      ],
+      "velocity": [
+        -1.746909,
+        0,
+        10.618326
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 0.987819,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.390315,
+        0.390315,
+        0.390315
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_287",
+      "position": [
+        188.487021,
+        99.808833,
+        78.242926
+      ],
+      "velocity": [
+        -9.979573,
+        0,
+        4.025997
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.306846,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.683139,
+        0.683139,
+        0.683139
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_288",
+      "position": [
+        18.045686,
+        100.141326,
+        206.252886
+      ],
+      "velocity": [
+        -8.135276,
+        0,
+        -7.044473
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.197984,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.574066,
+        0.574066,
+        0.574066
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_289",
+      "position": [
+        -168.038173,
+        100.275717,
+        120.9507
+      ],
+      "velocity": [
+        1.895409,
+        0,
+        -10.593146
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.260382,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.635425,
+        0.635425,
+        0.635425
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_290",
+      "position": [
+        -189.150999,
+        99.935727,
+        -84.189068
+      ],
+      "velocity": [
+        10.10488,
+        0,
+        -3.701177
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.153585,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.532303,
+        0.532303,
+        0.532303
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_291",
+      "position": [
+        -22.699159,
+        99.658037,
+        -205.79273
+      ],
+      "velocity": [
+        8.292295,
+        0,
+        6.858947
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.17037,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.547906,
+        0.547906,
+        0.547906
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_292",
+      "position": [
+        165.725568,
+        100.219597,
+        -124.100507
+      ],
+      "velocity": [
+        -1.695149,
+        0,
+        10.62703
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.072706,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.460279,
+        0.460279,
+        0.460279
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_293",
+      "position": [
+        188.179377,
+        99.997207,
+        86.338993
+      ],
+      "velocity": [
+        -10.146399,
+        0,
+        3.585791
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.1161,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.498272,
+        0.498272,
+        0.498272
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_294",
+      "position": [
+        11.816505,
+        99.717362,
+        209.667285
+      ],
+      "velocity": [
+        -7.863347,
+        0,
+        -7.34918
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.164935,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.542829,
+        0.542829,
+        0.542829
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_295",
+      "position": [
+        -175.662544,
+        100.185316,
+        115.076803
+      ],
+      "velocity": [
+        2.43232,
+        0,
+        -10.484584
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.295733,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.67157,
+        0.67157,
+        0.67157
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_296",
+      "position": [
+        -188.160216,
+        100.139113,
+        -93.250914
+      ],
+      "velocity": [
+        10.273461,
+        0,
+        -3.209156
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.362339,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.742387,
+        0.742387,
+        0.742387
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_297",
+      "position": [
+        -15.257099,
+        99.884692,
+        -209.445031
+      ],
+      "velocity": [
+        7.982942,
+        0,
+        7.219094
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.286322,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.66185,
+        0.66185,
+        0.66185
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_298",
+      "position": [
+        176.197589,
+        99.603476,
+        -114.255895
+      ],
+      "velocity": [
+        -2.481216,
+        0,
+        10.473121
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.100418,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.484368,
+        0.484368,
+        0.484368
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "infall_299",
+      "position": [
+        186.992924,
+        99.677355,
+        95.570112
+      ],
+      "velocity": [
+        -10.312353,
+        0,
+        3.081894
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 1.328258,
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.705708,
+        0.705708,
+        0.705708
+      ],
+      "fixed": false,
+      "sleeping": false
+    }
+  ],
+  "objectMaterials": [
+    {
+      "target": "black_hole_core",
+      "mode": "matte",
+      "tint": [
+        0,
+        0,
+        0
+      ],
+      "alpha": 0.0,
+      "roughness": 1.0,
+      "name": "Invisible gravity source"
+    },
+    {
+      "target": "prefix:infall_",
+      "mode": "metal",
+      "tint": [
+        0.9,
+        0.33,
+        0.065
+      ],
+      "roughness": 0.32,
+      "metallic": 0.35,
+      "emissive": [
+        1.0,
+        0.23,
+        0.025
+      ],
+      "strength": 1.2,
+      "name": "Accreting matter"
+    }
+  ]
+}

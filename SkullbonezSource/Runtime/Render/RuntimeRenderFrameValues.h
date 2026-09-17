@@ -20,6 +20,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
+#include "../../Scene/GravityFieldSettings.h"
 
 #include <cstdint>
 #include <span>
@@ -109,6 +110,8 @@ struct RuntimeRenderFramePolicy
     bool waterFreezeDebug = false;
     float frozenWaterTime = 0.0f;
     bool broadphaseOverlay = false;
+    bool gravityGrid = true;
+    Scene::GravityFieldSettings gravityField;
     uint32_t physicsDebugFlags = 0u;
     int physicsDebugPipelineStageCursor = 0;
     float physicsDebugContactLinger = 0.0f;
@@ -116,11 +119,9 @@ struct RuntimeRenderFramePolicy
     double totalSimulationSeconds = 0.0;
 };
 
-inline bool ShouldUseDxrReflection( bool capabilityAvailable, const RuntimeRenderFramePolicy& policy,
-                                    bool collisionStateColorsVisible, bool transparentBodyPass )
+inline bool ShouldUseDxrReflection( bool capabilityAvailable, const RuntimeRenderFramePolicy& policy, bool collisionStateColorsVisible, bool transparentBodyPass )
 {
-    return capabilityAvailable && policy.waterRTReflect && !policy.waterNoReflect && !collisionStateColorsVisible &&
-           !transparentBodyPass;
+    return capabilityAvailable && policy.waterRTReflect && !policy.waterNoReflect && !collisionStateColorsVisible && !transparentBodyPass;
 }
 
 struct RuntimeObjectFocusRenderPolicy

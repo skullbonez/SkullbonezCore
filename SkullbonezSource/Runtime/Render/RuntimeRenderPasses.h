@@ -491,6 +491,8 @@ struct DebugOverlaySnapshot
     // The pass may draw multiple overlay families, but it should not reopen
     // broad runtime debug/tool/replay state while drawing them.
     bool broadphaseOverlayVisible = false;
+    std::span<const float> gravityGridLines;
+    float gravityGridOpacity = 1.0f;
     std::span<const float> worldExtensionDebugLines; // position.xyz + color.rgb line vertices.
     bool editorOverlayWorkVisible = false;
     std::span<const RenderToolOverlayView::LauncherShot> launcherShots;

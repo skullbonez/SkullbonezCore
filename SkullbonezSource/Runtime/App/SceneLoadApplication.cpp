@@ -58,6 +58,7 @@ void ApplyScenePresentationValues( RuntimeOverlayDiagnostics& overlays, const Sc
     state.isWaterFlatDebug = presentation.waterFlat;
     state.isTerrainHidden = presentation.terrainHidden;
     state.isWaterHidden = presentation.waterHidden;
+    state.gravityField = presentation.gravityField;
     state.physicsDebugFlags = presentation.physicsDebugFlags;
     state.isPhysicsDebugTransparent = presentation.physicsDebugTransparent;
     state.physicsDebugAlpha = presentation.physicsDebugAlpha;
@@ -278,6 +279,7 @@ ScenePresentationValues ProjectScenePresentationValues( const OverlayDebugState&
     values.waterFlat = presentation.isWaterFlatDebug;
     values.terrainHidden = presentation.isTerrainHidden;
     values.waterHidden = presentation.isWaterHidden;
+    values.gravityField = presentation.gravityField;
     values.physicsDebugFlags = presentation.physicsDebugFlags;
     values.physicsDebugTransparent = presentation.isPhysicsDebugTransparent;
     values.physicsDebugAlpha = presentation.physicsDebugAlpha;

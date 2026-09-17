@@ -144,6 +144,48 @@ void AuthoredSceneParser::ApplyDebug( const Json& debug, const std::string& path
         m_scene.m_sceneOptions.terrainHidden = ReadBool( *terrainHidden, path, "debug.terrainHidden" );
     }
 
+    if ( const Json* field = FindMember( debug, "gravityField" ) )
+    {
+        RequireObject( *field, path, "debug.gravityField" );
+        auto& settings = m_scene.m_sceneOptions.gravityField;
+        if ( const Json* height = FindMember( *field, "height" ) )
+        {
+            settings.height = ReadFloat( *height, path, "debug.gravityField.height" );
+        }
+        if ( const Json* opacity = FindMember( *field, "opacity" ) )
+        {
+            settings.opacity = ReadFloat( *opacity, path, "debug.gravityField.opacity" );
+        }
+        if ( settings.height < -1000.0f || settings.height > 1000.0f || settings.opacity < 0.0f || settings.opacity > 1.0f )
+        {
+            Fail( path, "gravity field height must be -1000..1000 and opacity 0..1" );
+        }
+        if ( const Json* snap = FindMember( *field, "snapBalls" ) )
+        {
+            settings.snapBalls = ReadBool( *snap, path, "debug.gravityField.snapBalls" );
+        }
+        if ( const Json* color = FindMember( *field, "color" ) )
+        {
+            const std::string name = ReadString( *color, path, "debug.gravityField.color" );
+            if ( name == "blue" )
+            {
+                settings.color = 0;
+            }
+            else if ( name == "orange" )
+            {
+                settings.color = 1;
+            }
+            else if ( name == "grey" )
+            {
+                settings.color = 2;
+            }
+            else
+            {
+                Fail( path, "gravity field color must be blue, orange, or grey" );
+            }
+        }
+    }
+
     if ( const Json* physics = FindMember( debug, "physics" ) )
     {
         ApplyPhysicsDebug( *physics, path );

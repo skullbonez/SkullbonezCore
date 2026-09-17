@@ -195,6 +195,11 @@ struct UIOptionsTabFrameView
     bool waterFlatDebug = false;
     bool terrainHidden = false;
     bool waterHidden = false;
+    bool gravityGridVisible = true;
+    float gravityFieldHeight = 0.0f;
+    float gravityFieldOpacity = 1.0f;
+    int gravityFieldColor = 0;
+    bool gravityFieldSnapBalls = false;
 };
 
 // Invariant: the Physics presenter borrows diagnostics and value snapshots
@@ -433,6 +438,11 @@ struct UIFrameWorldData
     bool waterFlatDebug = false;
     bool terrainHidden = false;
     bool waterHidden = false;
+    bool gravityGridVisible = true;
+    float gravityFieldHeight = 0.0f;
+    float gravityFieldOpacity = 1.0f;
+    int gravityFieldColor = 0;
+    bool gravityFieldSnapBalls = false;
     bool waterNoReflect = false;
     bool waterRTReflect = false;
 };

@@ -25,6 +25,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
+#include "GravityFieldSettings.h"
 #include "../Physics/PointJointSettings.h"
 
 
@@ -374,31 +375,32 @@ struct SceneOptions
     bool isPhysicsEnabled = true;
     bool isTextEnabled = true;
     bool isTextOnly = false;
-    bool predictionAllBodiesSpace = false;                       // Explicit all-body path policy; force settings do not select presentation.
-    int frameCount = -1;                                         // -1 = unlimited
-    unsigned int seed = 0;                                       // RNG seed (0 = use time-based default)
-    int solverBallCount = 0;                                     // exact impulse-solver balls to spawn (0 = not set)
-    int solverBoxCount = 0;                                      // exact impulse-solver boxes to spawn (0 = not set)
-    int modelCapacity = -1;                                      // active game-model capacity (-1 = use startup/config capacity)
-    int workerThreads = -2;                                      // -2 = use startup/config worker count, -1 = auto, 0 = disabled, >0 = explicit workers
-    float timeScale = 1.0f;                                      // Physics time multiplier (1.0 = realtime)
-    bool isFixedStep = false;                                    // Authored render-frame-lockstep request; Runtime admits it only for finite unattended capture.
-    bool pauseSnapshotState = true;                              // Start authored body-state scenes paused for inspection
-    uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;    // Physics debug overlay mask.
-    bool physicsDebugTransparent = false;                        // Translucent collision volumes while physics debug is visible.
-    float physicsDebugAlpha = 0.28f;                             // Alpha for translucent debug collision volumes
-    float physicsDebugContactLinger = 0.45f;                     // Seconds to keep contact manifold debug rows visible
-    float trackHeight = -1.0f;                                   // Height above tracked ball for camera (-1 = no tracking)
-    float autoCycleInterval = -1.0f;                             // Seconds between per-ball screenshots (-1 = disabled)
-    bool screenshotAndExit = false;                              // Capture first frame as SCENENAME.bmp then exit
-    bool exitOnComplete = false;                                 // Exit automatically when targetFrameCount is reached
-    bool collisionVisualizer = false;                            // Solid collision/sleep debug colours.
-    bool broadphaseOverlay = false;                              // Spatial broadphase debug overlay.
-    bool waterFreezeDebug = false;                               // Freeze water animation at load time
-    bool waterFlatDebug = false;                                 // Flat water mesh for debug captures.
-    int waterReflectionMode = 0;                                 // 0=FBO, 1=DXR, 2=None
-    bool waterHidden = false;                                    // Suppress water rendering (for clean texture comparison)
-    bool terrainHidden = false;                                  // Suppress terrain rendering
+    bool predictionAllBodiesSpace = false;                    // Explicit all-body path policy; force settings do not select presentation.
+    int frameCount = -1;                                      // -1 = unlimited
+    unsigned int seed = 0;                                    // RNG seed (0 = use time-based default)
+    int solverBallCount = 0;                                  // exact impulse-solver balls to spawn (0 = not set)
+    int solverBoxCount = 0;                                   // exact impulse-solver boxes to spawn (0 = not set)
+    int modelCapacity = -1;                                   // active game-model capacity (-1 = use startup/config capacity)
+    int workerThreads = -2;                                   // -2 = use startup/config worker count, -1 = auto, 0 = disabled, >0 = explicit workers
+    float timeScale = 1.0f;                                   // Physics time multiplier (1.0 = realtime)
+    bool isFixedStep = false;                                 // Authored render-frame-lockstep request; Runtime admits it only for finite unattended capture.
+    bool pauseSnapshotState = true;                           // Start authored body-state scenes paused for inspection
+    uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Physics debug overlay mask.
+    bool physicsDebugTransparent = false;                     // Translucent collision volumes while physics debug is visible.
+    float physicsDebugAlpha = 0.28f;                          // Alpha for translucent debug collision volumes
+    float physicsDebugContactLinger = 0.45f;                  // Seconds to keep contact manifold debug rows visible
+    float trackHeight = -1.0f;                                // Height above tracked ball for camera (-1 = no tracking)
+    float autoCycleInterval = -1.0f;                          // Seconds between per-ball screenshots (-1 = disabled)
+    bool screenshotAndExit = false;                           // Capture first frame as SCENENAME.bmp then exit
+    bool exitOnComplete = false;                              // Exit automatically when targetFrameCount is reached
+    bool collisionVisualizer = false;                         // Solid collision/sleep debug colours.
+    bool broadphaseOverlay = false;                           // Spatial broadphase debug overlay.
+    bool waterFreezeDebug = false;                            // Freeze water animation at load time
+    bool waterFlatDebug = false;                              // Flat water mesh for debug captures.
+    int waterReflectionMode = 0;                              // 0=FBO, 1=DXR, 2=None
+    bool waterHidden = false;                                 // Suppress water rendering (for clean texture comparison)
+    bool terrainHidden = false;                               // Suppress terrain rendering
+    Scene::GravityFieldSettings gravityField;
     bool editableScene = false;                                  // Scene-tab starter scene; Save Defaults persists live object state
     bool hasCinematicRenderingOverride = false;                  // Scene explicitly toggles cinematic HDR/post rendering
     bool cinematicRendering = false;                             // Cinematic HDR/post rendering scene override
@@ -602,6 +604,10 @@ class AuthoredScene
     bool IsWaterFlatDebugEnabled() const;
     int GetWaterReflectionMode() const;
     bool IsWaterHidden() const;
+    const Scene::GravityFieldSettings& GetGravityFieldSettings() const
+    {
+        return m_sceneOptions.gravityField;
+    }
     bool IsTerrainHidden() const;
     bool IsEditableScene() const;
     bool HasCinematicRenderingOverride() const;

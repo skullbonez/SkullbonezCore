@@ -498,7 +498,12 @@ void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData,
                                              debug.isWaterHidden,
                                              debug.isWaterNoReflect,
                                              debug.isWaterRTReflect,
-                                             projection.cinematicRendering };
+                                             projection.cinematicRendering,
+                                             debug.isGravityGridVisible,
+                                             debug.gravityField.height,
+                                             debug.gravityField.opacity,
+                                             debug.gravityField.color,
+                                             debug.gravityField.snapBalls };
     ProjectOperatorUiSettings( uiData, settings );
 
     const RunRayCastTestState& rayCast = m_runtimeTools.RayCastTest();
