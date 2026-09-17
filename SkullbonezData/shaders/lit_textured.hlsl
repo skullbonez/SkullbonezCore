@@ -66,6 +66,7 @@ Related:
 // =============================================================================
 
 #pragma pack_matrix(column_major)
+#include "split_environment.hlsli"
 
 // Constant buffer: all uniform data for this shader, uploaded by the CPU once per draw.
 // register(b0) = bind to constant buffer slot 0.
@@ -449,6 +450,24 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float4 texColor = primaryTexture.Sample(sSampler0, input.texCoord);
 
     bool cinematicMode = uStyleModes.x > 0.5f;
+    if (cinematicMode && (int)uStyleModes.y == SPLIT_TERRAIN_STYLE)
+    {
+        float2 p = input.worldPos.xz;
+        float broad = SplitNoise(p * 0.028f);
+        float grain = SplitNoise(p * 2.8f);
+        float stones = SplitNoise(p * 0.42f);
+        float wet = smoothstep(0.32f, 0.72f, SplitNoise(p * 0.045f + 7.2f));
+        float3 earth = lerp(uTerrainAccent.rgb, uTerrainTint.rgb, 0.25f + stones * 0.75f);
+        earth *= (0.72f + grain * 0.36f) * (1.0f - wet * 0.32f);
+        float3 worldN = normalize(input.worldNormal + float3((grain - 0.5f) * 0.06f, 0.0f, (stones - 0.5f) * 0.08f));
+        float3 worldV = normalize(mul(transpose((float3x3)uView), V));
+        float shadow = ShadowVisibility(input.worldPos, N, L);
+        float3 color = earth * (SplitDiffuseLight(worldN) + uLightDiffuse.rgb * saturate(dot(N, L)) * shadow * 0.318309886f);
+        float fresnel = 0.04f + 0.96f * pow(1.0f - saturate(dot(worldN, worldV)), 5.0f);
+        color += SplitSpecularLight(reflect(-worldV, worldN), lerp(0.85f, 0.36f, wet)) * fresnel * (0.15f + wet * 0.35f);
+        color *= 0.82f + broad * 0.24f;
+        return float4(color, 1.0f);
+    }
     if (cinematicMode)
     {
         // Cinematic terrain keeps its authored warm grade; directional light

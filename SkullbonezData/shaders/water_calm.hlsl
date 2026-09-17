@@ -42,6 +42,7 @@ Related:
 // =============================================================================
 
 #pragma pack_matrix(column_major)
+#include "split_environment.hlsli"
 
 cbuffer Uniforms : register(b0)
 {
@@ -117,6 +118,38 @@ float OrdinaryWaterReflectance(float3 worldPos, float3 normal)
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
     Texture2D<float4> reflectionTexture = ResourceDescriptorHeap[BindlessTextureIndex(1u)];
+    if (uCinematicMode > 0.5f && uWaterMode == SPLIT_WATER_STYLE)
+    {
+        float2 p = input.worldPos.xz;
+        float wet = smoothstep(0.30f, 0.69f, SplitNoise(p * 0.045f + 7.2f));
+        // Feather the existing calm-mesh footprint so no rectangular water edge
+        // remains visible. The terrain underneath supplies contact shadows.
+        float2 edgeDistance = uBasinMask.zw - abs(p - uBasinMask.xy);
+        float edge = min(edgeDistance.x, edgeDistance.y);
+        float coverage = wet * smoothstep(0.0f, 36.0f, edge);
+        clip(coverage - 0.015f);
+        float2 ripple = float2(sin(p.x * 0.62f + p.y * 0.19f), cos(p.y * 0.79f - p.x * 0.15f));
+        float3 normal = normalize(float3(ripple.x * 0.018f, 1.0f, ripple.y * 0.018f));
+        float3 V = normalize(uCameraWorld - input.worldPos);
+        float fresnel = 0.02f + 0.98f * pow(1.0f - saturate(dot(normal, V)), 5.0f);
+        float2 uv = input.reflectClipPos.xy / input.reflectClipPos.w * 0.5f + 0.5f;
+        uv.y = 1.0f - uv.y;
+        uint width, height;
+        reflectionTexture.GetDimensions(width, height);
+        float2 texel = 1.0f / float2(max(width, 1u), max(height, 1u));
+        uv += ripple * texel * 0.9f;
+        float radius = 0.7f + (1.0f - wet) * 2.2f;
+        float3 reflected = reflectionTexture.Sample(sSampler1, saturate(uv)).rgb * 0.4f;
+        reflected += reflectionTexture.Sample(sSampler1, saturate(uv + float2(texel.x * radius, 0))).rgb * 0.15f;
+        reflected += reflectionTexture.Sample(sSampler1, saturate(uv - float2(texel.x * radius, 0))).rgb * 0.15f;
+        reflected += reflectionTexture.Sample(sSampler1, saturate(uv + float2(0, texel.y * radius))).rgb * 0.15f;
+        reflected += reflectionTexture.Sample(sSampler1, saturate(uv - float2(0, texel.y * radius))).rgb * 0.15f;
+        if (uNoReflect != 0)
+            reflected = SplitSpecularLight(reflect(-V, normal), 0.18f);
+        float reflectionAmount = saturate(uReflectionStrength * (0.30f + fresnel));
+        float3 color = lerp(uColorTint.rgb * SplitDiffuseLight(normal), reflected, reflectionAmount);
+        return float4(color, coverage * uColorTint.a);
+    }
     float basinMask = 1.0f;
     float basinDistance = 0.0f;
     float2 basinOffset = float2(0.0f, 0.0f);

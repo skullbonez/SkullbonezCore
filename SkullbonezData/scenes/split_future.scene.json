@@ -27,7 +27,7 @@
     }
   },
   "debug": {
-    "waterHidden": true,
+    "waterHidden": false,
     "waterReflection": "fbo"
   },
   "cinematic": {
@@ -41,9 +41,9 @@
     "terrainReliefEnabled": false,
     "styleModes": [
       22,
-      15,
+      16,
       14,
-      0
+      5
     ],
     "exposure": 1.05,
     "gamma": 2.2,
@@ -103,15 +103,28 @@
       0.1
     ],
     "shadows": true,
-    "shadowStrength": 1.0,
+    "shadowStrength": 0.85,
     "shadowMapSize": 2048,
     "shadowPcfRadius": 3,
     "shadowSoftness": 1.5,
-    "shadowDepthBias": 8e-05,
-    "shadowSlopeBias": 0.0003,
+    "shadowDepthBias": 0.0004,
+    "shadowSlopeBias": 0.0008,
     "shadowMaxDistance": 1800,
     "sunScreenX": 0.61,
-    "sunScreenY": 0.195
+    "sunScreenY": 0.195,
+    "basinMask": [
+      512,
+      512,
+      256,
+      256,
+      0.14
+    ],
+    "shadowParticipation": [
+      false,
+      true,
+      true,
+      true
+    ]
   },
   "cameras": [
     {
