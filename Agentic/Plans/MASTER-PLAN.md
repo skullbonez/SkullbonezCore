@@ -564,6 +564,18 @@ an owner decision, not a run decision.
 | Debug Panel Reorganization And Sleep Policy Controls | Owner-parked 2026-08-30 | 0/6 | `WNF/debug-panel-reorganization-and-sleep-policy.md` |
 | Move Semantics And Resource Ownership Hardening | Owner-parked 2026-08-30 | 0/6 | `WNF/move-semantics-and-resource-ownership-hardening.md` |
 | Reversible GPU Fracture Replay | Backlog; blocked | 0/7 | `WNF/fracture-replay-feature.md` |
+| Selectable Solvers 1: Skullbonez Foundation | Owner-parked 2026-09-17 | 0/5 | `WNF/selectable-solvers-01-foundation.md` |
+| Selectable Solvers 2: Eight Solver Implementations | Owner-parked 2026-09-17 | 0/14 | `WNF/selectable-solvers-02-tgs.md` |
+| Selectable Solvers 3: Product Integration And Acceptance | Owner-parked 2026-09-17 | 0/6 | `WNF/selectable-solvers-03-integration.md` |
+| Physics Tool Window Beside Causal | Owner-parked 2026-09-17 | 0/8 | `WNF/physics-tool-window.md` |
+
+Owner scope revision, 2026-09-17: the three selectable-solver plans preserve
+the custom **Skullbonez** solver and add eight separate implementations: PGS,
+PGS NGS, PGS NGS Block, PGS Soft, TGS Sticky, TGS Soft, TGS NGS and XPBD.
+Skullbonez stays default; new PGS is not an alias for the custom implementation.
+The parked sequence now contains 25 phases (5 + 14 + 6), all unchecked. This
+documentation revision does not activate any plan or alter active phase totals.
+The previous two-algorithm estimates are withdrawn pending activation-time review.
 
 One detail in that table is recorded:
 
