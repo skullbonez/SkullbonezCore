@@ -5,6 +5,27 @@ Branch: `feature/space-gravity-field`
 Status: CONVEX_HULL CH0-CH6 complete at 7/8; CH7 acceptance pending; portfolio 145/152; PHYSICS_AB queued at 0/6.
 
 
+## Black-hole scene - 2026-09-17
+
+Added `space_black_hole_300.scene.json`: 300 glowing matter balls in six curved
+arms, a fixed invisible 60,000-mass core, orange gravity grid and snapping enabled
+in the saved level. Playback is unlimited. It uses Newtonian attraction and a
+small solid core; particles collect around it rather than being deleted.
+
+Fully transparent materials suppress raster/shadow submission while retaining
+physical identity. Invisible sources still contribute to the gravity surface,
+and remain excluded from ball snapping. No Physics store or allocation changes.
+
+Native evidence proves all 300 identities accelerate inward and move closer,
+301 field sources / 300 snapped balls, a stationary invisible core and uninterrupted
+playback. Screenshots were inspected before and after infall. Evidence:
+`TestOutput/skarness/black-hole-final/`; rerun with `tools/validate_black_hole.py`.
+Fast validation passes 1,093 tests / 3,811,560 assertions (one existing skip).
+DX12 passes with zero errors and unchanged references; Automation/Profile/Debug
+builds pass, followed by an unchanged Profile build without compilation/linking.
+Logs: `TestOutput/black-hole-{build,fast,dx12,profile-noop}.log`.
+This follow-up remains on PR #174; neither stacked PR is to be merged by the agent.
+
 ## Space gravity field - 2026-09-17
 
 Follow-up: Tools > Options now has **Snap balls to field**, off by default and

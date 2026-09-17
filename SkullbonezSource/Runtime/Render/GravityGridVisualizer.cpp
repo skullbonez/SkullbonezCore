@@ -176,7 +176,8 @@ void GravityGridVisualizer::UpdatePresented( const Physics::PhysicsBodyStore& bo
         const auto& instance = instances[row];
         const auto handle = bodies.HandleForSceneObjectId( instance.sceneObjectId, static_cast<int>( row ) );
         const auto* body = bodies.RecordForHandle( handle );
-        if ( !body || body->mass <= 0 || !instance.editorVisible )
+        // Gravity is physical: invisible sources still deform the field.
+        if ( !body || body->mass <= 0 )
         {
             continue;
         }

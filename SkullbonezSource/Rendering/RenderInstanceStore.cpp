@@ -189,7 +189,7 @@ void RenderInstanceStore::CommitCreationRow( const RenderInstancePresentationRec
     record.boundingRadius = collider.boundingRadius;
     record.shapeKind = ShapeKindFromCollider( collider.shapeKind );
     record.shadowCasterStream = presentation.shadowCasterStream;
-    record.editorVisible = presentation.editorVisible;
+    record.editorVisible = presentation.editorVisible && presentation.material.baseColor[3] > 0.0f;
     record.isFixed = hotState.fixed;
     record.fixedContactAlpha = presentation.fixedContactAlpha;
     ResetPoseHistory( record, hotState.position, hotState.orientation );
@@ -294,7 +294,9 @@ bool RenderInstanceStore::SetEditorVisible( int modelIndex, bool visible )
     }
 
     presentation->editorVisible = visible;
-    m_instances[static_cast<std::size_t>( modelIndex )].editorVisible = visible;
+    // Fully transparent bodies retain physics identity without writing colour,
+    // depth or shadow pixels. Hierarchy visibility cannot override that material.
+    m_instances[static_cast<std::size_t>( modelIndex )].editorVisible = visible && presentation->material.baseColor[3] > 0.0f;
     return true;
 }
 
@@ -459,7 +461,7 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
         record.boundingRadius = collider.boundingRadius;
         record.shapeKind = ShapeKindFromCollider( collider.shapeKind );
         record.shadowCasterStream = presentationRecord.shadowCasterStream;
-        record.editorVisible = presentationRecord.editorVisible;
+        record.editorVisible = presentationRecord.editorVisible && presentationRecord.material.baseColor[3] > 0.0f;
         record.isFixed = hotFields.fixed[index] != 0u;
         record.fixedContactAlpha = presentationRecord.fixedContactAlpha;
         m_modelInstanceHandles[index] = record.handle;

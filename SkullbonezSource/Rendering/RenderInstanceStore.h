@@ -125,7 +125,7 @@ struct RenderInstanceRecord
     float boundingRadius = 0.0f;                                                                // Conservative render/shadow bounds radius.
     RenderInstanceShapeKind shapeKind = RenderInstanceShapeKind::Sphere;                        // Cheap draw-path shape discriminator.
     ShadowCasterStream shadowCasterStream = ShadowCasterStream::None;                           // Owner-prepared opaque submission bin.
-    bool editorVisible = true;                                                                  // Session-only hierarchy visibility; false suppresses raster/shadow submission.
+    bool editorVisible = true;                                                                  // Effective hierarchy/material visibility; false suppresses raster/shadow submission.
     bool isFixed = false;                                                                       // Fixed bodies can receive contact-highlight tinting.
     float fixedContactAlpha = 0.0f;                                                             // Render-only red contact feedback strength.
     Math::Vector::Vector3 previousPosition = Math::Vector::ZERO_VECTOR;                         // Solver pose before the latest completed fixed tick.

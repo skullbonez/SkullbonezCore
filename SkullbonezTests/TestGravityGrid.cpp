@@ -126,7 +126,9 @@ TEST_CASE( "Gravity grid: snap follows mesh height and preserves physical endpoi
         collider.shape = Math::CollisionDetection::CollisionShapeReference( sphere, 0u );
         collider.shapeKind = i == 2 ? Physics::ColliderShapeKind::Box : Physics::ColliderShapeKind::Sphere;
         collider.boundingRadius = 2.0f;
-        instances.CommitCreationRow( Rendering::RenderInstancePresentationRecord {}, bodies->Records()[i], hot, collider, i );
+        Rendering::RenderInstancePresentationRecord presentation;
+        presentation.material.baseColor[3] = i == 2 ? 0.0f : 1.0f;
+        instances.CommitCreationRow( presentation, bodies->Records()[i], hot, collider, i );
     }
     auto grid = std::make_unique<Runtime::GravityGridVisualizer>();
     Physics::MutualGravitySettings gravity;
@@ -148,6 +150,10 @@ TEST_CASE( "Gravity grid: snap follows mesh height and preserves physical endpoi
     style.snapBalls = true;
     update();
     CHECK( grid->SnappedCount() == 2 );
+    CHECK( grid->SourceCount() == 3 );
+    CHECK_FALSE( instances.Records()[2].editorVisible );
+    REQUIRE( instances.SetEditorVisible( 2, true ) );
+    CHECK_FALSE( instances.Records()[2].editorVisible );
     CHECK( grid->FirstSnappedId() == 40 );
     for ( int i = 0; i < 2; ++i )
     {
@@ -189,6 +195,7 @@ TEST_CASE( "Gravity grid: snap follows mesh height and preserves physical endpoi
     REQUIRE( instances.SetEditorVisible( 1, false ) );
     update();
     CHECK( grid->SnappedCount() == 1 );
+    CHECK( grid->SourceCount() == 3 );
     gravity.enabled = false;
     update();
     CHECK( grid->SnappedCount() == 0 );
