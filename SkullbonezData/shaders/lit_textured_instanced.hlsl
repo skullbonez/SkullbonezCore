@@ -559,6 +559,18 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     }
     float3 emissive = input.material2.rgb * max(input.material1.w, 0.0f);
 
+    // Invariant: style 14 is opt-in in the Split Future scene. Existing
+    // cinematic and ordinary materials keep their established shading paths.
+    if (cinematicMode && DecodeObjectStyle(uObjectStyle) == 14)
+    {
+        float surfaceRoughness = clamp(input.material1.x, 0.08f, 1.0f);
+        float surfaceSpecular = max(input.material1.z, 0.0f);
+        float shadow = ShadowVisibility(SphereShadowReceiverWorldPos(input.worldPos, input.sphereShadowInfo), N, L);
+        float3 color = OrdinaryMaterialBRDF(materialColor, emissive, surfaceRoughness, metallic,
+                                           surfaceSpecular, worldN, N, V, L, shadow);
+        return float4(lerp(color, float3(1.0f, 1.0f, 1.0f), contactFlash), materialAlpha);
+    }
+
     if (cinematicMode)
     {
         // The cinematic ball lighting is warmer and softer than the normal Phong

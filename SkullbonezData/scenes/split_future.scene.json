@@ -1,0 +1,209 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 5,
+  "name": "Split Future - Realism Showcase",
+  "simulation": {
+    "seed": 1117,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30,
+      "fluidHeight": 0.15,
+      "fluidDensity": 0
+    }
+  },
+  "runtime": {
+    "vsync": true
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0,
+      "slopeX": 0,
+      "slopeZ": 0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "waterReflection": "fbo"
+  },
+  "cinematic": {
+    "rendering": true,
+    "skyAtmosphere": true,
+    "clouds": true,
+    "godRays": false,
+    "volumetricLighting": false,
+    "bloom": true,
+    "fog": true,
+    "terrainReliefEnabled": false,
+    "styleModes": [
+      0,
+      15,
+      14,
+      0
+    ],
+    "exposure": 1.05,
+    "gamma": 2.2,
+    "sunColorR": 1.0,
+    "sunColorG": 0.55,
+    "sunColorB": 0.24,
+    "sunIntensity": 4.0,
+    "skyHorizonR": 0.8,
+    "skyHorizonG": 0.2,
+    "skyHorizonB": 0.06,
+    "skyZenithR": 0.015,
+    "skyZenithG": 0.055,
+    "skyZenithB": 0.14,
+    "skyGlowStrength": 0.45,
+    "cloudCoverage": 0.56,
+    "cloudSoftness": 0.18,
+    "cloudScale": 4.0,
+    "cloudIntensity": 0.5,
+    "bloomThreshold": 1.4,
+    "bloomKnee": 0.4,
+    "bloomStrength": 0.14,
+    "bloomRadius": 2.0,
+    "fogColorR": 0.08,
+    "fogColorG": 0.1,
+    "fogColorB": 0.14,
+    "fogStart": 450,
+    "fogEnd": 2500,
+    "fogDensity": 0.0002,
+    "fogMaxOpacity": 0.22,
+    "styleGrade": [
+      1.03,
+      1.03,
+      0.18
+    ],
+    "terrainTint": [
+      0.09,
+      0.075,
+      0.06
+    ],
+    "terrainAccent": [
+      0.025,
+      0.032,
+      0.04
+    ],
+    "terrainGrid": [
+      32,
+      0
+    ],
+    "waterTint": [
+      0.03,
+      0.04,
+      0.05
+    ],
+    "waterProfile": [
+      0.82,
+      0.75,
+      0.1
+    ],
+    "shadows": true,
+    "shadowStrength": 1.0,
+    "shadowMapSize": 2048,
+    "shadowPcfRadius": 3,
+    "shadowSoftness": 1.5,
+    "shadowDepthBias": 8e-05,
+    "shadowSlopeBias": 0.0003,
+    "shadowMaxDistance": 1800,
+    "sunScreenX": 0.61,
+    "sunScreenY": 0.18
+  },
+  "cameras": [
+    {
+      "name": "Split Future",
+      "position": [
+        620,
+        72,
+        885
+      ],
+      "view": [
+        620,
+        43,
+        600
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fovDegrees": 48
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "split_future_ball",
+      "sceneObjectId": 1101,
+      "position": [
+        576,
+        65,
+        600
+      ],
+      "radius": 30,
+      "mass": 80,
+      "fixed": true,
+      "euler": [
+        12,
+        15,
+        -16
+      ],
+      "moment": 30,
+      "restitution": 0.5
+    },
+    {
+      "type": "box",
+      "name": "split_future_cube",
+      "sceneObjectId": 1102,
+      "position": [
+        665,
+        24,
+        627
+      ],
+      "halfExtents": [
+        24,
+        24,
+        24
+      ],
+      "mass": 100,
+      "fixed": true,
+      "euler": [
+        0,
+        24,
+        0
+      ],
+      "moment": 30,
+      "restitution": 0.5
+    }
+  ],
+  "objectMaterials": [
+    {
+      "target": "split_future_ball",
+      "mode": "beachball",
+      "tint": [
+        0.85,
+        0.85,
+        0.85
+      ],
+      "roughness": 0.29,
+      "specular": 1.0,
+      "metallic": 0.0
+    },
+    {
+      "target": "split_future_cube",
+      "mode": "beachball",
+      "tint": [
+        0.85,
+        0.85,
+        0.85
+      ],
+      "roughness": 0.34,
+      "specular": 1.0,
+      "metallic": 0.0
+    }
+  ]
+}
