@@ -4240,8 +4240,8 @@
       "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/transient_colored_triangles.vs.dxil",
       "dependencies": [],
-      "source_sha256": "d2dc1a92dd9fc65b83ac3debbdaeddae577a8026a42bcf1d3709ee6f6b726c28",
-      "compile_inputs_sha256": "5a7ff2dce09ef54c80aff3804d3c953e2efd9eec739b6b9bad80c01da063fc6f",
+      "source_sha256": "8a8f6e4c88c39e9823629ae9aab957b491d464a5b81abe20f508f9474cd5982c",
+      "compile_inputs_sha256": "6db39b9a453b5d0c8b042a760c52b741f23894fbc4308a03e037bf7277d1ef5e",
       "bytecode_sha256": "739405799cae017c74e2da0899a645048643ea29a5d2d46dac79d7391abb545f",
       "bytecode_size": 4756,
       "dependencies_sha256": {},
@@ -4310,10 +4310,10 @@
       "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/transient_colored_triangles.ps.dxil",
       "dependencies": [],
-      "source_sha256": "d2dc1a92dd9fc65b83ac3debbdaeddae577a8026a42bcf1d3709ee6f6b726c28",
-      "compile_inputs_sha256": "f9a74cc194cb7706506752a80bd6fd891e955977ebfcc7629f9d1ca3f3394d74",
-      "bytecode_sha256": "13587b477acc957680d93e5831eeb58cdf417c3cfadcebba1841a9a794a37cd6",
-      "bytecode_size": 4440,
+      "source_sha256": "8a8f6e4c88c39e9823629ae9aab957b491d464a5b81abe20f508f9474cd5982c",
+      "compile_inputs_sha256": "3a01621e04ae0c5712ad2e785d0554ce24920bd2b7aceb9e5ff4b3efa0cdbd37",
+      "bytecode_sha256": "9b3619ad9d8e77d004901a650f76574fa9d7651d9912be19ba2e69f0e0462cb0",
+      "bytecode_size": 5648,
       "dependencies_sha256": {},
       "reflection": {
         "cbuffers": [],
@@ -4326,7 +4326,7 @@
             "register": 1,
             "system_value": "NONE",
             "format": "float",
-            "used": "xyz"
+            "used": "y"
           },
           {
             "semantic": "TEXCOORD",

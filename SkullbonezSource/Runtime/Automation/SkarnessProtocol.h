@@ -511,6 +511,9 @@ struct SkarnessFrameState
         uint32_t gravityGridFirstSourceId = 0;
         std::array<float, 3> gravityGridFirstSourcePosition = {};
         float gravityGridMinimumHeight = 0.0f;
+        double tornadoVisualSeconds = 0.0;
+        uint32_t tornadoVisualVortices = 0;
+        uint32_t tornadoVisualVertices = 0;
         bool grassEnabled = false;
         uint64_t grassTick = 0;
         uint64_t grassPatchCount = 0;

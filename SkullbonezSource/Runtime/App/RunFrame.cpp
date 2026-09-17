@@ -1421,6 +1421,10 @@ void Run::PublishSkarnessFrameState()
                                               m_sceneController.Scene().Environment().GetFluidSurfaceHeight(),
                                               m_sceneController.Scene().Environment().GetFluidDensity(),
                                               static_cast<float>( scene.modelCount ) };
+    const auto tornadoVisual = m_sceneController.Scene().Tornado().VisualSnapshot();
+    state.presentation.tornadoVisualSeconds = tornadoVisual.seconds;
+    state.presentation.tornadoVisualVortices = tornadoVisual.activeVortices;
+    state.presentation.tornadoVisualVertices = tornadoVisual.vertices;
     state.presentation.modelCapacity = Core::ActiveSceneObjectCapacity( m_config );
     state.presentation.fileDialogResponsesConsumed = m_skarness.FileDialogResponsesConsumed();
     const RECT viewport = m_window.PresentationViewport();
