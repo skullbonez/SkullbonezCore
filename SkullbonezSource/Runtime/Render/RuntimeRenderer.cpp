@@ -99,11 +99,12 @@ float SampleWorldSurfaceHeight( SkullbonezCore::Geometry::Terrain& surface, floa
 // node operations directly, these ABI records disappear with its userData seam.
 struct CinematicPostGraphState
 {
-    // Shared publication between the two concrete post passes. It contains no
+    // Shared publication between the cinematic post passes. It contains no
     // pass owner and exists only for their ordered graph transition handshake.
     const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
     SkullbonezCore::Rendering::FramebufferDX12* sceneTarget = nullptr;
     SkullbonezCore::Rendering::RenderGraphTextureBinding volumetricLight;
+    std::array<SkullbonezCore::Rendering::RenderGraphTextureBinding, 3> smaaTargets;
     size_t volumetricTransitionCount = 0;
     size_t tonemapTransitionCount = 0;
     bool volumetricRendered = false;
@@ -140,6 +141,20 @@ struct TonemapGraphInvocation
     int windowWidth = 1;
     int windowHeight = 1;
     CinematicPostGraphState* state = nullptr;
+};
+
+// One graph callback borrows only the SMAA pass and the renderer owners needed
+// to publish its output. All three invocations expire with the compiled graph.
+struct SmaaGraphInvocation
+{
+    SmaaPass* pass = nullptr;
+    SkullbonezCore::Rendering::Dx12GeometryOwner* geometry = nullptr;
+    SkullbonezCore::Rendering::Dx12TextureOwner* textures = nullptr;
+    SkullbonezCore::Rendering::Dx12FrameOwner* frame = nullptr;
+    SkullbonezCore::Rendering::Dx12GraphTransientPool* graph = nullptr;
+    SkullbonezCore::Rendering::RenderGpuTimingOwner* timing = nullptr;
+    CinematicPostGraphState* state = nullptr;
+    int stage = 0;
 };
 
 struct ShadowGraphInvocation
@@ -709,6 +724,11 @@ void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
         }
     }
 
+    const bool smaa = data.state->smaaTargets[0].IsValid();
+    if ( smaa )
+    {
+        data.renderGraph->BeginGraphTextureRenderTarget( data.state->smaaTargets[0], "ToneMapPass" );
+    }
     data.pass->Render( *data.camera,
                        *data.cinematic,
                        *data.renderGeometry,
@@ -718,7 +738,44 @@ void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
                        data.gpuTiming,
                        true,
                        data.state->volumetricRendered,
-                       graphVolumetric );
+                       graphVolumetric,
+                       smaa );
+    if ( smaa )
+    {
+        data.renderGraph->EndGraphTextureRenderTarget( data.state->smaaTargets[0], "ToneMapPass" );
+    }
+}
+
+void ExecuteSmaaGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context, SmaaGraphInvocation& data )
+{
+    PROFILE_GPU_SCOPED( data.timing, "Frame/Render/SMAA" );
+    data.graph->ExecuteGraphTransitions( *context.graph, *data.state->compiled, context.passIndex );
+    const auto& color = data.state->smaaTargets[0];
+    const auto& edges = data.state->smaaTargets[1];
+    const auto& weights = data.state->smaaTargets[2];
+    const auto& output = data.stage == 0 ? edges : weights;
+    if ( data.stage < 2 )
+    {
+        data.graph->BeginGraphTextureRenderTarget( output, "SMAA" );
+    }
+    // Invariant: edge detection discards flat pixels. Clear RGBA each frame so
+    // stale edges/weights cannot survive motion or transient heap reuse.
+    if ( data.stage < 2 )
+    {
+        data.frame->Clear( {} );
+    }
+    data.pass->Render( data.stage,
+                       data.stage == 1 ? edges.textureHandle : color.textureHandle,
+                       weights.textureHandle,
+                       *data.geometry,
+                       *data.textures,
+                       *data.frame,
+                       static_cast<int>( color.width ),
+                       static_cast<int>( color.height ) );
+    if ( data.stage < 2 )
+    {
+        data.graph->EndGraphTextureRenderTarget( output, "SMAA" );
+    }
 }
 
 void WriteCinematicPostGraphEvidence( const SkullbonezCore::Rendering::RenderGraph& graph,
@@ -1395,7 +1452,42 @@ RuntimeRenderer::CinematicPostFrameOutput RuntimeRenderer::ExecuteCinematicPostT
         graph.AddRead( tonemapPass, volumetricLight, Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
 
-    graph.AddWrite( tonemapPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+    // Style 14 is the isolated Split Future material path; other scenes retain
+    // their existing post graph and pixels.
+    const bool smaa = inputs.cinematic.objectStyle == 14 && m_smaaPass.Ready();
+    std::array<Rendering::RenderGraphResourceHandle, 3> smaaTargets;
+    std::array<uint32_t, 3> smaaPasses {};
+    if ( smaa )
+    {
+        Rendering::RenderGraphTransientResourceDesc desc;
+        desc.kind = Rendering::RenderGraphResourceKind::Texture2D;
+        desc.format = Rendering::RenderGraphResourceFormat::RGBA8;
+        desc.width = static_cast<uint32_t>( inputs.windowWidth );
+        desc.height = static_cast<uint32_t>( inputs.windowHeight );
+        desc.mipLevels = 1;
+        desc.descriptors.renderTarget = true;
+        desc.descriptors.shaderResource = true;
+        constexpr const char* targets[] = { "SmaaColor", "SmaaEdges", "SmaaWeights" };
+        constexpr const char* passes[] = { "SmaaEdgePass", "SmaaWeightPass", "SmaaBlendPass" };
+        for ( std::size_t i = 0; i < smaaTargets.size(); ++i )
+        {
+            smaaTargets[i] = graph.AddTransientResource( targets[i], desc, Rendering::RenderGraphResourceAccess::PixelShaderResource );
+            smaaPasses[i] = graph.AddPass( passes[i], Rendering::RenderGraphQueueType::Graphics );
+        }
+        graph.AddWrite( tonemapPass, smaaTargets[0], Rendering::RenderGraphResourceAccess::RenderTarget );
+        graph.AddRead( smaaPasses[0], smaaTargets[0], Rendering::RenderGraphResourceAccess::PixelShaderResource );
+        graph.AddWrite( smaaPasses[0], smaaTargets[1], Rendering::RenderGraphResourceAccess::RenderTarget );
+        graph.AddRead( smaaPasses[1], smaaTargets[1], Rendering::RenderGraphResourceAccess::PixelShaderResource );
+        graph.AddWrite( smaaPasses[1], smaaTargets[2], Rendering::RenderGraphResourceAccess::RenderTarget );
+        graph.AddRead( smaaPasses[2], smaaTargets[0], Rendering::RenderGraphResourceAccess::PixelShaderResource );
+        graph.AddRead( smaaPasses[2], smaaTargets[2], Rendering::RenderGraphResourceAccess::PixelShaderResource );
+        graph.AddWrite( smaaPasses[2], backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+        expectedCallbacks += 3;
+    }
+    else
+    {
+        graph.AddWrite( tonemapPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+    }
 
     CinematicPostGraphState postState;
     postState.sceneTarget = sceneTarget;
@@ -1433,6 +1525,16 @@ RuntimeRenderer::CinematicPostFrameOutput RuntimeRenderer::ExecuteCinematicPostT
 
     graph.SetPassCallback<ExecuteTonemapGraphCallback>( tonemapPass, tonemapInvocation, true, "Frame/Render/Tonemap" );
 
+    std::array<SmaaGraphInvocation, 3> smaaInvocations;
+    if ( smaa )
+    {
+        for ( std::size_t i = 0; i < smaaInvocations.size(); ++i )
+        {
+            smaaInvocations[i] = { &m_smaaPass, &inputs.renderGeometry, &inputs.renderTextures, &inputs.renderFrame, &inputs.renderGraph, &inputs.gpuTiming, &postState, static_cast<int>( i ) };
+            graph.SetPassCallback<ExecuteSmaaGraphCallback>( smaaPasses[i], smaaInvocations[i], true, "Frame/Render/SMAA" );
+        }
+    }
+
     // Invariant: dry-run executes no draw code. It proves the callback-owned
     // post passes have resource declarations before live callbacks record
     // commands, and the execute path records them in graph order.
@@ -1461,6 +1563,17 @@ RuntimeRenderer::CinematicPostFrameOutput RuntimeRenderer::ExecuteCinematicPostT
         }
     }
 
+    if ( smaa )
+    {
+        for ( std::size_t i = 0; i < smaaTargets.size(); ++i )
+        {
+            postState.smaaTargets[i] = inputs.renderGraph.ResolveGraphTextureBinding( smaaTargets[i] );
+            if ( !postState.smaaTargets[i].IsValid() )
+            {
+                SB_FATAL( "SMAA", "Could not materialize the full-resolution SMAA targets." );
+            }
+        }
+    }
     ExecuteGraphCallbacksOrFatal( graph, expectedCallbacks, "CinematicPost" );
     WriteCinematicPostGraphEvidence( graph, compiled, transientMaterialization, postState.volumetricLight, volumetricDeclared, postState.volumetricTransitionCount, postState.tonemapTransitionCount );
 
@@ -1671,12 +1784,12 @@ RuntimeRenderer::RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resul
       m_objectPass( m_collisionVisualizer, m_resources.Config(), m_profiler ), m_terrainPass( m_resources.Config(), m_profiler ), m_waterPass( m_world, m_resources.Config(), m_profiler ),
       m_debugOverlayPass( m_broadphaseVisualizer, m_physicsDebugVisualizer, m_resources.Assets(), m_profiler ),
       m_volumetricPass( m_resources.PassResources().cinematicScene, m_resources.PassResources().volumetricLight, m_resources.PassResources().fullscreen, m_resources.Config(), m_profiler ),
-      m_tonemapPass( m_resources.PassResources().cinematicScene,
-                     m_resources.PassResources().volumetricLight,
-                     m_resources.PassResources().tonemap,
-                     m_resources.PassResources().fullscreen,
-                     m_resources.Config(),
-                     m_profiler )
+      m_smaaPass( m_resources.PassResources().fullscreen ), m_tonemapPass( m_resources.PassResources().cinematicScene,
+                                                                           m_resources.PassResources().volumetricLight,
+                                                                           m_resources.PassResources().tonemap,
+                                                                           m_resources.PassResources().fullscreen,
+                                                                           m_resources.Config(),
+                                                                           m_profiler )
 {
     m_renderPassGraphScratch.ReserveForRuntimePassGraph();
     m_renderPassCompileScratch.ReserveForRuntimePassGraph();
@@ -1778,7 +1891,7 @@ const SkullbonezCore::Rendering::RenderGraphCompileResult& RuntimeRenderer::Comp
 }
 
 
-void RuntimeRenderer::EnsureFrameResources( bool cinematicRender, int windowWidth, int windowHeight )
+void RuntimeRenderer::EnsureFrameResources( bool cinematicRender, int windowWidth, int windowHeight, bool smaaRequested )
 {
     Assets::AssetSystem& assets = m_resources.Assets();
     Rendering::Dx12ResourceBuilder& renderResources = m_resources.RenderResources();
@@ -1812,6 +1925,10 @@ void RuntimeRenderer::EnsureFrameResources( bool cinematicRender, int windowWidt
     if ( RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass::Tonemap, cinematicRender ) )
     {
         m_tonemapPass.EnsureGpuResources( cinematicRender, assets, renderResources );
+        if ( smaaRequested )
+        {
+            m_smaaPass.EnsureGpuResources( assets, renderResources, m_resources.RenderTextures() );
+        }
     }
 }
 
@@ -1849,7 +1966,7 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
     renderFrame.SetPresentationViewport( viewport.left, viewport.top, windowWidth, windowHeight );
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-        EnsureFrameResources( world.cinematicRequested, windowWidth, windowHeight );
+        EnsureFrameResources( world.cinematicRequested, windowWidth, windowHeight, world.cinematic.objectStyle == 14 );
     }
 
     const bool useCinematicTarget = world.cinematicRequested && m_sceneTargetPass.IsReady();
@@ -2235,6 +2352,7 @@ void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::Dx12GeometryOwner
     {
         m_pairedViews.Release( *renderGeometry );
     }
+    m_smaaPass.ReleaseGpuResources( m_resources.RenderTextures() );
     m_tonemapPass.ReleaseGpuResources();
     m_volumetricPass.ReleaseGpuResources();
     m_sceneTargetPass.ReleaseGpuResources();

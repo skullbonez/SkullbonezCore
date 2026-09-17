@@ -6,6 +6,43 @@ Status: CONVEX_HULL CH0-CH6 complete at 7/8; CH7 acceptance pending; portfolio 1
 
 ## Split Future showcase - 2026-09-17
 
+Replay/reset and SMAA follow-up: branches `feature/split-future-09-replay-reset`
+and `feature/split-future-10-smaa`. Use `tools/launch_split_future.bat`; the old
+bare `--scene` command intentionally disabled replay by startup policy. The
+launcher now requests interactive playback and recording. Physics reset clears
+live sleep flags before restoring authored sleeper descriptors. Split Future's
+ball stores initial motion in `ballState`, so R restores its velocity and spin.
+The pause badge now says "Pause lock off" when the lock is off. Scene mode runs
+continuously; Inspect intentionally waits for Space (F returns to Scene).
+
+SMAA 1x High uses the upstream MIT shader and lookup tables, pinned under
+`ThirdPtySource/SMAA`. Style 14 alone adds color, edge and blend-weight targets
+and three graph passes after tone mapping, before UI. Other styles keep their
+existing graph. `SKULLBONEZ_SMAA=off` is a cold diagnostic A/B override. All 54
+shader stages are baked and all 16 gameplay shader programs are warmed.
+
+Focused evidence: `TestOutput/skarness/split-replay-smaa-final/` proves both
+settled bodies wake on R and fall during natural playback; replay seeks from
+live to start and back. `TestOutput/skarness/smaa-acceptance/` verifies the pass
+order, resize and off/on edge comparison: interior coating mean difference is
+zero. `TestOutput/skarness/split-future-smaa-isolation/` preserves zero world-pixel
+RMS for both prior control scenes and passes dragging, firing and reset.
+Fast validation passes 1,094 tests; graphics stress and UI stress pass.
+The DX12 renderer gate passes with zero errors and unchanged references.
+The reset commit passes the deterministic Physics worker matrix. Final focused
+replay/seek assertions and screenshots are under
+`TestOutput/skarness/split-replay-final-reviewed/`.
+
+Broad replay fidelity is not green: native scripted assertions passed, but the
+immutable provenance check rejects the changed shader-set SHA256. No approved
+manifest or golden was updated. See `TestOutput/smaa-replay-fidelity.log`.
+The broad UI suite passes causal playback, viewport routing, velocity editing,
+divergence, reveal, 240 paths/3,000 ghosts and scrubber auto-hide, then stops at
+`header_autohide`: Solver Lab rejects an archived comparison asset identity.
+See `TestOutput/smaa-ui.log`; the comparison archive was not changed.
+
+
+
 Added the isolated `split_future` scene with PBR objects, warm/cool procedural
 environment lighting, coating detail and a rounded cube, wet reflective ground,
 and an authored camera with restrained bloom. The follow-up enables Physics,

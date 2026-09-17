@@ -3,7 +3,7 @@
 Open `split_future` in the scene browser, or run from the repository root:
 
 ```bat
-Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData/scenes/split_future.scene.json
+tools\launch_split_future.bat
 ```
 
 This is an interactive physics scene inspired by cover concept 11.
@@ -13,8 +13,13 @@ reflects the actual scene over textured terrain. The ball and cube start above
 the ground, fall, bounce, collide and rotate.
 The old fixed trace geometry has been removed so it cannot block interaction.
 
-The scene starts with its own camera and unlimited playback; Physics is on.
-Red/yellow panel edges use pixel-footprint filtering to suppress staircase edges.
+The launcher enables interactive mode and replay recording so the replay controls
+and timeline are available. The scene starts with its own camera and unlimited
+playback; Physics is on.
+Red/yellow panel edges use pixel-footprint filtering. SMAA 1x High smooths the
+world after tone mapping, before the UI. Only object style 14 enables SMAA.
+For an identical-scene A/B capture, set `SKULLBONEZ_SMAA=off` before launching;
+unset it to restore SMAA. This diagnostic override lasts only for that process.
 
 Controls:
 
@@ -22,7 +27,10 @@ Controls:
   to pick it up and move it.
 - Press **N** for Launcher; **M** switches between laser impulse and projectile.
   Aim with the camera and left-click to fire. Press N again to leave Launcher.
-- Press **R** to restart the drop. Reset retains objects you launched; switch
+- Choose **Scene** for continuous playback. **Inspect** intentionally pauses
+  physics; hold Space to advance there, or press F to return to Scene.
+- Press **R** to restart the drop. Settled bodies wake up, and the ball
+  regains its authored velocity and spin. Reset retains objects you launched; switch
   to another scene and back to Split Future to return to the original two objects.
 
 No existing scene or global engine setting was changed. Styles 22 (sky), 16
@@ -44,6 +52,9 @@ The stacked branches preserve each implementation stage and follow-up:
 5. `feature/split-future-05-finish`
 6. `feature/split-future-06-smooth-edges`
 7. `feature/split-future-07-interactive`
+8. `feature/split-future-08-startup-shader`
+9. `feature/split-future-09-replay-reset`
+10. `feature/split-future-10-smaa`
 
 Run the native scene-isolation check with:
 
@@ -56,3 +67,15 @@ a projectile fired through player input, pointer dragging, reset/reload, and a
 ten-second run. Ordinary and cinematic control scenes are compared by settings,
 camera and world pixels before and after visiting this scene. Captures and
 results are written beneath `TestOutput/skarness/split-future-interactive`.
+
+Focused replay/reset and SMAA checks:
+
+```bat
+python tools\validate_split_future_replay.py TestOutput/skarness/split-replay
+python tools\validate_split_future_smaa.py --session TestOutput/skarness/split-smaa
+```
+
+The replay check settles both bodies to sleep, presses R, and verifies natural
+playback and replay seeking. The SMAA check captures identical off/on states,
+checks the pass graph and resized targets, and compares silhouette and coating
+pixels. These tests use the Automation build.

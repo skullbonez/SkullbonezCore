@@ -388,7 +388,7 @@ class RuntimeRenderer
         const DebugOverlayPassInputs& pass;
         bool useCinematicTarget = false;
     };
-    void EnsureFrameResources( bool cinematicRender, int windowWidth, int windowHeight );
+    void EnsureFrameResources( bool cinematicRender, int windowWidth, int windowHeight, bool smaaRequested );
     WorldOverlayTransaction RenderWorldFrame( const WorldFrameSubmission& world );
     bool RenderFrameOverlays( const WorldOverlayTransaction& world, const OverlayFrameSubmission& overlays );
     Rendering::RenderGraph& BeginRenderPassGraph();
@@ -449,7 +449,8 @@ class RuntimeRenderer
     WaterPass m_waterPass;                   // Calm/ocean water pass.
     DebugOverlayPass m_debugOverlayPass;     // Broadphase and physics debug overlay pass.
     VolumetricPass m_volumetricPass;         // Half-resolution cinematic light-shaft pass.
-    TonemapPass m_tonemapPass;               // HDR-to-backbuffer resolve pass.
+    SmaaPass m_smaaPass;
+    TonemapPass m_tonemapPass; // HDR-to-backbuffer resolve pass.
 
     // Runtime allocation policy: one owner scratch graph accumulates the whole
     // frame. Pass labels are borrowed literals and pass/resource lists are

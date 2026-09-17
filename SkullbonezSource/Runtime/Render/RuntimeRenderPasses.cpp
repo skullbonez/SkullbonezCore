@@ -59,6 +59,9 @@ Related:
 #include "../../World/SkyBox.h"
 #include "../../World/WorldEnvironment.h"
 
+#include "../../../ThirdPtySource/SMAA/AreaTex.h"
+#include "../../../ThirdPtySource/SMAA/SearchTex.h"
+
 #include <cstdio>
 #include <cmath>
 
@@ -1908,6 +1911,93 @@ bool VolumetricPass::Render( const RenderCameraLighting& camera,
 }
 
 
+SmaaPass::SmaaPass( FullscreenPassResources& fullscreen ) : m_fullscreen( fullscreen )
+{
+    // Cold diagnostic override permits identical-scene A/B captures without
+    // changing material style, scene data, shader bytes, or UI composition.
+    char value[8] {};
+    Core::Platform::ReadEnvironmentVariable( "SKULLBONEZ_SMAA", value, sizeof( value ) );
+    m_disabled = std::strcmp( value, "off" ) == 0;
+}
+
+void SmaaPass::EnsureGpuResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& resources, Rendering::Dx12TextureOwner& textures )
+{
+    if ( m_disabled )
+    {
+        return;
+    }
+    constexpr const char* names[] = { "shader.post_smaa_edges", "shader.post_smaa_weights", "shader.post_smaa_blend" };
+    for ( std::size_t i = 0; i < m_shaders.size(); ++i )
+    {
+        if ( !m_shaders[i] )
+        {
+            m_shaders[i] = assets.CreateShader( resources, names[i] );
+        }
+    }
+    // Why: channels=2 expands to luminance/alpha. The SMAA wrapper deliberately
+    // reads .ra, retaining the official R/G lookup values without conversion.
+    if ( !m_area )
+    {
+        m_area = textures.CreateTexture2D( areaTexBytes, AREATEX_WIDTH, AREATEX_HEIGHT, 2, Rendering::TextureMipPolicy::SingleLevel, Rendering::TextureFilterPolicy::Linear );
+    }
+    if ( !m_search )
+    {
+        m_search = textures.CreateTexture2D( searchTexBytes, SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, 1, Rendering::TextureMipPolicy::SingleLevel, Rendering::TextureFilterPolicy::Linear );
+    }
+}
+
+bool SmaaPass::Ready() const
+{
+    return m_area && m_search && m_fullscreen.quadVB && m_shaders[0] && m_shaders[1] && m_shaders[2];
+}
+
+void SmaaPass::ReleaseGpuResources( Rendering::Dx12TextureOwner& textures )
+{
+    for ( auto& shader : m_shaders )
+    {
+        shader.reset();
+    }
+    if ( m_area )
+    {
+        textures.DeleteTexture( m_area );
+        m_area = 0;
+    }
+    if ( m_search )
+    {
+        textures.DeleteTexture( m_search );
+        m_search = 0;
+    }
+}
+
+void SmaaPass::Render( int stage,
+                       uint32_t input,
+                       uint32_t weights,
+                       Rendering::Dx12GeometryOwner& geometry,
+                       Rendering::Dx12TextureOwner& textures,
+                       Rendering::Dx12FrameOwner& frame,
+                       int width,
+                       int height )
+{
+    if ( !Ready() || stage < 0 || stage >= 3 || !input || width <= 0 || height <= 0 )
+    {
+        SB_FATAL( "SmaaPass", "SMAA requires a complete device epoch and positive target size." );
+    }
+    if ( stage == 2 )
+    {
+        frame.RestorePresentationViewport();
+    }
+    else
+    {
+        frame.SetViewport( 0, 0, width, height );
+    }
+    auto& shader = *m_shaders[static_cast<std::size_t>( stage )];
+    shader.Use();
+    shader.SetVec4( "uSmaaMetrics", 1.0f / width, 1.0f / height, static_cast<float>( width ), static_cast<float>( height ) );
+    BindRenderTextureSlots( textures, input, stage == 1 ? m_area : weights, stage == 1 ? m_search : 0, 0 );
+    DrawFullscreenQuad( geometry, m_fullscreen.quadVB, FULLSCREEN_OPAQUE_RASTER );
+}
+
+
 void TonemapPass::EnsureGpuResources( bool cinematicEnabled, Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources )
 {
     if ( !cinematicEnabled )
@@ -1939,7 +2029,8 @@ void TonemapPass::Render( const RenderCameraLighting& camera,
                           Rendering::RenderGpuTimingOwner* gpuTiming,
                           bool sceneAlreadyUnbound,
                           bool volumetricReady,
-                          const Rendering::RenderGraphTextureBinding* graphVolumetric )
+                          const Rendering::RenderGraphTextureBinding* graphVolumetric,
+                          bool textureOutput )
 {
     if ( !m_sceneResources.hdrTarget || !m_tonemapResources.shader || m_fullscreenResources.quadVB == 0 )
     {
@@ -1960,7 +2051,14 @@ void TonemapPass::Render( const RenderCameraLighting& camera,
         m_sceneResources.hdrTarget->Unbind();
     }
 
-    renderFrame.RestorePresentationViewport();
+    if ( textureOutput )
+    {
+        renderFrame.SetViewport( 0, 0, m_sceneResources.hdrTarget->GetWidth(), m_sceneResources.hdrTarget->GetHeight() );
+    }
+    else
+    {
+        renderFrame.RestorePresentationViewport();
+    }
 
     // Concept: "resolve" means "turn our off-screen cinematic render target
     // into the final image on the window." This is where the HDR scene becomes

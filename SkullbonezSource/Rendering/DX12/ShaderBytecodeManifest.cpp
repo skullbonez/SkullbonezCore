@@ -54,17 +54,20 @@ namespace
 // This projection follows the lazy shader owners reachable from the first
 // gameplay frame. It is unconditional because scene/debug/cinematic policy can
 // select any row after BackendInit without changing the backend contract.
-constexpr std::array<const char*, 13> FIRST_GAMEPLAY_SHADER_BASE_NAMES = {
-    "shaders/lit_textured",            // Terrain receiver.
-    "shaders/shadow_depth",            // Terrain shadow caster.
-    "shaders/unlit_textured",          // Authored skybox.
-    "shaders/lit_textured_instanced",  // Primitive/object receiver.
-    "shaders/shadow_depth_instanced",  // Primitive/object shadow caster.
-    "shaders/water_calm",              // Calm WorldEnvironment water path.
-    "shaders/water_ocean",             // Ocean WorldEnvironment water path.
-    "shaders/collision_visualizer",    // CollisionVisualizer overlay.
-    "shaders/sky_atmosphere",          // Cinematic SkyPass.
-    "shaders/post_volumetric_light",   // VolumetricPass.
+constexpr std::array<const char*, 16> FIRST_GAMEPLAY_SHADER_BASE_NAMES = {
+    "shaders/lit_textured",           // Terrain receiver.
+    "shaders/shadow_depth",           // Terrain shadow caster.
+    "shaders/unlit_textured",         // Authored skybox.
+    "shaders/lit_textured_instanced", // Primitive/object receiver.
+    "shaders/shadow_depth_instanced", // Primitive/object shadow caster.
+    "shaders/water_calm",             // Calm WorldEnvironment water path.
+    "shaders/water_ocean",            // Ocean WorldEnvironment water path.
+    "shaders/collision_visualizer",   // CollisionVisualizer overlay.
+    "shaders/sky_atmosphere",         // Cinematic SkyPass.
+    "shaders/post_volumetric_light",  // VolumetricPass.
+    "shaders/post_smaa_edges",
+    "shaders/post_smaa_weights",
+    "shaders/post_smaa_blend",
     "shaders/post_tonemap",            // TonemapPass.
     "shaders/launcher_laser",          // DebugOverlayPass launcher path.
     "shaders/ui_render_target_preview" // UiDrawSubmission preview path.
@@ -99,8 +102,7 @@ bool Sha256Hex( std::string& bytes, std::string& hex )
     {
         // Why: BCryptGetProperty exposes arbitrary property storage as
         // mutable bytes; the requested property is exactly one DWORD.
-        status = BCryptGetProperty( algorithm, BCRYPT_OBJECT_LENGTH, reinterpret_cast<PUCHAR>( &objectBytes ),
-                                    sizeof( objectBytes ), &resultBytes, 0 );
+        status = BCryptGetProperty( algorithm, BCRYPT_OBJECT_LENGTH, reinterpret_cast<PUCHAR>( &objectBytes ), sizeof( objectBytes ), &resultBytes, 0 );
     }
 
     if ( status >= 0 && objectBytes > object.size() )
@@ -193,8 +195,7 @@ bool CommandLineHasExactToken( const char* expected )
             ++cursor;
         }
 
-        if ( static_cast<size_t>( cursor - begin ) == std::strlen( expected ) &&
-             std::strncmp( begin, expected, std::strlen( expected ) ) == 0 )
+        if ( static_cast<size_t>( cursor - begin ) == std::strlen( expected ) && std::strncmp( begin, expected, std::strlen( expected ) ) == 0 )
         {
             return true;
         }
@@ -210,23 +211,15 @@ bool CommandLineHasExactToken( const char* expected )
 
 bool ResourceShapeMatches( const GeneratedShaderReflection::Resource& expected, const D3D12_SHADER_INPUT_BIND_DESC& actual )
 {
-    const bool typeMatches = ( std::strcmp( expected.type, "cbuffer" ) == 0 && actual.Type == D3D_SIT_CBUFFER ) ||
-                             ( std::strcmp( expected.type, "sampler" ) == 0 && actual.Type == D3D_SIT_SAMPLER ) ||
-                             ( std::strcmp( expected.type, "texture" ) == 0 && actual.Type == D3D_SIT_TEXTURE ) ||
-                             ( std::strcmp( expected.type, "uav" ) == 0 && actual.Type == D3D_SIT_UAV_RWTYPED );
+    const bool typeMatches = ( std::strcmp( expected.type, "cbuffer" ) == 0 && actual.Type == D3D_SIT_CBUFFER ) || ( std::strcmp( expected.type, "sampler" ) == 0 && actual.Type == D3D_SIT_SAMPLER ) ||
+                             ( std::strcmp( expected.type, "texture" ) == 0 && actual.Type == D3D_SIT_TEXTURE ) || ( std::strcmp( expected.type, "uav" ) == 0 && actual.Type == D3D_SIT_UAV_RWTYPED );
 
-    const bool dimensionMatches = ( std::strcmp( expected.dimension, "na" ) == 0 &&
-                                    actual.Dimension == D3D_SRV_DIMENSION_UNKNOWN ) ||
-                                  ( std::strcmp( expected.dimension, "buffer" ) == 0 &&
-                                    actual.Dimension == D3D_SRV_DIMENSION_BUFFER ) ||
-                                  ( std::strcmp( expected.dimension, "2d" ) == 0 &&
-                                    actual.Dimension == D3D_SRV_DIMENSION_TEXTURE2D ) ||
-                                  ( std::strcmp( expected.dimension, "2darray" ) == 0 &&
-                                    actual.Dimension == D3D_SRV_DIMENSION_TEXTURE2DARRAY ) ||
-                                  ( std::strcmp( expected.dimension, "3d" ) == 0 &&
-                                    actual.Dimension == D3D_SRV_DIMENSION_TEXTURE3D ) ||
-                                  ( std::strcmp( expected.dimension, "cube" ) == 0 &&
-                                    actual.Dimension == D3D_SRV_DIMENSION_TEXTURECUBE );
+    const bool dimensionMatches = ( std::strcmp( expected.dimension, "na" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_UNKNOWN ) ||
+                                  ( std::strcmp( expected.dimension, "buffer" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_BUFFER ) ||
+                                  ( std::strcmp( expected.dimension, "2d" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_TEXTURE2D ) ||
+                                  ( std::strcmp( expected.dimension, "2darray" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_TEXTURE2DARRAY ) ||
+                                  ( std::strcmp( expected.dimension, "3d" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_TEXTURE3D ) ||
+                                  ( std::strcmp( expected.dimension, "cube" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_TEXTURECUBE );
 
     return typeMatches && dimensionMatches;
 }
@@ -269,8 +262,7 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
             ID3D12ShaderReflectionConstantBuffer* cb = reflection->GetConstantBufferByIndex( cbIndex );
             D3D12_SHADER_BUFFER_DESC cbDesc = {};
 
-            if ( !cb || FAILED( cb->GetDesc( &cbDesc ) ) || !cbDesc.Name ||
-                 std::strcmp( cbDesc.Name, expected.cbuffer ) != 0 || cbDesc.Size != expectedBufferSize )
+            if ( !cb || FAILED( cb->GetDesc( &cbDesc ) ) || !cbDesc.Name || std::strcmp( cbDesc.Name, expected.cbuffer ) != 0 || cbDesc.Size != expectedBufferSize )
             {
                 continue;
             }
@@ -280,9 +272,8 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
                 D3D12_SHADER_VARIABLE_DESC variable = {};
 
                 ID3D12ShaderReflectionVariable* reflectedVariable = cb->GetVariableByIndex( variableIndex );
-                matched = reflectedVariable && SUCCEEDED( reflectedVariable->GetDesc( &variable ) ) && variable.Name &&
-                          std::strcmp( variable.Name, expected.name ) == 0 && variable.StartOffset == expected.offset &&
-                          variable.Size == expected.size;
+                matched = reflectedVariable && SUCCEEDED( reflectedVariable->GetDesc( &variable ) ) && variable.Name && std::strcmp( variable.Name, expected.name ) == 0 &&
+                          variable.StartOffset == expected.offset && variable.Size == expected.size;
 
                 if ( matched )
                 {
@@ -318,13 +309,9 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
                 continue;
             }
 
-            const char registerClass = resource.Type == D3D_SIT_CBUFFER   ? 'b'
-                                       : resource.Type == D3D_SIT_SAMPLER ? 's'
-                                       : resource.Type == D3D_SIT_TEXTURE ? 't'
-                                                                          : 'u';
+            const char registerClass = resource.Type == D3D_SIT_CBUFFER ? 'b' : resource.Type == D3D_SIT_SAMPLER ? 's' : resource.Type == D3D_SIT_TEXTURE ? 't' : 'u';
 
-            matched = std::strcmp( resource.Name, expected.name ) == 0 && registerClass == expected.registerClass &&
-                      resource.BindPoint == expected.slot && resource.Space == expected.space &&
+            matched = std::strcmp( resource.Name, expected.name ) == 0 && registerClass == expected.registerClass && resource.BindPoint == expected.slot && resource.Space == expected.space &&
                       ResourceShapeMatches( expected, resource );
 
             if ( matched )
@@ -356,10 +343,7 @@ bool DevShaderHotReloadEnabled()
 }
 
 
-ShaderBytecodeManifestCache::ProgramLoadSummary ShaderBytecodeManifestCache::LoadProgram( const char* hlslPath,
-                                                                                          ComPtr<ID3DBlob>& outVertex,
-                                                                                          ComPtr<ID3DBlob>& outPixel,
-                                                                                          std::string& outError )
+ShaderBytecodeManifestCache::ProgramLoadSummary ShaderBytecodeManifestCache::LoadProgram( const char* hlslPath, ComPtr<ID3DBlob>& outVertex, ComPtr<ID3DBlob>& outPixel, std::string& outError )
 {
     ProgramLoadSummary summary;
     outVertex.Reset();
@@ -421,8 +405,7 @@ ShaderBytecodeManifestCache::ProgramLoadSummary ShaderBytecodeManifestCache::Loa
 }
 
 
-ShaderBytecodeManifestCache::PreparationSummary
-ShaderBytecodeManifestCache::PrepareFirstGameplayPrograms( std::string& outError )
+ShaderBytecodeManifestCache::PreparationSummary ShaderBytecodeManifestCache::PrepareFirstGameplayPrograms( std::string& outError )
 {
     PreparationSummary summary;
     std::string firstError;
@@ -438,10 +421,8 @@ ShaderBytecodeManifestCache::PrepareFirstGameplayPrograms( std::string& outError
         ComPtr<ID3DBlob> pixel;
         std::string programError;
         const int sourcePathLength = std::snprintf( sourcePath, sizeof( sourcePath ), "%s%s.hlsl", DATA_ROOT, baseName );
-        const ProgramLoadSummary program = sourcePathLength > 0 &&
-                                                   static_cast<std::size_t>( sourcePathLength ) < sizeof( sourcePath )
-                                               ? LoadProgram( sourcePath, vertex, pixel, programError )
-                                               : ProgramLoadSummary {};
+        const ProgramLoadSummary program = sourcePathLength > 0 && static_cast<std::size_t>( sourcePathLength ) < sizeof( sourcePath ) ? LoadProgram( sourcePath, vertex, pixel, programError )
+                                                                                                                                       : ProgramLoadSummary {};
         summary.stageLoads += program.stageLoads;
         summary.newlyPublished += program.newlyPublished ? 1u : 0u;
         summary.cacheHits += program.cacheHit ? 1u : 0u;
@@ -470,8 +451,7 @@ void ShaderBytecodeManifestCache::Reset()
     m_programCount = 0;
 }
 
-static bool LoadManifestCurrentShaderBytecodeImpl( const char* hlslPath, const char* stage, ComPtr<ID3DBlob>& outBlob,
-                                                   std::string& outError, bool validateRasterReflection )
+static bool LoadManifestCurrentShaderBytecodeImpl( const char* hlslPath, const char* stage, ComPtr<ID3DBlob>& outBlob, std::string& outError, bool validateRasterReflection )
 {
     outBlob.Reset();
 
@@ -515,8 +495,8 @@ static bool LoadManifestCurrentShaderBytecodeImpl( const char* hlslPath, const c
         const auto sourceIt = entry.find( "source" );
         const auto stageIt = entry.find( "stage" );
 
-        if ( sourceIt != entry.end() && sourceIt->is_string() && stageIt != entry.end() && stageIt->is_string() &&
-             sourceIt->get_ref<const std::string&>() == normalizedSource && stageIt->get_ref<const std::string&>() == stage )
+        if ( sourceIt != entry.end() && sourceIt->is_string() && stageIt != entry.end() && stageIt->is_string() && sourceIt->get_ref<const std::string&>() == normalizedSource &&
+             stageIt->get_ref<const std::string&>() == stage )
         {
             matched = &entry;
             break;
@@ -534,9 +514,8 @@ static bool LoadManifestCurrentShaderBytecodeImpl( const char* hlslPath, const c
     const auto bytecodePathIt = matched->find( "bytecode" );
     const auto dependenciesIt = matched->find( "dependencies_sha256" );
 
-    if ( sourceHashIt == matched->end() || !sourceHashIt->is_string() || bytecodeHashIt == matched->end() ||
-         !bytecodeHashIt->is_string() || bytecodePathIt == matched->end() || !bytecodePathIt->is_string() ||
-         dependenciesIt == matched->end() || !dependenciesIt->is_object() )
+    if ( sourceHashIt == matched->end() || !sourceHashIt->is_string() || bytecodeHashIt == matched->end() || !bytecodeHashIt->is_string() || bytecodePathIt == matched->end() ||
+         !bytecodePathIt->is_string() || dependenciesIt == matched->end() || !dependenciesIt->is_object() )
     {
         outError = "freshness manifest row is incomplete for " + normalizedSource;
         return false;
@@ -615,15 +594,13 @@ static bool LoadManifestCurrentShaderBytecodeImpl( const char* hlslPath, const c
 }
 
 
-bool LoadManifestCurrentShaderBytecode( const char* hlslPath, const char* stage, ComPtr<ID3DBlob>& outBlob,
-                                        std::string& outError )
+bool LoadManifestCurrentShaderBytecode( const char* hlslPath, const char* stage, ComPtr<ID3DBlob>& outBlob, std::string& outError )
 {
     return LoadManifestCurrentShaderBytecodeImpl( hlslPath, stage, outBlob, outError, true );
 }
 
 
-bool LoadManifestCurrentShaderLibraryBytecode( const char* hlslPath, const char* stage, ComPtr<ID3DBlob>& outBlob,
-                                               std::string& outError )
+bool LoadManifestCurrentShaderLibraryBytecode( const char* hlslPath, const char* stage, ComPtr<ID3DBlob>& outBlob, std::string& outError )
 {
     // DXR libraries expose ID3D12LibraryReflection rather than the raster-stage
     // interface. The bake still records their container reflection; startup
@@ -662,8 +639,7 @@ bool ReflectShaderBytecode( ID3DBlob* blob, ComPtr<ID3D12ShaderReflection>& outR
     // machines where the preferred container-reflection interface is absent.
     // Why: D3DReflect is a COM ABI that publishes an interface through an
     // untyped output pointer; ComPtr immediately owns the typed result.
-    outResult = D3DReflect( blob->GetBufferPointer(), blob->GetBufferSize(), IID_ID3D12ShaderReflection,
-                            reinterpret_cast<void**>( outReflection.ReleaseAndGetAddressOf() ) );
+    outResult = D3DReflect( blob->GetBufferPointer(), blob->GetBufferSize(), IID_ID3D12ShaderReflection, reinterpret_cast<void**>( outReflection.ReleaseAndGetAddressOf() ) );
 
     return SUCCEEDED( outResult ) && outReflection;
 }

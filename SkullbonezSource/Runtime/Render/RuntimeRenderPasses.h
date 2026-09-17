@@ -929,6 +929,25 @@ Concept: TonemapPass
     final post shader contract: scene color, scene depth, optional
     volumetric light, and cinematic grading uniforms.
 */
+// Owns the immutable SMAA shaders/LUTs for one device epoch. The render graph
+// owns intermediate targets; this pass never retains frame-local bindings.
+class SmaaPass
+{
+  public:
+    explicit SmaaPass( FullscreenPassResources& fullscreen );
+    void EnsureGpuResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& resources, Rendering::Dx12TextureOwner& textures );
+    void ReleaseGpuResources( Rendering::Dx12TextureOwner& textures );
+    bool Ready() const;
+    void Render( int stage, uint32_t input, uint32_t weights, Rendering::Dx12GeometryOwner& geometry, Rendering::Dx12TextureOwner& textures, Rendering::Dx12FrameOwner& frame, int width, int height );
+
+  private:
+    FullscreenPassResources& m_fullscreen;
+    std::array<std::unique_ptr<Rendering::ShaderDX12>, 3> m_shaders;
+    uint32_t m_area = 0;
+    uint32_t m_search = 0;
+    bool m_disabled = false;
+};
+
 class TonemapPass
 {
   public:
@@ -954,7 +973,8 @@ class TonemapPass
                  Rendering::RenderGpuTimingOwner* gpuTiming,
                  bool sceneAlreadyUnbound,
                  bool volumetricReady,
-                 const Rendering::RenderGraphTextureBinding* graphVolumetric = nullptr );
+                 const Rendering::RenderGraphTextureBinding* graphVolumetric = nullptr,
+                 bool textureOutput = false );
 
   private:
     CinematicScenePassResources& m_sceneResources;

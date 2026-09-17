@@ -51,31 +51,29 @@ const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
         const char* baseName;
     };
 
-    static constexpr BuiltInShaderName builtInShaders[] = {
-        { "shader.lit_textured", "shaders/lit_textured" },
-        { "shader.lit_textured_instanced", "shaders/lit_textured_instanced" },
-        { "shader.unlit_textured", "shaders/unlit_textured" },
-        { "shader.shadow_depth", "shaders/shadow_depth" },
-        { "shader.shadow_depth_instanced", "shaders/shadow_depth_instanced" },
-        { "shader.post_tonemap", "shaders/post_tonemap" },
-        { "shader.post_volumetric_light", "shaders/post_volumetric_light" },
-        { "shader.sky_atmosphere", "shaders/sky_atmosphere" },
-        { "shader.text", "shaders/text" },
-        { "shader.solid_color", "shaders/solid_color" },
-        { "shader.solid_color_batch", "shaders/solid_color_batch" },
-        { "shader.water_calm", "shaders/water_calm" },
-        { "shader.water_ocean", "shaders/water_ocean" },
-        { "shader.collision_visualizer", "shaders/collision_visualizer" },
-        { "shader.grid_line", "shaders/grid_line" },
-        { "shader.soft_additive_ribbon", "shaders/soft_additive_ribbon" },
-        { "shader.retained_ribbon", "shaders/trajectory_ribbon" },
-        { "shader.launcher_laser", "shaders/launcher_laser" },
-        { "shader.transient_colored_triangles", "shaders/transient_colored_triangles" },
-        { "shader.ui_backdrop_blur", "shaders/UIBackdropBlur" },
-        { "shader.ui_render_target_preview", "shaders/ui_render_target_preview" },
-        { "shader.reflect_rt", "shaders/reflect.rt" },
-        { "shader.generate_mips", "shaders/generate_mips" },
-    };
+    static constexpr BuiltInShaderName builtInShaders[] = { { "shader.lit_textured", "shaders/lit_textured" },
+                                                            { "shader.lit_textured_instanced", "shaders/lit_textured_instanced" },
+                                                            { "shader.unlit_textured", "shaders/unlit_textured" },
+                                                            { "shader.shadow_depth", "shaders/shadow_depth" },
+                                                            { "shader.shadow_depth_instanced", "shaders/shadow_depth_instanced" },
+                                                            { "shader.post_tonemap", "shaders/post_tonemap" },
+                                                            { "shader.post_volumetric_light", "shaders/post_volumetric_light" },
+                                                            { "shader.sky_atmosphere", "shaders/sky_atmosphere" },
+                                                            { "shader.text", "shaders/text" },
+                                                            { "shader.solid_color", "shaders/solid_color" },
+                                                            { "shader.solid_color_batch", "shaders/solid_color_batch" },
+                                                            { "shader.water_calm", "shaders/water_calm" },
+                                                            { "shader.water_ocean", "shaders/water_ocean" },
+                                                            { "shader.collision_visualizer", "shaders/collision_visualizer" },
+                                                            { "shader.grid_line", "shaders/grid_line" },
+                                                            { "shader.soft_additive_ribbon", "shaders/soft_additive_ribbon" },
+                                                            { "shader.retained_ribbon", "shaders/trajectory_ribbon" },
+                                                            { "shader.launcher_laser", "shaders/launcher_laser" },
+                                                            { "shader.transient_colored_triangles", "shaders/transient_colored_triangles" },
+                                                            { "shader.ui_backdrop_blur", "shaders/UIBackdropBlur" },
+                                                            { "shader.ui_render_target_preview", "shaders/ui_render_target_preview" },
+                                                            { "shader.reflect_rt", "shaders/reflect.rt" },
+                                                            { "shader.generate_mips", "shaders/generate_mips" }, };
 
     if ( !logicalName || logicalName[0] == '\0' )
     {
@@ -107,8 +105,7 @@ bool EndsWithPathSeparator( const std::string& path )
     return !path.empty() && ( path.back() == '/' || path.back() == '\\' );
 }
 
-ShaderProgramContract BuiltInShaderContract( bool usesTexture, bool usesLighting, bool usesInstancing, bool depthOnly,
-                                             bool postProcess )
+ShaderProgramContract BuiltInShaderContract( bool usesTexture, bool usesLighting, bool usesInstancing, bool depthOnly, bool postProcess )
 {
     ShaderProgramContract result;
     result.usesTexture = usesTexture;
@@ -139,8 +136,7 @@ void AssetSystem::RegisterBuiltInSourceAssets( const SkullbonezCore::Core::Engin
     // are available.
     RegisterTextureSourceAsset( "texture.terrain", config.assetPaths.terrainTexture.c_str(), TEXTURE_GROUND, true, true, 3 );
 
-    RegisterTextureSourceAsset( "texture.sphere", config.assetPaths.sphereTexture.c_str(), TEXTURE_BOUNDING_SPHERE, true,
-                                true, 3 );
+    RegisterTextureSourceAsset( "texture.sphere", config.assetPaths.sphereTexture.c_str(), TEXTURE_BOUNDING_SPHERE, true, true, 3 );
 
     RegisterTextureSourceAsset( "texture.sky.left", config.assetPaths.skyLeft.c_str(), TEXTURE_SKY_LEFT, true, true, 3 );
 
@@ -157,71 +153,53 @@ void AssetSystem::RegisterBuiltInSourceAssets( const SkullbonezCore::Core::Engin
     RegisterAssetLibrarySourceAsset( "assetlib.buildings", "assets/buildings.assets.json" );
     RegisterAssetLibrarySourceAsset( "assetlib.physics_props", "assets/physics_props.assets.json" );
 
-    RegisterShaderSourceAsset( "shader.lit_textured", "shaders/lit_textured", ShaderProgramKind::LitTextured,
-                               BuiltInShaderContract( true, true, false, false, false ) );
+    RegisterShaderSourceAsset( "shader.lit_textured", "shaders/lit_textured", ShaderProgramKind::LitTextured, BuiltInShaderContract( true, true, false, false, false ) );
 
-    RegisterShaderSourceAsset( "shader.lit_textured_instanced", "shaders/lit_textured_instanced",
-                               ShaderProgramKind::LitTextured, BuiltInShaderContract( true, true, true, false, false ) );
+    RegisterShaderSourceAsset( "shader.lit_textured_instanced", "shaders/lit_textured_instanced", ShaderProgramKind::LitTextured, BuiltInShaderContract( true, true, true, false, false ) );
 
-    RegisterShaderSourceAsset( "shader.unlit_textured", "shaders/unlit_textured", ShaderProgramKind::UnlitTextured,
-                               BuiltInShaderContract( true, false, false, false, false ) );
+    RegisterShaderSourceAsset( "shader.unlit_textured", "shaders/unlit_textured", ShaderProgramKind::UnlitTextured, BuiltInShaderContract( true, false, false, false, false ) );
 
-    RegisterShaderSourceAsset( "shader.shadow_depth", "shaders/shadow_depth", ShaderProgramKind::ShadowDepth,
-                               BuiltInShaderContract( false, false, false, true, false ) );
+    RegisterShaderSourceAsset( "shader.shadow_depth", "shaders/shadow_depth", ShaderProgramKind::ShadowDepth, BuiltInShaderContract( false, false, false, true, false ) );
 
-    RegisterShaderSourceAsset( "shader.shadow_depth_instanced", "shaders/shadow_depth_instanced",
-                               ShaderProgramKind::ShadowDepth, BuiltInShaderContract( false, false, true, true, false ) );
+    RegisterShaderSourceAsset( "shader.shadow_depth_instanced", "shaders/shadow_depth_instanced", ShaderProgramKind::ShadowDepth, BuiltInShaderContract( false, false, true, true, false ) );
 
-    RegisterShaderSourceAsset( "shader.post_tonemap", "shaders/post_tonemap", ShaderProgramKind::PostProcess,
-                               BuiltInShaderContract( true, false, false, false, true ) );
+    RegisterShaderSourceAsset( "shader.post_smaa_edges", "shaders/post_smaa_edges", ShaderProgramKind::PostProcess, BuiltInShaderContract( true, false, false, false, true ) );
+    RegisterShaderSourceAsset( "shader.post_smaa_weights", "shaders/post_smaa_weights", ShaderProgramKind::PostProcess, BuiltInShaderContract( true, false, false, false, true ) );
+    RegisterShaderSourceAsset( "shader.post_smaa_blend", "shaders/post_smaa_blend", ShaderProgramKind::PostProcess, BuiltInShaderContract( true, false, false, false, true ) );
 
-    RegisterShaderSourceAsset( "shader.post_volumetric_light", "shaders/post_volumetric_light",
-                               ShaderProgramKind::PostProcess, BuiltInShaderContract( true, false, false, false, true ) );
+    RegisterShaderSourceAsset( "shader.post_tonemap", "shaders/post_tonemap", ShaderProgramKind::PostProcess, BuiltInShaderContract( true, false, false, false, true ) );
 
-    RegisterShaderSourceAsset( "shader.sky_atmosphere", "shaders/sky_atmosphere", ShaderProgramKind::PostProcess,
-                               BuiltInShaderContract( false, false, false, false, true ) );
+    RegisterShaderSourceAsset( "shader.post_volumetric_light", "shaders/post_volumetric_light", ShaderProgramKind::PostProcess, BuiltInShaderContract( true, false, false, false, true ) );
 
-    RegisterShaderSourceAsset( "shader.text", "shaders/text", ShaderProgramKind::Text,
-                               BuiltInShaderContract( true, false, false, false, false ) );
+    RegisterShaderSourceAsset( "shader.sky_atmosphere", "shaders/sky_atmosphere", ShaderProgramKind::PostProcess, BuiltInShaderContract( false, false, false, false, true ) );
 
-    RegisterShaderSourceAsset( "shader.solid_color", "shaders/solid_color", ShaderProgramKind::Text,
-                               BuiltInShaderContract( false, false, false, false, false ) );
+    RegisterShaderSourceAsset( "shader.text", "shaders/text", ShaderProgramKind::Text, BuiltInShaderContract( true, false, false, false, false ) );
 
-    RegisterShaderSourceAsset( "shader.solid_color_batch", "shaders/solid_color_batch", ShaderProgramKind::Text,
-                               BuiltInShaderContract( false, false, false, false, false ) );
+    RegisterShaderSourceAsset( "shader.solid_color", "shaders/solid_color", ShaderProgramKind::Text, BuiltInShaderContract( false, false, false, false, false ) );
 
-    RegisterShaderSourceAsset( "shader.water_calm", "shaders/water_calm", ShaderProgramKind::Water,
-                               BuiltInShaderContract( true, true, false, false, false ) );
+    RegisterShaderSourceAsset( "shader.solid_color_batch", "shaders/solid_color_batch", ShaderProgramKind::Text, BuiltInShaderContract( false, false, false, false, false ) );
 
-    RegisterShaderSourceAsset( "shader.water_ocean", "shaders/water_ocean", ShaderProgramKind::Water,
-                               BuiltInShaderContract( true, true, false, false, false ) );
+    RegisterShaderSourceAsset( "shader.water_calm", "shaders/water_calm", ShaderProgramKind::Water, BuiltInShaderContract( true, true, false, false, false ) );
 
-    RegisterShaderSourceAsset( "shader.collision_visualizer", "shaders/collision_visualizer", ShaderProgramKind::Collision,
-                               BuiltInShaderContract( false, true, true, false, false ) );
+    RegisterShaderSourceAsset( "shader.water_ocean", "shaders/water_ocean", ShaderProgramKind::Water, BuiltInShaderContract( true, true, false, false, false ) );
 
-    RegisterShaderSourceAsset( "shader.grid_line", "shaders/grid_line", ShaderProgramKind::DebugLine,
-                               BuiltInShaderContract( false, false, false, false, false ) );
+    RegisterShaderSourceAsset( "shader.collision_visualizer", "shaders/collision_visualizer", ShaderProgramKind::Collision, BuiltInShaderContract( false, true, true, false, false ) );
 
-    RegisterShaderSourceAsset( "shader.soft_additive_ribbon", "shaders/soft_additive_ribbon", ShaderProgramKind::DebugLine,
-                               BuiltInShaderContract( false, false, false, false, false ) );
+    RegisterShaderSourceAsset( "shader.grid_line", "shaders/grid_line", ShaderProgramKind::DebugLine, BuiltInShaderContract( false, false, false, false, false ) );
 
-    RegisterShaderSourceAsset( "shader.retained_ribbon", "shaders/trajectory_ribbon", ShaderProgramKind::DebugLine,
-                               BuiltInShaderContract( false, false, false, false, false ) );
+    RegisterShaderSourceAsset( "shader.soft_additive_ribbon", "shaders/soft_additive_ribbon", ShaderProgramKind::DebugLine, BuiltInShaderContract( false, false, false, false, false ) );
 
-    RegisterShaderSourceAsset( "shader.launcher_laser", "shaders/launcher_laser", ShaderProgramKind::DebugLine,
-                               BuiltInShaderContract( false, false, false, false, false ) );
+    RegisterShaderSourceAsset( "shader.retained_ribbon", "shaders/trajectory_ribbon", ShaderProgramKind::DebugLine, BuiltInShaderContract( false, false, false, false, false ) );
 
-    RegisterShaderSourceAsset( "shader.transient_colored_triangles", "shaders/transient_colored_triangles",
-                               ShaderProgramKind::DebugLine, BuiltInShaderContract( false, false, false, false, false ) );
+    RegisterShaderSourceAsset( "shader.launcher_laser", "shaders/launcher_laser", ShaderProgramKind::DebugLine, BuiltInShaderContract( false, false, false, false, false ) );
 
-    RegisterShaderSourceAsset( "shader.ui_backdrop_blur", "shaders/UIBackdropBlur", ShaderProgramKind::UI,
-                               BuiltInShaderContract( true, false, false, false, true ) );
+    RegisterShaderSourceAsset( "shader.transient_colored_triangles", "shaders/transient_colored_triangles", ShaderProgramKind::DebugLine, BuiltInShaderContract( false, false, false, false, false ) );
 
-    RegisterShaderSourceAsset( "shader.reflect_rt", "shaders/reflect.rt", ShaderProgramKind::RayTracing,
-                               BuiltInShaderContract( true, false, false, false, false ) );
+    RegisterShaderSourceAsset( "shader.ui_backdrop_blur", "shaders/UIBackdropBlur", ShaderProgramKind::UI, BuiltInShaderContract( true, false, false, false, true ) );
 
-    RegisterShaderSourceAsset( "shader.generate_mips", "shaders/generate_mips", ShaderProgramKind::Compute,
-                               BuiltInShaderContract( true, false, false, false, false ) );
+    RegisterShaderSourceAsset( "shader.reflect_rt", "shaders/reflect.rt", ShaderProgramKind::RayTracing, BuiltInShaderContract( true, false, false, false, false ) );
+
+    RegisterShaderSourceAsset( "shader.generate_mips", "shaders/generate_mips", ShaderProgramKind::Compute, BuiltInShaderContract( true, false, false, false, false ) );
 }
 
 
@@ -242,8 +220,7 @@ std::string AssetSystem::ResolvePath( const char* relativePath ) const
     return EndsWithPathSeparator( m_dataRoot ) ? m_dataRoot + path : m_dataRoot + "/" + path;
 }
 
-const SourceAssetRecord& AssetSystem::RegisterSourceAsset( AssetKind kind, const char* logicalName,
-                                                           const char* relativePath )
+const SourceAssetRecord& AssetSystem::RegisterSourceAsset( AssetKind kind, const char* logicalName, const char* relativePath )
 {
     // Invariant: registration is an engine-owned setup path. Authored asset
     // file failures are recoverable error elsewhere; a blank registry key means the caller
@@ -272,8 +249,7 @@ const SourceAssetRecord& AssetSystem::RegisterSourceAsset( AssetKind kind, const
 
     if ( m_sourceAssets.size() >= SOURCE_ASSET_CAPACITY )
     {
-        SB_FATAL( "AssetSystem", "Source asset registry exhausted. capacity=%zu high_water=%zu phase=registration",
-                  SOURCE_ASSET_CAPACITY, m_sourceAssets.size() );
+        SB_FATAL( "AssetSystem", "Source asset registry exhausted. capacity=%zu high_water=%zu phase=registration", SOURCE_ASSET_CAPACITY, m_sourceAssets.size() );
     }
 
     SourceAssetRecord record;
@@ -295,16 +271,13 @@ std::string AssetSystem::RegisterSourceAssetPath( AssetKind kind, const char* lo
 }
 
 
-const TextureSourceAsset& AssetSystem::RegisterTextureSourceAsset( const char* logicalName, const char* relativePath,
-                                                                   uint32_t legacyHash, bool generateMips, bool linearFilter,
-                                                                   int channelsHint )
+const TextureSourceAsset& AssetSystem::RegisterTextureSourceAsset( const char* logicalName, const char* relativePath, uint32_t legacyHash, bool generateMips, bool linearFilter, int channelsHint )
 {
     const SourceAssetRecord& source = RegisterSourceAsset( AssetKind::Texture2D, logicalName, relativePath );
 
     for ( TextureSourceAsset& texture : m_textureAssets )
     {
-        if ( texture.id == source.id || texture.logicalName == logicalName ||
-             ( legacyHash != 0 && texture.legacyHash == legacyHash ) )
+        if ( texture.id == source.id || texture.logicalName == logicalName || ( legacyHash != 0 && texture.legacyHash == legacyHash ) )
         {
             texture.id = source.id;
             texture.logicalName = logicalName;
@@ -320,8 +293,7 @@ const TextureSourceAsset& AssetSystem::RegisterTextureSourceAsset( const char* l
 
     if ( m_textureAssets.size() >= TEXTURE_ASSET_CAPACITY )
     {
-        SB_FATAL( "AssetSystem", "Texture asset registry exhausted. capacity=%zu high_water=%zu phase=registration",
-                  TEXTURE_ASSET_CAPACITY, m_textureAssets.size() );
+        SB_FATAL( "AssetSystem", "Texture asset registry exhausted. capacity=%zu high_water=%zu phase=registration", TEXTURE_ASSET_CAPACITY, m_textureAssets.size() );
     }
 
     TextureSourceAsset texture;
@@ -362,8 +334,7 @@ const std::vector<TextureSourceAsset>& AssetSystem::GetTextureSourceAssets() con
     return m_textureAssets;
 }
 
-const ShaderSourceAsset& AssetSystem::RegisterShaderSourceAsset( const char* logicalName, const char* baseName,
-                                                                 ShaderProgramKind kind, ShaderProgramContract contract )
+const ShaderSourceAsset& AssetSystem::RegisterShaderSourceAsset( const char* logicalName, const char* baseName, ShaderProgramKind kind, ShaderProgramContract contract )
 {
     const SourceAssetRecord& source = RegisterSourceAsset( AssetKind::ShaderProgram, logicalName, baseName );
 
@@ -383,8 +354,7 @@ const ShaderSourceAsset& AssetSystem::RegisterShaderSourceAsset( const char* log
 
     if ( m_shaderAssets.size() >= SHADER_ASSET_CAPACITY )
     {
-        SB_FATAL( "AssetSystem", "Shader asset registry exhausted. capacity=%zu high_water=%zu phase=registration",
-                  SHADER_ASSET_CAPACITY, m_shaderAssets.size() );
+        SB_FATAL( "AssetSystem", "Shader asset registry exhausted. capacity=%zu high_water=%zu phase=registration", SHADER_ASSET_CAPACITY, m_shaderAssets.size() );
     }
 
     ShaderSourceAsset shader;
@@ -464,8 +434,7 @@ ShaderSourceRequest AssetSystem::ResolveShaderSourceRequest( const char* logical
 }
 
 
-const AssetLibrarySourceAsset& AssetSystem::RegisterAssetLibrarySourceAsset( const char* logicalName,
-                                                                             const char* relativePath )
+const AssetLibrarySourceAsset& AssetSystem::RegisterAssetLibrarySourceAsset( const char* logicalName, const char* relativePath )
 {
     const SourceAssetRecord& source = RegisterSourceAsset( AssetKind::AssetLibrary, logicalName, relativePath );
 
@@ -483,8 +452,7 @@ const AssetLibrarySourceAsset& AssetSystem::RegisterAssetLibrarySourceAsset( con
 
     if ( m_assetLibraryAssets.size() >= ASSET_LIBRARY_CAPACITY )
     {
-        SB_FATAL( "AssetSystem", "Asset-library registry exhausted. capacity=%zu high_water=%zu phase=registration",
-                  ASSET_LIBRARY_CAPACITY, m_assetLibraryAssets.size() );
+        SB_FATAL( "AssetSystem", "Asset-library registry exhausted. capacity=%zu high_water=%zu phase=registration", ASSET_LIBRARY_CAPACITY, m_assetLibraryAssets.size() );
     }
 
     AssetLibrarySourceAsset library;

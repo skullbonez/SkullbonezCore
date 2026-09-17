@@ -1887,6 +1887,563 @@
       }
     },
     {
+      "source": "SkullbonezData/shaders/post_smaa_blend.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_6",
+      "bytecode": "SkullbonezData/shaders/post_smaa_blend.vs.dxil",
+      "dependencies": [
+        "SkullbonezData/shaders/smaa_common.hlsli",
+        "ThirdPtySource/SMAA/SMAA.hlsl"
+      ],
+      "source_sha256": "40409622269d99af39ae97b0d56c25a29f736f418ea97851ff3a72ae56e509f7",
+      "compile_inputs_sha256": "5e5630e7cfa86d05e51a9e3416b02ed5ff39d095cdca746043e1e3fe4e125d83",
+      "bytecode_sha256": "edf3051047bc9c68cc485c04b26c798a0fa43b4401048c6eccc695640b59ad3b",
+      "bytecode_size": 4348,
+      "dependencies_sha256": {
+        "SkullbonezData/shaders/smaa_common.hlsli": "32860ccb8dbe45417d23626600e4ee721bb91a99537a12cf418f945b866a9a85",
+        "ThirdPtySource/SMAA/SMAA.hlsl": "06b71714c2c2f8f1fd6ec8747a9700d6fbfd6d807ece87f0fb874d24b64e9cbc"
+      },
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 16,
+            "fields": [
+              {
+                "type": "float4",
+                "name": "uSmaaMetrics",
+                "offset": 0,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xy",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/post_smaa_blend.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_6",
+      "bytecode": "SkullbonezData/shaders/post_smaa_blend.ps.dxil",
+      "dependencies": [
+        "SkullbonezData/shaders/smaa_common.hlsli",
+        "ThirdPtySource/SMAA/SMAA.hlsl"
+      ],
+      "source_sha256": "40409622269d99af39ae97b0d56c25a29f736f418ea97851ff3a72ae56e509f7",
+      "compile_inputs_sha256": "b8ab9daaafaf5fb72e03f3e8160271f04396d1c652119f4c82f8263d1a274718",
+      "bytecode_sha256": "36cbc334d5155d344822e104e3fac9eb809a8b38952d9228a90d92556a1d2e79",
+      "bytecode_size": 6048,
+      "dependencies_sha256": {
+        "SkullbonezData/shaders/smaa_common.hlsli": "32860ccb8dbe45417d23626600e4ee721bb91a99537a12cf418f945b866a9a85",
+        "ThirdPtySource/SMAA/SMAA.hlsl": "06b71714c2c2f8f1fd6ec8747a9700d6fbfd6d807ece87f0fb874d24b64e9cbc"
+      },
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 16,
+            "fields": [
+              {
+                "type": "float4",
+                "name": "uSmaaMetrics",
+                "offset": 0,
+                "size": 16
+              }
+            ]
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "size": 32,
+            "fields": [
+              {
+                "type": "uint4",
+                "name": "_textureDescriptorIndices0",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "uint2",
+                "name": "_textureDescriptorIndices1",
+                "offset": 16,
+                "size": 8
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "register_class": "b",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "LinearSampler",
+            "register_class": "s",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "sampler",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 2,
+            "mask": "xyzw",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 3,
+            "mask": "xyzw",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 4,
+            "mask": "xyzw",
+            "register": 4,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/post_smaa_edges.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_6",
+      "bytecode": "SkullbonezData/shaders/post_smaa_edges.vs.dxil",
+      "dependencies": [
+        "SkullbonezData/shaders/smaa_common.hlsli",
+        "ThirdPtySource/SMAA/SMAA.hlsl"
+      ],
+      "source_sha256": "709edee5feec1c93c29d469cb0c5d5f8dc4bd9b4559ff7e04f85c99040c4fa10",
+      "compile_inputs_sha256": "ad9f14c3a235dd45947515d114b495a9cea160a51d1edc8ec63af3a21c80fd56",
+      "bytecode_sha256": "7beaba1f6d1b7e62b65260d3e62cfbd362374d4abe48d857b97cbfd2c124cf20",
+      "bytecode_size": 4500,
+      "dependencies_sha256": {
+        "SkullbonezData/shaders/smaa_common.hlsli": "32860ccb8dbe45417d23626600e4ee721bb91a99537a12cf418f945b866a9a85",
+        "ThirdPtySource/SMAA/SMAA.hlsl": "06b71714c2c2f8f1fd6ec8747a9700d6fbfd6d807ece87f0fb874d24b64e9cbc"
+      },
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 16,
+            "fields": [
+              {
+                "type": "float4",
+                "name": "uSmaaMetrics",
+                "offset": 0,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xy",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/post_smaa_edges.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_6",
+      "bytecode": "SkullbonezData/shaders/post_smaa_edges.ps.dxil",
+      "dependencies": [
+        "SkullbonezData/shaders/smaa_common.hlsli",
+        "ThirdPtySource/SMAA/SMAA.hlsl"
+      ],
+      "source_sha256": "709edee5feec1c93c29d469cb0c5d5f8dc4bd9b4559ff7e04f85c99040c4fa10",
+      "compile_inputs_sha256": "0a544f117ad07e668185ee6f19e7f182c0a7afc3b5ce086440c1ae0b5a86aece",
+      "bytecode_sha256": "824d99c891bcdb996c8c159c62a918feec145ecdc4871658c0c1682a67940908",
+      "bytecode_size": 5964,
+      "dependencies_sha256": {
+        "SkullbonezData/shaders/smaa_common.hlsli": "32860ccb8dbe45417d23626600e4ee721bb91a99537a12cf418f945b866a9a85",
+        "ThirdPtySource/SMAA/SMAA.hlsl": "06b71714c2c2f8f1fd6ec8747a9700d6fbfd6d807ece87f0fb874d24b64e9cbc"
+      },
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "BindlessTextureIndices",
+            "size": 32,
+            "fields": [
+              {
+                "type": "uint4",
+                "name": "_textureDescriptorIndices0",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "uint2",
+                "name": "_textureDescriptorIndices1",
+                "offset": 16,
+                "size": 8
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "BindlessTextureIndices",
+            "register_class": "b",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "PointSampler",
+            "register_class": "s",
+            "slot": 3,
+            "space": 0,
+            "count": 1,
+            "type": "sampler",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 2,
+            "mask": "xyzw",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 3,
+            "mask": "xyzw",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 4,
+            "mask": "xyzw",
+            "register": 4,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/post_smaa_weights.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_6",
+      "bytecode": "SkullbonezData/shaders/post_smaa_weights.vs.dxil",
+      "dependencies": [
+        "SkullbonezData/shaders/smaa_common.hlsli",
+        "ThirdPtySource/SMAA/SMAA.hlsl"
+      ],
+      "source_sha256": "d6b918e0de39e1bd5dac602b1042eaebebd241916e9afb524e42675561c72f05",
+      "compile_inputs_sha256": "bf17f4d04a1097e20120914ede3a1509c12f672e7763f435ea181db818d9fae7",
+      "bytecode_sha256": "75d784d9c1842a9df1d9f284a14b192320851c0ad9952ec0d1395c33a442e2b1",
+      "bytecode_size": 4620,
+      "dependencies_sha256": {
+        "SkullbonezData/shaders/smaa_common.hlsli": "32860ccb8dbe45417d23626600e4ee721bb91a99537a12cf418f945b866a9a85",
+        "ThirdPtySource/SMAA/SMAA.hlsl": "06b71714c2c2f8f1fd6ec8747a9700d6fbfd6d807ece87f0fb874d24b64e9cbc"
+      },
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 16,
+            "fields": [
+              {
+                "type": "float4",
+                "name": "uSmaaMetrics",
+                "offset": 0,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xy",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/post_smaa_weights.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_6",
+      "bytecode": "SkullbonezData/shaders/post_smaa_weights.ps.dxil",
+      "dependencies": [
+        "SkullbonezData/shaders/smaa_common.hlsli",
+        "ThirdPtySource/SMAA/SMAA.hlsl"
+      ],
+      "source_sha256": "d6b918e0de39e1bd5dac602b1042eaebebd241916e9afb524e42675561c72f05",
+      "compile_inputs_sha256": "02e047d64e0f527a044eee637aa134e169818f1a4cdbcf3fbbbc955c9385108b",
+      "bytecode_sha256": "a6ff0b8876d0ae2c9016aa537695cb3d9b189aad12784be25d1e23b7ffd4c092",
+      "bytecode_size": 9588,
+      "dependencies_sha256": {
+        "SkullbonezData/shaders/smaa_common.hlsli": "32860ccb8dbe45417d23626600e4ee721bb91a99537a12cf418f945b866a9a85",
+        "ThirdPtySource/SMAA/SMAA.hlsl": "06b71714c2c2f8f1fd6ec8747a9700d6fbfd6d807ece87f0fb874d24b64e9cbc"
+      },
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 16,
+            "fields": [
+              {
+                "type": "float4",
+                "name": "uSmaaMetrics",
+                "offset": 0,
+                "size": 16
+              }
+            ]
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "size": 32,
+            "fields": [
+              {
+                "type": "uint4",
+                "name": "_textureDescriptorIndices0",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "uint2",
+                "name": "_textureDescriptorIndices1",
+                "offset": 16,
+                "size": 8
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "register_class": "b",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "LinearSampler",
+            "register_class": "s",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "sampler",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "zw",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "zw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 2,
+            "mask": "xyzw",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 3,
+            "mask": "xyzw",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 4,
+            "mask": "xyzw",
+            "register": 4,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          }
+        ]
+      }
+    },
+    {
       "source": "SkullbonezData/shaders/post_tonemap.hlsl",
       "entry": "main_vs",
       "stage": "vs",

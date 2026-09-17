@@ -15,3 +15,9 @@ not replace their terms.
 
 The existing checked-in single-file dependencies under `ThirdPtySource` retain
 their own license files and inventory in `ThirdPtySource/README.md`.
+
+## SMAA
+
+SMAA 1x shader and lookup tables by Jorge Jimenez and coauthors, MIT license.
+Source: https://github.com/iryoku/smaa at revision 71c806a838bdd7d517df19192a20f0c61b3ca29d.
+The source (comments normalized to UTF-8 and source line endings to LF), lookup headers and license are in `ThirdPtySource/SMAA/`.
