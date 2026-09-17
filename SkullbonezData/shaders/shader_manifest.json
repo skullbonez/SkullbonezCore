@@ -1214,8 +1214,8 @@
       "dependencies": [
         "SkullbonezData/shaders/split_environment.hlsli"
       ],
-      "source_sha256": "e484058e1dd592ca0c433a21bda6f22efe6b8e8266ceb3e8d02e7a4169d67600",
-      "compile_inputs_sha256": "7b379d661ffbfc6711dc5dd20b2acfdb792348626d4e963b120c0892c836bf01",
+      "source_sha256": "dda4688c2c33be5d56ddc6c016ebf2c7d38d90283f4540fb051a50140eac96ce",
+      "compile_inputs_sha256": "b1047b065f95916ff48b7210ad6757af3867992a4bae69d152a9aca4b6abb838",
       "bytecode_sha256": "765bb64332d5576a41388ed9c29a2308d900211048525917039eb2e177858aa9",
       "bytecode_size": 9972,
       "dependencies_sha256": {
@@ -1444,8 +1444,8 @@
       "dependencies": [
         "SkullbonezData/shaders/split_environment.hlsli"
       ],
-      "source_sha256": "e484058e1dd592ca0c433a21bda6f22efe6b8e8266ceb3e8d02e7a4169d67600",
-      "compile_inputs_sha256": "4452ae1b1b6406e9e1dce6bc155b011b9dccb49b77ea9a50b84ca845b68ff2bc",
+      "source_sha256": "dda4688c2c33be5d56ddc6c016ebf2c7d38d90283f4540fb051a50140eac96ce",
+      "compile_inputs_sha256": "270952c11a38d17d8607381ca341f5698f4e5f122ecb5b470b72066c2af47546",
       "bytecode_sha256": "60fd17b735d2e0a73193d2a2744632d1f3777ddbcf45bf3a30bc1acd4f69881a",
       "bytecode_size": 64764,
       "dependencies_sha256": {
