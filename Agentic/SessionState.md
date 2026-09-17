@@ -6,6 +6,13 @@ Status: CONVEX_HULL CH0-CH6 complete at 7/8; CH7 acceptance pending; portfolio 1
 
 ## Split Future showcase - 2026-09-17
 
+The 200-box ragdoll wall now authors the complete Split Future cinematic block
+by default on `feature/split-future-14-wall-200-style`. Only the cinematic JSON
+member changes; objects, terrain collision, cameras and simulation are equal
+to the prior scene. A fresh Automation launch proves style modes 22/16/14/5,
+212 loaded bodies (including the ragdoll), and pixel-exact F7 off/on restoration.
+Evidence: `TestOutput/skarness/wall-200-split-style/`.
+
 
 Glow follow-up: `feature/split-future-13-glowing-markers` fixes the remaining
 neutral resting outlines and pale outgoing paths in the F7 look. Eight explicit
