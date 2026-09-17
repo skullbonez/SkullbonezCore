@@ -28,7 +28,20 @@ Pixel main_vs(Vertex input, uint vertexId : SV_VertexID)
     float side = cornerIndex == 2 || cornerIndex == 4 || cornerIndex == 5 ? 1.0 : -1.0;
     LineQuad quad = ExpandLineQuad(mul(uViewProj, float4(input.start, 1)),
                                   mul(uViewProj, float4(input.end, 1)),
-                                  float2(endpoint, side), uViewportPixels.xy, uViewportPixels.w > 0.5 ? 3.25 : 0.7);
+                                  float2(endpoint, side), uViewportPixels.xy, uViewportPixels.w > 0.5 ? 5.0 : 0.7);
+    // Invariant: only explicit world-space point records become lights. A
+    // regular edge viewed end-on must not acquire a spurious corner light.
+    if (uViewportPixels.w > 0.5 && all(input.start == input.end))
+    {
+        float4 center = mul(uViewProj, float4(input.start, 1));
+        if (center.w > 0.0001 && center.z >= 0)
+        {
+            quad.coordinate = float2(endpoint * 2 - 1, side) * 5.5;
+            quad.position = center;
+            quad.position.xy += quad.coordinate * float2(2, -2) / max(uViewportPixels.xy, 1) * center.w;
+            quad.segmentLength = 0;
+        }
+    }
     Pixel output;
     output.position = quad.position;
     output.coordinate = quad.coordinate;
@@ -41,17 +54,21 @@ float4 main_ps(Pixel input) : SV_TARGET
     if (uViewportPixels.w < 0.5)
         return float4(input.color, LineCoverage(input.coordinate, input.segmentLength, 0.7) * saturate(uViewportPixels.z));
 
-    // Narrow cores remain legible through tonemapping; the low-energy halo
-    // fades over three pixels rather than widening the apparent wireframe.
-    float core = LineCoverage(input.coordinate, input.segmentLength, 0.48);
-    float2 delta = float2(input.coordinate.x - clamp(input.coordinate.x, 0, input.segmentLength), input.coordinate.y);
-    float halo = exp2(-dot(delta, delta) * 0.65);
-    float chroma = max(input.color.r, max(input.color.g, input.color.b)) - min(input.color.r, min(input.color.g, input.color.b));
-    float resting = 1.0 - smoothstep(0.05, 0.18, chroma);
-    // The pale-cyan ending pose is deliberately quieter than a contact.
+    // Precision uses a saturated cyan palette even for the legacy neutral
+    // resting pose. Intensity, not desaturation, distinguishes later poses.
+    float resting = all(abs(input.color - float3(0.58, 0.58, 0.62)) < 0.015) ? 1.0 : 0.0;
     float horizon = all(abs(input.color - float3(0.45, 0.92, 1.0)) < 0.015) ? 1.0 : 0.0;
     float hint = uViewportPixels.w > 1.5 ? 0.10 : 1.0;
-    float3 color = lerp(input.color, float3(0.025, 0.48, 1.0), saturate((input.color.b - input.color.r) * 3.0));
-    float alpha = (core * lerp(0.70, 0.24, resting) + halo * 0.08 * (1.0 - resting)) * lerp(1.0, 0.38, horizon) * hint * saturate(uViewportPixels.z);
-    return float4(color * lerp(1.9, 0.85, resting), alpha);
+    float cool = saturate((input.color.b - input.color.r) * 3.0 + resting);
+    float3 color = lerp(input.color, float3(0.015, 0.62, 1.0), cool);
+    float poseOpacity = lerp(1.0, 0.68, resting) * lerp(1.0, 0.58, horizon);
+    float2 delta = float2(input.coordinate.x - clamp(input.coordinate.x, 0, input.segmentLength), input.coordinate.y);
+    float distanceSquared = dot(delta, delta);
+    bool isPoint = input.segmentLength == 0;
+    float core = LineCoverage(input.coordinate, input.segmentLength, isPoint ? 1.35 : 0.58);
+    float halo = exp2(-distanceSquared * (isPoint ? 0.18 : 0.24));
+    float alpha = (core * 0.85 + halo * (isPoint ? 0.48 : 0.24)) * poseOpacity * hint * saturate(uViewportPixels.z);
+    float3 emission = color * (isPoint ? 3.8 : 2.4);
+    if (isPoint) emission += core * float3(0.45, 0.65, 0.7);
+    return float4(emission, saturate(alpha));
 }

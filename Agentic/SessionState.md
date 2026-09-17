@@ -6,6 +6,19 @@ Status: CONVEX_HULL CH0-CH6 complete at 7/8; CH7 acceptance pending; portfolio 1
 
 ## Split Future showcase - 2026-09-17
 
+
+Glow follow-up: `feature/split-future-13-glowing-markers` fixes the remaining
+neutral resting outlines and pale outgoing paths in the F7 look. Eight explicit
+point records light the true corners of each box; Plain rendering discards
+these points. The existing bounded line stream owns their storage and its box
+capacity check includes all 20 records. Sphere samples do not receive lights.
+Native regression: `tools/validate_split_future_lines.py` verifies selected and
+submitted target identity, complete prediction, exact corner adjacency, fixed
+storage, long-horizon resting markers, camera rotation and resize. Evidence:
+`TestOutput/skarness/glowing-markers-regression-2/`. A separate before/after
+comparison preserves all existing trajectory records and outline edge bytes.
+
+
 F7 follow-up: `feature/split-future-12-f7-toggle`. F7 globally toggles the live
 Split Future look without changing scene files or render defaults. Its renderer
 policy survives scene loads and R, restores other scenes exactly on disable,

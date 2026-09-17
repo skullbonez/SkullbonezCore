@@ -189,14 +189,17 @@ float4 main_ps( VS_OUT input ) : SV_TARGET
                                            halfWidthPixels + aaPixels * 0.5, distancePixels );
     if ( uRibbonStyle.w > 0.5 )
     {
-        const float halo = exp2( -distancePixels * distancePixels * 0.55 );
+        const float halo = exp2( -distancePixels * distancePixels * 0.24 );
         float3 color = input.color.rgb;
-        // Only remap the categorical root lane. Velocity/time/object palettes
-        // retain their data colours, including their existing selection emphasis.
+        // The default root remains gold and its outgoing child stays cyan;
+        // the old pastel child washed out to grey after compositing.
         const bool rootLane = all( abs( color - float3( 0.46, 0.96, 0.88 ) ) < 0.015 );
-        if ( rootLane ) color = float3( 1.0, 0.52, 0.08 );
+        const bool outgoingLane = all( abs( color - float3( 0.58, 0.68, 1.0 ) ) < 0.015 );
+        const bool baselineLane = all( abs( color - float3( 0.34, 0.82, 0.95 ) ) < 0.015 );
+        if ( rootLane ) color = float3( 1.0, 0.52, 0.035 );
+        if ( outgoingLane || baselineLane ) color = float3( 0.015, 0.62, 1.0 );
         const float emphasis = saturate( input.style.y );
-        const float alpha = input.color.a * max( uRibbonStyle.x, 0.0 ) * ( coverage * 0.88 + halo * lerp( 0.06, 0.15, emphasis ) );
+        const float alpha = input.color.a * max( uRibbonStyle.x, 0.0 ) * ( coverage * 0.88 + halo * lerp( 0.22, 0.32, emphasis ) );
         clip( alpha - 0.001 );
         return float4( color * max( uRibbonStyle.y, 0.0 ) * lerp( 1.65, 2.50, emphasis ), saturate( alpha ) );
     }
