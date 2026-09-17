@@ -2265,7 +2265,8 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
                                             terrainShadowFrame,
                                             terrainDetailShadowFrame,
                                             m_resources.PrimitiveBatches().GetClipPlane(),
-                                            policy.terrainHidden };
+                                            policy.terrainHidden,
+                                            policy.proceduralTurf };
 
     ExecuteTerrainThroughRenderGraph( { terrainInputs, useCinematicTarget } );
 

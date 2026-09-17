@@ -67,6 +67,7 @@ Related:
 
 #pragma pack_matrix(column_major)
 #include "split_environment.hlsli"
+#include "procedural_turf.hlsli"
 
 // Constant buffer: all uniform data for this shader, uploaded by the CPU once per draw.
 // register(b0) = bind to constant buffer slot 0.
@@ -86,7 +87,7 @@ cbuffer Uniforms : register(b0)
     float4   uStyleModes;       // cinematic flag, terrain, object, water
     float4   uTerrainTint;      // rgb tint
     float4   uTerrainAccent;    // rgb accent
-    float4   uTerrainGrid;      // scale, strength, unused, unused
+    float4   uTerrainGrid;      // scale, strength, procedural turf, unused
     float4x4 uShadowViewProj;
     float4   uShadowParams;     // strength, depth bias, slope bias, texel step
     float4   uShadowFlags;      // enabled, receive, pcf radius, zero-to-one depth
@@ -445,6 +446,19 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float3 R = reflect(-L, N);
     float spec = pow(max(dot(V, R), 0.0), 64.0);
     float3 specular = uLightDiffuse.rgb * spec * 0.1;
+
+    if (uTerrainGrid.z > 0.5)
+    {
+        // The base retains fine fibres at a distance; pixel derivatives remove
+        // subpixel noise before it can shimmer. Ordinary shadow receivers stay live.
+        float2 p = input.worldPos.xz;
+        float detail = 1.0 - saturate(max(length(ddx(p)), length(ddy(p))) * 30.0);
+        float grain = lerp(1.0, 0.82 + TurfHash(floor(p * 35.0)) * 0.32, detail);
+        float shadow = ShadowVisibility(input.worldPos, N, L);
+        float3 tint = TurfLightTint(uLightDiffuse.rgb * 0.6 + uLightAmbient.a * 0.4);
+        float3 color = TurfColor(p) * grain * tint * (lerp(0.94, 1.22, 1.0 - detail) + 0.14 * diff) * lerp(0.55, 1.0, shadow);
+        return float4(color, 1.0);
+    }
 
     // Sample the base color texture through the shader's bound sampler.
     float4 texColor = primaryTexture.Sample(sSampler0, input.texCoord);

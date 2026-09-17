@@ -1370,7 +1370,8 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
                                 TERRAIN_RASTER,
                                 inputs.cinematic,
                                 inputs.shadow,
-                                inputs.detailShadow );
+                                inputs.detailShadow,
+                                inputs.proceduralTurf );
     }
 
     PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/Terrain" );

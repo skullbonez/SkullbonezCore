@@ -280,6 +280,7 @@ struct TerrainPassInputs
     const Rendering::ShadowFrameData* detailShadow;
     const float* clipPlane = nullptr; // Borrowed from PrimitiveBatchRenderer for this terrain draw.
     bool terrainHidden;               // Frame snapshot of the debug/scene visibility flag.
+    bool proceduralTurf = false;      // Ground colour stays coherent when blade LOD fades out.
 };
 
 struct ReflectionPassInputs

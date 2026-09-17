@@ -209,7 +209,8 @@ class Terrain
                  const Rendering::PassRasterStateBucket& rasterState,
                  const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                  const Rendering::ShadowFrameData* shadow = nullptr,
-                 const Rendering::ShadowFrameData* detailShadow = nullptr ); // Terrain color pass with optional broad and tight shadow inputs.
+                 const Rendering::ShadowFrameData* detailShadow = nullptr,
+                 bool proceduralTurf = false ); // Terrain color pass with optional broad and tight shadow inputs.
     void RenderShadowDepth( Core::Profiler* profiler,
                             const Math::Transformation::Matrix4& lightView,
                             const Math::Transformation::Matrix4& lightProjection,

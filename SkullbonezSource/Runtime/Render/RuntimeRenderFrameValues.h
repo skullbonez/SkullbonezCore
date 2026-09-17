@@ -102,6 +102,7 @@ struct RuntimeRenderFramePolicy
     // from which these facts were derived.
     bool textOnly = false;
     bool terrainHidden = false;
+    bool proceduralTurf = false;
     bool grassEnabled = false;
     bool grassHistoryAvailable = true;
     bool grassHistorical = false;

@@ -422,7 +422,7 @@ void GrassPresentation::AppendPatch( Geometry::Terrain& terrain, int x, int z, f
                                                    1,
                                                    0,
                                                    m_settings.height,
-                                                   .018f,
+                                                   .020f,
                                                    coverage * m_settings.density * ( m_settings.quality < 1.5f ? .5f : 1.0f ),
                                                    m_lightDirection.x,
                                                    m_lightDirection.y,

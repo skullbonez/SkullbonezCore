@@ -1,6 +1,7 @@
 // One instance is a rooted surface patch. Its four world-field samples are
-// bilinearly interpolated on the GPU; eight segmented blades share the patch.
+// bilinearly interpolated on the GPU; eight rooted crowns each carry eight leaves.
 #pragma pack_matrix(column_major)
+#include "procedural_turf.hlsli"
 cbuffer Uniforms : register(b0)
 {
     float4x4 uViewProj;
@@ -34,14 +35,16 @@ uint Hash(uint value)
 float Random01(uint value) { return (Hash(value) & 65535u) / 65535.0; }
 VS_OUT main_vs(VS_IN input, uint vertexId : SV_VertexID)
 {
-    uint blade = vertexId / 18;
+    uint leaf = vertexId / 18;
+    uint blade = leaf / 8;
+    uint fan = leaf % 8;
     uint segment = (vertexId % 18) / 6;
     uint corner = vertexId % 6;
     float endpoint = (corner == 2 || corner == 4 || corner == 5) ? 1.0 : 0.0;
     float side = (corner == 1 || corner == 2 || corner == 4) ? 1.0 : -1.0;
     float t = (segment + endpoint) / 3.0;
     uint seed = Hash(asuint(input.root.x) ^ Hash(asuint(input.root.z)) ^ (blade * 131u));
-    float2 uv = float2(Random01(seed), Random01(seed + 17u));
+    float2 uv = (float2(blade & 3u, blade >> 2u) + 0.1 + 0.8 * float2(Random01(seed), Random01(seed + 17u))) / float2(4,2);
     float3 normal = normalize(input.normalAndSpacing.xyz);
     float3 tangent = normalize(float3(1,0,0) - normal * normal.x);
     float3 bitangent = cross(tangent, normal);
@@ -52,27 +55,31 @@ VS_OUT main_vs(VS_IN input, uint vertexId : SV_VertexID)
     float3 root = float3(input.root.x+horizontalOffset.x,rootY,input.root.z+horizontalOffset.y);
     float compression = lerp(lerp(input.compression.x, input.compression.y, uv.x),
                              lerp(input.compression.z, input.compression.w, uv.x), uv.y);
-    float angle = Random01(seed + 47u) * 6.2831853;
+    uint leafSeed = Hash(seed + fan * 977u);
+    float angle = (fan + Random01(seed + 47u)) * 0.78539816;
     float3 across = tangent * cos(angle) + bitangent * sin(angle);
     float3 direction = float3(input.bend.x, 0, input.bend.y);
     direction -= normal * dot(direction, normal);
     float coverage = saturate(input.shape.z * 8.0 - blade);
-    float height = input.shape.x * (0.75 + Random01(seed + 83u) * 0.5) * coverage;
+    float height = input.shape.x * (0.78 + Random01(leafSeed + 83u) * 0.35) * coverage;
     // Quadratic tip displacement keeps roots fixed and creates a curved blade.
     float3 curve = normal * (height * t * (1.0 - 0.88 * compression * t));
     curve += direction * (height * compression * t * t * 0.95);
-    curve += (tangent*sin(angle)+bitangent*cos(angle)) * height * .22 * t*t * (1.0-compression);
-    float width = input.shape.y * (1.0 - t * 0.92) * coverage;
+    float3 naturalLean = (tangent*sin(angle)+bitangent*cos(angle)) * .30;
+    naturalLean += tangent * (TurfMowBand(root.xz) * 2.0 - 1.0) * .07;
+    curve += naturalLean * height * t*t * (1.0-compression);
+    float width = input.shape.y * (1.0 - t * 0.78) * coverage;
     float3 position = root + curve + across * side * width;
     float3 derivative = normal * (1.0 - 1.76 * compression * t) + direction * (1.9 * compression * t);
+    derivative += naturalLean * (2.0 * t * (1.0-compression));
     float3 normalCross = cross(across, derivative);
     float normalLengthSquared = dot(normalCross,normalCross);
     float3 deformedNormal = normalLengthSquared > 1e-10 ? normalCross * rsqrt(max(normalLengthSquared,1e-10)) : normal;
-    float lighting = 0.38 + 0.62 * abs(dot(deformedNormal, normalize(input.light)));
+    float lighting = 0.70 + 0.30 * abs(dot(deformedNormal, normalize(input.light)));
     VS_OUT output;
     output.position = mul(uViewProj, float4(position, 1.0));
-    output.color = lerp(float3(0.055,0.13,0.028), float3(0.27,0.46,0.095), t) * lighting;
-    output.color *= (0.85 + Random01(seed + 101u) * 0.3) * input.lightTint;
+    output.color = TurfColor(root.xz) * lerp(0.38, 1.28, sqrt(t)) * lighting;
+    output.color *= (0.86 + Random01(leafSeed + 101u) * 0.28) * TurfLightTint(input.lightTint);
     output.coverage = coverage;
     return output;
 }

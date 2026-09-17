@@ -658,7 +658,8 @@ void Terrain::Render( const Matrix4& view,
                       const Rendering::PassRasterStateBucket& rasterState,
                       const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride,
                       const ShadowFrameData* shadow,
-                      const ShadowFrameData* detailShadow )
+                      const ShadowFrameData* detailShadow,
+                      bool proceduralTurf )
 {
     RequireClipPlane( clipPlane );
 
@@ -708,7 +709,7 @@ void Terrain::Render( const Matrix4& view,
 
         m_terrainShader->SetVec4( "uTerrainAccent", cinematic.terrainAccentR, cinematic.terrainAccentG, cinematic.terrainAccentB, 1.0f );
 
-        m_terrainShader->SetVec4( "uTerrainGrid", cinematic.terrainGridScale, cinematic.terrainGridStrength, 0.0f, 0.0f );
+        m_terrainShader->SetVec4( "uTerrainGrid", cinematic.terrainGridScale, cinematic.terrainGridStrength, proceduralTurf ? 1.0f : 0.0f, 0.0f );
     }
     else
     {
@@ -725,7 +726,7 @@ void Terrain::Render( const Matrix4& view,
         m_terrainShader->SetVec4( "uStyleModes", 0.0f, 0.0f, 0.0f, 1.0f );
         m_terrainShader->SetVec4( "uTerrainTint", 0.78f, 0.60f, 0.38f, 1.0f );
         m_terrainShader->SetVec4( "uTerrainAccent", 0.20f, 0.09f, 0.02f, 0.0f );
-        m_terrainShader->SetVec4( "uTerrainGrid", 46.0f, 0.0f, 0.0f, 0.0f );
+        m_terrainShader->SetVec4( "uTerrainGrid", 46.0f, 0.0f, proceduralTurf ? 1.0f : 0.0f, 0.0f );
     }
 
     m_terrainShader->SetVec4( "uLightPosition", lx, ly, lz, lightPosition[3] );

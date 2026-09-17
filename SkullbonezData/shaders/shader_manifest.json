@@ -758,13 +758,15 @@
       "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/lit_textured.vs.dxil",
       "dependencies": [
+        "SkullbonezData/shaders/procedural_turf.hlsli",
         "SkullbonezData/shaders/split_environment.hlsli"
       ],
-      "source_sha256": "b2f0da1c7fe985558bae8788ac1af96dcc946d43e0f9c90c9729deef234bfc80",
-      "compile_inputs_sha256": "4d213dd24d7bb0bba08f7eb3deb8940a8fd829fde89f431b04d4d89d19d14a3b",
+      "source_sha256": "bc18abc3bc0f41c696584d5e313b20cbe08723fa76d76490499a1ae0b1d67f80",
+      "compile_inputs_sha256": "094c1e0f19166198b56c77d015aa26e857e0ea965a56749369dc235c7823524f",
       "bytecode_sha256": "0de6aabe60437e59e2c4df1d77a1c38934c81063d053cc717b3c2b6800476a84",
       "bytecode_size": 9864,
       "dependencies_sha256": {
+        "SkullbonezData/shaders/procedural_turf.hlsli": "7e945c9594f31c997559c4dd7b2674b8b76db86a475f8243239c3b26148b7ebf",
         "SkullbonezData/shaders/split_environment.hlsli": "3647db51b3cc332c79936688cdecae2329eb08d8c2485f475ccda0be3007bc6f"
       },
       "reflection": {
@@ -952,13 +954,15 @@
       "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/lit_textured.ps.dxil",
       "dependencies": [
+        "SkullbonezData/shaders/procedural_turf.hlsli",
         "SkullbonezData/shaders/split_environment.hlsli"
       ],
-      "source_sha256": "b2f0da1c7fe985558bae8788ac1af96dcc946d43e0f9c90c9729deef234bfc80",
-      "compile_inputs_sha256": "e0cebe75c32ce603b3f21b55bab15822484cf3aff4a85d55ffafbcc335e50140",
-      "bytecode_sha256": "f31e33129e0c8de1dbc0ee91bf5cccd907bfdf5f70af4a0252e0be59fa58ec86",
-      "bytecode_size": 65400,
+      "source_sha256": "bc18abc3bc0f41c696584d5e313b20cbe08723fa76d76490499a1ae0b1d67f80",
+      "compile_inputs_sha256": "b65800b4554ed311066852dbc79be4b7e079fd7478fb7519e012cfcf5608d1b7",
+      "bytecode_sha256": "e969e77a4ef79a802ef8476d7691e95a42409041338ac1acb3cefa474f5c6d57",
+      "bytecode_size": 70444,
       "dependencies_sha256": {
+        "SkullbonezData/shaders/procedural_turf.hlsli": "7e945c9594f31c997559c4dd7b2674b8b76db86a475f8243239c3b26148b7ebf",
         "SkullbonezData/shaders/split_environment.hlsli": "3647db51b3cc332c79936688cdecae2329eb08d8c2485f475ccda0be3007bc6f"
       },
       "reflection": {
@@ -3693,12 +3697,16 @@
       "stage": "vs",
       "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/surface_blades.vs.dxil",
-      "dependencies": [],
-      "source_sha256": "312a16518c6cea2d6385dc3e7649691ef27004ccf790dae97df9b498c6c019a7",
-      "compile_inputs_sha256": "f7316c0796be5d1f7f45d96d7c05eca296dfeb8abebeb97759bb85a8d526388a",
-      "bytecode_sha256": "96d483f40eb57e113bfb98cf7268fd2cee117bc776f89cd6da061102b1c61859",
-      "bytecode_size": 7896,
-      "dependencies_sha256": {},
+      "dependencies": [
+        "SkullbonezData/shaders/procedural_turf.hlsli"
+      ],
+      "source_sha256": "4cb642fa7196c85e15e16171c0a7cbf6dbde4f44ff6396bc54b4169b60dcd4ab",
+      "compile_inputs_sha256": "42862a0f508682346e73832ed7395219dd14cf4248884b321026985b36496c51",
+      "bytecode_sha256": "01324c47603408a3dae71372c9a9f335a8f2e7a20228b9524ab84c6620009219",
+      "bytecode_size": 8736,
+      "dependencies_sha256": {
+        "SkullbonezData/shaders/procedural_turf.hlsli": "7e945c9594f31c997559c4dd7b2674b8b76db86a475f8243239c3b26148b7ebf"
+      },
       "reflection": {
         "cbuffers": [
           {
@@ -3826,12 +3834,16 @@
       "stage": "ps",
       "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/surface_blades.ps.dxil",
-      "dependencies": [],
-      "source_sha256": "312a16518c6cea2d6385dc3e7649691ef27004ccf790dae97df9b498c6c019a7",
-      "compile_inputs_sha256": "b2b1a7537eb70653101c80306712c234d4de571a46c9916e9a2178662afecbf9",
+      "dependencies": [
+        "SkullbonezData/shaders/procedural_turf.hlsli"
+      ],
+      "source_sha256": "4cb642fa7196c85e15e16171c0a7cbf6dbde4f44ff6396bc54b4169b60dcd4ab",
+      "compile_inputs_sha256": "8080efdfd87c039d053bce8e28662088d47090b198f76196305049000958cbc8",
       "bytecode_sha256": "c7ac38fac22e4d33bbf787f685eba38113ba3c7640e53c98c469e627f636e627",
       "bytecode_size": 3232,
-      "dependencies_sha256": {},
+      "dependencies_sha256": {
+        "SkullbonezData/shaders/procedural_turf.hlsli": "7e945c9594f31c997559c4dd7b2674b8b76db86a475f8243239c3b26148b7ebf"
+      },
       "reflection": {
         "cbuffers": [],
         "resources": [],

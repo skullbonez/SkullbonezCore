@@ -26,7 +26,8 @@ inline uint32_t GrassPlacementHash( uint32_t value ) noexcept
 inline std::array<float, 2> GrassBladeUv( float x, float z, uint32_t blade ) noexcept
 {
     const uint32_t seed = GrassPlacementHash( std::bit_cast<uint32_t>( x ) ^ GrassPlacementHash( std::bit_cast<uint32_t>( z ) ) ^ ( blade * 131u ) );
-    return { ( GrassPlacementHash( seed ) & 65535u ) / 65535.0f, ( GrassPlacementHash( seed + 17u ) & 65535u ) / 65535.0f };
+    // Stratified crowns avoid bare random gaps while retaining world-fixed jitter.
+    return { ( ( blade & 3u ) + .1f + .8f * ( GrassPlacementHash( seed ) & 65535u ) / 65535.0f ) / 4.0f, ( ( blade >> 2u ) + .1f + .8f * ( GrassPlacementHash( seed + 17u ) & 65535u ) / 65535.0f ) / 2.0f };
 }
 
 enum class GrassFootprintShape : uint8_t
