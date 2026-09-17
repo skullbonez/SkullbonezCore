@@ -380,6 +380,10 @@ void OperatorCommandTransaction::ApplyRuntimePresentation( OverlayDebugState& de
         debug.gravityField.color = std::clamp( sceneOptions.requestedGravityFieldColor, 0, 2 );
     }
 
+    if ( sceneOptions.toggleGravityFieldSnap )
+    {
+        debug.gravityField.snapBalls = !debug.gravityField.snapBalls;
+    }
     if ( sceneOptions.toggleGravityGrid )
     {
         debug.isGravityGridVisible = !debug.isGravityGridVisible;

@@ -319,6 +319,7 @@ struct UISceneOptionCommands
     bool toggleWaterFlat = false;
     bool toggleShadows = false;
     bool toggleGravityGrid = false;
+    bool toggleGravityFieldSnap = false;
     bool requestGravityFieldHeight = false;
     float gravityFieldHeight = 0.0f;
     float requestedGravityFieldOpacity = -1.0f;

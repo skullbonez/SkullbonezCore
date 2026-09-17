@@ -199,6 +199,7 @@ struct UIOptionsTabFrameView
     float gravityFieldHeight = 0.0f;
     float gravityFieldOpacity = 1.0f;
     int gravityFieldColor = 0;
+    bool gravityFieldSnapBalls = false;
 };
 
 // Invariant: the Physics presenter borrows diagnostics and value snapshots
@@ -441,6 +442,7 @@ struct UIFrameWorldData
     float gravityFieldHeight = 0.0f;
     float gravityFieldOpacity = 1.0f;
     int gravityFieldColor = 0;
+    bool gravityFieldSnapBalls = false;
     bool waterNoReflect = false;
     bool waterRTReflect = false;
 };

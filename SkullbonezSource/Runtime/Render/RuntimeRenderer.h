@@ -186,7 +186,7 @@ class RuntimeRenderer
     // Runs after Core FrameBegin and before draw-call counters reset. This
     // reads completed GPU samples and publishes the preceding render counters.
     void BeginProfilerFrame();
-    void UpdateGravityField( const RuntimeRenderDebugViews& debug, const RuntimeRenderFramePolicy& policy );
+    void UpdateGravityField( Rendering::RenderInstanceStore& instances, const RuntimeRenderDebugViews& debug, const RuntimeRenderFramePolicy& policy );
     void UpdateDebugVisualizers( float secondsPerFrame, const RuntimeRenderDebugViews& debug, const RuntimeRenderFramePolicy& policy );
 
     const RenderPresentationSettings& PresentationSettings() const
@@ -197,6 +197,10 @@ class RuntimeRenderer
     // Replaces the complete renderer-owned presentation policy during an
     // explicit scene-reset transaction; ordinary callers use the named commands.
     void RestorePresentationSettings( const RenderPresentationSettings& settings );
+    const GravityGridVisualizer& GravityField() const
+    {
+        return m_gravityGrid;
+    }
     std::size_t GravityGridVertexCount() const
     {
         return m_gravityGrid.Lines().size() / 6;

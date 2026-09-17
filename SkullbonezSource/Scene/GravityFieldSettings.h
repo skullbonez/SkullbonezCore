@@ -6,6 +6,7 @@ struct GravityFieldSettings
 {
     float height = 0.0f;
     float opacity = 1.0f;
-    int color = 0; // Blue, orange, grey.
+    int color = 0;          // Blue, orange, grey.
+    bool snapBalls = false; // Presentation only; never constrains the solver.
 };
 } // namespace SkullbonezCore::Scene

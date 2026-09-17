@@ -651,6 +651,7 @@ void ProjectOperatorUiSettings( UI::InGameUIFrameData& UIData, const OperatorUiS
     UIData.world.gravityFieldHeight = facts.gravityFieldHeight;
     UIData.world.gravityFieldOpacity = facts.gravityFieldOpacity;
     UIData.world.gravityFieldColor = facts.gravityFieldColor;
+    UIData.world.gravityFieldSnapBalls = facts.gravityFieldSnapBalls;
     UIData.world.waterNoReflect = facts.waterNoReflect;
     UIData.world.waterRTReflect = facts.waterRtReflect;
     UIData.rendering.cinematicRendering = facts.cinematicRendering;

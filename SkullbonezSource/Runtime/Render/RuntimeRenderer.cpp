@@ -1343,7 +1343,7 @@ RuntimeRenderer::BuildDebugOverlaySnapshot( RuntimeRenderWorldExtensionDebugView
     DebugOverlaySnapshot snapshot;
     snapshot.broadphaseOverlayVisible = policy.broadphaseOverlay;
     snapshot.worldExtensionDebugLines = worldExtensionDebug.lines;
-    snapshot.gravityGridLines = m_gravityGrid.Lines();
+    snapshot.gravityGridLines = policy.gravityGrid ? m_gravityGrid.Lines() : std::span<const float>();
     snapshot.gravityGridOpacity = policy.gravityField.opacity;
     snapshot.physicsDebugFlags = policy.physicsDebugFlags;
     snapshot.physicsDebugPipelineStageCursor = policy.physicsDebugPipelineStageCursor;
@@ -2467,12 +2467,13 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::BeginWorldFrame( const
     return RenderWorldFrame( world );
 }
 
-void RuntimeRenderer::UpdateGravityField( const RuntimeRenderDebugViews& debug, const RuntimeRenderFramePolicy& policy )
+void RuntimeRenderer::UpdateGravityField( Rendering::RenderInstanceStore& instances, const RuntimeRenderDebugViews& debug, const RuntimeRenderFramePolicy& policy )
 {
     PROFILE_BEGIN( "Frame/Render/GravityGrid" );
-    if ( policy.gravityGrid )
+    if ( policy.gravityGrid || policy.gravityField.snapBalls )
     {
-        m_gravityGrid.UpdatePresented( debug.physics.bodyStore, debug.collision.renderInstances.Records(), m_world.GetMutualGravitySettings(), policy.gravityField );
+        m_gravityGrid.UpdatePresented( debug.physics.bodyStore, instances.Records(), m_world.GetMutualGravitySettings(), policy.gravityField );
+        m_gravityGrid.SnapSpheres( instances );
     }
     else
     {

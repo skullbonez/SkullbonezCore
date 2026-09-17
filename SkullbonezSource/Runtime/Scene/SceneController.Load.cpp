@@ -1542,12 +1542,15 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
 
     root["format"] = "skullbonez.scene.json";
     root["version"] = 1;
-    Json& simulation = EnsureJsonObject( root, "simulation" );
-    Json& playback = EnsureJsonObject( root, "playback" );
-    Json& runtime = EnsureJsonObject( root, "runtime" );
-    Json& debug = EnsureJsonObject( root, "debug" );
-    Json& physicsDebug = EnsureJsonObject( debug, "physics" );
-    Json& world = EnsureJsonObject( simulation, "world" );
+    // Lifetime: ordered_json stores object members in a vector. Inserting a
+    // sibling can invalidate borrowed child references, including world when
+    // simulation gains seed/timeScale. Own edited sections until publication.
+    Json simulation = std::move( EnsureJsonObject( root, "simulation" ) );
+    Json playback = std::move( EnsureJsonObject( root, "playback" ) );
+    Json runtime = std::move( EnsureJsonObject( root, "runtime" ) );
+    Json debug = std::move( EnsureJsonObject( root, "debug" ) );
+    Json physicsDebug = std::move( EnsureJsonObject( debug, "physics" ) );
+    Json world = std::move( EnsureJsonObject( simulation, "world" ) );
 
     simulation["physics"] = State().isScenePhysics;
     simulation["text"] = State().isSceneText;
@@ -1584,7 +1587,10 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
     debug["waterFlat"] = snapshot.presentation.waterFlat;
     debug["waterHidden"] = snapshot.presentation.waterHidden;
     debug["terrainHidden"] = snapshot.presentation.terrainHidden;
-    debug["gravityField"] = { { "height", snapshot.presentation.gravityField.height }, { "opacity", snapshot.presentation.gravityField.opacity }, { "color", snapshot.presentation.gravityField.color == 1 ? "orange" : snapshot.presentation.gravityField.color == 2 ? "grey" : "blue" } };
+    debug["gravityField"] = { { "snapBalls", snapshot.presentation.gravityField.snapBalls },
+                              { "height", snapshot.presentation.gravityField.height },
+                              { "opacity", snapshot.presentation.gravityField.opacity },
+                              { "color", snapshot.presentation.gravityField.color == 1 ? "orange" : snapshot.presentation.gravityField.color == 2 ? "grey" : "blue" } };
     debug["waterReflection"] = WaterReflectionJsonValue( snapshot.presentation.waterNoReflect, snapshot.presentation.waterRtReflect );
 
     if ( snapshot.camera.writeTrackHeight )
@@ -1634,6 +1640,13 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
         simulation["solverBalls"] = State().solverBallCount;
         simulation["solverBoxes"] = State().solverBoxCount;
     }
+
+    simulation["world"] = std::move( world );
+    debug["physics"] = std::move( physicsDebug );
+    root["simulation"] = std::move( simulation );
+    root["playback"] = std::move( playback );
+    root["runtime"] = std::move( runtime );
+    root["debug"] = std::move( debug );
 
     std::ofstream output( *scenePath, std::ios::trunc );
 

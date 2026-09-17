@@ -162,13 +162,14 @@ TEST_CASE( "Scene save owners publish every session and presentation field" )
     OverlayDebugState presentation;
     presentation.isWaterHidden = true;
     presentation.isTerrainHidden = true;
-    presentation.gravityField = { 75.0f, 0.35f, 2 };
+    presentation.gravityField = { 75.0f, 0.35f, 2, true };
     const PresentationSaveState presentationSave = presentation.GetSaveState();
     CHECK( presentationSave.waterHidden );
     CHECK( presentationSave.terrainHidden );
     CHECK( presentationSave.gravityField.height == 75.0f );
     CHECK( presentationSave.gravityField.opacity == 0.35f );
     CHECK( presentationSave.gravityField.color == 2 );
+    CHECK( presentationSave.gravityField.snapBalls );
 }
 
 
@@ -186,6 +187,7 @@ void CheckCompleteOwnerPublication( const char* path, const SceneWorldSaveState&
     CHECK( saved.GetGravityFieldSettings().height == presentation.gravityField.height );
     CHECK( saved.GetGravityFieldSettings().opacity == presentation.gravityField.opacity );
     CHECK( saved.GetGravityFieldSettings().color == presentation.gravityField.color );
+    CHECK( saved.GetGravityFieldSettings().snapBalls == presentation.gravityField.snapBalls );
     CHECK( saved.HasFlatSlope() == session.hasFlatSlope );
     CHECK( saved.GetFlatBaseY() == doctest::Approx( session.flatBaseY ) );
     CHECK( saved.GetFlatSlopeX() == doctest::Approx( session.flatSlopeX ) );
@@ -292,7 +294,7 @@ TEST_CASE( "Scene save entry policies serialize complete owner publications" )
     OverlayDebugState presentationOwner;
     presentationOwner.isWaterHidden = true;
     presentationOwner.isTerrainHidden = true;
-    presentationOwner.gravityField = { -45.0f, 0.42f, 1 };
+    presentationOwner.gravityField = { -45.0f, 0.42f, 1, true };
     const PresentationSaveState presentation = presentationOwner.GetSaveState();
 
     SUBCASE( "editor hotkey policy selects a numbered path and writes every owner value" )

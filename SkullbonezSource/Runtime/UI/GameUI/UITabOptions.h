@@ -40,7 +40,7 @@ constexpr int SLIDER_FIELD_OPACITY = 4;
 
 struct UIOptionsTabState
 {
-    UICheckBox toggles[7];
+    UICheckBox toggles[8];
     UISlider timeScaleSlider;
     UISlider modelCountSlider;
     UISlider fieldHeightSlider;

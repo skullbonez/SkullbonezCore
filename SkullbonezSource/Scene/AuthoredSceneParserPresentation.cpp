@@ -160,6 +160,10 @@ void AuthoredSceneParser::ApplyDebug( const Json& debug, const std::string& path
         {
             Fail( path, "gravity field height must be -1000..1000 and opacity 0..1" );
         }
+        if ( const Json* snap = FindMember( *field, "snapBalls" ) )
+        {
+            settings.snapBalls = ReadBool( *snap, path, "debug.gravityField.snapBalls" );
+        }
         if ( const Json* color = FindMember( *field, "color" ) )
         {
             const std::string name = ReadString( *color, path, "debug.gravityField.color" );

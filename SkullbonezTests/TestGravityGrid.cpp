@@ -9,6 +9,7 @@
 #include "../SkullbonezSource/Rendering/RenderInstanceStore.h"
 #include <memory>
 #include <vector>
+#include "../SkullbonezSource/Physics/ColliderStore.h"
 
 TEST_CASE( "Gravity grid: live wells are finite, optional, and do not change physics" )
 {
@@ -98,4 +99,97 @@ TEST_CASE( "Gravity grid: displayed identities and level style determine the sur
     grid->UpdatePresented( *bodies, instances, gravity, style );
     CHECK( grid->Lines().empty() );
     CHECK( grid->FirstSourceId() == 0 );
+}
+
+TEST_CASE( "Gravity grid: snap follows mesh height and preserves physical endpoints" )
+{
+    using namespace SkullbonezCore;
+    using Math::Vector::Vector3;
+    Core::Allocation::RuntimeAllocationScope sceneLoad( Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+    auto bodies = std::make_unique<Physics::PhysicsBodyStore>();
+    bodies->ReserveCapacity( 3 );
+    Rendering::RenderInstanceStore instances;
+    for ( int i = 0; i < 3; ++i )
+    {
+        Physics::PhysicsBodyCreateDesc desc;
+        desc.sceneObjectId = Physics::MakePhysicsSceneObjectId( 40 + i );
+        desc.mass = 100;
+        desc.position = Vector3( i * 4.0f, 20.0f, 0.0f );
+        bodies->CreateBodyRecord( desc, false );
+        Physics::PhysicsBodyHotState hot;
+        hot.position = desc.position;
+        const Math::CollisionDetection::BoundingSphere sphere( 2.0f, Math::Vector::ZERO_VECTOR );
+        Physics::ColliderRecord collider;
+        collider.handle = Physics::PhysicsColliderHandle { static_cast<uint32_t>( i ), 1 };
+        collider.body = bodies->Records()[i].handle;
+        collider.sceneObjectId = desc.sceneObjectId;
+        collider.shape = Math::CollisionDetection::CollisionShapeReference( sphere, 0u );
+        collider.shapeKind = i == 2 ? Physics::ColliderShapeKind::Box : Physics::ColliderShapeKind::Sphere;
+        collider.boundingRadius = 2.0f;
+        instances.CommitCreationRow( Rendering::RenderInstancePresentationRecord {}, bodies->Records()[i], hot, collider, i );
+    }
+    auto grid = std::make_unique<Runtime::GravityGridVisualizer>();
+    Physics::MutualGravitySettings gravity;
+    gravity.enabled = true;
+    gravity.gravitationalConstant = 8.0f;
+    Scene::GravityFieldSettings style;
+    CHECK_FALSE( style.snapBalls );
+    const auto update = [&]
+    {
+        for ( int i = 0; i < 3; ++i )
+        {
+            REQUIRE( instances.OverridePosition( i, Physics::MakePhysicsSceneObjectId( 40 + i ), Vector3( i * 4.0f, 20, 0 ) ) );
+        }
+        grid->UpdatePresented( *bodies, instances.Records(), gravity, style );
+        grid->SnapSpheres( instances );
+    };
+    update();
+    CHECK( grid->SnappedCount() == 0 );
+    style.snapBalls = true;
+    update();
+    CHECK( grid->SnappedCount() == 2 );
+    CHECK( grid->FirstSnappedId() == 40 );
+    for ( int i = 0; i < 2; ++i )
+    {
+        const auto& matrix = instances.Records()[i].modelMatrix;
+        CHECK( matrix.m[13] - 2 == doctest::Approx( grid->HeightAt( matrix.m[12], matrix.m[14] ) ) );
+        CHECK( matrix.m[12] == i * 4.0f );
+        CHECK( matrix.m[14] == 0 );
+        CHECK( bodies->HotFields().positionY[i] == 20 );
+        CHECK( instances.Records()[i].currentPosition.y == 20 );
+    }
+    CHECK( instances.Records()[2].modelMatrix.m[13] == 20 );
+    const std::vector<float> surface( grid->Lines().begin(), grid->Lines().end() );
+    // Independently compare the sampler to actual line vertices, including the
+    // upper edge of the final mesh cell.
+    for ( std::size_t i = 0; i < surface.size(); i += 6 )
+    {
+        CHECK( grid->HeightAt( surface[i], surface[i + 2] ) == doctest::Approx( surface[i + 1] ).epsilon( 0.00001 ) );
+    }
+    const float firstY = instances.Records()[0].modelMatrix.m[13];
+    style.height = 50;
+    update();
+    CHECK( instances.Records()[0].modelMatrix.m[13] == doctest::Approx( firstY + 50 ) );
+    style.height = 0;
+    update();
+    CHECK( std::equal( surface.begin(), surface.end(), grid->Lines().begin() ) );
+    CHECK_FALSE( instances.OverridePosition( 0, Physics::MakePhysicsSceneObjectId( 99 ), Vector3( 0, 900, 0 ) ) );
+    style.snapBalls = false;
+    update();
+    CHECK( grid->SnappedCount() == 0 );
+    CHECK( instances.Records()[0].modelMatrix.m[13] == 20 );
+    style.snapBalls = true;
+    REQUIRE( instances.OverridePosition( 0, Physics::MakePhysicsSceneObjectId( 40 ), Vector3( 900, 20, 0 ) ) );
+    grid->UpdatePresented( *bodies, instances.Records(), gravity, style );
+    grid->SnapSpheres( instances );
+    CHECK( grid->Lines()[grid->Lines().size() - 6] > 900 );
+    CHECK( instances.Records()[0].modelMatrix.m[13] - 2 == doctest::Approx( grid->HeightAt( 900, 0 ) ) );
+    update();
+    CHECK( std::equal( surface.begin(), surface.end(), grid->Lines().begin() ) );
+    REQUIRE( instances.SetEditorVisible( 1, false ) );
+    update();
+    CHECK( grid->SnappedCount() == 1 );
+    gravity.enabled = false;
+    update();
+    CHECK( grid->SnappedCount() == 0 );
 }

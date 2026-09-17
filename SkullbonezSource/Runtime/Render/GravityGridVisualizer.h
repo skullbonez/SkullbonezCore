@@ -13,7 +13,8 @@ struct MutualGravitySettings;
 namespace SkullbonezCore::Rendering
 {
 struct RenderInstanceRecord;
-}
+class RenderInstanceStore;
+} // namespace SkullbonezCore::Rendering
 namespace SkullbonezCore::Runtime
 {
 class GravityGridVisualizer
@@ -27,6 +28,24 @@ class GravityGridVisualizer
                           std::span<const Rendering::RenderInstanceRecord> instances,
                           const Physics::MutualGravitySettings& gravity,
                           const Scene::GravityFieldSettings& style );
+    void SnapSpheres( Rendering::RenderInstanceStore& instances );
+    float HeightAt( float x, float z ) const;
+    int SnappedCount() const
+    {
+        return m_snappedCount;
+    }
+    uint32_t FirstSnappedId() const
+    {
+        return m_firstSnappedId;
+    }
+    Math::Vector::Vector3 FirstSnappedPosition() const
+    {
+        return m_firstSnappedPosition;
+    }
+    float FirstSnappedRadius() const
+    {
+        return m_firstSnappedRadius;
+    }
     std::span<const float> Lines() const
     {
         return { m_lines.data(), m_lineCount };
@@ -52,6 +71,7 @@ class GravityGridVisualizer
     void Fit( const Physics::PhysicsBodyStore& bodies, const Physics::MutualGravitySettings& gravity );
     void BuildSurface( const Physics::MutualGravitySettings& gravity );
     void BuildLines();
+    void FitPresentedSpheres( std::span<const Rendering::RenderInstanceRecord> instances );
     struct Source
     {
         float x, y, z, mass;
@@ -63,6 +83,11 @@ class GravityGridVisualizer
     std::array<float, LINE_FLOATS> m_lines {};
     Math::Vector::Vector3 m_center {};
     float m_extent = 1.0f;
+    float m_fittedExtent = 1.0f;
+    int m_snappedCount = 0;
+    uint32_t m_firstSnappedId = 0;
+    Math::Vector::Vector3 m_firstSnappedPosition {};
+    float m_firstSnappedRadius = 0.0f;
     float m_referencePotential = 1.0f;
     float m_minimumHeight = 0.0f;
     std::size_t m_lineCount = 0;

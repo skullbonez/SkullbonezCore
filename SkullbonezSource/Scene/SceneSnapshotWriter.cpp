@@ -355,7 +355,10 @@ void AppendPresentationJson( const SceneSaveRequest& request, Json& scene )
     scene["debug"] = Json::object();
     scene["debug"]["waterHidden"] = presentation.waterHidden;
     scene["debug"]["terrainHidden"] = presentation.terrainHidden;
-    scene["debug"]["gravityField"] = { { "height", presentation.gravityField.height }, { "opacity", presentation.gravityField.opacity }, { "color", presentation.gravityField.color == 1 ? "orange" : presentation.gravityField.color == 2 ? "grey" : "blue" } };
+    scene["debug"]["gravityField"] = { { "snapBalls", presentation.gravityField.snapBalls },
+                                       { "height", presentation.gravityField.height },
+                                       { "opacity", presentation.gravityField.opacity },
+                                       { "color", presentation.gravityField.color == 1 ? "orange" : presentation.gravityField.color == 2 ? "grey" : "blue" } };
 
     if ( session.hasFlatSlope )
     {

@@ -7,6 +7,25 @@ Status: CONVEX_HULL CH0-CH6 complete at 7/8; CH7 acceptance pending; portfolio 1
 
 ## Space gravity field - 2026-09-17
 
+Follow-up: Tools > Options now has **Snap balls to field**, off by default and
+saved as `debug.gravityField.snapBalls`. It projects sphere bottoms onto the
+sampled surface each rendered frame after replay substitution, preserving
+physical positions, velocities, endpoint history and the field's gravity inputs.
+Grid coverage includes escaped balls deterministically, so reverse scrubs restore
+the same surface. Boxes and hidden instances are not snapped. Hiding grid lines
+does not disable the independent snap option.
+
+The native 300-ball test checks snapping, height shifts, off/on restoration,
+history/prediction repeatability and save/reset/fresh-process reload. It exposed
+an existing defaults-save lifetime defect: ordered JSON child references could
+be invalidated by sibling insertion. Edited sections now own their values until
+publication. No archived input or baseline was changed for this fix.
+
+Follow-up validation: 1,093 tests / 3,811,030 assertions pass (one existing skip),
+compiler/design/allocation/dependency preflight passes, and DX12 passes with zero
+validation errors. Logs: `TestOutput/gravity-snap-*.log`; native evidence:
+`TestOutput/skarness/gravity-snap-final/`. PR #174 remains open and unmerged.
+
 Space scenes now show a default-on, depth-tested gravity grid. Tools > Options
 provides height and opacity sliders plus Blue, Orange and Grey buttons. Level
 saving persists all three settings under `debug.gravityField`. The grid reads

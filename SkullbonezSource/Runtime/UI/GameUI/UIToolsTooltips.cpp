@@ -64,6 +64,7 @@ UITooltipTarget OptionsTooltip( const OptionsTab::UIOptionsTabState& state, int 
                                            { 2103, state.toggles[3].Bounds(), { "Freeze animated water for inspection." } },
                                            { 2104, state.toggles[4].Bounds(), { "Use the flat-water debug display." } },
                                            { 2105, state.toggles[5].Bounds(), { "Enable or disable shadows in the active renderer." } },
+                                           { 2108, state.toggles[7].Bounds(), { "Keep ball bottoms on the field while displaying live or scrubbed motion.", "Visual only; saved with the level" } },
                                            { 2106, state.timeScaleSlider.Bounds(), { "Control how quickly the simulation advances.", "Multiplier of real time" } },
                                            { 2107, state.modelCountSlider.Bounds(), { "Change the generated model count. Release to rebuild the scene.", "Objects" } }, };
     return HitTooltip( candidates, mouseX, mouseY );

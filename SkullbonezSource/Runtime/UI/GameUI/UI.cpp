@@ -104,7 +104,8 @@ UIOptionsTabFrameView InGameUIFrameData::OptionsTabFrame() const
              world.gravityGridVisible,
              world.gravityFieldHeight,
              world.gravityFieldOpacity,
-             world.gravityFieldColor };
+             world.gravityFieldColor,
+             world.gravityFieldSnapBalls };
 }
 
 UIPhysicsTabFrameView InGameUIFrameData::PhysicsTabFrame() const
@@ -1059,7 +1060,7 @@ void UIWindowInteractionOwner::DrawActiveTabHitboxes( const UIDrawContext& draw,
         break;
     case InGameUITab::Options:
 
-        for ( int i = 0; i < 6; ++i )
+        for ( int i = 0; i < 8; ++i )
         {
             DrawHitboxRect( draw, m_optionsTab.toggles[i].Bounds(), contentR, contentG, contentB );
         }

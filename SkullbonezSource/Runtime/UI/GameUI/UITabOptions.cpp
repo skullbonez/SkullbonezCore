@@ -63,6 +63,7 @@ void SetContentBounds( SkullbonezCore::UI::OptionsTab::UIOptionsTabState& state,
     SetToggleBounds( state, 4, 2, 0, col1, col2, rowBase, colW );
     SetToggleBounds( state, 5, 2, 1, col1, col2, rowBase, colW );
     state.toggles[6].SetBounds( col1, rowBase + 296.0f, colW, 24.0f );
+    state.toggles[7].SetBounds( col1, rowBase + 460.0f, colW, 24.0f );
     state.fieldHeightSlider.SetBounds( contentX, rowBase + 330.0f, contentW, 34.0f );
     state.fieldOpacitySlider.SetBounds( contentX, rowBase + 378.0f, contentW, 34.0f );
     state.timeScaleSlider.SetBounds( contentX, rowBase + 126.0f, contentW, 34.0f );
@@ -80,7 +81,7 @@ namespace OptionsTab
 
 int ContentHeight()
 {
-    return 516;
+    return 550;
 }
 
 
@@ -142,6 +143,10 @@ bool HandleContentClick( UIOptionsTabState& state, InGameUIInputResult& result, 
     else if ( state.toggles[6].HitTest( mouseX, mouseY ) )
     {
         result.commands.sceneOptions.toggleGravityGrid = true;
+    }
+    else if ( state.toggles[7].HitTest( mouseX, mouseY ) )
+    {
+        result.commands.sceneOptions.toggleGravityFieldSnap = true;
     }
     else if ( state.fieldHeightSlider.HitTest( mouseX, mouseY ) )
     {
@@ -292,6 +297,7 @@ void Draw( UIOptionsTabState& state, const UIDrawContext& draw, const UIOptionsT
         snprintf( buf, sizeof( buf ), "%.0f%%", data.gravityFieldOpacity * 100.0f );
         state.fieldOpacitySlider.Draw( draw, "Field opacity", buf, data.gravityFieldOpacity, 0.0f, 1.0f );
     }
+    DrawContentToggle( draw, contentY, contentH, state.toggles[7], col1, scrolledY + 502.0f, colW, "Snap balls to field", data.gravityFieldSnapBalls );
     constexpr const char* colors[] = { "Blue", "Orange", "Grey" };
     for ( int color = 0; color < 3; ++color )
     {

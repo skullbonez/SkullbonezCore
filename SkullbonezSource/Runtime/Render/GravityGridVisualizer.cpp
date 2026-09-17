@@ -14,6 +14,8 @@ void GravityGridVisualizer::Reset()
 {
     m_fitted = false;
     m_lineCount = 0;
+    m_snappedCount = 0;
+    m_firstSnappedId = 0;
     m_sourceCount = 0;
     m_firstSourceId = 0;
     m_minimumHeight = 0.0f;
@@ -46,6 +48,7 @@ void GravityGridVisualizer::Fit( const Physics::PhysicsBodyStore& bodies, const 
         return;
     }
     m_extent = (std::max)( 16.0f, (std::max)( high.x - low.x, high.z - low.z ) * 0.8f );
+    m_fittedExtent = m_extent;
     m_center = Vector3( ( low.x + high.x ) * 0.5f, static_cast<float>( weightedY / totalMass ) - m_extent * 0.08f, ( low.z + high.z ) * 0.5f );
     m_referencePotential = (std::max)( 0.000001f, static_cast<float>( gravity.gravitationalConstant * totalMass / m_extent ) );
     // Keep the plane and display scale fixed for the scene. Moving bodies must
@@ -78,7 +81,7 @@ void GravityGridVisualizer::BuildSurface( const Physics::MutualGravitySettings& 
             // curvature. A smooth bounded display keeps close wells finite without flat clamped floors.
             const float potentialHeight = static_cast<float>( std::log1p( potential / m_referencePotential ) );
             const float depth = 3.0f * potentialHeight / ( 3.0f + potentialHeight );
-            p.y += m_style.height - m_extent * 0.32f * depth;
+            p.y += m_style.height - m_fittedExtent * 0.32f * depth;
             m_points[z * POINTS + x] = p;
             m_minimumHeight = (std::min)( m_minimumHeight, p.y );
         }
@@ -106,6 +109,8 @@ void GravityGridVisualizer::AppendLine( int first, int second, bool major )
 void GravityGridVisualizer::Update( const Physics::PhysicsBodyStore& bodies, const Physics::MutualGravitySettings& gravity, bool enabled )
 {
     m_lineCount = 0;
+    m_snappedCount = 0;
+    m_firstSnappedId = 0;
     m_sourceCount = 0;
     m_firstSourceId = 0;
     m_minimumHeight = 0.0f;
@@ -141,6 +146,8 @@ void GravityGridVisualizer::UpdatePresented( const Physics::PhysicsBodyStore& bo
                                              const Scene::GravityFieldSettings& style )
 {
     m_lineCount = 0;
+    m_snappedCount = 0;
+    m_firstSnappedId = 0;
     m_sourceCount = 0;
     m_firstSourceId = 0;
     m_minimumHeight = 0;
@@ -157,6 +164,7 @@ void GravityGridVisualizer::UpdatePresented( const Physics::PhysicsBodyStore& bo
         return;
     }
     m_style = style;
+    FitPresentedSpheres( instances );
     // Invariant: App has already substituted the selected historical/future pose.
     // Join by stable identity; presentation must never feed back into Physics.
     if ( instances.size() > m_sources.size() )
@@ -185,6 +193,68 @@ void GravityGridVisualizer::UpdatePresented( const Physics::PhysicsBodyStore& bo
     }
     BuildSurface( gravity );
     BuildLines();
+}
+
+void GravityGridVisualizer::FitPresentedSpheres( std::span<const Rendering::RenderInstanceRecord> instances )
+{
+    m_extent = m_fittedExtent;
+    if ( !m_style.snapBalls )
+    {
+        return;
+    }
+    // Keep every visible ball above sampled geometry, even after it leaves the
+    // initial footprint. Recompute from displayed poses so rewinds repeat exactly.
+    for ( const auto& instance : instances )
+    {
+        if ( instance.editorVisible && instance.shapeKind == Rendering::RenderInstanceShapeKind::Sphere )
+        {
+            const float distance = (std::max)( std::abs( instance.modelMatrix.m[12] - m_center.x ), std::abs( instance.modelMatrix.m[14] - m_center.z ) );
+            m_extent = (std::max)( m_extent, distance + (std::max)( 1.0f, instance.boundingRadius ) );
+        }
+    }
+}
+
+float GravityGridVisualizer::HeightAt( float x, float z ) const
+{
+    const float gx = std::clamp( ( x - m_center.x + m_extent ) * ( POINTS - 1 ) / ( 2.0f * m_extent ), 0.0f, static_cast<float>( POINTS - 1 ) );
+    const float gz = std::clamp( ( z - m_center.z + m_extent ) * ( POINTS - 1 ) / ( 2.0f * m_extent ), 0.0f, static_cast<float>( POINTS - 1 ) );
+    const int ix = (std::min)( static_cast<int>( gx ), POINTS - 2 );
+    const int iz = (std::min)( static_cast<int>( gz ), POINTS - 2 );
+    // Interpolate the displayed mesh itself, not a separate analytic surface
+    // that could disagree with the visible lines between sample points.
+    const float first = std::lerp( m_points[iz * POINTS + ix].y, m_points[iz * POINTS + ix + 1].y, gx - ix );
+    const float second = std::lerp( m_points[( iz + 1 ) * POINTS + ix].y, m_points[( iz + 1 ) * POINTS + ix + 1].y, gx - ix );
+    return std::lerp( first, second, gz - iz );
+}
+
+void GravityGridVisualizer::SnapSpheres( Rendering::RenderInstanceStore& instances )
+{
+    m_snappedCount = 0;
+    m_firstSnappedId = 0;
+    if ( !m_style.snapBalls || m_lineCount == 0 )
+    {
+        return;
+    }
+    for ( int row = 0; row < instances.Count(); ++row )
+    {
+        const auto& instance = instances.Records()[row];
+        if ( !instance.editorVisible || instance.shapeKind != Rendering::RenderInstanceShapeKind::Sphere )
+        {
+            continue;
+        }
+        const auto& matrix = instance.modelMatrix;
+        const Vector3 position( matrix.m[12], HeightAt( matrix.m[12], matrix.m[14] ) + instance.boundingRadius, matrix.m[14] );
+        if ( instances.OverridePosition( row, instance.sceneObjectId, position ) )
+        {
+            if ( m_snappedCount == 0 )
+            {
+                m_firstSnappedId = instance.sceneObjectId.value;
+                m_firstSnappedPosition = position;
+                m_firstSnappedRadius = instance.boundingRadius;
+            }
+            ++m_snappedCount;
+        }
+    }
 }
 
 void GravityGridVisualizer::BuildLines()
