@@ -1,0 +1,122 @@
+[
+  {
+    "path": "C:/SkullbonezCore/Agentic/Skills/orchestrator/SKILL.md",
+    "sha256": "8A54966325A72A3B1C7308138C41378095E304CAD652C294F6091D40B7EE02AB",
+    "last_write": "2026-08-29T12:21:07.0373549Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/Agentic/Skills/skarness/SKILL.md",
+    "sha256": "6D3F91FDDC808F880E2B736D5A1AB763E7BCA7BD4A0E2F00ECB6BFBB48AF6E25",
+    "last_write": "2026-09-13T11:26:15.4410330Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/AGENTS.md",
+    "sha256": "28B182039318BA91F419B565C7DC99ECC216D662087B486283BF133F885470B4",
+    "last_write": "2026-09-14T08:03:26.5316968Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezData/shaders/lit_textured_instanced.hlsl",
+    "sha256": "DDA4688C2C33BE5D56DDC6C016EBF2C7D38D90283F4540FB051A50140EAC96CE",
+    "last_write": "2026-09-17T09:03:43.4070518Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezData/shaders/lit_textured.hlsl",
+    "sha256": "B2F0DA1C7FE985558BAE8788AC1AF96DCC946D43E0F9C90C9729DEEF234BFC80",
+    "last_write": "2026-09-17T07:41:05.6396309Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezData/shaders/post_tonemap.hlsl",
+    "sha256": "AB876BD254F9C252C79EBF3B8E42DCFD6573430216E44EA539489CA46280D67A",
+    "last_write": "2026-09-16T11:56:20.8293521Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezData/shaders/post_volumetric_light.hlsl",
+    "sha256": "E7BEF335D518E1B19C049E7F363F656182940E6141E13F4AF8265CAD226C0425",
+    "last_write": "2026-09-16T11:56:20.8314208Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezData/shaders/text.hlsl",
+    "sha256": "396ABE2BA28374F4EFB74CB74B0EB2BEDF39C182CB9DCEC03C488B58C785DA3C",
+    "last_write": "2026-09-13T01:05:12.3994173Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezSource/Rendering/DX12/Dx12Diagnostics.cpp",
+    "sha256": "E0047DD519A5203CF396C5499F67E154379DA656D3F573BDFAFFFECBDC65FC80",
+    "last_write": "2026-08-29T12:21:07.1445218Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp",
+    "sha256": "16271AB2DFBB115F1263F4B8BFF491C2A79EF4900D34204AD34877E9239C1E01",
+    "last_write": "2026-09-13T01:05:12.4444935Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezSource/Rendering/DX12/ShaderDX12.cpp",
+    "sha256": "D4B3C7A3169AC047283F3AE0BD71B32BBE7096831645FA852DBD885703D84B94",
+    "last_write": "2026-08-29T12:21:07.1655400Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezSource/Rendering/DX12/TLASDX12.cpp",
+    "sha256": "01A2F7910C44CD9C60D3815E3DF359EAEBF3970B9E3F46CAC36624E09F3F240B",
+    "last_write": "2026-08-29T12:21:07.1675915Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp",
+    "sha256": "1DFEC21125CE79B5EDC11F8797F813F928B90D2EE4A47C18A5C18DA25C808871",
+    "last_write": "2026-09-17T07:35:33.2661634Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezSource/Rendering/RenderGpuTimingOwner.cpp",
+    "sha256": "DAF540CF8DFA0800CFE26DAAD50A19F1326892C72B8A90F4C14FF5205598A9C4",
+    "last_write": "2026-09-07T05:32:32.7228577Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezSource/Rendering/Text.cpp",
+    "sha256": "7AE324234C979C4FCE71A3F0A90C7E26B4A26038B40C805E76C5FFE1B22AEF9E",
+    "last_write": "2026-09-14T07:31:51.1894880Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezSource/Rendering/Text.h",
+    "sha256": "9C2F2D480218A659B85BD284C02A2FE9E8E895810820BA940DD287482C60BE1C",
+    "last_write": "2026-09-13T01:05:12.4516441Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp",
+    "sha256": "0F723CF9AB70D386B7EBCF3D81619AACADF95167B42457A5A785E8D9E897D25A",
+    "last_write": "2026-09-17T16:55:06.8631119Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp",
+    "sha256": "BDBAD5543200ADE20FE02AE21031BD6857A07D5DD2D68957AF580AB271F7EC96",
+    "last_write": "2026-09-17T16:55:06.8590634Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezSource/Runtime/Render/UiDrawSubmission.cpp",
+    "sha256": "C3EFB9A23632D0554A13468D25AE68BDD8F189914ADF9B5410CB6602079AD267",
+    "last_write": "2026-09-13T23:36:35.4067644Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezSource/Runtime/Render/UiTextPass.cpp",
+    "sha256": "3C36EC07BCD90C7699167AC97BDA2E50470135264FE988DE69AFDA8E7852E50B",
+    "last_write": "2026-09-17T13:40:18.2279936Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezSource/Runtime/UI/GameUI/UI.cpp",
+    "sha256": "4618148DA1F2E0E61E328864A96F1946D13651EFBCD66822F24AA8DB5BC610A7",
+    "last_write": "2026-09-17T16:39:38.5795486Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezSource/UI/UIBackdropBlur.cpp",
+    "sha256": "8FF29E5D01DFDAA9DA83DB336370431DA8D9D63EB57B11B613C825D5FBC2C976",
+    "last_write": "2026-08-27T03:06:09.5596560Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/SkullbonezSource/UI/UIDraw.cpp",
+    "sha256": "6AA534725A5B72E48D7F8C8F8A5C35D5085982E9DCC57F955D2B0639FD77D83A",
+    "last_write": "2026-09-13T22:40:58.1450369Z"
+  },
+  {
+    "path": "C:/SkullbonezCore/tools/bake_shaders.py",
+    "sha256": "6C5BC6F9249327FB4315B828C7E9CBC84BE92C8317655D300B62B39B832CF8C3",
+    "last_write": "2026-09-13T01:05:12.6659260Z"
+  }
+]

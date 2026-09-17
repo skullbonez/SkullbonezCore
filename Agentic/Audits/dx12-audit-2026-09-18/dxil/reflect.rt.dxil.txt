@@ -1,0 +1,790 @@
+; shader hash: 4c7883e7315e4f847f51bcb3f8c3d194
+;
+; Buffer Definitions:
+;
+; cbuffer RTConstants
+; {
+;
+;   struct hostlayout.RTConstants
+;   {
+;
+;       column_major float4x4 gInvViewProj;           ; Offset:    0
+;       float3 gCameraPos;                            ; Offset:   64
+;       float gWaterY;                                ; Offset:   76
+;       float3 gLightPos;                             ; Offset:   80
+;       float gTime;                                  ; Offset:   92
+;       float3 gSkyColorTop;                          ; Offset:   96
+;       float _pad0;                                  ; Offset:  108
+;       float3 gSkyColorBottom;                       ; Offset:  112
+;       float _pad1;                                  ; Offset:  124
+;   
+;   } RTConstants;                                    ; Offset:    0 Size:   128
+;
+; }
+;
+;
+; Resource Bindings:
+;
+; Name                                 Type  Format         Dim      ID      HLSL Bind  Count
+; ------------------------------ ---------- ------- ----------- ------- -------------- ------
+; RTConstants                       cbuffer      NA          NA     CB0            cb1     1
+; gSampler                          sampler      NA          NA      S0             s0     1
+; gSkySampler                       sampler      NA          NA      S1             s1     1
+; gScene                            texture     i32         ras      T0      t0,space1     1
+; gSphereTex                        texture     f32          2d      T1             t0     1
+; gTerrainTex                       texture     f32          2d      T2             t1     1
+; gSkyUp                            texture     f32          2d      T3             t2     1
+; gSkyDown                          texture     f32          2d      T4             t3     1
+; gSkyRight                         texture     f32          2d      T5             t4     1
+; gSkyLeft                          texture     f32          2d      T6             t5     1
+; gSkyFront                         texture     f32          2d      T7             t6     1
+; gSkyBack                          texture     f32          2d      T8             t7     1
+; gOutput                               UAV     f32          2d      U0             u0     1
+;
+target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
+target triple = "dxil-ms-dx"
+
+%dx.types.Handle = type { i8* }
+%hostlayout.RTConstants = type { [4 x <4 x float>], <3 x float>, float, <3 x float>, float, <3 x float>, float, <3 x float>, float }
+%struct.RayPayload = type { <3 x float>, float }
+%dx.types.ResourceProperties = type { i32, i32 }
+%dx.types.CBufRet.f32 = type { float, float, float, float }
+%dx.types.ResRet.f32 = type { float, float, float, float, i32 }
+%struct.BuiltInTriangleIntersectionAttributes = type { <2 x float> }
+%struct.RaytracingAccelerationStructure = type { i32 }
+%"class.Texture2D<vector<float, 4> >" = type { <4 x float>, %"class.Texture2D<vector<float, 4> >::mips_type" }
+%"class.Texture2D<vector<float, 4> >::mips_type" = type { i32 }
+%"class.RWTexture2D<vector<float, 4> >" = type { <4 x float> }
+%struct.SamplerState = type { i32 }
+
+@"\01?gScene@@3URaytracingAccelerationStructure@@A" = external constant %dx.types.Handle, align 4
+@"\01?gOutput@@3V?$RWTexture2D@V?$vector@M$03@@@@A" = external constant %dx.types.Handle, align 4
+@"\01?gSphereTex@@3V?$Texture2D@V?$vector@M$03@@@@A" = external constant %dx.types.Handle, align 4
+@"\01?gTerrainTex@@3V?$Texture2D@V?$vector@M$03@@@@A" = external constant %dx.types.Handle, align 4
+@"\01?gSkyUp@@3V?$Texture2D@V?$vector@M$03@@@@A" = external constant %dx.types.Handle, align 4
+@"\01?gSkyDown@@3V?$Texture2D@V?$vector@M$03@@@@A" = external constant %dx.types.Handle, align 4
+@"\01?gSkyRight@@3V?$Texture2D@V?$vector@M$03@@@@A" = external constant %dx.types.Handle, align 4
+@"\01?gSkyLeft@@3V?$Texture2D@V?$vector@M$03@@@@A" = external constant %dx.types.Handle, align 4
+@"\01?gSkyFront@@3V?$Texture2D@V?$vector@M$03@@@@A" = external constant %dx.types.Handle, align 4
+@"\01?gSkyBack@@3V?$Texture2D@V?$vector@M$03@@@@A" = external constant %dx.types.Handle, align 4
+@"\01?gSampler@@3USamplerState@@A" = external constant %dx.types.Handle, align 4
+@"\01?gSkySampler@@3USamplerState@@A" = external constant %dx.types.Handle, align 4
+@RTConstants_legacy = external global %hostlayout.RTConstants
+
+; Function Attrs: nounwind
+declare void @llvm.lifetime.start(i64, i8* nocapture) #0
+
+; Function Attrs: nounwind
+declare void @llvm.lifetime.end(i64, i8* nocapture) #0
+
+; Function Attrs: nounwind
+define void @"\01?RayGen@@YAXXZ"() #0 {
+  %1 = load %dx.types.Handle, %dx.types.Handle* @"\01?gSkySampler@@3USamplerState@@A", align 4
+  %2 = load %dx.types.Handle, %dx.types.Handle* @"\01?gSkyBack@@3V?$Texture2D@V?$vector@M$03@@@@A", align 4
+  %3 = load %dx.types.Handle, %dx.types.Handle* @"\01?gSkyFront@@3V?$Texture2D@V?$vector@M$03@@@@A", align 4
+  %4 = load %dx.types.Handle, %dx.types.Handle* @"\01?gSkyLeft@@3V?$Texture2D@V?$vector@M$03@@@@A", align 4
+  %5 = load %dx.types.Handle, %dx.types.Handle* @"\01?gSkyRight@@3V?$Texture2D@V?$vector@M$03@@@@A", align 4
+  %6 = load %dx.types.Handle, %dx.types.Handle* @"\01?gSkyDown@@3V?$Texture2D@V?$vector@M$03@@@@A", align 4
+  %7 = load %dx.types.Handle, %dx.types.Handle* @"\01?gSkyUp@@3V?$Texture2D@V?$vector@M$03@@@@A", align 4
+  %8 = load %dx.types.Handle, %dx.types.Handle* @"\01?gScene@@3URaytracingAccelerationStructure@@A", align 4
+  %9 = load %dx.types.Handle, %dx.types.Handle* @"\01?gOutput@@3V?$RWTexture2D@V?$vector@M$03@@@@A", align 4
+  %10 = load %hostlayout.RTConstants, %hostlayout.RTConstants* @RTConstants_legacy
+  %11 = alloca %struct.RayPayload, align 4
+  %12 = call %dx.types.Handle @dx.op.createHandleForLib.hostlayout.RTConstants(i32 160, %hostlayout.RTConstants %10)  ; CreateHandleForLib(Resource)
+  %13 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %12, %dx.types.ResourceProperties { i32 13, i32 128 })  ; AnnotateHandle(res,props)  resource: CBuffer
+  %14 = call i32 @dx.op.dispatchRaysIndex.i32(i32 145, i8 0)  ; DispatchRaysIndex(col)
+  %15 = call i32 @dx.op.dispatchRaysIndex.i32(i32 145, i8 1)  ; DispatchRaysIndex(col)
+  %16 = call i32 @dx.op.dispatchRaysDimensions.i32(i32 146, i8 0)  ; DispatchRaysDimensions(col)
+  %17 = call i32 @dx.op.dispatchRaysDimensions.i32(i32 146, i8 1)  ; DispatchRaysDimensions(col)
+  %18 = uitofp i32 %14 to float
+  %19 = uitofp i32 %15 to float
+  %20 = fadd fast float %18, 5.000000e-01
+  %21 = fadd fast float %19, 5.000000e-01
+  %22 = uitofp i32 %16 to float
+  %23 = uitofp i32 %17 to float
+  %24 = fdiv fast float %20, %22
+  %25 = fdiv fast float %21, %23
+  %26 = fmul fast float %24, 2.000000e+00
+  %27 = fadd fast float %26, -1.000000e+00
+  %28 = fmul fast float %25, 2.000000e+00
+  %29 = fsub fast float 1.000000e+00, %28
+  %30 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %13, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %31 = extractvalue %dx.types.CBufRet.f32 %30, 0
+  %32 = extractvalue %dx.types.CBufRet.f32 %30, 1
+  %33 = extractvalue %dx.types.CBufRet.f32 %30, 2
+  %34 = extractvalue %dx.types.CBufRet.f32 %30, 3
+  %35 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %13, i32 1)  ; CBufferLoadLegacy(handle,regIndex)
+  %36 = extractvalue %dx.types.CBufRet.f32 %35, 0
+  %37 = extractvalue %dx.types.CBufRet.f32 %35, 1
+  %38 = extractvalue %dx.types.CBufRet.f32 %35, 2
+  %39 = extractvalue %dx.types.CBufRet.f32 %35, 3
+  %40 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %13, i32 3)  ; CBufferLoadLegacy(handle,regIndex)
+  %41 = extractvalue %dx.types.CBufRet.f32 %40, 0
+  %42 = extractvalue %dx.types.CBufRet.f32 %40, 1
+  %43 = extractvalue %dx.types.CBufRet.f32 %40, 2
+  %44 = extractvalue %dx.types.CBufRet.f32 %40, 3
+  %45 = fmul fast float %31, %27
+  %46 = call float @dx.op.tertiary.f32(i32 46, float %36, float %29, float %45)  ; FMad(a,b,c)
+  %47 = fadd fast float %41, %46
+  %48 = fmul fast float %32, %27
+  %49 = call float @dx.op.tertiary.f32(i32 46, float %37, float %29, float %48)  ; FMad(a,b,c)
+  %50 = fadd fast float %49, %42
+  %51 = fmul fast float %33, %27
+  %52 = call float @dx.op.tertiary.f32(i32 46, float %38, float %29, float %51)  ; FMad(a,b,c)
+  %53 = fadd fast float %52, %43
+  %54 = fmul fast float %34, %27
+  %55 = call float @dx.op.tertiary.f32(i32 46, float %39, float %29, float %54)  ; FMad(a,b,c)
+  %56 = fadd fast float %55, %44
+  %57 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %13, i32 2)  ; CBufferLoadLegacy(handle,regIndex)
+  %58 = extractvalue %dx.types.CBufRet.f32 %57, 0
+  %59 = extractvalue %dx.types.CBufRet.f32 %57, 1
+  %60 = extractvalue %dx.types.CBufRet.f32 %57, 2
+  %61 = extractvalue %dx.types.CBufRet.f32 %57, 3
+  %62 = fadd fast float %47, %58
+  %63 = fadd fast float %50, %59
+  %64 = fadd fast float %53, %60
+  %65 = fadd fast float %56, %61
+  %66 = fdiv fast float %47, %56
+  %67 = fdiv fast float %50, %56
+  %68 = fdiv fast float %53, %56
+  %69 = fdiv fast float %62, %65
+  %70 = fdiv fast float %63, %65
+  %71 = fdiv fast float %64, %65
+  %72 = fsub fast float %69, %66
+  %73 = fsub fast float %70, %67
+  %74 = fsub fast float %71, %68
+  %75 = call float @dx.op.dot3.f32(i32 55, float %72, float %73, float %74, float %72, float %73, float %74)  ; Dot3(ax,ay,az,bx,by,bz)
+  %76 = call float @dx.op.unary.f32(i32 25, float %75)  ; Rsqrt(value)
+  %77 = fmul fast float %76, %72
+  %78 = fmul fast float %76, %73
+  %79 = fmul fast float %76, %74
+  %80 = call float @dx.op.unary.f32(i32 6, float %78)  ; FAbs(value)
+  %81 = fcmp fast ogt float %80, 0x3EB0C6F7A0000000
+  br i1 %81, label %82, label %187
+
+; <label>:82                                      ; preds = %0
+  %83 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %13, i32 4)  ; CBufferLoadLegacy(handle,regIndex)
+  %84 = extractvalue %dx.types.CBufRet.f32 %83, 3
+  %85 = fsub fast float %84, %67
+  %86 = fdiv fast float %85, %78
+  %87 = fcmp fast ogt float %86, 0.000000e+00
+  br i1 %87, label %88, label %108
+
+; <label>:88                                      ; preds = %82
+  %89 = fmul fast float %86, %77
+  %90 = fmul fast float %86, %78
+  %91 = fmul fast float %86, %79
+  %92 = fadd fast float %89, %66
+  %93 = fadd fast float %91, %68
+  %94 = call float @dx.op.dot3.f32(i32 55, float %77, float %78, float %79, float 0.000000e+00, float 1.000000e+00, float 0.000000e+00)  ; Dot3(ax,ay,az,bx,by,bz)
+  %95 = fmul fast float %94, 2.000000e+00
+  %96 = fsub fast float %78, %95
+  %97 = fadd fast float %67, 0x3F847AE140000000
+  %98 = fadd fast float %97, %90
+  %99 = bitcast %struct.RayPayload* %11 to i8*
+  call void @llvm.lifetime.start(i64 16, i8* %99) #0
+  %100 = getelementptr inbounds %struct.RayPayload, %struct.RayPayload* %11, i32 0, i32 0
+  store <3 x float> zeroinitializer, <3 x float>* %100, align 4, !tbaa !40
+  %101 = getelementptr inbounds %struct.RayPayload, %struct.RayPayload* %11, i32 0, i32 1
+  store float -1.000000e+00, float* %101, align 4, !tbaa !43
+  %102 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %8)  ; CreateHandleForLib(Resource)
+  %103 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %102, %dx.types.ResourceProperties { i32 16, i32 0 })  ; AnnotateHandle(res,props)  resource: RTAccelerationStructure
+  call void @dx.op.traceRay.struct.RayPayload(i32 157, %dx.types.Handle %103, i32 16, i32 255, i32 0, i32 0, i32 0, float %92, float %98, float %93, float 0x3F50624DE0000000, float %77, float %96, float %79, float 1.000000e+04, %struct.RayPayload* nonnull %11)  ; TraceRay(AccelerationStructure,RayFlags,InstanceInclusionMask,RayContributionToHitGroupIndex,MultiplierForGeometryContributionToShaderIndex,MissShaderIndex,Origin_X,Origin_Y,Origin_Z,TMin,Direction_X,Direction_Y,Direction_Z,TMax,payload)
+  %104 = load <3 x float>, <3 x float>* %100, align 4, !tbaa !40
+  %105 = extractelement <3 x float> %104, i32 0
+  %106 = extractelement <3 x float> %104, i32 1
+  %107 = extractelement <3 x float> %104, i32 2
+  call void @llvm.lifetime.end(i64 16, i8* %99) #0
+  br label %266
+
+; <label>:108                                     ; preds = %82
+  %109 = call float @dx.op.unary.f32(i32 6, float %77)  ; FAbs(value)
+  %110 = call float @dx.op.unary.f32(i32 6, float %79)  ; FAbs(value)
+  %111 = fcmp fast oge float %80, %109
+  %112 = fcmp fast oge float %80, %110
+  %113 = and i1 %111, %112
+  %114 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %1)  ; CreateHandleForLib(Resource)
+  %115 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %114, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  br i1 %113, label %116, label %139
+
+; <label>:116                                     ; preds = %108
+  %117 = fdiv fast float %77, %80
+  %118 = fmul fast float %117, 5.000000e-01
+  %119 = fadd fast float %118, 5.000000e-01
+  %120 = fcmp fast ogt float %78, 0.000000e+00
+  %121 = fdiv fast float %79, %80
+  %122 = fmul fast float %121, 5.000000e-01
+  br i1 %120, label %123, label %131
+
+; <label>:123                                     ; preds = %116
+  %124 = fadd fast float %122, 5.000000e-01
+  %125 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %7)  ; CreateHandleForLib(Resource)
+  %126 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %125, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %127 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %126, %dx.types.Handle %115, float %119, float %124, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %128 = extractvalue %dx.types.ResRet.f32 %127, 0
+  %129 = extractvalue %dx.types.ResRet.f32 %127, 1
+  %130 = extractvalue %dx.types.ResRet.f32 %127, 2
+  br label %266
+
+; <label>:131                                     ; preds = %116
+  %132 = fsub fast float 5.000000e-01, %122
+  %133 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %6)  ; CreateHandleForLib(Resource)
+  %134 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %133, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %135 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %134, %dx.types.Handle %115, float %119, float %132, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %136 = extractvalue %dx.types.ResRet.f32 %135, 0
+  %137 = extractvalue %dx.types.ResRet.f32 %135, 1
+  %138 = extractvalue %dx.types.ResRet.f32 %135, 2
+  br label %266
+
+; <label>:139                                     ; preds = %108
+  %140 = fcmp fast ult float %109, %110
+  br i1 %140, label %164, label %141
+
+; <label>:141                                     ; preds = %139
+  %142 = fdiv fast float %78, %109
+  %143 = fmul fast float %142, 5.000000e-01
+  %144 = fsub fast float 5.000000e-01, %143
+  %145 = fcmp fast olt float %77, 0.000000e+00
+  %146 = fdiv fast float %79, %109
+  %147 = fmul fast float %146, 5.000000e-01
+  br i1 %145, label %148, label %156
+
+; <label>:148                                     ; preds = %141
+  %149 = fadd fast float %147, 5.000000e-01
+  %150 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %5)  ; CreateHandleForLib(Resource)
+  %151 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %150, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %152 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %151, %dx.types.Handle %115, float %149, float %144, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %153 = extractvalue %dx.types.ResRet.f32 %152, 0
+  %154 = extractvalue %dx.types.ResRet.f32 %152, 1
+  %155 = extractvalue %dx.types.ResRet.f32 %152, 2
+  br label %266
+
+; <label>:156                                     ; preds = %141
+  %157 = fsub fast float 5.000000e-01, %147
+  %158 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %4)  ; CreateHandleForLib(Resource)
+  %159 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %158, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %160 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %159, %dx.types.Handle %115, float %157, float %144, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %161 = extractvalue %dx.types.ResRet.f32 %160, 0
+  %162 = extractvalue %dx.types.ResRet.f32 %160, 1
+  %163 = extractvalue %dx.types.ResRet.f32 %160, 2
+  br label %266
+
+; <label>:164                                     ; preds = %139
+  %165 = fdiv fast float %78, %110
+  %166 = fmul fast float %165, 5.000000e-01
+  %167 = fsub fast float 5.000000e-01, %166
+  %168 = fcmp fast ogt float %79, 0.000000e+00
+  %169 = fdiv fast float %77, %110
+  %170 = fmul fast float %169, 5.000000e-01
+  br i1 %168, label %171, label %179
+
+; <label>:171                                     ; preds = %164
+  %172 = fadd fast float %170, 5.000000e-01
+  %173 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %3)  ; CreateHandleForLib(Resource)
+  %174 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %173, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %175 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %174, %dx.types.Handle %115, float %172, float %167, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %176 = extractvalue %dx.types.ResRet.f32 %175, 0
+  %177 = extractvalue %dx.types.ResRet.f32 %175, 1
+  %178 = extractvalue %dx.types.ResRet.f32 %175, 2
+  br label %266
+
+; <label>:179                                     ; preds = %164
+  %180 = fsub fast float 5.000000e-01, %170
+  %181 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %2)  ; CreateHandleForLib(Resource)
+  %182 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %181, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %183 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %182, %dx.types.Handle %115, float %180, float %167, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %184 = extractvalue %dx.types.ResRet.f32 %183, 0
+  %185 = extractvalue %dx.types.ResRet.f32 %183, 1
+  %186 = extractvalue %dx.types.ResRet.f32 %183, 2
+  br label %266
+
+; <label>:187                                     ; preds = %0
+  %188 = call float @dx.op.unary.f32(i32 6, float %77)  ; FAbs(value)
+  %189 = call float @dx.op.unary.f32(i32 6, float %79)  ; FAbs(value)
+  %190 = fcmp fast oge float %80, %188
+  %191 = fcmp fast oge float %80, %189
+  %192 = and i1 %190, %191
+  %193 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %1)  ; CreateHandleForLib(Resource)
+  %194 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %193, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  br i1 %192, label %195, label %218
+
+; <label>:195                                     ; preds = %187
+  %196 = fdiv fast float %77, %80
+  %197 = fmul fast float %196, 5.000000e-01
+  %198 = fadd fast float %197, 5.000000e-01
+  %199 = fcmp fast ogt float %78, 0.000000e+00
+  %200 = fdiv fast float %79, %80
+  %201 = fmul fast float %200, 5.000000e-01
+  br i1 %199, label %202, label %210
+
+; <label>:202                                     ; preds = %195
+  %203 = fadd fast float %201, 5.000000e-01
+  %204 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %7)  ; CreateHandleForLib(Resource)
+  %205 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %204, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %206 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %205, %dx.types.Handle %194, float %198, float %203, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %207 = extractvalue %dx.types.ResRet.f32 %206, 0
+  %208 = extractvalue %dx.types.ResRet.f32 %206, 1
+  %209 = extractvalue %dx.types.ResRet.f32 %206, 2
+  br label %266
+
+; <label>:210                                     ; preds = %195
+  %211 = fsub fast float 5.000000e-01, %201
+  %212 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %6)  ; CreateHandleForLib(Resource)
+  %213 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %212, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %214 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %213, %dx.types.Handle %194, float %198, float %211, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %215 = extractvalue %dx.types.ResRet.f32 %214, 0
+  %216 = extractvalue %dx.types.ResRet.f32 %214, 1
+  %217 = extractvalue %dx.types.ResRet.f32 %214, 2
+  br label %266
+
+; <label>:218                                     ; preds = %187
+  %219 = fcmp fast ult float %188, %189
+  br i1 %219, label %243, label %220
+
+; <label>:220                                     ; preds = %218
+  %221 = fdiv fast float %78, %188
+  %222 = fmul fast float %221, 5.000000e-01
+  %223 = fsub fast float 5.000000e-01, %222
+  %224 = fcmp fast olt float %77, 0.000000e+00
+  %225 = fdiv fast float %79, %188
+  %226 = fmul fast float %225, 5.000000e-01
+  br i1 %224, label %227, label %235
+
+; <label>:227                                     ; preds = %220
+  %228 = fadd fast float %226, 5.000000e-01
+  %229 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %5)  ; CreateHandleForLib(Resource)
+  %230 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %229, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %231 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %230, %dx.types.Handle %194, float %228, float %223, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %232 = extractvalue %dx.types.ResRet.f32 %231, 0
+  %233 = extractvalue %dx.types.ResRet.f32 %231, 1
+  %234 = extractvalue %dx.types.ResRet.f32 %231, 2
+  br label %266
+
+; <label>:235                                     ; preds = %220
+  %236 = fsub fast float 5.000000e-01, %226
+  %237 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %4)  ; CreateHandleForLib(Resource)
+  %238 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %237, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %239 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %238, %dx.types.Handle %194, float %236, float %223, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %240 = extractvalue %dx.types.ResRet.f32 %239, 0
+  %241 = extractvalue %dx.types.ResRet.f32 %239, 1
+  %242 = extractvalue %dx.types.ResRet.f32 %239, 2
+  br label %266
+
+; <label>:243                                     ; preds = %218
+  %244 = fdiv fast float %78, %189
+  %245 = fmul fast float %244, 5.000000e-01
+  %246 = fsub fast float 5.000000e-01, %245
+  %247 = fcmp fast ogt float %79, 0.000000e+00
+  %248 = fdiv fast float %77, %189
+  %249 = fmul fast float %248, 5.000000e-01
+  br i1 %247, label %250, label %258
+
+; <label>:250                                     ; preds = %243
+  %251 = fadd fast float %249, 5.000000e-01
+  %252 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %3)  ; CreateHandleForLib(Resource)
+  %253 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %252, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %254 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %253, %dx.types.Handle %194, float %251, float %246, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %255 = extractvalue %dx.types.ResRet.f32 %254, 0
+  %256 = extractvalue %dx.types.ResRet.f32 %254, 1
+  %257 = extractvalue %dx.types.ResRet.f32 %254, 2
+  br label %266
+
+; <label>:258                                     ; preds = %243
+  %259 = fsub fast float 5.000000e-01, %249
+  %260 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %2)  ; CreateHandleForLib(Resource)
+  %261 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %260, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %262 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %261, %dx.types.Handle %194, float %259, float %246, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %263 = extractvalue %dx.types.ResRet.f32 %262, 0
+  %264 = extractvalue %dx.types.ResRet.f32 %262, 1
+  %265 = extractvalue %dx.types.ResRet.f32 %262, 2
+  br label %266
+
+; <label>:266                                     ; preds = %258, %250, %235, %227, %210, %202, %179, %171, %156, %148, %131, %123, %88
+  %267 = phi float [ %105, %88 ], [ %128, %123 ], [ %136, %131 ], [ %153, %148 ], [ %161, %156 ], [ %176, %171 ], [ %184, %179 ], [ %207, %202 ], [ %215, %210 ], [ %232, %227 ], [ %240, %235 ], [ %255, %250 ], [ %263, %258 ]
+  %268 = phi float [ %106, %88 ], [ %129, %123 ], [ %137, %131 ], [ %154, %148 ], [ %162, %156 ], [ %177, %171 ], [ %185, %179 ], [ %208, %202 ], [ %216, %210 ], [ %233, %227 ], [ %241, %235 ], [ %256, %250 ], [ %264, %258 ]
+  %269 = phi float [ %107, %88 ], [ %130, %123 ], [ %138, %131 ], [ %155, %148 ], [ %163, %156 ], [ %178, %171 ], [ %186, %179 ], [ %209, %202 ], [ %217, %210 ], [ %234, %227 ], [ %242, %235 ], [ %257, %250 ], [ %265, %258 ]
+  %270 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %9)  ; CreateHandleForLib(Resource)
+  %271 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %270, %dx.types.ResourceProperties { i32 4098, i32 1033 })  ; AnnotateHandle(res,props)  resource: RWTexture2D<4xF32>
+  call void @dx.op.textureStore.f32(i32 67, %dx.types.Handle %271, i32 %14, i32 %15, i32 undef, float %267, float %268, float %269, float 1.000000e+00, i8 15)  ; TextureStore(srv,coord0,coord1,coord2,value0,value1,value2,value3,mask)
+  ret void
+}
+
+; Function Attrs: nounwind
+define void @"\01?ClosestHit@@YAXURayPayload@@UBuiltInTriangleIntersectionAttributes@@@Z"(%struct.RayPayload* noalias nocapture %payload, %struct.BuiltInTriangleIntersectionAttributes* nocapture readnone %attribs) #0 {
+  %1 = load %dx.types.Handle, %dx.types.Handle* @"\01?gSampler@@3USamplerState@@A", align 4
+  %2 = load %hostlayout.RTConstants, %hostlayout.RTConstants* @RTConstants_legacy
+  %3 = call %dx.types.Handle @dx.op.createHandleForLib.hostlayout.RTConstants(i32 160, %hostlayout.RTConstants %2)  ; CreateHandleForLib(Resource)
+  %4 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 13, i32 128 })  ; AnnotateHandle(res,props)  resource: CBuffer
+  %5 = call float @dx.op.worldRayOrigin.f32(i32 147, i8 0)  ; WorldRayOrigin(col)
+  %6 = call float @dx.op.worldRayOrigin.f32(i32 147, i8 1)  ; WorldRayOrigin(col)
+  %7 = call float @dx.op.worldRayOrigin.f32(i32 147, i8 2)  ; WorldRayOrigin(col)
+  %8 = call float @dx.op.worldRayDirection.f32(i32 148, i8 0)  ; WorldRayDirection(col)
+  %9 = call float @dx.op.worldRayDirection.f32(i32 148, i8 1)  ; WorldRayDirection(col)
+  %10 = call float @dx.op.worldRayDirection.f32(i32 148, i8 2)  ; WorldRayDirection(col)
+  %11 = call float @dx.op.rayTCurrent.f32(i32 154)  ; RayTCurrent()
+  %12 = fmul fast float %11, %8
+  %13 = fmul fast float %11, %9
+  %14 = fmul fast float %11, %10
+  %15 = fadd fast float %12, %5
+  %16 = fadd fast float %13, %6
+  %17 = fadd fast float %14, %7
+  %18 = call i32 @dx.op.instanceID.i32(i32 141)  ; InstanceID()
+  %19 = icmp eq i32 %18, 0
+  %20 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %1)  ; CreateHandleForLib(Resource)
+  %21 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %20, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  br i1 %19, label %87, label %22
+
+; <label>:22                                      ; preds = %0
+  %23 = call float @dx.op.objectToWorld.f32(i32 151, i32 2, i8 3)  ; ObjectToWorld(row,col)
+  %24 = call float @dx.op.objectToWorld.f32(i32 151, i32 1, i8 3)  ; ObjectToWorld(row,col)
+  %25 = call float @dx.op.objectToWorld.f32(i32 151, i32 0, i8 3)  ; ObjectToWorld(row,col)
+  %26 = load %dx.types.Handle, %dx.types.Handle* @"\01?gSphereTex@@3V?$Texture2D@V?$vector@M$03@@@@A", align 4
+  %27 = fsub fast float %15, %25
+  %28 = fsub fast float %16, %24
+  %29 = fsub fast float %17, %23
+  %30 = call float @dx.op.dot3.f32(i32 55, float %27, float %28, float %29, float %27, float %28, float %29)  ; Dot3(ax,ay,az,bx,by,bz)
+  %31 = call float @dx.op.unary.f32(i32 25, float %30)  ; Rsqrt(value)
+  %32 = fmul fast float %31, %27
+  %33 = fmul fast float %31, %28
+  %34 = fmul fast float %31, %29
+  %35 = call float @dx.op.objectToWorld.f32(i32 151, i32 0, i8 0)  ; ObjectToWorld(row,col)
+  %36 = call float @dx.op.objectToWorld.f32(i32 151, i32 0, i8 1)  ; ObjectToWorld(row,col)
+  %37 = call float @dx.op.objectToWorld.f32(i32 151, i32 0, i8 2)  ; ObjectToWorld(row,col)
+  %38 = call float @dx.op.objectToWorld.f32(i32 151, i32 1, i8 0)  ; ObjectToWorld(row,col)
+  %39 = call float @dx.op.objectToWorld.f32(i32 151, i32 1, i8 1)  ; ObjectToWorld(row,col)
+  %40 = call float @dx.op.objectToWorld.f32(i32 151, i32 1, i8 2)  ; ObjectToWorld(row,col)
+  %41 = call float @dx.op.objectToWorld.f32(i32 151, i32 2, i8 0)  ; ObjectToWorld(row,col)
+  %42 = call float @dx.op.objectToWorld.f32(i32 151, i32 2, i8 1)  ; ObjectToWorld(row,col)
+  %43 = call float @dx.op.objectToWorld.f32(i32 151, i32 2, i8 2)  ; ObjectToWorld(row,col)
+  %44 = fmul fast float %35, %32
+  %45 = call float @dx.op.tertiary.f32(i32 46, float %38, float %33, float %44)  ; FMad(a,b,c)
+  %46 = call float @dx.op.tertiary.f32(i32 46, float %41, float %34, float %45)  ; FMad(a,b,c)
+  %47 = fmul fast float %36, %32
+  %48 = call float @dx.op.tertiary.f32(i32 46, float %39, float %33, float %47)  ; FMad(a,b,c)
+  %49 = call float @dx.op.tertiary.f32(i32 46, float %42, float %34, float %48)  ; FMad(a,b,c)
+  %50 = fmul fast float %37, %32
+  %51 = call float @dx.op.tertiary.f32(i32 46, float %40, float %33, float %50)  ; FMad(a,b,c)
+  %52 = call float @dx.op.tertiary.f32(i32 46, float %43, float %34, float %51)  ; FMad(a,b,c)
+  %53 = call float @dx.op.dot3.f32(i32 55, float %46, float %49, float %52, float %46, float %49, float %52)  ; Dot3(ax,ay,az,bx,by,bz)
+  %54 = call float @dx.op.unary.f32(i32 25, float %53)  ; Rsqrt(value)
+  %55 = fmul fast float %54, %46
+  %56 = fmul fast float %54, %49
+  %57 = fmul fast float %54, %52
+  %58 = fdiv fast float %55, %57
+  %59 = call float @dx.op.unary.f32(i32 17, float %58)  ; Atan(value)
+  %60 = fadd fast float %59, 0x400921FB60000000
+  %61 = fadd fast float %59, 0xC00921FB60000000
+  %62 = fcmp fast olt float %57, 0.000000e+00
+  %63 = fcmp fast oeq float %57, 0.000000e+00
+  %64 = fcmp fast oge float %55, 0.000000e+00
+  %65 = fcmp fast olt float %55, 0.000000e+00
+  %66 = and i1 %62, %64
+  %67 = select i1 %66, float %60, float %59
+  %68 = and i1 %62, %65
+  %69 = select i1 %68, float %61, float %67
+  %70 = and i1 %63, %65
+  %71 = and i1 %63, %64
+  %72 = fmul fast float %69, 0x3FC45F3060000000
+  %73 = fadd fast float %72, 5.000000e-01
+  %74 = select i1 %70, float 2.500000e-01, float %73
+  %75 = select i1 %71, float 7.500000e-01, float %74
+  %76 = call float @dx.op.binary.f32(i32 35, float %56, float -1.000000e+00)  ; FMax(a,b)
+  %77 = call float @dx.op.binary.f32(i32 36, float %76, float 1.000000e+00)  ; FMin(a,b)
+  %78 = call float @dx.op.unary.f32(i32 16, float %77)  ; Asin(value)
+  %79 = fmul fast float %78, 0x3FD45F3060000000
+  %80 = fadd fast float %79, 5.000000e-01
+  %81 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %26)  ; CreateHandleForLib(Resource)
+  %82 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %81, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %83 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %82, %dx.types.Handle %21, float %75, float %80, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %84 = extractvalue %dx.types.ResRet.f32 %83, 0
+  %85 = extractvalue %dx.types.ResRet.f32 %83, 1
+  %86 = extractvalue %dx.types.ResRet.f32 %83, 2
+  br label %97
+
+; <label>:87                                      ; preds = %0
+  %88 = load %dx.types.Handle, %dx.types.Handle* @"\01?gTerrainTex@@3V?$Texture2D@V?$vector@M$03@@@@A", align 4
+  %89 = fmul fast float %15, 1.171875e-02
+  %90 = fmul fast float %17, 1.171875e-02
+  %91 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %88)  ; CreateHandleForLib(Resource)
+  %92 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %91, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %93 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %92, %dx.types.Handle %21, float %89, float %90, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %94 = extractvalue %dx.types.ResRet.f32 %93, 0
+  %95 = extractvalue %dx.types.ResRet.f32 %93, 1
+  %96 = extractvalue %dx.types.ResRet.f32 %93, 2
+  br label %97
+
+; <label>:97                                      ; preds = %87, %22
+  %98 = phi float [ %84, %22 ], [ %94, %87 ]
+  %99 = phi float [ %85, %22 ], [ %95, %87 ]
+  %100 = phi float [ %86, %22 ], [ %96, %87 ]
+  %101 = phi float [ %32, %22 ], [ 0.000000e+00, %87 ]
+  %102 = phi float [ %33, %22 ], [ 1.000000e+00, %87 ]
+  %103 = phi float [ %34, %22 ], [ 0.000000e+00, %87 ]
+  %104 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %4, i32 5)  ; CBufferLoadLegacy(handle,regIndex)
+  %105 = extractvalue %dx.types.CBufRet.f32 %104, 0
+  %106 = extractvalue %dx.types.CBufRet.f32 %104, 1
+  %107 = extractvalue %dx.types.CBufRet.f32 %104, 2
+  %108 = fsub fast float %105, %15
+  %109 = fsub fast float %106, %16
+  %110 = fsub fast float %107, %17
+  %111 = call float @dx.op.dot3.f32(i32 55, float %108, float %109, float %110, float %108, float %109, float %110)  ; Dot3(ax,ay,az,bx,by,bz)
+  %112 = call float @dx.op.unary.f32(i32 25, float %111)  ; Rsqrt(value)
+  %113 = fmul fast float %108, %112
+  %114 = fmul fast float %109, %112
+  %115 = fmul fast float %110, %112
+  %116 = call float @dx.op.dot3.f32(i32 55, float %101, float %102, float %103, float %113, float %114, float %115)  ; Dot3(ax,ay,az,bx,by,bz)
+  %117 = call float @dx.op.unary.f32(i32 7, float %116)  ; Saturate(value)
+  %118 = fmul fast float %117, 0x3FE6666660000000
+  %119 = fadd fast float %118, 0x3FD3333340000000
+  %120 = fmul fast float %119, %98
+  %121 = fmul fast float %119, %99
+  %122 = fmul fast float %119, %100
+  %123 = insertelement <3 x float> undef, float %120, i32 0
+  %124 = insertelement <3 x float> %123, float %121, i32 1
+  %125 = insertelement <3 x float> %124, float %122, i32 2
+  %126 = getelementptr inbounds %struct.RayPayload, %struct.RayPayload* %payload, i32 0, i32 0
+  store <3 x float> %125, <3 x float>* %126, align 4
+  %127 = getelementptr inbounds %struct.RayPayload, %struct.RayPayload* %payload, i32 0, i32 1
+  store float %11, float* %127, align 4
+  ret void
+}
+
+; Function Attrs: nounwind
+define void @"\01?Miss@@YAXURayPayload@@@Z"(%struct.RayPayload* noalias nocapture %payload) #0 {
+  %1 = load %dx.types.Handle, %dx.types.Handle* @"\01?gSkySampler@@3USamplerState@@A", align 4
+  %2 = load %dx.types.Handle, %dx.types.Handle* @"\01?gSkyBack@@3V?$Texture2D@V?$vector@M$03@@@@A", align 4
+  %3 = load %dx.types.Handle, %dx.types.Handle* @"\01?gSkyFront@@3V?$Texture2D@V?$vector@M$03@@@@A", align 4
+  %4 = load %dx.types.Handle, %dx.types.Handle* @"\01?gSkyLeft@@3V?$Texture2D@V?$vector@M$03@@@@A", align 4
+  %5 = load %dx.types.Handle, %dx.types.Handle* @"\01?gSkyRight@@3V?$Texture2D@V?$vector@M$03@@@@A", align 4
+  %6 = load %dx.types.Handle, %dx.types.Handle* @"\01?gSkyDown@@3V?$Texture2D@V?$vector@M$03@@@@A", align 4
+  %7 = load %dx.types.Handle, %dx.types.Handle* @"\01?gSkyUp@@3V?$Texture2D@V?$vector@M$03@@@@A", align 4
+  %8 = call float @dx.op.worldRayDirection.f32(i32 148, i8 0)  ; WorldRayDirection(col)
+  %9 = call float @dx.op.worldRayDirection.f32(i32 148, i8 1)  ; WorldRayDirection(col)
+  %10 = call float @dx.op.worldRayDirection.f32(i32 148, i8 2)  ; WorldRayDirection(col)
+  %11 = call float @dx.op.unary.f32(i32 6, float %8)  ; FAbs(value)
+  %12 = call float @dx.op.unary.f32(i32 6, float %9)  ; FAbs(value)
+  %13 = call float @dx.op.unary.f32(i32 6, float %10)  ; FAbs(value)
+  %14 = fcmp fast oge float %12, %11
+  %15 = fcmp fast oge float %12, %13
+  %16 = and i1 %14, %15
+  %17 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %1)  ; CreateHandleForLib(Resource)
+  %18 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %17, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  br i1 %16, label %19, label %42
+
+; <label>:19                                      ; preds = %0
+  %20 = fdiv fast float %8, %12
+  %21 = fmul fast float %20, 5.000000e-01
+  %22 = fadd fast float %21, 5.000000e-01
+  %23 = fcmp fast ogt float %9, 0.000000e+00
+  %24 = fdiv fast float %10, %12
+  %25 = fmul fast float %24, 5.000000e-01
+  br i1 %23, label %26, label %34
+
+; <label>:26                                      ; preds = %19
+  %27 = fadd fast float %25, 5.000000e-01
+  %28 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %7)  ; CreateHandleForLib(Resource)
+  %29 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %28, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %30 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %29, %dx.types.Handle %18, float %22, float %27, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %31 = extractvalue %dx.types.ResRet.f32 %30, 0
+  %32 = extractvalue %dx.types.ResRet.f32 %30, 1
+  %33 = extractvalue %dx.types.ResRet.f32 %30, 2
+  br label %90
+
+; <label>:34                                      ; preds = %19
+  %35 = fsub fast float 5.000000e-01, %25
+  %36 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %6)  ; CreateHandleForLib(Resource)
+  %37 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %36, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %38 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %37, %dx.types.Handle %18, float %22, float %35, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %39 = extractvalue %dx.types.ResRet.f32 %38, 0
+  %40 = extractvalue %dx.types.ResRet.f32 %38, 1
+  %41 = extractvalue %dx.types.ResRet.f32 %38, 2
+  br label %90
+
+; <label>:42                                      ; preds = %0
+  %43 = fcmp fast ult float %11, %13
+  br i1 %43, label %67, label %44
+
+; <label>:44                                      ; preds = %42
+  %45 = fdiv fast float %9, %11
+  %46 = fmul fast float %45, 5.000000e-01
+  %47 = fsub fast float 5.000000e-01, %46
+  %48 = fcmp fast olt float %8, 0.000000e+00
+  %49 = fdiv fast float %10, %11
+  %50 = fmul fast float %49, 5.000000e-01
+  br i1 %48, label %51, label %59
+
+; <label>:51                                      ; preds = %44
+  %52 = fadd fast float %50, 5.000000e-01
+  %53 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %5)  ; CreateHandleForLib(Resource)
+  %54 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %53, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %55 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %54, %dx.types.Handle %18, float %52, float %47, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %56 = extractvalue %dx.types.ResRet.f32 %55, 0
+  %57 = extractvalue %dx.types.ResRet.f32 %55, 1
+  %58 = extractvalue %dx.types.ResRet.f32 %55, 2
+  br label %90
+
+; <label>:59                                      ; preds = %44
+  %60 = fsub fast float 5.000000e-01, %50
+  %61 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %4)  ; CreateHandleForLib(Resource)
+  %62 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %61, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %63 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %62, %dx.types.Handle %18, float %60, float %47, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %64 = extractvalue %dx.types.ResRet.f32 %63, 0
+  %65 = extractvalue %dx.types.ResRet.f32 %63, 1
+  %66 = extractvalue %dx.types.ResRet.f32 %63, 2
+  br label %90
+
+; <label>:67                                      ; preds = %42
+  %68 = fdiv fast float %9, %13
+  %69 = fmul fast float %68, 5.000000e-01
+  %70 = fsub fast float 5.000000e-01, %69
+  %71 = fcmp fast ogt float %10, 0.000000e+00
+  %72 = fdiv fast float %8, %13
+  %73 = fmul fast float %72, 5.000000e-01
+  br i1 %71, label %74, label %82
+
+; <label>:74                                      ; preds = %67
+  %75 = fadd fast float %73, 5.000000e-01
+  %76 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %3)  ; CreateHandleForLib(Resource)
+  %77 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %76, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %78 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %77, %dx.types.Handle %18, float %75, float %70, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %79 = extractvalue %dx.types.ResRet.f32 %78, 0
+  %80 = extractvalue %dx.types.ResRet.f32 %78, 1
+  %81 = extractvalue %dx.types.ResRet.f32 %78, 2
+  br label %90
+
+; <label>:82                                      ; preds = %67
+  %83 = fsub fast float 5.000000e-01, %73
+  %84 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %2)  ; CreateHandleForLib(Resource)
+  %85 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %84, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %86 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %85, %dx.types.Handle %18, float %83, float %70, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %87 = extractvalue %dx.types.ResRet.f32 %86, 0
+  %88 = extractvalue %dx.types.ResRet.f32 %86, 1
+  %89 = extractvalue %dx.types.ResRet.f32 %86, 2
+  br label %90
+
+; <label>:90                                      ; preds = %82, %74, %59, %51, %34, %26
+  %91 = phi float [ %31, %26 ], [ %39, %34 ], [ %56, %51 ], [ %64, %59 ], [ %79, %74 ], [ %87, %82 ]
+  %92 = phi float [ %32, %26 ], [ %40, %34 ], [ %57, %51 ], [ %65, %59 ], [ %80, %74 ], [ %88, %82 ]
+  %93 = phi float [ %33, %26 ], [ %41, %34 ], [ %58, %51 ], [ %66, %59 ], [ %81, %74 ], [ %89, %82 ]
+  %94 = insertelement <3 x float> undef, float %91, i32 0
+  %95 = insertelement <3 x float> %94, float %92, i32 1
+  %96 = insertelement <3 x float> %95, float %93, i32 2
+  %97 = getelementptr inbounds %struct.RayPayload, %struct.RayPayload* %payload, i32 0, i32 0
+  store <3 x float> %96, <3 x float>* %97, align 4
+  %98 = getelementptr inbounds %struct.RayPayload, %struct.RayPayload* %payload, i32 0, i32 1
+  store float -1.000000e+00, float* %98, align 4
+  ret void
+}
+
+; Function Attrs: nounwind readnone
+declare float @dx.op.dot3.f32(i32, float, float, float, float, float, float) #1
+
+; Function Attrs: nounwind readnone
+declare float @dx.op.unary.f32(i32, float) #1
+
+; Function Attrs: nounwind readonly
+declare %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32, %dx.types.Handle, %dx.types.Handle, float, float, float, float, i32, i32, i32, float) #2
+
+; Function Attrs: nounwind readnone
+declare i32 @dx.op.dispatchRaysDimensions.i32(i32, i8) #1
+
+; Function Attrs: nounwind readnone
+declare i32 @dx.op.dispatchRaysIndex.i32(i32, i8) #1
+
+; Function Attrs: nounwind
+declare void @dx.op.traceRay.struct.RayPayload(i32, %dx.types.Handle, i32, i32, i32, i32, i32, float, float, float, float, float, float, float, float, %struct.RayPayload*) #0
+
+; Function Attrs: nounwind
+declare void @dx.op.textureStore.f32(i32, %dx.types.Handle, i32, i32, i32, float, float, float, float, i8) #0
+
+; Function Attrs: nounwind readnone
+declare float @dx.op.worldRayDirection.f32(i32, i8) #1
+
+; Function Attrs: nounwind readnone
+declare float @dx.op.worldRayOrigin.f32(i32, i8) #1
+
+; Function Attrs: nounwind readonly
+declare float @dx.op.rayTCurrent.f32(i32) #2
+
+; Function Attrs: nounwind readnone
+declare i32 @dx.op.instanceID.i32(i32) #1
+
+; Function Attrs: nounwind readnone
+declare float @dx.op.binary.f32(i32, float, float) #1
+
+; Function Attrs: nounwind readonly
+declare %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32, %dx.types.Handle, i32) #2
+
+; Function Attrs: nounwind readnone
+declare float @dx.op.tertiary.f32(i32, float, float, float) #1
+
+; Function Attrs: nounwind readnone
+declare float @dx.op.objectToWorld.f32(i32, i32, i8) #1
+
+; Function Attrs: nounwind readnone
+declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #1
+
+; Function Attrs: nounwind readonly
+declare %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32, %dx.types.Handle) #2
+
+; Function Attrs: nounwind readonly
+declare %dx.types.Handle @dx.op.createHandleForLib.hostlayout.RTConstants(i32, %hostlayout.RTConstants) #2
+
+attributes #0 = { nounwind }
+attributes #1 = { nounwind readnone }
+attributes #2 = { nounwind readonly }
+
+!llvm.ident = !{!0}
+!dx.version = !{!1}
+!dx.valver = !{!2}
+!dx.shaderModel = !{!3}
+!dx.resources = !{!4}
+!dx.typeAnnotations = !{!24}
+!dx.entryPoints = !{!32, !33, !36, !38}
+
+!0 = !{!"dxcoob 1.8.2502.11 (239921522)"}
+!1 = !{i32 1, i32 6}
+!2 = !{i32 1, i32 8}
+!3 = !{!"lib", i32 6, i32 6}
+!4 = !{!5, !17, !19, !21}
+!5 = !{!6, !8, !10, !11, !12, !13, !14, !15, !16}
+!6 = !{i32 0, %struct.RaytracingAccelerationStructure* bitcast (%dx.types.Handle* @"\01?gScene@@3URaytracingAccelerationStructure@@A" to %struct.RaytracingAccelerationStructure*), !"gScene", i32 1, i32 0, i32 1, i32 16, i32 0, !7}
+!7 = !{i32 0, i32 4}
+!8 = !{i32 1, %"class.Texture2D<vector<float, 4> >"* bitcast (%dx.types.Handle* @"\01?gSphereTex@@3V?$Texture2D@V?$vector@M$03@@@@A" to %"class.Texture2D<vector<float, 4> >"*), !"gSphereTex", i32 0, i32 0, i32 1, i32 2, i32 0, !9}
+!9 = !{i32 0, i32 9}
+!10 = !{i32 2, %"class.Texture2D<vector<float, 4> >"* bitcast (%dx.types.Handle* @"\01?gTerrainTex@@3V?$Texture2D@V?$vector@M$03@@@@A" to %"class.Texture2D<vector<float, 4> >"*), !"gTerrainTex", i32 0, i32 1, i32 1, i32 2, i32 0, !9}
+!11 = !{i32 3, %"class.Texture2D<vector<float, 4> >"* bitcast (%dx.types.Handle* @"\01?gSkyUp@@3V?$Texture2D@V?$vector@M$03@@@@A" to %"class.Texture2D<vector<float, 4> >"*), !"gSkyUp", i32 0, i32 2, i32 1, i32 2, i32 0, !9}
+!12 = !{i32 4, %"class.Texture2D<vector<float, 4> >"* bitcast (%dx.types.Handle* @"\01?gSkyDown@@3V?$Texture2D@V?$vector@M$03@@@@A" to %"class.Texture2D<vector<float, 4> >"*), !"gSkyDown", i32 0, i32 3, i32 1, i32 2, i32 0, !9}
+!13 = !{i32 5, %"class.Texture2D<vector<float, 4> >"* bitcast (%dx.types.Handle* @"\01?gSkyRight@@3V?$Texture2D@V?$vector@M$03@@@@A" to %"class.Texture2D<vector<float, 4> >"*), !"gSkyRight", i32 0, i32 4, i32 1, i32 2, i32 0, !9}
+!14 = !{i32 6, %"class.Texture2D<vector<float, 4> >"* bitcast (%dx.types.Handle* @"\01?gSkyLeft@@3V?$Texture2D@V?$vector@M$03@@@@A" to %"class.Texture2D<vector<float, 4> >"*), !"gSkyLeft", i32 0, i32 5, i32 1, i32 2, i32 0, !9}
+!15 = !{i32 7, %"class.Texture2D<vector<float, 4> >"* bitcast (%dx.types.Handle* @"\01?gSkyFront@@3V?$Texture2D@V?$vector@M$03@@@@A" to %"class.Texture2D<vector<float, 4> >"*), !"gSkyFront", i32 0, i32 6, i32 1, i32 2, i32 0, !9}
+!16 = !{i32 8, %"class.Texture2D<vector<float, 4> >"* bitcast (%dx.types.Handle* @"\01?gSkyBack@@3V?$Texture2D@V?$vector@M$03@@@@A" to %"class.Texture2D<vector<float, 4> >"*), !"gSkyBack", i32 0, i32 7, i32 1, i32 2, i32 0, !9}
+!17 = !{!18}
+!18 = !{i32 0, %"class.RWTexture2D<vector<float, 4> >"* bitcast (%dx.types.Handle* @"\01?gOutput@@3V?$RWTexture2D@V?$vector@M$03@@@@A" to %"class.RWTexture2D<vector<float, 4> >"*), !"gOutput", i32 0, i32 0, i32 1, i32 2, i1 false, i1 false, i1 false, !9}
+!19 = !{!20}
+!20 = !{i32 0, %hostlayout.RTConstants* @RTConstants_legacy, !"RTConstants", i32 0, i32 1, i32 1, i32 128, null}
+!21 = !{!22, !23}
+!22 = !{i32 0, %struct.SamplerState* bitcast (%dx.types.Handle* @"\01?gSampler@@3USamplerState@@A" to %struct.SamplerState*), !"gSampler", i32 0, i32 0, i32 1, i32 0, null}
+!23 = !{i32 1, %struct.SamplerState* bitcast (%dx.types.Handle* @"\01?gSkySampler@@3USamplerState@@A" to %struct.SamplerState*), !"gSkySampler", i32 0, i32 1, i32 1, i32 0, null}
+!24 = !{i32 1, void ()* @"\01?RayGen@@YAXXZ", !25, void (%struct.RayPayload*, %struct.BuiltInTriangleIntersectionAttributes*)* @"\01?ClosestHit@@YAXURayPayload@@UBuiltInTriangleIntersectionAttributes@@@Z", !28, void (%struct.RayPayload*)* @"\01?Miss@@YAXURayPayload@@@Z", !31}
+!25 = !{!26}
+!26 = !{i32 1, !27, !27}
+!27 = !{}
+!28 = !{!26, !29, !30}
+!29 = !{i32 2, !27, !27}
+!30 = !{i32 0, !27, !27}
+!31 = !{!26, !29}
+!32 = !{null, !"", null, !4, null}
+!33 = !{void (%struct.RayPayload*, %struct.BuiltInTriangleIntersectionAttributes*)* @"\01?ClosestHit@@YAXURayPayload@@UBuiltInTriangleIntersectionAttributes@@@Z", !"\01?ClosestHit@@YAXURayPayload@@UBuiltInTriangleIntersectionAttributes@@@Z", null, null, !34}
+!34 = !{i32 8, i32 10, i32 6, i32 16, i32 7, i32 8, i32 5, !35}
+!35 = !{i32 0}
+!36 = !{void (%struct.RayPayload*)* @"\01?Miss@@YAXURayPayload@@@Z", !"\01?Miss@@YAXURayPayload@@@Z", null, null, !37}
+!37 = !{i32 8, i32 11, i32 6, i32 16, i32 5, !35}
+!38 = !{void ()* @"\01?RayGen@@YAXXZ", !"\01?RayGen@@YAXXZ", null, null, !39}
+!39 = !{i32 8, i32 7, i32 5, !35}
+!40 = !{!41, !41, i64 0}
+!41 = !{!"omnipotent char", !42, i64 0}
+!42 = !{!"Simple C/C++ TBAA"}
+!43 = !{!44, !44, i64 0}
+!44 = !{!"float", !41, i64 0}
+

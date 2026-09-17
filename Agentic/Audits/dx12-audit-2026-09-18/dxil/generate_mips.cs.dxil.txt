@@ -1,0 +1,552 @@
+;
+; Input signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; no parameters
+;
+; Output signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; no parameters
+; shader hash: b439b9840dc131a402c2154abf2644ed
+;
+; Pipeline Runtime Information: 
+;
+;PSVRuntimeInfo:
+; Compute Shader
+; NumThreads=(8,8,1)
+; MinimumExpectedWaveLaneCount: 0
+; MaximumExpectedWaveLaneCount: 4294967295
+; UsesViewID: false
+; SigInputElements: 0
+; SigOutputElements: 0
+; SigPatchConstOrPrimElements: 0
+; SigInputVectors: 0
+; SigOutputVectors[0]: 0
+; SigOutputVectors[1]: 0
+; SigOutputVectors[2]: 0
+; SigOutputVectors[3]: 0
+; EntryFunctionName: main_cs
+;
+;
+; Buffer Definitions:
+;
+; cbuffer GenerateMipsCB
+; {
+;
+;   struct GenerateMipsCB
+;   {
+;
+;       uint NumMipLevels;                            ; Offset:    0
+;       uint SrcDimension;                            ; Offset:    4
+;       float TexelSizeX;                             ; Offset:    8
+;       float TexelSizeY;                             ; Offset:   12
+;   
+;   } GenerateMipsCB;                                 ; Offset:    0 Size:    16
+;
+; }
+;
+;
+; Resource Bindings:
+;
+; Name                                 Type  Format         Dim      ID      HLSL Bind  Count
+; ------------------------------ ---------- ------- ----------- ------- -------------- ------
+; GenerateMipsCB                    cbuffer      NA          NA     CB0            cb0     1
+; LinearClampSampler                sampler      NA          NA      S0             s0     1
+; SrcMip                            texture     f32          2d      T0             t0     1
+; OutMip1                               UAV     f32          2d      U0             u0     1
+; OutMip2                               UAV     f32          2d      U1             u1     1
+; OutMip3                               UAV     f32          2d      U2             u2     1
+; OutMip4                               UAV     f32          2d      U3             u3     1
+;
+target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
+target triple = "dxil-ms-dx"
+
+%dx.types.Handle = type { i8* }
+%dx.types.ResBind = type { i32, i32, i32, i8 }
+%dx.types.ResourceProperties = type { i32, i32 }
+%dx.types.CBufRet.f32 = type { float, float, float, float }
+%dx.types.CBufRet.i32 = type { i32, i32, i32, i32 }
+%dx.types.ResRet.f32 = type { float, float, float, float, i32 }
+%"class.Texture2D<vector<float, 4> >" = type { <4 x float>, %"class.Texture2D<vector<float, 4> >::mips_type" }
+%"class.Texture2D<vector<float, 4> >::mips_type" = type { i32 }
+%"class.RWTexture2D<vector<float, 4> >" = type { <4 x float> }
+%GenerateMipsCB = type { i32, i32, float, float }
+%struct.SamplerState = type { i32 }
+
+@"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim" = addrspace(3) global [256 x float] undef, align 4
+
+define void @main_cs() {
+  %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 3, i32 3, i32 0, i8 1 }, i32 3, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+  %2 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 2, i32 2, i32 0, i8 1 }, i32 2, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+  %3 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 1, i32 0, i8 1 }, i32 1, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+  %4 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 1 }, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+  %5 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind zeroinitializer, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+  %6 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 3 }, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+  %7 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 2 }, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+  %8 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %7, %dx.types.ResourceProperties { i32 13, i32 16 })  ; AnnotateHandle(res,props)  resource: CBuffer
+  %9 = call i32 @dx.op.threadId.i32(i32 93, i32 0)  ; ThreadId(component)
+  %10 = call i32 @dx.op.threadId.i32(i32 93, i32 1)  ; ThreadId(component)
+  %11 = call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)  ; FlattenedThreadIdInGroup()
+  %12 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %8, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %13 = extractvalue %dx.types.CBufRet.f32 %12, 2
+  %14 = extractvalue %dx.types.CBufRet.f32 %12, 3
+  %15 = call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32(i32 59, %dx.types.Handle %8, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %16 = extractvalue %dx.types.CBufRet.i32 %15, 1
+  switch i32 %16, label %89 [
+    i32 0, label %17
+    i32 1, label %31
+    i32 2, label %60
+  ]
+
+; <label>:17                                      ; preds = %0
+  %18 = uitofp i32 %9 to float
+  %19 = uitofp i32 %10 to float
+  %20 = fadd fast float %18, 5.000000e-01
+  %21 = fadd fast float %19, 5.000000e-01
+  %22 = fmul fast float %13, %20
+  %23 = fmul fast float %14, %21
+  %24 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %5, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %25 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %6, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %26 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %24, %dx.types.Handle %25, float %22, float %23, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %27 = extractvalue %dx.types.ResRet.f32 %26, 0
+  %28 = extractvalue %dx.types.ResRet.f32 %26, 1
+  %29 = extractvalue %dx.types.ResRet.f32 %26, 2
+  %30 = extractvalue %dx.types.ResRet.f32 %26, 3
+  br label %138
+
+; <label>:31                                      ; preds = %0
+  %32 = uitofp i32 %9 to float
+  %33 = uitofp i32 %10 to float
+  %34 = fadd fast float %32, 2.500000e-01
+  %35 = fadd fast float %33, 5.000000e-01
+  %36 = fmul fast float %13, %34
+  %37 = fmul fast float %14, %35
+  %38 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %5, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %39 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %6, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %40 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %38, %dx.types.Handle %39, float %36, float %37, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %41 = extractvalue %dx.types.ResRet.f32 %40, 0
+  %42 = extractvalue %dx.types.ResRet.f32 %40, 1
+  %43 = extractvalue %dx.types.ResRet.f32 %40, 2
+  %44 = extractvalue %dx.types.ResRet.f32 %40, 3
+  %45 = fadd fast float %32, 7.500000e-01
+  %46 = fmul fast float %13, %45
+  %47 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %38, %dx.types.Handle %39, float %46, float %37, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %48 = extractvalue %dx.types.ResRet.f32 %47, 0
+  %49 = extractvalue %dx.types.ResRet.f32 %47, 1
+  %50 = extractvalue %dx.types.ResRet.f32 %47, 2
+  %51 = extractvalue %dx.types.ResRet.f32 %47, 3
+  %52 = fadd fast float %48, %41
+  %53 = fadd fast float %49, %42
+  %54 = fadd fast float %50, %43
+  %55 = fadd fast float %51, %44
+  %56 = fmul fast float %52, 5.000000e-01
+  %57 = fmul fast float %53, 5.000000e-01
+  %58 = fmul fast float %54, 5.000000e-01
+  %59 = fmul fast float %55, 5.000000e-01
+  br label %138
+
+; <label>:60                                      ; preds = %0
+  %61 = uitofp i32 %9 to float
+  %62 = uitofp i32 %10 to float
+  %63 = fadd fast float %61, 5.000000e-01
+  %64 = fadd fast float %62, 2.500000e-01
+  %65 = fmul fast float %13, %63
+  %66 = fmul fast float %14, %64
+  %67 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %5, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %68 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %6, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %69 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %67, %dx.types.Handle %68, float %65, float %66, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %70 = extractvalue %dx.types.ResRet.f32 %69, 0
+  %71 = extractvalue %dx.types.ResRet.f32 %69, 1
+  %72 = extractvalue %dx.types.ResRet.f32 %69, 2
+  %73 = extractvalue %dx.types.ResRet.f32 %69, 3
+  %74 = fadd fast float %62, 7.500000e-01
+  %75 = fmul fast float %14, %74
+  %76 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %67, %dx.types.Handle %68, float %65, float %75, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %77 = extractvalue %dx.types.ResRet.f32 %76, 0
+  %78 = extractvalue %dx.types.ResRet.f32 %76, 1
+  %79 = extractvalue %dx.types.ResRet.f32 %76, 2
+  %80 = extractvalue %dx.types.ResRet.f32 %76, 3
+  %81 = fadd fast float %77, %70
+  %82 = fadd fast float %78, %71
+  %83 = fadd fast float %79, %72
+  %84 = fadd fast float %80, %73
+  %85 = fmul fast float %81, 5.000000e-01
+  %86 = fmul fast float %82, 5.000000e-01
+  %87 = fmul fast float %83, 5.000000e-01
+  %88 = fmul fast float %84, 5.000000e-01
+  br label %138
+
+; <label>:89                                      ; preds = %0
+  %90 = uitofp i32 %9 to float
+  %91 = uitofp i32 %10 to float
+  %92 = fadd fast float %90, 2.500000e-01
+  %93 = fadd fast float %91, 2.500000e-01
+  %94 = fmul fast float %13, %92
+  %95 = fmul fast float %14, %93
+  %96 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %5, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %97 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %6, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %98 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %96, %dx.types.Handle %97, float %94, float %95, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %99 = extractvalue %dx.types.ResRet.f32 %98, 0
+  %100 = extractvalue %dx.types.ResRet.f32 %98, 1
+  %101 = extractvalue %dx.types.ResRet.f32 %98, 2
+  %102 = extractvalue %dx.types.ResRet.f32 %98, 3
+  %103 = fadd fast float %90, 7.500000e-01
+  %104 = fmul fast float %13, %103
+  %105 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %96, %dx.types.Handle %97, float %104, float %95, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %106 = extractvalue %dx.types.ResRet.f32 %105, 0
+  %107 = extractvalue %dx.types.ResRet.f32 %105, 1
+  %108 = extractvalue %dx.types.ResRet.f32 %105, 2
+  %109 = extractvalue %dx.types.ResRet.f32 %105, 3
+  %110 = fadd fast float %106, %99
+  %111 = fadd fast float %107, %100
+  %112 = fadd fast float %108, %101
+  %113 = fadd fast float %109, %102
+  %114 = fadd fast float %91, 7.500000e-01
+  %115 = fmul fast float %14, %114
+  %116 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %96, %dx.types.Handle %97, float %94, float %115, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %117 = extractvalue %dx.types.ResRet.f32 %116, 0
+  %118 = extractvalue %dx.types.ResRet.f32 %116, 1
+  %119 = extractvalue %dx.types.ResRet.f32 %116, 2
+  %120 = extractvalue %dx.types.ResRet.f32 %116, 3
+  %121 = fadd fast float %110, %117
+  %122 = fadd fast float %111, %118
+  %123 = fadd fast float %112, %119
+  %124 = fadd fast float %113, %120
+  %125 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %96, %dx.types.Handle %97, float %104, float %115, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %126 = extractvalue %dx.types.ResRet.f32 %125, 0
+  %127 = extractvalue %dx.types.ResRet.f32 %125, 1
+  %128 = extractvalue %dx.types.ResRet.f32 %125, 2
+  %129 = extractvalue %dx.types.ResRet.f32 %125, 3
+  %130 = fadd fast float %121, %126
+  %131 = fadd fast float %122, %127
+  %132 = fadd fast float %123, %128
+  %133 = fadd fast float %124, %129
+  %134 = fmul fast float %130, 2.500000e-01
+  %135 = fmul fast float %131, 2.500000e-01
+  %136 = fmul fast float %132, 2.500000e-01
+  %137 = fmul fast float %133, 2.500000e-01
+  br label %138
+
+; <label>:138                                     ; preds = %89, %60, %31, %17
+  %139 = phi float [ %134, %89 ], [ %85, %60 ], [ %56, %31 ], [ %27, %17 ]
+  %140 = phi float [ %135, %89 ], [ %86, %60 ], [ %57, %31 ], [ %28, %17 ]
+  %141 = phi float [ %136, %89 ], [ %87, %60 ], [ %58, %31 ], [ %29, %17 ]
+  %142 = phi float [ %137, %89 ], [ %88, %60 ], [ %59, %31 ], [ %30, %17 ]
+  %143 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %4, %dx.types.ResourceProperties { i32 4098, i32 1033 })  ; AnnotateHandle(res,props)  resource: RWTexture2D<4xF32>
+  call void @dx.op.textureStore.f32(i32 67, %dx.types.Handle %143, i32 %9, i32 %10, i32 undef, float %139, float %140, float %141, float %142, i8 15)  ; TextureStore(srv,coord0,coord1,coord2,value0,value1,value2,value3,mask)
+  %144 = call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32(i32 59, %dx.types.Handle %8, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %145 = extractvalue %dx.types.CBufRet.i32 %144, 0
+  %146 = icmp eq i32 %145, 1
+  br i1 %146, label %357, label %147
+
+; <label>:147                                     ; preds = %138
+  %148 = mul i32 %11, 4
+  %149 = add i32 0, %148
+  %150 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %149
+  store float %139, float addrspace(3)* %150, align 4
+  %151 = mul i32 %11, 4
+  %152 = add i32 1, %151
+  %153 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %152
+  store float %140, float addrspace(3)* %153, align 4
+  %154 = mul i32 %11, 4
+  %155 = add i32 2, %154
+  %156 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %155
+  store float %141, float addrspace(3)* %156, align 4
+  %157 = mul i32 %11, 4
+  %158 = add i32 3, %157
+  %159 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %158
+  store float %142, float addrspace(3)* %159, align 4
+  call void @dx.op.barrier(i32 80, i32 9)  ; Barrier(barrierMode)
+  %160 = and i32 %11, 9
+  %161 = icmp eq i32 %160, 0
+  br i1 %161, label %162, label %233
+
+; <label>:162                                     ; preds = %147
+  %163 = add i32 %11, 1
+  %164 = mul i32 %163, 4
+  %165 = add i32 0, %164
+  %166 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %165
+  %167 = load float, float addrspace(3)* %166, align 4
+  %168 = mul i32 %163, 4
+  %169 = add i32 1, %168
+  %170 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %169
+  %171 = load float, float addrspace(3)* %170, align 4
+  %172 = mul i32 %163, 4
+  %173 = add i32 2, %172
+  %174 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %173
+  %175 = load float, float addrspace(3)* %174, align 4
+  %176 = mul i32 %163, 4
+  %177 = add i32 3, %176
+  %178 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %177
+  %179 = load float, float addrspace(3)* %178, align 4
+  %180 = add i32 %11, 8
+  %181 = mul i32 %180, 4
+  %182 = add i32 0, %181
+  %183 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %182
+  %184 = load float, float addrspace(3)* %183, align 4
+  %185 = mul i32 %180, 4
+  %186 = add i32 1, %185
+  %187 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %186
+  %188 = load float, float addrspace(3)* %187, align 4
+  %189 = mul i32 %180, 4
+  %190 = add i32 2, %189
+  %191 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %190
+  %192 = load float, float addrspace(3)* %191, align 4
+  %193 = mul i32 %180, 4
+  %194 = add i32 3, %193
+  %195 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %194
+  %196 = load float, float addrspace(3)* %195, align 4
+  %197 = add i32 %11, 9
+  %198 = mul i32 %197, 4
+  %199 = add i32 0, %198
+  %200 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %199
+  %201 = load float, float addrspace(3)* %200, align 4
+  %202 = mul i32 %197, 4
+  %203 = add i32 1, %202
+  %204 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %203
+  %205 = load float, float addrspace(3)* %204, align 4
+  %206 = mul i32 %197, 4
+  %207 = add i32 2, %206
+  %208 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %207
+  %209 = load float, float addrspace(3)* %208, align 4
+  %210 = mul i32 %197, 4
+  %211 = add i32 3, %210
+  %212 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %211
+  %213 = load float, float addrspace(3)* %212, align 4
+  %214 = fadd fast float %167, %139
+  %215 = fadd fast float %171, %140
+  %216 = fadd fast float %175, %141
+  %217 = fadd fast float %179, %142
+  %218 = fadd fast float %214, %184
+  %219 = fadd fast float %215, %188
+  %220 = fadd fast float %216, %192
+  %221 = fadd fast float %217, %196
+  %222 = fadd fast float %218, %201
+  %223 = fadd fast float %219, %205
+  %224 = fadd fast float %220, %209
+  %225 = fadd fast float %221, %213
+  %226 = fmul fast float %222, 2.500000e-01
+  %227 = fmul fast float %223, 2.500000e-01
+  %228 = fmul fast float %224, 2.500000e-01
+  %229 = fmul fast float %225, 2.500000e-01
+  %230 = lshr i32 %9, 1
+  %231 = lshr i32 %10, 1
+  %232 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 4098, i32 1033 })  ; AnnotateHandle(res,props)  resource: RWTexture2D<4xF32>
+  call void @dx.op.textureStore.f32(i32 67, %dx.types.Handle %232, i32 %230, i32 %231, i32 undef, float %226, float %227, float %228, float %229, i8 15)  ; TextureStore(srv,coord0,coord1,coord2,value0,value1,value2,value3,mask)
+  store float %226, float addrspace(3)* %150, align 4
+  store float %227, float addrspace(3)* %153, align 4
+  store float %228, float addrspace(3)* %156, align 4
+  store float %229, float addrspace(3)* %159, align 4
+  br label %233
+
+; <label>:233                                     ; preds = %162, %147
+  %234 = phi float [ %226, %162 ], [ %139, %147 ]
+  %235 = phi float [ %227, %162 ], [ %140, %147 ]
+  %236 = phi float [ %228, %162 ], [ %141, %147 ]
+  %237 = phi float [ %229, %162 ], [ %142, %147 ]
+  %238 = call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32(i32 59, %dx.types.Handle %8, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %239 = extractvalue %dx.types.CBufRet.i32 %238, 0
+  %240 = icmp eq i32 %239, 2
+  br i1 %240, label %357, label %241
+
+; <label>:241                                     ; preds = %233
+  call void @dx.op.barrier(i32 80, i32 9)  ; Barrier(barrierMode)
+  %242 = and i32 %11, 27
+  %243 = icmp eq i32 %242, 0
+  br i1 %243, label %244, label %315
+
+; <label>:244                                     ; preds = %241
+  %245 = add i32 %11, 2
+  %246 = mul i32 %245, 4
+  %247 = add i32 0, %246
+  %248 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %247
+  %249 = load float, float addrspace(3)* %248, align 4
+  %250 = mul i32 %245, 4
+  %251 = add i32 1, %250
+  %252 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %251
+  %253 = load float, float addrspace(3)* %252, align 4
+  %254 = mul i32 %245, 4
+  %255 = add i32 2, %254
+  %256 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %255
+  %257 = load float, float addrspace(3)* %256, align 4
+  %258 = mul i32 %245, 4
+  %259 = add i32 3, %258
+  %260 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %259
+  %261 = load float, float addrspace(3)* %260, align 4
+  %262 = add i32 %11, 16
+  %263 = mul i32 %262, 4
+  %264 = add i32 0, %263
+  %265 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %264
+  %266 = load float, float addrspace(3)* %265, align 4
+  %267 = mul i32 %262, 4
+  %268 = add i32 1, %267
+  %269 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %268
+  %270 = load float, float addrspace(3)* %269, align 4
+  %271 = mul i32 %262, 4
+  %272 = add i32 2, %271
+  %273 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %272
+  %274 = load float, float addrspace(3)* %273, align 4
+  %275 = mul i32 %262, 4
+  %276 = add i32 3, %275
+  %277 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %276
+  %278 = load float, float addrspace(3)* %277, align 4
+  %279 = add i32 %11, 18
+  %280 = mul i32 %279, 4
+  %281 = add i32 0, %280
+  %282 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %281
+  %283 = load float, float addrspace(3)* %282, align 4
+  %284 = mul i32 %279, 4
+  %285 = add i32 1, %284
+  %286 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %285
+  %287 = load float, float addrspace(3)* %286, align 4
+  %288 = mul i32 %279, 4
+  %289 = add i32 2, %288
+  %290 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %289
+  %291 = load float, float addrspace(3)* %290, align 4
+  %292 = mul i32 %279, 4
+  %293 = add i32 3, %292
+  %294 = getelementptr [256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 %293
+  %295 = load float, float addrspace(3)* %294, align 4
+  %296 = fadd fast float %249, %234
+  %297 = fadd fast float %253, %235
+  %298 = fadd fast float %257, %236
+  %299 = fadd fast float %261, %237
+  %300 = fadd fast float %296, %266
+  %301 = fadd fast float %297, %270
+  %302 = fadd fast float %298, %274
+  %303 = fadd fast float %299, %278
+  %304 = fadd fast float %300, %283
+  %305 = fadd fast float %301, %287
+  %306 = fadd fast float %302, %291
+  %307 = fadd fast float %303, %295
+  %308 = fmul fast float %304, 2.500000e-01
+  %309 = fmul fast float %305, 2.500000e-01
+  %310 = fmul fast float %306, 2.500000e-01
+  %311 = fmul fast float %307, 2.500000e-01
+  %312 = lshr i32 %9, 2
+  %313 = lshr i32 %10, 2
+  %314 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 4098, i32 1033 })  ; AnnotateHandle(res,props)  resource: RWTexture2D<4xF32>
+  call void @dx.op.textureStore.f32(i32 67, %dx.types.Handle %314, i32 %312, i32 %313, i32 undef, float %308, float %309, float %310, float %311, i8 15)  ; TextureStore(srv,coord0,coord1,coord2,value0,value1,value2,value3,mask)
+  store float %308, float addrspace(3)* %150, align 4
+  store float %309, float addrspace(3)* %153, align 4
+  store float %310, float addrspace(3)* %156, align 4
+  store float %311, float addrspace(3)* %159, align 4
+  br label %315
+
+; <label>:315                                     ; preds = %244, %241
+  %316 = phi float [ %308, %244 ], [ %234, %241 ]
+  %317 = phi float [ %309, %244 ], [ %235, %241 ]
+  %318 = phi float [ %310, %244 ], [ %236, %241 ]
+  %319 = phi float [ %311, %244 ], [ %237, %241 ]
+  %320 = call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32(i32 59, %dx.types.Handle %8, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %321 = extractvalue %dx.types.CBufRet.i32 %320, 0
+  %322 = icmp eq i32 %321, 3
+  br i1 %322, label %357, label %323
+
+; <label>:323                                     ; preds = %315
+  call void @dx.op.barrier(i32 80, i32 9)  ; Barrier(barrierMode)
+  %324 = icmp eq i32 %11, 0
+  br i1 %324, label %325, label %357
+
+; <label>:325                                     ; preds = %323
+  %326 = load float, float addrspace(3)* getelementptr inbounds ([256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 16), align 4
+  %327 = load float, float addrspace(3)* getelementptr inbounds ([256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 17), align 4
+  %328 = load float, float addrspace(3)* getelementptr inbounds ([256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 18), align 4
+  %329 = load float, float addrspace(3)* getelementptr inbounds ([256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 19), align 4
+  %330 = load float, float addrspace(3)* getelementptr inbounds ([256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 128), align 4
+  %331 = load float, float addrspace(3)* getelementptr inbounds ([256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 129), align 4
+  %332 = load float, float addrspace(3)* getelementptr inbounds ([256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 130), align 4
+  %333 = load float, float addrspace(3)* getelementptr inbounds ([256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 131), align 4
+  %334 = load float, float addrspace(3)* getelementptr inbounds ([256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 144), align 4
+  %335 = load float, float addrspace(3)* getelementptr inbounds ([256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 145), align 4
+  %336 = load float, float addrspace(3)* getelementptr inbounds ([256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 146), align 4
+  %337 = load float, float addrspace(3)* getelementptr inbounds ([256 x float], [256 x float] addrspace(3)* @"\01?gs_Color@@3PAV?$vector@M$03@@A.v.1dim", i32 0, i32 147), align 4
+  %338 = fadd fast float %326, %316
+  %339 = fadd fast float %327, %317
+  %340 = fadd fast float %328, %318
+  %341 = fadd fast float %329, %319
+  %342 = fadd fast float %338, %330
+  %343 = fadd fast float %339, %331
+  %344 = fadd fast float %340, %332
+  %345 = fadd fast float %341, %333
+  %346 = fadd fast float %342, %334
+  %347 = fadd fast float %343, %335
+  %348 = fadd fast float %344, %336
+  %349 = fadd fast float %345, %337
+  %350 = fmul fast float %346, 2.500000e-01
+  %351 = fmul fast float %347, 2.500000e-01
+  %352 = fmul fast float %348, 2.500000e-01
+  %353 = fmul fast float %349, 2.500000e-01
+  %354 = lshr i32 %9, 3
+  %355 = lshr i32 %10, 3
+  %356 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4098, i32 1033 })  ; AnnotateHandle(res,props)  resource: RWTexture2D<4xF32>
+  call void @dx.op.textureStore.f32(i32 67, %dx.types.Handle %356, i32 %354, i32 %355, i32 undef, float %350, float %351, float %352, float %353, i8 15)  ; TextureStore(srv,coord0,coord1,coord2,value0,value1,value2,value3,mask)
+  br label %357
+
+; <label>:357                                     ; preds = %325, %323, %315, %233, %138
+  ret void
+}
+
+; Function Attrs: nounwind readnone
+declare i32 @dx.op.threadId.i32(i32, i32) #0
+
+; Function Attrs: nounwind readnone
+declare i32 @dx.op.flattenedThreadIdInGroup.i32(i32) #0
+
+; Function Attrs: nounwind readonly
+declare %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32, %dx.types.Handle, %dx.types.Handle, float, float, float, float, i32, i32, i32, float) #1
+
+; Function Attrs: nounwind
+declare void @dx.op.textureStore.f32(i32, %dx.types.Handle, i32, i32, i32, float, float, float, float, i8) #2
+
+; Function Attrs: noduplicate nounwind
+declare void @dx.op.barrier(i32, i32) #3
+
+; Function Attrs: nounwind readonly
+declare %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32, %dx.types.Handle, i32) #1
+
+; Function Attrs: nounwind readonly
+declare %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32(i32, %dx.types.Handle, i32) #1
+
+; Function Attrs: nounwind readnone
+declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #0
+
+; Function Attrs: nounwind readnone
+declare %dx.types.Handle @dx.op.createHandleFromBinding(i32, %dx.types.ResBind, i32, i1) #0
+
+attributes #0 = { nounwind readnone }
+attributes #1 = { nounwind readonly }
+attributes #2 = { nounwind }
+attributes #3 = { noduplicate nounwind }
+
+!llvm.ident = !{!0}
+!dx.version = !{!1}
+!dx.valver = !{!2}
+!dx.shaderModel = !{!3}
+!dx.resources = !{!4}
+!dx.entryPoints = !{!17}
+
+!0 = !{!"dxcoob 1.8.2502.11 (239921522)"}
+!1 = !{i32 1, i32 6}
+!2 = !{i32 1, i32 8}
+!3 = !{!"cs", i32 6, i32 6}
+!4 = !{!5, !8, !13, !15}
+!5 = !{!6}
+!6 = !{i32 0, %"class.Texture2D<vector<float, 4> >"* undef, !"", i32 0, i32 0, i32 1, i32 2, i32 0, !7}
+!7 = !{i32 0, i32 9}
+!8 = !{!9, !10, !11, !12}
+!9 = !{i32 0, %"class.RWTexture2D<vector<float, 4> >"* undef, !"", i32 0, i32 0, i32 1, i32 2, i1 false, i1 false, i1 false, !7}
+!10 = !{i32 1, %"class.RWTexture2D<vector<float, 4> >"* undef, !"", i32 0, i32 1, i32 1, i32 2, i1 false, i1 false, i1 false, !7}
+!11 = !{i32 2, %"class.RWTexture2D<vector<float, 4> >"* undef, !"", i32 0, i32 2, i32 1, i32 2, i1 false, i1 false, i1 false, !7}
+!12 = !{i32 3, %"class.RWTexture2D<vector<float, 4> >"* undef, !"", i32 0, i32 3, i32 1, i32 2, i1 false, i1 false, i1 false, !7}
+!13 = !{!14}
+!14 = !{i32 0, %GenerateMipsCB* undef, !"", i32 0, i32 0, i32 1, i32 16, null}
+!15 = !{!16}
+!16 = !{i32 0, %struct.SamplerState* undef, !"", i32 0, i32 0, i32 1, i32 0, null}
+!17 = !{void ()* @main_cs, !"main_cs", null, !4, !18}
+!18 = !{i32 4, !19}
+!19 = !{i32 8, i32 8, i32 1}
+

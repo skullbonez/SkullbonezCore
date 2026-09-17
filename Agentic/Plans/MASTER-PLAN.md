@@ -568,6 +568,7 @@ an owner decision, not a run decision.
 
 | Plan | Status | Phases | File |
 |---|---|---|---|
+| Terrain Driving Vehicle | Owner-parked 2026-09-18 | 0/8 | `WNF/terrain-driving-vehicle.md` |
 | Interactive Grass For Legacy Rendering | Complete 2026-09-18 | 7/7 | Git history; `Artifacts/physics-tool-window/PW7/terminal-validation.md` |
 | Physics Tool Window Beside Causal | Complete 2026-09-18 | 8/8 | Git history; `Artifacts/physics-tool-window/PW7/terminal-validation.md` |
 | Skarness Command And State Harness | Complete 2026-09-05 | 7/7 | Git history |
