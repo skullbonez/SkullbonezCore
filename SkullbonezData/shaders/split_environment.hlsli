@@ -9,9 +9,15 @@ static const int SPLIT_WATER_STYLE = 5;
 
 float SplitHash(float2 p)
 {
-    p = frac(p * float2(123.34f, 456.21f));
-    p += dot(p, p + 45.32f);
-    return frac(p.x * p.y);
+    // Integer lattice hashing gives adjacent cells identical shared corners.
+    // Floating frac hashes can disagree after compiler reassociation and make
+    // seams across the smooth noise interpolation visible in sky/reflections.
+    uint2 cell = asuint(int2(p));
+    uint h = cell.x * 1597334677u ^ cell.y * 3812015801u;
+    h = (h ^ (h >> 16u)) * 2246822519u;
+    h = (h ^ (h >> 13u)) * 3266489917u;
+    h ^= h >> 16u;
+    return float(h & 0x00ffffffu) / 16777215.0f;
 }
 
 float SplitNoise(float2 p)
@@ -32,37 +38,36 @@ float SplitCloud(float2 p)
 float3 SplitEnvironment(float3 direction)
 {
     float3 d = normalize(direction);
-    float warm = smoothstep(0.55f, -0.65f, d.x);
-    float horizon = exp(-abs(d.y - 0.04f) * 4.8f);
+    float warm = 1.0f - smoothstep(-0.55f, 0.35f, d.x);
+    float horizon = exp(-abs(d.y - 0.015f) * 12.0f);
     float3 zenith = lerp(float3(0.012f, 0.035f, 0.095f), float3(0.12f, 0.016f, 0.025f), warm);
-    float3 horizonColor = lerp(float3(0.13f, 0.42f, 0.72f), float3(1.8f, 0.29f, 0.042f), warm);
+    float3 horizonColor = lerp(float3(0.055f, 0.24f, 0.47f), float3(1.4f, 0.20f, 0.025f), warm);
     float3 color = lerp(zenith, horizonColor, horizon);
     // World-direction clouds remain stable when the camera or a reflected ray moves.
-    float2 cloudUv = d.xz / (abs(d.y) + 0.22f) * 1.7f;
-    float cloud = smoothstep(0.43f, 0.76f, SplitCloud(cloudUv * float2(1.0f, 2.6f)));
+    float2 cloudUv = d.xz / (abs(d.y) + 0.16f) * 3.1f;
+    cloudUv += float2(SplitCloud(cloudUv * 0.8f), SplitCloud(cloudUv * 0.8f + 17.0f)) * 0.4f;
+    float cloudField = SplitCloud(cloudUv * float2(1.0f, 2.6f));
+    float cloud = smoothstep(0.28f, 0.82f, cloudField);
     float3 cloudLight = lerp(float3(0.065f, 0.16f, 0.29f), float3(0.95f, 0.095f, 0.025f), warm);
-    color = lerp(color, cloudLight * (0.45f + horizon), cloud * smoothstep(0.01f, 0.18f, d.y) * 0.78f);
+    color = lerp(color, cloudLight * (0.09f + horizon), cloud * smoothstep(0.01f, 0.18f, d.y) * 0.68f);
+    // Broad off-camera illumination gives the coating a readable soft highlight.
+    color += float3(8.0f, 7.2f, 6.3f) * pow(saturate(dot(d, normalize(float3(-0.45f, 0.55f, 0.75f)))), 18.0f);
+    color += float3(0.12f, 0.45f, 0.85f) * pow(saturate(dot(d, normalize(float3(0.85f, 0.3f, 0.35f)))), 12.0f);
     float ground = smoothstep(-0.015f, -0.16f, d.y);
     return lerp(color, float3(0.022f, 0.026f, 0.034f), ground);
 }
 
 float3 SplitDiffuseLight(float3 N)
 {
-    // Fixed cosine-weighted hemisphere quadrature. This integrates the same
-    // radiance used by the sky without a texture upload or per-frame allocation.
-    float3 up = abs(N.y) < 0.95f ? float3(0, 1, 0) : float3(1, 0, 0);
-    float3 T = normalize(cross(up, N));
-    float3 B = cross(N, T);
-    float3 irradiance = 0.0f;
-    [unroll] for (int i = 0; i < 8; ++i)
-    {
-        float radius = sqrt((i + 0.5f) / 8.0f);
-        float angle = i * 2.39996323f;
-        float3 sampleDir = T * (cos(angle) * radius) + B * (sin(angle) * radius)
-                         + N * sqrt(1.0f - radius * radius);
-        irradiance += SplitEnvironment(sampleDir);
-    }
-    return irradiance * 0.125f;
+    // Low-frequency diffuse approximation of the horizon and broad light lobes.
+    // Avoid sparse quadrature: tiny cloud samples produced visible bands as the
+    // integration basis rotated over a smooth sphere.
+    float sky = saturate(N.y * 0.5f + 0.5f);
+    float3 irradiance = lerp(float3(0.035f, 0.03f, 0.025f), float3(0.13f, 0.16f, 0.21f), sky);
+    irradiance += float3(0.40f, 0.12f, 0.035f) * saturate(dot(N, normalize(float3(-0.8f, 0.3f, -0.3f))));
+    irradiance += float3(0.75f, 0.68f, 0.57f) * saturate(dot(N, normalize(float3(-0.45f, 0.55f, 0.75f))));
+    irradiance += float3(0.035f, 0.08f, 0.15f) * saturate(dot(N, normalize(float3(0.85f, 0.3f, 0.35f))));
+    return irradiance;
 }
 
 float3 SplitSpecularLight(float3 R, float roughness)

@@ -1,8 +1,31 @@
 # Session State
 
 Date: 2026-09-17
-Branch: `feature/space-gravity-field`
+Branch: `feature/split-future`
 Status: CONVEX_HULL CH0-CH6 complete at 7/8; CH7 acceptance pending; portfolio 145/152; PHYSICS_AB queued at 0/6.
+
+## Split Future showcase - 2026-09-17
+
+Added the isolated `split_future` scene with PBR objects, warm/cool procedural
+environment lighting, coating detail and a rounded cube, wet reflective ground,
+and an authored camera with restrained bloom and thin emissive traces. Playback
+is static with Physics off. Traces are scene decoration. Existing scenes and
+engine settings are unchanged; the new style values opt into the rendering paths.
+
+Five stacked branches preserve the requested parts: `feature/split-future-01-pbr`,
+`feature/split-future-02-environment`, `feature/split-future-03-surfaces`,
+`feature/split-future-04-wet-ground`, and `feature/split-future-05-finish`.
+The combined review branch is `feature/split-future`. Scene notes and launch
+instructions are in `SkullbonezData/scenes/split_future.md`.
+
+Validation: all 48 shader stages bake; Automation/Profile builds pass; fast
+validation passes 1,094 tests / 3,821,291 assertions (one existing skip).
+DX12 regression passes with zero errors and unchanged references; the bounded
+one-minute graphics stress run passes. Native `tools/validate_split_future.py`
+checks reset, both hero identities and a ten-second run. Ordinary and cinematic
+control scenes have identical world pixels after a round trip (RMS 0.0 each).
+Evidence: `TestOutput/skarness/split-future-final/` and `TestOutput/split-future/`.
+No golden updates, PR creation or merges were performed for this scene.
 
 
 ## Black-hole scene - 2026-09-17

@@ -564,6 +564,12 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     // cinematic and ordinary materials keep their established shading paths.
     if (cinematicMode && DecodeObjectStyle(uObjectStyle) == SPLIT_OBJECT_STYLE)
     {
+        if (materialMode == 3)
+        {
+            // Authored luminous path segments use scene geometry, so depth and
+            // planar reflections match their real position, including fading alpha.
+            return float4(emissive + materialColor * 0.03f, materialAlpha);
+        }
         float surfaceRoughness = clamp(input.material1.x, 0.08f, 1.0f);
         float surfaceSpecular = max(input.material1.z, 0.0f);
         // Fine coating variation follows the object rather than the camera.
