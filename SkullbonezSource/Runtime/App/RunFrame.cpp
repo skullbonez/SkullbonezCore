@@ -90,6 +90,19 @@ void PrintRuntimeExitReason( const char* reason )
 }
 
 #if defined( SKULLBONEZ_SKARNESS )
+void ProjectGravityFieldState( SkarnessFrameState& state, const RuntimeRenderer& renderer, const OverlayDebugState& overlay )
+{
+    state.presentation.gravityGridVertexCount = renderer.GravityGridVertexCount();
+    state.presentation.gravityGridSourceCount = renderer.GravityGridSourceCount();
+    state.presentation.gravityGridFirstSourceId = renderer.GravityGridFirstSourceId();
+    const auto fieldPosition = renderer.GravityGridFirstSourcePosition();
+    state.presentation.gravityGridFirstSourcePosition = { fieldPosition.x, fieldPosition.y, fieldPosition.z };
+    state.presentation.gravityGridMinimumHeight = renderer.GravityGridMinimumHeight();
+    state.presentation.gravityFieldHeight = overlay.gravityField.height;
+    state.presentation.gravityFieldOpacity = overlay.gravityField.opacity;
+    state.presentation.gravityFieldColor = overlay.gravityField.color;
+}
+
 // Capture belongs to InputRouter; observe the Win32 result on its owning thread.
 void ProjectSkarnessInputState( SkarnessFrameState& state, const ReplayInputView& input, const InputRouter& router, HWND window )
 {
@@ -1357,7 +1370,9 @@ void Run::PublishSkarnessFrameState()
                                           overlayPresentation.isWaterHidden,
                                           overlayPresentation.isWaterFreezeDebug,
                                           overlayPresentation.isWaterFlatDebug,
-                                          cinematicRendering ? ActiveSceneCinematicConfig( scene, m_config ).shadow.enabled : m_config.ordinaryRender.shadow.enabled };
+                                          cinematicRendering ? ActiveSceneCinematicConfig( scene, m_config ).shadow.enabled : m_config.ordinaryRender.shadow.enabled,
+                                          overlayPresentation.isGravityGridVisible };
+    ProjectGravityFieldState( state, Renderer(), overlayPresentation );
     state.presentation.sceneControlValues = { static_cast<float>( scene.rngSeed ),
                                               static_cast<float>( scene.solverBallCount ),
                                               static_cast<float>( scene.solverBoxCount ),

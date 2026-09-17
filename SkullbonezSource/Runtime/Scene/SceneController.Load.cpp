@@ -711,6 +711,7 @@ void SceneLoadTransaction::ApplyAuthoredValues( SceneController& sceneController
     presentation.textOnly = scene.IsTextOnly();
     sceneState.isEditableScene = scene.IsEditableScene();
     presentation.waterHidden = scene.IsWaterHidden();
+    presentation.gravityField = scene.GetGravityFieldSettings();
     presentation.terrainHidden = scene.IsTerrainHidden();
     presentation.collisionVisualizer = scene.IsCollisionVisualizerEnabled();
     presentation.broadphaseOverlay = scene.IsBroadphaseOverlayEnabled();
@@ -1503,7 +1504,8 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
                                                                                               Scene().GetSaveState(),
                                                                                               State().GetSaveState(),
                                                                                               GameObjects::PresentationSaveState { snapshot.presentation.waterHidden,
-                                                                                                                                   snapshot.presentation.terrainHidden } );
+                                                                                                                                   snapshot.presentation.terrainHidden,
+                                                                                                                                   snapshot.presentation.gravityField } );
 
         if ( saveResult.Ok() )
         {
@@ -1582,6 +1584,7 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
     debug["waterFlat"] = snapshot.presentation.waterFlat;
     debug["waterHidden"] = snapshot.presentation.waterHidden;
     debug["terrainHidden"] = snapshot.presentation.terrainHidden;
+    debug["gravityField"] = { { "height", snapshot.presentation.gravityField.height }, { "opacity", snapshot.presentation.gravityField.opacity }, { "color", snapshot.presentation.gravityField.color == 1 ? "orange" : snapshot.presentation.gravityField.color == 2 ? "grey" : "blue" } };
     debug["waterReflection"] = WaterReflectionJsonValue( snapshot.presentation.waterNoReflect, snapshot.presentation.waterRtReflect );
 
     if ( snapshot.camera.writeTrackHeight )

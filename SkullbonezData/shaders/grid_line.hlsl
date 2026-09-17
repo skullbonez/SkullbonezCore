@@ -38,5 +38,5 @@ Pixel main_vs(Vertex input, uint vertexId : SV_VertexID)
 }
 float4 main_ps(Pixel input) : SV_TARGET
 {
-    return float4(input.color, LineCoverage(input.coordinate, input.segmentLength, 0.7));
+    return float4(input.color, LineCoverage(input.coordinate, input.segmentLength, 0.7) * saturate(uViewportPixels.z));
 }

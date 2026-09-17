@@ -454,6 +454,7 @@
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Profiler.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\BroadphaseVisualizer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\GravityGridVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\CollisionVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\PhysicsDebugVisualizer.cpp" />
   </ItemGroup>
@@ -496,6 +497,7 @@
     <ClInclude Include="SkullbonezSource\Core\MainMemoryStats.h" />
     <ClInclude Include="SkullbonezSource\Core\Fence.h" />
     <ClInclude Include="SkullbonezSource\Core\SceneCapacity.h" />
+    <ClInclude Include="SkullbonezSource\Scene\GravityFieldSettings.h" />
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h" />
     <ClInclude Include="SkullbonezSource\Scene\StandaloneStyleWriter.h" />
     <ClInclude Include="SkullbonezSource\Core\StringHash.h" />
@@ -703,6 +705,7 @@
     <ClInclude Include="SkullbonezData\generated\GeneratedShaderReflection.h" />
     <ClInclude Include="ThirdPtySource\nlohmann\json.hpp" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\BroadphaseVisualizer.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Render\GravityGridVisualizer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\CollisionVisualizer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\PhysicsDebugVisualizer.h" />
   </ItemGroup>

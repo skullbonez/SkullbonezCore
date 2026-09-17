@@ -245,6 +245,9 @@
     <ClCompile Include="SkullbonezTests\TestLookLabSerialization.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestGravityGrid.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -632,6 +635,9 @@
       <Filter>Source Files\Runtime\Input</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Render\BroadphaseVisualizer.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\GravityGridVisualizer.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Render\CollisionVisualizer.cpp">

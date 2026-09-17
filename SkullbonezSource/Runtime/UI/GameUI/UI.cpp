@@ -100,7 +100,11 @@ UIOptionsTabFrameView InGameUIFrameData::OptionsTabFrame() const
              world.waterFreezeDebug,
              world.waterFlatDebug,
              world.terrainHidden,
-             world.waterHidden };
+             world.waterHidden,
+             world.gravityGridVisible,
+             world.gravityFieldHeight,
+             world.gravityFieldOpacity,
+             world.gravityFieldColor };
 }
 
 UIPhysicsTabFrameView InGameUIFrameData::PhysicsTabFrame() const

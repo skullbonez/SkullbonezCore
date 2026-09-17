@@ -283,6 +283,7 @@ RENDERING_PREFIXES = (
 )
 
 SCENE_PREFIXES = (
+    "GravityFieldSettings",
     "OrbitalStabilityContract",
     "SceneRequestExecution",
     "SceneSnapshotWriter",
@@ -526,6 +527,7 @@ RUNTIME_REPLAY_PREFIXES = (
 )
 
 RUNTIME_RENDER_PREFIXES = (
+    "GravityGridVisualizer",
     *PHYSICS_DEBUG_PREFIXES,
     "RenderResourceLifecycle",
     "RenderDefaultsStore",

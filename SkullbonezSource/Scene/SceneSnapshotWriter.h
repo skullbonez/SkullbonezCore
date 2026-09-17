@@ -29,6 +29,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
+#include "GravityFieldSettings.h"
 
 #include "../Core/SbResult.h"
 #include "../Maths/Vector3.h"
@@ -91,6 +92,7 @@ struct PresentationSaveState
 {
     bool waterHidden = false;
     bool terrainHidden = false;
+    Scene::GravityFieldSettings gravityField;
 };
 
 struct SceneSaveRequest

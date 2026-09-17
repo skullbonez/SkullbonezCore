@@ -1343,6 +1343,8 @@ RuntimeRenderer::BuildDebugOverlaySnapshot( RuntimeRenderWorldExtensionDebugView
     DebugOverlaySnapshot snapshot;
     snapshot.broadphaseOverlayVisible = policy.broadphaseOverlay;
     snapshot.worldExtensionDebugLines = worldExtensionDebug.lines;
+    snapshot.gravityGridLines = m_gravityGrid.Lines();
+    snapshot.gravityGridOpacity = policy.gravityField.opacity;
     snapshot.physicsDebugFlags = policy.physicsDebugFlags;
     snapshot.physicsDebugPipelineStageCursor = policy.physicsDebugPipelineStageCursor;
     snapshot.editorOverlayWorkVisible = toolOverlay.editorOverlayWorkVisible;
@@ -2463,4 +2465,18 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::BeginWorldFrame( const
     // Lifetime: the world phase executes before this call returns. The
     // transaction owns its completion values and retains no submission wrapper.
     return RenderWorldFrame( world );
+}
+
+void RuntimeRenderer::UpdateGravityField( const RuntimeRenderDebugViews& debug, const RuntimeRenderFramePolicy& policy )
+{
+    PROFILE_BEGIN( "Frame/Render/GravityGrid" );
+    if ( policy.gravityGrid )
+    {
+        m_gravityGrid.UpdatePresented( debug.physics.bodyStore, debug.collision.renderInstances.Records(), m_world.GetMutualGravitySettings(), policy.gravityField );
+    }
+    else
+    {
+        m_gravityGrid.Update( debug.physics.bodyStore, m_world.GetMutualGravitySettings(), false );
+    }
+    PROFILE_END( "Frame/Render/GravityGrid" );
 }

@@ -357,8 +357,8 @@
         "SkullbonezData/shaders/line_coverage.hlsli",
         "SkullbonezData/shaders/shader_behavior.hlsli"
       ],
-      "source_sha256": "56474ecb8b497fdb8860e3ec81b0049d93fa90cbba3d69e621d2637cbc843d00",
-      "compile_inputs_sha256": "438089361b8bbfb7acaf30d41f49cd5df6c8716e436e975d5bd8b06d56bb6626",
+      "source_sha256": "73faad8199c70d57e74217b7fb7c2ce0625c5a43af0fe3b46503bdf11ece0813",
+      "compile_inputs_sha256": "54dd4f70e21a6229549ac68b9ca03018d15e149d8ae0d8fb73fc2b22bc374d95",
       "bytecode_sha256": "64abb16eba8180f3d14fb3075804b525c18d1a522d4d07b06adad1c8f4535f00",
       "bytecode_size": 6452,
       "dependencies_sha256": {
@@ -457,17 +457,47 @@
         "SkullbonezData/shaders/line_coverage.hlsli",
         "SkullbonezData/shaders/shader_behavior.hlsli"
       ],
-      "source_sha256": "56474ecb8b497fdb8860e3ec81b0049d93fa90cbba3d69e621d2637cbc843d00",
-      "compile_inputs_sha256": "5b20fcafb73c9adc30b1692aae637431788a8f56e3a80f59969ae7d3e51040c0",
-      "bytecode_sha256": "1e8388dbc473612836f240feca3d2c7d4bed24e1b111f11fad85d8b5e1e4bb4c",
-      "bytecode_size": 3516,
+      "source_sha256": "73faad8199c70d57e74217b7fb7c2ce0625c5a43af0fe3b46503bdf11ece0813",
+      "compile_inputs_sha256": "eb88de5be0edaf112a96575fd43d879f46c4d665174fbcba73c75f003de54774",
+      "bytecode_sha256": "568ff650e7d8c9b9c257c727b4d8bc2b27c59c628bfb11790670d87ccb548dc8",
+      "bytecode_size": 4348,
       "dependencies_sha256": {
         "SkullbonezData/shaders/line_coverage.hlsli": "9493bb0fe6858df008709031614b69ef6bf892484d4e69d48bfe85d3491f30cb",
         "SkullbonezData/shaders/shader_behavior.hlsli": "34a4c9af8026d2fbc0cc704f4e52681eb039ec1fef72e57a5b3847270af99570"
       },
       "reflection": {
-        "cbuffers": [],
-        "resources": [],
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 80,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uViewProj",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uViewportPixels",
+                "offset": 64,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
         "inputs": [
           {
             "semantic": "COLOR",

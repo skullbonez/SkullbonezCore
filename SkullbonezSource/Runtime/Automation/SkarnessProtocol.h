@@ -482,7 +482,15 @@ struct SkarnessFrameState
         int replayMemoryPreset = 0;
         int replayRetentionSeconds = 0;
         int replayBudgetMiB = 0;
-        std::array<bool, 6> optionsToggles = {};
+        std::array<bool, 7> optionsToggles = {};
+        std::size_t gravityGridVertexCount = 0;
+        int gravityGridSourceCount = 0;
+        uint32_t gravityGridFirstSourceId = 0;
+        std::array<float, 3> gravityGridFirstSourcePosition = {};
+        float gravityGridMinimumHeight = 0.0f;
+        float gravityFieldHeight = 0.0f;
+        float gravityFieldOpacity = 1.0f;
+        int gravityFieldColor = 0;
         std::array<float, 6> sceneControlValues = {};
         int modelCapacity = 0;
         uint64_t fileDialogResponsesConsumed = 0;

@@ -82,7 +82,7 @@
     {
       "path": "SkullbonezSource/Runtime/Diagnostics/RuntimeOverlayDiagnostics.cpp",
       "patterns": [
-        "{\"symbol\":\"RuntimeOverlayDiagnostics::CreateForStartup\",\"before\":[\"{\",\"CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );\"],\"statement\":\"return std::make_unique<RuntimeOverlayDiagnostics>();\",\"after\":[\"}\",\"StartupOperatorUiPolicy RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& overrides,\"]}"
+        "{\"symbol\":\"RuntimeOverlayDiagnostics::CreateForStartup\",\"before\":[\"{\",\"CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );\"],\"statement\":\"return std::make_unique<RuntimeOverlayDiagnostics>();\",\"after\":[\"}\",\"StartupOperatorUiPolicy RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions )\"]}"
       ],
       "owner": "RuntimeOverlayDiagnostics process-lifetime presentation owner",
       "phase": "startup",

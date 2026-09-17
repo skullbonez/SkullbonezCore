@@ -1,9 +1,28 @@
 # Session State
 
 Date: 2026-09-17
-Branch: `nightrunner-16th-SEP-26`
+Branch: `feature/space-gravity-field`
 Status: CONVEX_HULL CH0-CH6 complete at 7/8; CH7 acceptance pending; portfolio 145/152; PHYSICS_AB queued at 0/6.
 
+
+## Space gravity field - 2026-09-17
+
+Space scenes now show a default-on, depth-tested gravity grid. Tools > Options
+provides height and opacity sliders plus Blue, Orange and Grey buttons. Level
+saving persists all three settings under `debug.gravityField`. The grid reads
+body identities and the already-presented matrices, so recorded history and
+prediction scrubbing move the wells with the visible bodies.
+
+Fixed renderer storage is about 386 KiB and does not grow with the prediction
+horizon. This is an illustrative gravitational-potential surface, with a fixed
+scene footprint and smoothly bounded well depth. It does not change Physics.
+
+The 300-ball native acceptance checks and all 1,092 CPU tests pass. The broad UI
+gate reaches an existing Solver Lab archive/current-assets mismatch at
+header_autohide; archived recordings are unchanged. See
+[the field report](Reports/gravity-field-rendering-2026-09-17.md) for final graphics,
+policy and build evidence. This feature is on a separate branch above hull PR
+#173; neither PR is to be merged by the agent. Hull CH7 remains pending below.
 
 ## Convex-hull implementation — 2026-09-17
 

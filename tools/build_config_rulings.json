@@ -550,6 +550,10 @@
     "skullbonezsource/world/terrainediting.cpp": {
       "ExceptionHandling": "cb06ae4b32ff554bae70d3489107ef67b6af6d02f2142f46201ecab3ed3569c1",
       "PreprocessorDefinitions": "ff9adba2117e696f37b3d1558543c0e0f49fada8ec3e0e3a89677357e8717258"
+    },
+    "skullbonezsource/runtime/render/gravitygridvisualizer.cpp": {
+      "ExceptionHandling": "2472cf21e200e420d99ea1db4c95da44f377b688fb8d7f872a9bef5da63d97ed",
+      "PreprocessorDefinitions": "8686350f20562a6b503d18bec41e15f47e37720fad5f3852e374a8b5c0a22496"
     }
   }
 }
