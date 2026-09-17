@@ -819,6 +819,9 @@ bool PhysicsEngine::RestoreAuthoredBodyState()
     // Authored descriptors change only through authoring commands. Integration
     // and replay restoration leave these initial poses and velocities intact.
     m_world->ResetSimulationState();
+    // Why: descriptor refresh preserves live sleep state. Reset must clear that
+    // state before restoring authored sleepers, or settled bodies stay asleep in mid-air.
+    m_bodyStore.CopySleepStatesFrom( m_world->GetSleepStates() );
     for ( int row = 0; row < m_bodyStore.Count(); ++row )
     {
         const auto& desc = m_authoredBodyDescs[static_cast<std::size_t>( row )];

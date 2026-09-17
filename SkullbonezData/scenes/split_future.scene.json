@@ -145,7 +145,7 @@
   ],
   "objects": [
     {
-      "type": "ball",
+      "type": "ballState",
       "name": "split_future_ball",
       "sceneObjectId": 1101,
       "position": [
@@ -156,23 +156,29 @@
       "radius": 30,
       "mass": 80,
       "fixed": false,
-      "euler": [
-        12,
-        15,
-        -16
-      ],
-      "moment": 28800,
       "restitution": 0.72,
-      "force": [
-        800,
-        0,
-        80
+      "orientation": [
+        -0.12069186791906517,
+        -0.11412474877287349,
+        0.15073749617431828,
+        0.9745189695346278
       ],
-      "impulseWorldOffsetFromCenter": [
+      "velocity": [
+        10,
         0,
-        4,
-        0
-      ]
+        1
+      ],
+      "angularVelocity": [
+        0.011111111111111112,
+        0,
+        -0.1111111111111111
+      ],
+      "inertia": [
+        28800,
+        28800,
+        28800
+      ],
+      "sleeping": false
     },
     {
       "type": "box",

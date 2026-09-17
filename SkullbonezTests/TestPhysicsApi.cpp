@@ -1019,7 +1019,10 @@ TEST_CASE( "Authored restart restores initial motion without retiring bodies or 
     future.rotationalInertia = Vector3( 1, 1, 1 );
     future.inverseRotationalInertia = Vector3( 1, 1, 1 );
     REQUIRE( engine.RestoreReplayBodyState( future ) );
+    engine.SeedBodyAsleep( first.body );
+    CHECK( PhysicsEngine::ReadBodies( engine ).HotFields().awake[0] == 0u );
     REQUIRE( engine.RestoreAuthoredBodyState() );
+    CHECK( PhysicsEngine::ReadBodies( engine ).HotFields().awake[0] != 0u );
     const auto& bodies = PhysicsEngine::ReadBodies( engine );
     CHECK( bodies.HandleForModelIndex( 0 ) == first.body );
     CHECK( bodies.HandleForModelIndex( 1 ) == second.body );

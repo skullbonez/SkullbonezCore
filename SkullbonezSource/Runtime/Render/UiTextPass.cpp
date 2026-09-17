@@ -299,7 +299,7 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport,
             sprintf_s( sceneLine, sizeof( sceneLine ), "Scene %d/%d  Frame %d", values.currentSceneIndex + 1, values.sceneQueueSize, values.currentFrame );
         }
 
-        const char* stateLine = values.crossScenePauseLocked ? "P Pause Lock   Space advances" : ( values.sceneTestComplete ? "Scene complete" : "Pause lock" );
+        const char* stateLine = values.crossScenePauseLocked ? "P Pause Lock   Space advances" : ( values.sceneTestComplete ? "Scene complete" : "Pause lock off" );
 
         const float titlePx = 11.5f;
         const float valuePx = 10.0f;
