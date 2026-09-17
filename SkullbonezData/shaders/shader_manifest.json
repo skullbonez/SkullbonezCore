@@ -357,10 +357,10 @@
         "SkullbonezData/shaders/line_coverage.hlsli",
         "SkullbonezData/shaders/shader_behavior.hlsli"
       ],
-      "source_sha256": "79ab46a64d4317d276d4a813bec8370e16376da442c29215cbf6230255eecaed",
-      "compile_inputs_sha256": "2fb757cdf565c53ce4eb7010aa1e7ba6cd70de1aadfc3bc710453d6892d8904a",
-      "bytecode_sha256": "bf0f00e4cdcc4e97f2e640149a0ec275e44ab9fc4d346daf1801ae7bd96759f0",
-      "bytecode_size": 6712,
+      "source_sha256": "ff864ac758035bbaaf8c125b36f30f7c526c39c27117aa93dd436572e49e59c0",
+      "compile_inputs_sha256": "b3dd971f605f7648acfb3262a067b6d22ef07827954d822a58771a8b97e767a6",
+      "bytecode_sha256": "a9862f96c94653b91af10fb47983723359b601e24a362eeef97c35f383887419",
+      "bytecode_size": 6720,
       "dependencies_sha256": {
         "SkullbonezData/shaders/line_coverage.hlsli": "9493bb0fe6858df008709031614b69ef6bf892484d4e69d48bfe85d3491f30cb",
         "SkullbonezData/shaders/shader_behavior.hlsli": "34a4c9af8026d2fbc0cc704f4e52681eb039ec1fef72e57a5b3847270af99570"
@@ -457,10 +457,10 @@
         "SkullbonezData/shaders/line_coverage.hlsli",
         "SkullbonezData/shaders/shader_behavior.hlsli"
       ],
-      "source_sha256": "79ab46a64d4317d276d4a813bec8370e16376da442c29215cbf6230255eecaed",
-      "compile_inputs_sha256": "70d83619611f5267fb0f67753280adc24ea5febd74bf36f59bfcebc4ac5475c2",
-      "bytecode_sha256": "a35f734f90fa4a274654973a9f191f22a7ff15571fe585ed060312c2f24849e3",
-      "bytecode_size": 5116,
+      "source_sha256": "ff864ac758035bbaaf8c125b36f30f7c526c39c27117aa93dd436572e49e59c0",
+      "compile_inputs_sha256": "367320b6a2bddfa82acc6426697f051e0af5aca3de420e86ad1964ed11a0ee37",
+      "bytecode_sha256": "f9d7077417e7f8971a3dcaaa76a8d106222848374cb9900cfb677c564da8ce52",
+      "bytecode_size": 5308,
       "dependencies_sha256": {
         "SkullbonezData/shaders/line_coverage.hlsli": "9493bb0fe6858df008709031614b69ef6bf892484d4e69d48bfe85d3491f30cb",
         "SkullbonezData/shaders/shader_behavior.hlsli": "34a4c9af8026d2fbc0cc704f4e52681eb039ec1fef72e57a5b3847270af99570"

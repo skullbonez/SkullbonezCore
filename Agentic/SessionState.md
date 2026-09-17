@@ -6,6 +6,13 @@ Status: CONVEX_HULL CH0-CH6 complete at 7/8; CH7 acceptance pending; portfolio 1
 
 ## Split Future showcase - 2026-09-17
 
+Latest art direction: `feature/split-future-15-thin-orange-rest` replaces the
+previous heavy cyan glow with subpixel strokes and very low line-halo energy.
+Contact/collision poses are blue; resting poses (including baseline rests) are
+orange. Horizon poses use a quieter orange rather than implying a collision.
+Box corner accents remain small; physics and all packet bytes are unchanged.
+Native captures: `TestOutput/skarness/thin-orange-lines-final/`.
+
 The 200-box ragdoll wall now authors the complete Split Future cinematic block
 by default on `feature/split-future-14-wall-200-style`. Only the cinematic JSON
 member changes; objects, terrain collision, cameras and simulation are equal
