@@ -92,6 +92,7 @@
 #include "../SkullbonezSource/Rendering/DX12/RenderBackendDX12.h"
 #include "../SkullbonezSource/Rendering/RenderInstanceRenderer.h"
 #include "../SkullbonezSource/Rendering/PrimitiveBatchRenderer.h"
+#include "../SkullbonezSource/Rendering/PrimitiveMeshBuilder.h"
 #include "../SkullbonezSource/Rendering/RenderMaterial.h"
 #include "../SkullbonezSource/Rendering/RenderInstanceStore.h"
 #include "../SkullbonezSource/Rendering/RenderPipeline.h"
@@ -4525,5 +4526,37 @@ TEST_CASE( "Process memory counters expose committed and touched allocations ind
     else
     {
         CHECK( touched.taskManagerBytes == 0u );
+    }
+}
+
+
+TEST_CASE( "Rounded primitive mesh retains bounds, unit normals and outward winding" )
+{
+    using namespace SkullbonezCore::Rendering::PrimitiveMeshes;
+    std::array<VertexPNUV, RoundedBoxTriangleVertexCount()> vertices = {};
+    size_t count = 0;
+    EmitRoundedUnitBox( [&]( const VertexPNUV& vertex )
+        {
+            REQUIRE( count < vertices.size() );
+            vertices[count++] = vertex;
+            CHECK( std::abs( vertex.x ) <= 1.00001f );
+            CHECK( std::abs( vertex.y ) <= 1.00001f );
+            CHECK( std::abs( vertex.z ) <= 1.00001f );
+            CHECK( vertex.nx * vertex.nx + vertex.ny * vertex.ny + vertex.nz * vertex.nz == doctest::Approx( 1.0f ) );
+            CHECK( vertex.u >= 0.0f );
+            CHECK( vertex.u <= 1.0f );
+            CHECK( vertex.v >= 0.0f );
+            CHECK( vertex.v <= 1.0f );
+        } );
+    REQUIRE( count == vertices.size() );
+
+    for ( size_t i = 0; i < count; i += 3 )
+    {
+        const VertexPNUV& a = vertices[i];
+        const VertexPNUV& b = vertices[i + 1];
+        const VertexPNUV& c = vertices[i + 2];
+        const float ux = b.x - a.x, uy = b.y - a.y, uz = b.z - a.z;
+        const float vx = c.x - a.x, vy = c.y - a.y, vz = c.z - a.z;
+        CHECK( ( uy * vz - uz * vy ) * a.nx + ( uz * vx - ux * vz ) * a.ny + ( ux * vy - uy * vx ) * a.nz > 0.0f );
     }
 }

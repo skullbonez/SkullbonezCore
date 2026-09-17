@@ -566,6 +566,31 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     {
         float surfaceRoughness = clamp(input.material1.x, 0.08f, 1.0f);
         float surfaceSpecular = max(input.material1.z, 0.0f);
+        // Fine coating variation follows the object rather than the camera.
+        // Derivative filtering fades grain below a pixel instead of shimmering.
+        float2 surfaceUv = uPrimitiveShape == 1 ? input.localDir.xy * 27.0f + input.localDir.zz * 11.0f
+                                               : input.texCoord * 48.0f;
+        float footprint = max(length(ddx(surfaceUv)), length(ddy(surfaceUv)));
+        float detail = 1.0f - smoothstep(0.25f, 1.2f, footprint);
+        float grain = SplitNoise(surfaceUv * 3.0f);
+        float wear = SplitNoise(surfaceUv * 0.23f + 8.4f);
+        float scratches = pow(saturate(SplitNoise(surfaceUv * float2(0.35f, 22.0f))), 9.0f) * detail;
+        surfaceRoughness = clamp(surfaceRoughness + (grain - 0.5f) * 0.10f * detail + wear * 0.055f + scratches * 0.18f, 0.1f, 0.9f);
+        if (materialMode == 0)
+        {
+            materialColor *= 0.92f + grain * 0.08f * detail;
+            materialColor = lerp(materialColor, materialColor * 0.65f, scratches * 0.24f);
+        }
+        float height = (grain - 0.5f) * 0.007f * detail;
+        float3 dPdx = ddx(input.worldPos);
+        float3 dPdy = ddy(input.worldPos);
+        float3 tangentX = cross(dPdy, worldN);
+        float3 tangentY = cross(worldN, dPdx);
+        float determinant = dot(dPdx, tangentX);
+        float3 gradient = (ddx(height) * tangentX + ddy(height) * tangentY)
+                        * (determinant < 0.0f ? -1.0f : 1.0f) / max(abs(determinant), 0.00001f);
+        worldN = normalize(worldN - gradient);
+        N = normalize(mul((float3x3)uView, worldN));
         float shadow = ShadowVisibility(SphereShadowReceiverWorldPos(input.worldPos, input.sphereShadowInfo), N, L);
         float3 color = OrdinaryMaterialBRDF(materialColor, emissive, surfaceRoughness, metallic,
                                            surfaceSpecular, worldN, N, V, L, shadow);

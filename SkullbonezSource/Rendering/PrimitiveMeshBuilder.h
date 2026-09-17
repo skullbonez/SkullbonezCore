@@ -20,8 +20,10 @@ Related:
 #pragma once
 
 #include "../Core/Common.h"
+#include "../Maths/MathsCommon.h"
 
 #include <cmath>
+#include <algorithm>
 
 
 namespace SkullbonezCore
@@ -172,16 +174,24 @@ template <typename EmitVertex> inline void EmitUnitSphereFlat( int slices, int s
             const float theta0 = _2PI * static_cast<float>( j ) / static_cast<float>( slices );
             const float theta1 = _2PI * static_cast<float>( j + 1 ) / static_cast<float>( slices );
 
-            const LocalVertex v00 { sinf( phi0 ) * sinf( theta0 ), cosf( phi0 ), -sinf( phi0 ) * cosf( theta0 ),
+            const LocalVertex v00 { sinf( phi0 ) * sinf( theta0 ),
+                                    cosf( phi0 ),
+                                    -sinf( phi0 ) * cosf( theta0 ),
                                     static_cast<float>( j ) / static_cast<float>( slices ),
                                     static_cast<float>( i ) / static_cast<float>( stacks ) };
-            const LocalVertex v01 { sinf( phi0 ) * sinf( theta1 ), cosf( phi0 ), -sinf( phi0 ) * cosf( theta1 ),
+            const LocalVertex v01 { sinf( phi0 ) * sinf( theta1 ),
+                                    cosf( phi0 ),
+                                    -sinf( phi0 ) * cosf( theta1 ),
                                     static_cast<float>( j + 1 ) / static_cast<float>( slices ),
                                     static_cast<float>( i ) / static_cast<float>( stacks ) };
-            const LocalVertex v10 { sinf( phi1 ) * sinf( theta0 ), cosf( phi1 ), -sinf( phi1 ) * cosf( theta0 ),
+            const LocalVertex v10 { sinf( phi1 ) * sinf( theta0 ),
+                                    cosf( phi1 ),
+                                    -sinf( phi1 ) * cosf( theta0 ),
                                     static_cast<float>( j ) / static_cast<float>( slices ),
                                     static_cast<float>( i + 1 ) / static_cast<float>( stacks ) };
-            const LocalVertex v11 { sinf( phi1 ) * sinf( theta1 ), cosf( phi1 ), -sinf( phi1 ) * cosf( theta1 ),
+            const LocalVertex v11 { sinf( phi1 ) * sinf( theta1 ),
+                                    cosf( phi1 ),
+                                    -sinf( phi1 ) * cosf( theta1 ),
                                     static_cast<float>( j + 1 ) / static_cast<float>( slices ),
                                     static_cast<float>( i + 1 ) / static_cast<float>( stacks ) };
 
@@ -216,8 +226,7 @@ template <typename EmitVertex> inline void EmitUnitBox( EmitVertex emitVertex )
 
     const float uv[4][2] = { { 0.0f, 0.0f }, { 0.0f, 1.0f }, { 1.0f, 1.0f }, { 1.0f, 0.0f } };
 
-    auto emit = [&]( const float* v, const CubeFace& face, const float* texCoord )
-    { emitVertex( VertexPNUV { v[0], v[1], v[2], face.nx, face.ny, face.nz, texCoord[0], texCoord[1] } ); };
+    auto emit = [&]( const float* v, const CubeFace& face, const float* texCoord ) { emitVertex( VertexPNUV { v[0], v[1], v[2], face.nx, face.ny, face.nz, texCoord[0], texCoord[1] } ); };
 
     for ( int f = 0; f < 6; ++f )
     {
@@ -231,6 +240,64 @@ template <typename EmitVertex> inline void EmitUnitBox( EmitVertex emitVertex )
         emit( v[0], face, uv[0] );
         emit( v[2], face, uv[2] );
         emit( v[3], face, uv[3] );
+    }
+}
+
+
+inline constexpr int RoundedBoxTriangleVertexCount()
+{
+    return 6 * 5 * 5 * 6;
+}
+
+// Invariant: the rounded surface stays inside the unit box, with the same face
+// UVs and outward winding. Collision extents remain the authored unit box.
+template <typename EmitVertex> inline void EmitRoundedUnitBox( EmitVertex emitVertex )
+{
+    VertexPNUV corners[36] = {};
+    int cornerCount = 0;
+    EmitUnitBox( [&]( const VertexPNUV& vertex ) { corners[cornerCount++] = vertex; } );
+    constexpr float coordinates[] = { -1.0f, -0.98f, -0.94f, 0.94f, 0.98f, 1.0f };
+
+    for ( int face = 0; face < 6; ++face )
+    {
+        const VertexPNUV& origin = corners[face * 6];
+        const VertexPNUV& alongU = corners[face * 6 + 1];
+        const VertexPNUV& alongV = corners[face * 6 + 5];
+        auto emit = [&]( float u, float v )
+        {
+            const float a = ( u + 1.0f ) * 0.5f;
+            const float b = ( v + 1.0f ) * 0.5f;
+            const float x = origin.x + a * ( alongU.x - origin.x ) + b * ( alongV.x - origin.x );
+            const float y = origin.y + a * ( alongU.y - origin.y ) + b * ( alongV.y - origin.y );
+            const float z = origin.z + a * ( alongU.z - origin.z ) + b * ( alongV.z - origin.z );
+            const float cx = std::clamp( x, -0.94f, 0.94f );
+            const float cy = std::clamp( y, -0.94f, 0.94f );
+            const float cz = std::clamp( z, -0.94f, 0.94f );
+            const float dx = x - cx, dy = y - cy, dz = z - cz;
+            const float inverseLength = 1.0f / sqrtf( dx * dx + dy * dy + dz * dz );
+            const float nx = dx * inverseLength, ny = dy * inverseLength, nz = dz * inverseLength;
+            emitVertex( VertexPNUV { cx + nx * 0.06f,
+                                     cy + ny * 0.06f,
+                                     cz + nz * 0.06f,
+                                     nx,
+                                     ny,
+                                     nz,
+                                     origin.u + a * ( alongU.u - origin.u ) + b * ( alongV.u - origin.u ),
+                                     origin.v + a * ( alongU.v - origin.v ) + b * ( alongV.v - origin.v ) } );
+        };
+
+        for ( int u = 0; u < 5; ++u )
+        {
+            for ( int v = 0; v < 5; ++v )
+            {
+                emit( coordinates[u], coordinates[v] );
+                emit( coordinates[u + 1], coordinates[v] );
+                emit( coordinates[u + 1], coordinates[v + 1] );
+                emit( coordinates[u], coordinates[v] );
+                emit( coordinates[u + 1], coordinates[v + 1] );
+                emit( coordinates[u], coordinates[v + 1] );
+            }
+        }
     }
 }
 
