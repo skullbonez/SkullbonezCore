@@ -1,9 +1,17 @@
 # MASTER PLAN
 
 Date: 2026-09-18
-Status: 145/152 live tasks complete; INTERACTIVE_GRASS complete at 7/7; PHYSICS_WINDOW complete at 8/8; CONVEX_HULL active at 7/8; BASELINE_REPAIR complete at 1/1; PHYSICS_SCALE complete at 7/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
+Status: 145/172 live tasks complete; SOURCE_QUALITY queued 0/6; GOVERNANCE_REPAIR queued 0/8; RENDER_SHADER queued 0/6; INTERACTIVE_GRASS complete at 7/7; PHYSICS_WINDOW complete at 8/8; CONVEX_HULL active at 7/8; BASELINE_REPAIR complete at 1/1; PHYSICS_SCALE complete at 7/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
 
 ## Owner Direction
+
+- On 2026-09-18 the owner requested plans for the source-code quality
+  evaluation, governance review, and render/shader audit, committed and pushed
+  on main. SOURCE_QUALITY (6 phases), GOVERNANCE_REPAIR (8), and RENDER_SHADER
+  (6) are queued documentation-only additions, all unchecked. No implementation
+  is started or accepted by this request. Their cross-plan ownership and
+  prerequisites are defined in their TODO files; existing plan priorities and
+  remaining acceptance are unchanged.
 
 - On 2026-09-17 the owner authorized one combined Night Runner PR containing
   the current Split Future workspace (including PRs #173/#174), all Catto
@@ -552,6 +560,9 @@ The one terminal umbrella failure and its focused recovery are preserved; no fai
 |---|---|---|---|---|---|
 | Convex Hull Collision Response And Sleep Quality | `CONVEX_HULL` | 8 | 7 | CH7: owner visual/cost review | `TODO/convex-hull-collision-response-and-sleep.md` |
 | Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
+| Source Code Quality Remediation | `SOURCE_QUALITY` | 6 | 0 | SQ0: reconcile findings; queued | `TODO/source-code-quality-remediation.md` |
+| Governance Review Remediation | `GOVERNANCE_REPAIR` | 8 | 0 | GV0: reconcile findings; queued | `TODO/governance-review-remediation.md` |
+| Render and Shader Audit Remediation | `RENDER_SHADER` | 6 | 0 | RS0: reconcile and repair measurement; queued | `TODO/render-and-shader-audit-remediation.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -600,6 +611,16 @@ One detail in that table is recorded:
   disagree with the directory. A review decision should settle which it is.
 
 ## Binding Order
+
+Planning update 2026-09-18: the three audit-remediation plans are queued, not an
+instruction to execute them in this documentation task. Their combined 20 open
+phases change the live total from 145/152 to 145/172. Governance GV2 owns the
+application extraction also cited by Source Quality SQ4; Governance GV4 settles
+the shared render contracts before Render/Shader RS2-RS4 touch those seams.
+Parser and codec hardening and initial rendering measurements have no whole-plan
+predecessor. Existing CONVEX_HULL and PHYSICS_AB acceptance remains unchanged.
+The checkout now includes merge ff65964ba for PR #175; prior instructions below
+to deliver that unmerged PR are historical, not a new merge or push task.
 
 Owner override 2026-09-17: integrate the existing branches/workspace and Catto
 changes on `nightrunner-17th-SEP-26`, complete INTERACTIVE_GRASS IG0-IG6, then
@@ -660,7 +681,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-Current live total: **145/152**, including CONVEX_HULL 7/8 and PHYSICS_AB 0/6. INTERACTIVE_GRASS 7/7 and PHYSICS_WINDOW 8/8 are complete and removed from the live inventory. Terminal acceptance moved 158/167 to 160/167; removing their 15 completed phases produced 145/152.
+Current live total: **145/172**, including CONVEX_HULL 7/8, PHYSICS_AB 0/6, SOURCE_QUALITY 0/6, GOVERNANCE_REPAIR 0/8 and RENDER_SHADER 0/6. The three queued audit plans add 20 unchecked phases to 145/152. INTERACTIVE_GRASS 7/7 and PHYSICS_WINDOW 8/8 are complete and removed from the live inventory. Terminal acceptance moved 158/167 to 160/167; removing their 15 completed phases produced 145/152.
 Activation adds eight incomplete phases to the prior 138/144 inventory.
 
 The prior portfolio remains 143/143 complete and all 126 bug-ledger rows are

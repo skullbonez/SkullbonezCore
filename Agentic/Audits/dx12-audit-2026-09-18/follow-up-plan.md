@@ -1,5 +1,7 @@
 # DX12 rectification and shader profiling plan
 
+> Execution plan: [Render and Shader Audit Remediation](../../Plans/TODO/render-and-shader-audit-remediation.md), queued at 0/6 on 2026-09-18. This document retains the original audit proposal and profiling detail; the TODO plan owns future phase acceptance and ledger updates.
+
 18 September 2026 · Owner: Rendering, with Runtime/Render and UI owners · **0/6 phases complete**
 
 This is the follow-up to the [audit report](report.md). It is an implementation proposal, not an executed remediation. Apply it to a reconciled branch containing the intended current hull, grass and UI work; do not overwrite the existing dirty working tree. Before implementation, follow [AGENTS.md](C:/SkullbonezCore/AGENTS.md) and the repository's [plan orchestrator](C:/SkullbonezCore/Agentic/Skills/orchestrator/SKILL.md). The current deliverables do not change the shared master plan or claim phase acceptance.

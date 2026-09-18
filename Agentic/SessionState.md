@@ -1,8 +1,25 @@
 # Session State
 
 Date: 2026-09-18
-Branch: `nightrunner-17th-SEP-26`
-Status: Local mega PR closure complete; INTERACTIVE_GRASS 7/7 and PHYSICS_WINDOW 8/8; live portfolio 145/152. Final-head CI remains required for delivery.
+Branch: `main`
+Status: Audit-remediation planning on main; SOURCE_QUALITY 0/6, GOVERNANCE_REPAIR 0/8 and RENDER_SHADER 0/6 queued; live portfolio 145/172. No implementation started.
+
+## Audit-remediation planning - 2026-09-18
+
+The owner requested three plans and direct commit/push on main. Base main and
+origin/main both resolve to ff65964ba, which merged PR #175; older unmerged-PR
+handoff instructions below are historical. Added TODO plans for source quality,
+governance, and renderer/shader remediation with finding coverage, owners,
+phase dependencies, recurrence checks and terminal validation. All 20 phases
+remain unchecked. The existing renderer proposal links to its new execution plan.
+
+Governance owns shared application extraction and render-boundary repair;
+Source Quality owns parser/codec admission; Render/Shader owns measurement and
+optimization. Existing CONVEX_HULL 7/8, PHYSICS_AB 0/6 and parked plans retain
+their acceptance state. Next implementation must begin with current-source
+reconciliation under the orchestrator when selected by the owner; this request
+only publishes documentation. No production edits, baseline changes, builds,
+runtime tests or fresh CI conclusions are claimed.
 
 ## Grass default and PR handoff - 2026-09-18
 
