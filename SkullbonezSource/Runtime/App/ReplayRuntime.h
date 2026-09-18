@@ -623,6 +623,7 @@ class ReplayRuntime
                                int sceneFrame,
                                std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords );
     void PublishRenderPacket( EditorTracer& tracer, const Math::Vector::Vector3& cameraTranslation, const Math::Vector::Vector3& cameraUp, uint64_t replayReserveGrowthEvents );
+    void SetPhysicsTickDuration( float seconds );
     ReplayRenderFrameViews BuildRenderFrameViews( const ReplayFrameSelection& selection, Physics::PhysicsEngine& physics, int modelCount, bool collisionVisualizer, bool debugTransparentBodyPass );
     void CompleteRenderFrame( bool submissionRendered, int sceneFrame, uint64_t replayReserveGrowthEvents, RuntimeTools& runtimeTools );
     void CancelRenderFrame( RuntimeTools& runtimeTools );

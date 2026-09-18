@@ -1,4 +1,4 @@
-﻿/*
+/*
 File: SkullbonezTests/TestUIDrawValues.cpp
 Purpose:
   Locks the backend-neutral UI draw-stream and font-metric contracts.
@@ -1279,7 +1279,6 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
     constexpr InGameUITab tabs[] = { InGameUITab::Profiler,
                                      InGameUITab::Scene,
                                      InGameUITab::Editor,
-                                     InGameUITab::Physics,
                                      InGameUITab::Options,
                                      InGameUITab::Render,
                                      InGameUITab::Targets,
@@ -1287,20 +1286,20 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
                                      InGameUITab::Sky,
                                      InGameUITab::Cinematic,
                                      InGameUITab::Memory, };
+    // Tools excludes Physics, which remains a dedicated header window.
     // Blue-gray mockup palette with selected-value clips that reserve combo arrows.
     // Options adds themes; Profiler/Memory share table roles.
     // Editor adds sculpt controls; native evidence: terrain-validation-06/editor-controls-view.png.
-    constexpr uint64_t expected[] = { 2132093253974716310ull,
-                                      8999909969555097215ull,
-                                      15598442833394761550ull,
-                                      6024593078527324281ull,
-                                      10394370338941968616ull,
-                                      5478074610712965329ull,
-                                      6412084034923494129ull,
-                                      16903291462328685303ull,
-                                      17139239282114657199ull,
-                                      17717404666730030321ull,
-                                      10199071145756757626ull, };
+    constexpr uint64_t expected[] = { 9375720955295606015ull,
+                                      17757207251117320886ull,
+                                      2881268477443949795ull,
+                                      13874397882608415328ull,
+                                      16156792469400246246ull,
+                                      3527023607404678871ull,
+                                      3955118361617686926ull,
+                                      5766910526961791002ull,
+                                      4388580866953917335ull,
+                                      8822192902494493592ull, };
     static_assert( std::size( tabs ) == std::size( expected ) );
 
     auto ui = std::make_unique<InGameUI>();
@@ -1331,10 +1330,7 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
             REQUIRE( FindDrawTextIndex( frame, "Terrain brush" ) >= 0 );
         }
 
-        if ( tabs[surface] == InGameUITab::Physics )
-        {
-            REQUIRE( FindDrawTextIndex( frame, "Open Physics window" ) >= 0 );
-        }
+        CHECK( FindDrawTextIndex( frame, "Open Physics window" ) == -1 );
 
         if ( tabs[surface] == InGameUITab::Options )
         {
@@ -1589,8 +1585,8 @@ TEST_CASE( "Tools tooltip targets follow the visible tab and content clip" )
     const UIRect content { 20, 100, 300, 200 };
     owner->SetActiveTab( InGameUITab::Physics );
     const auto physics = UIWindowInteractionOwnerTestAccess::ToolsTooltip( *owner, content );
-    CHECK( physics.id == 2016 );
-    CHECK( std::string( physics.text.units ) == "Seconds" );
+    // Legacy saved tab IDs now open Scene, with no hidden Physics tool targets.
+    CHECK( physics.id == 0 );
     owner->SetActiveTab( InGameUITab::Options );
     CHECK( UIWindowInteractionOwnerTestAccess::ToolsTooltip( *owner, content ).id == 2106 );
     owner->SetActiveTab( InGameUITab::Memory );
@@ -1990,6 +1986,17 @@ TEST_CASE( "Memory history never substitutes allocation capacity for private res
     CHECK( FindDrawTextIndex( list, "unavailable" ) >= 0 );
 }
 
+namespace
+{
+void CheckEditorPanesWithinViewport( const SkullbonezCore::UI::UIRect& viewport )
+{
+    for ( const auto& pane : SkullbonezCore::UI::GameLayout::EditorPaneRects( viewport ) )
+    {
+        CHECK( pane.x + pane.w <= viewport.x + viewport.w );
+    }
+}
+} // namespace
+
 TEST_CASE( "Causal detail reserves scene space and restores it when folded" )
 {
     using namespace SkullbonezCore::UI::GameLayout;
@@ -2011,10 +2018,7 @@ TEST_CASE( "Causal detail reserves scene space and restores it when folded" )
             CHECK( open.statusContent.w == open.viewport.w );
             CHECK( open.causeDetail.x == open.viewport.x + open.viewport.w );
             CHECK( open.causeDetail.x + open.causeDetail.w == open.causeControls.x );
-            for ( const auto& pane : EditorPaneRects( open.viewport ) )
-            {
-                CHECK( pane.x + pane.w <= open.viewport.x + open.viewport.w );
-            }
+            CheckEditorPanesWithinViewport( open.viewport );
             state.causeDetailOpen = false;
             CHECK( ComputePresentationRects( state, width, 720 ).viewport.w == folded.viewport.w );
             state.causeDetailOpen = true;

@@ -2074,6 +2074,18 @@ void Run::ApplyInteractivePhysicsSetting( const UI::UIPhysicsCommands& commands 
     {
         return;
     }
+    if ( commands.requestedHz != 0 )
+    {
+        const int hz = commands.requestedHz;
+        if ( ( hz == 30 || hz == 60 || hz == 120 || hz == 240 ) && hz != m_simulation.TickRate() )
+        {
+            RestartRecordingForPhysicsEdit();
+            m_simulation.SetTickRate( hz );
+            m_replayRuntime.SetPhysicsTickDuration( m_simulation.PhysicsDt() );
+            strcpy_s( m_physicsSettingsNotice.data(), m_physicsSettingsNotice.size(), "Physics Hz changed for this session; new recording." );
+        }
+        return;
+    }
     if ( commands.applyPointImpulse )
     {
         auto& world = m_sceneController.Scene();

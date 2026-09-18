@@ -230,6 +230,51 @@ PhysicsDebugVisualizer::PhysicsDebugVisualizer()
     static_assert( LINE_FLOAT_CAPACITY >= CONTACT_MANIFOLD_LINE_FLOAT_CAPACITY );
     m_lineData.reserve( LINE_FLOAT_CAPACITY );
     m_trackedContacts.reserve( TRACKED_CONTACT_CAPACITY );
+    // Lifetime: allocate the full scene capacity at construction; rendering only overwrites slots.
+    m_presentedBodies.resize( Scene::Capacity::MAX_SCENE_OBJECTS );
+}
+
+void PhysicsDebugVisualizer::BeginPresentedFrame( bool presented, std::span<const PhysicsDebugContact> contacts )
+{
+    if ( presented || m_presented )
+    {
+        m_trackedContacts.clear();
+    }
+    m_presented = presented;
+    if ( presented )
+    {
+        for ( auto& body : m_presentedBodies )
+        {
+            body.id = 0;
+        }
+        Update( 0, contacts );
+    }
+}
+
+void PhysicsDebugVisualizer::SetPresentedBody( std::size_t row, const PhysicsDebugBodySample& sample )
+{
+    if ( row < m_presentedBodies.size() )
+    {
+        m_presentedBodies[row] = sample;
+    }
+}
+
+Vector3 PhysicsDebugVisualizer::BodyPosition( const PhysicsBodyStore& bodies, std::size_t row ) const
+{
+    if ( m_presented && row < m_presentedBodies.size() && m_presentedBodies[row].id == bodies.Records()[row].sceneObjectId.value )
+    {
+        return m_presentedBodies[row].position;
+    }
+    return PhysicsBodyPosition( bodies.HotFields(), row );
+}
+
+Quaternion PhysicsDebugVisualizer::BodyOrientation( const PhysicsBodyStore& bodies, std::size_t row ) const
+{
+    if ( m_presented && row < m_presentedBodies.size() && m_presentedBodies[row].id == bodies.Records()[row].sceneObjectId.value )
+    {
+        return m_presentedBodies[row].orientation;
+    }
+    return PhysicsBodyOrientation( bodies.HotFields(), row );
 }
 
 void PhysicsDebugVisualizer::ResetTransientState()
@@ -379,8 +424,8 @@ void PhysicsDebugVisualizer::EmitObjectAxes( const PhysicsDebugBodyView& view )
         {
             continue;
         }
-        Vector3 center = PhysicsBodyPosition( hotFields, bodyIndex );
-        Quaternion orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
+        Vector3 center = BodyPosition( view.bodies, bodyIndex );
+        Quaternion orientation = BodyOrientation( view.bodies, bodyIndex );
         RotationMatrix rot = orientation.GetOrientationMatrix();
         Vector3 axes[3] = { rot * Vector3( 1.0f, 0.0f, 0.0f ), rot * Vector3( 0.0f, 1.0f, 0.0f ), rot * Vector3( 0.0f, 0.0f, 1.0f ), };
 
@@ -412,9 +457,9 @@ void PhysicsDebugVisualizer::EmitConvexHullWireframes( const PhysicsDebugBodyVie
         {
             continue;
         }
-        Quaternion orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
+        Quaternion orientation = BodyOrientation( view.bodies, bodyIndex );
         RotationMatrix rot = orientation.GetOrientationMatrix();
-        const Vector3 center = PhysicsBodyPosition( hotFields, bodyIndex ) + rot * hull->GetPosition();
+        const Vector3 center = BodyPosition( view.bodies, bodyIndex ) + rot * hull->GetPosition();
 
         for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
         {
@@ -556,13 +601,36 @@ void PhysicsDebugVisualizer::EmitBodyDiagnostics( const PhysicsDebugBodyView& vi
         {
             continue;
         }
-        const auto body = LoadPhysicsBodyHotState( hot, index );
+        auto body = LoadPhysicsBodyHotState( hot, index );
+        if ( m_presented )
+        {
+            if ( index >= m_presentedBodies.size() || m_presentedBodies[index].id != bodies[index].sceneObjectId.value )
+            {
+                continue;
+            }
+            body.position = m_presentedBodies[index].position;
+            body.orientation = m_presentedBodies[index].orientation;
+            body.linearVelocity = m_presentedBodies[index].linearVelocity;
+            body.angularVelocity = m_presentedBodies[index].angularVelocity;
+        }
         const Vector3 center = body.position;
         auto orientation = body.orientation;
         const auto rotation = orientation.GetOrientationMatrix();
         if ( ( m_flags & PHYSICS_DEBUG_COM ) != 0 )
         {
             EmitCross( center, .6f, 1, 1, 1 );
+            if ( m_labelCount < m_contactLabels.size() )
+            {
+                auto& label = m_contactLabels[m_labelCount++];
+                label.point = center + Vector3( 0, .8f, 0 );
+                label.fade = 1;
+                const float mass = m_presented ? m_presentedBodies[index].mass : bodies[index].mass;
+                std::snprintf( label.text.data(), label.text.size(), "%u: %.3g kg", bodies[index].sceneObjectId.value, mass );
+            }
+            else
+            {
+                ++m_droppedLabels;
+            }
         }
         if ( ( m_flags & PHYSICS_DEBUG_MOTION ) != 0 )
         {
@@ -647,8 +715,8 @@ void PhysicsDebugVisualizer::EmitJointDiagnostics( const PhysicsDebugFrameView& 
         {
             continue;
         }
-        auto orientationA = PhysicsBodyOrientation( hot, rowA ), orientationB = PhysicsBodyOrientation( hot, rowB );
-        const auto centerA = PhysicsBodyPosition( hot, rowA ), centerB = PhysicsBodyPosition( hot, rowB );
+        auto orientationA = BodyOrientation( view.bodies.bodies, rowA ), orientationB = BodyOrientation( view.bodies.bodies, rowB );
+        const auto centerA = BodyPosition( view.bodies.bodies, rowA ), centerB = BodyPosition( view.bodies.bodies, rowB );
         const auto a = centerA + orientationA.GetOrientationMatrix() * joint.localAnchorA;
         const auto b = centerB + orientationB.GetOrientationMatrix() * joint.localAnchorB;
         if ( ( m_flags & PHYSICS_DEBUG_JOINTS ) != 0 )
@@ -691,9 +759,9 @@ void PhysicsDebugVisualizer::EmitSleepState( const PhysicsDebugSleepView& view )
             continue;
         }
         const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
-        Vector3 center = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( i ) );
+        Vector3 center = BodyPosition( view.bodies.bodies, static_cast<std::size_t>( i ) );
         float radius = (std::max)( 1.0f, collider.boundingRadius * 1.15f );
-        bool sleeping = i < static_cast<int>( sleepStates.size() ) && sleepStates[i] != 0;
+        bool sleeping = m_presented ? m_presentedBodies[static_cast<std::size_t>( i )].sleeping : i < static_cast<int>( sleepStates.size() ) && sleepStates[i] != 0;
         bool supported = i < static_cast<int>( supportedStates.size() ) && supportedStates[i] != 0;
         bool inhibited = i < static_cast<int>( inhibitedStates.size() ) && inhibitedStates[i] != 0;
 
@@ -762,8 +830,8 @@ void PhysicsDebugVisualizer::EmitPipelineStage( const PhysicsDebugPipelineView& 
 
         if ( hasA && hasB )
         {
-            Vector3 a = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( record.bodyA ) );
-            Vector3 bPos = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( record.bodyB ) );
+            Vector3 a = BodyPosition( view.bodies, static_cast<std::size_t>( record.bodyA ) );
+            Vector3 bPos = BodyPosition( view.bodies, static_cast<std::size_t>( record.bodyB ) );
             EmitLine( a, bPos, r * 0.55f, g * 0.55f, b * 0.55f );
         }
 
@@ -771,7 +839,7 @@ void PhysicsDebugVisualizer::EmitPipelineStage( const PhysicsDebugPipelineView& 
 
         if ( hasA && VectorMagSquared( p ) <= TOLERANCE * TOLERANCE )
         {
-            p = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( record.bodyA ) );
+            p = BodyPosition( view.bodies, static_cast<std::size_t>( record.bodyA ) );
         }
 
         const float scale = 0.24f + (std::min)( fabsf( record.scalarA ), 4.0f ) * 0.05f;
@@ -817,7 +885,7 @@ void PhysicsDebugVisualizer::EmitTerrainContactProbe( const PhysicsDebugBodyView
             continue;
         }
 
-        const Vector3 center = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( i ) );
+        const Vector3 center = BodyPosition( view.bodies, static_cast<std::size_t>( i ) );
 
         if ( !terrain->IsInBounds( center.x, center.z ) )
         {

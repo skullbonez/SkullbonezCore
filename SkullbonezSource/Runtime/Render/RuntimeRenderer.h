@@ -262,6 +262,10 @@ class RuntimeRenderer
     {
         return m_physicsDebugVisualizer.DiagnosticGeometryCounts();
     }
+    PhysicsDebugVisualizer& PhysicsDiagnostics()
+    {
+        return m_physicsDebugVisualizer;
+    }
     void ResetPhysicsDebugHistory()
     {
         m_physicsDebugVisualizer.ResetTransientState();

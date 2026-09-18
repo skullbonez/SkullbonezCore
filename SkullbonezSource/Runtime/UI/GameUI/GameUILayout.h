@@ -193,7 +193,18 @@ struct ToolsChromeRects
     bool compact = false;
 };
 ToolsChromeRects ComputeToolsChromeRects( const UIRect& bounds, bool sharedShell );
-inline constexpr const char* TOOL_NAMES[] = { "Profiler", "Scene", "Editor", "Physics", "Options", "Render", "Targets", "Keys", "Sky", "Cinematic", "Memory" };
+inline constexpr const char* TOOL_NAMES[] = { "Profiler", "Scene", "Editor", "Options", "Render", "Targets", "Keys", "Sky", "Cinematic", "Memory" };
+
+// Keep persisted tool IDs stable while omitting the retired Physics shortcut.
+inline constexpr int TOOL_COUNT = 10;
+inline constexpr int ToolIdAt( int index )
+{
+    return index >= 3 ? index + 1 : index;
+}
+inline constexpr int ToolIndexFor( int id )
+{
+    return id > 3 ? id - 1 : ( id == 3 ? 1 : id );
+}
 
 HeaderRects ComputeHeaderRects( const UIRect& header, Workspace workspace = Workspace::Scene );
 UIRect DiagnosticDetailsBounds( const UIRect& panel );

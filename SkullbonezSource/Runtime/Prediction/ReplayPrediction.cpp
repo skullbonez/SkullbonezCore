@@ -372,7 +372,7 @@ bool CaptureReplayPredictionFrame( ReplayPrediction& predictionOwner,
 
     RunReplayPredictionFrame& frame = prediction.build.buildFrames[frameSlot];
     frame.frameIndex = frameIndex;
-    frame.simulationSeconds = prediction.simulation.sourceSimulationSeconds + static_cast<double>( frameIndex ) * static_cast<double>( PHYSICS_FIXED_DT );
+    frame.simulationSeconds = prediction.simulation.sourceSimulationSeconds + static_cast<double>( frameIndex ) * static_cast<double>( prediction.simulation.physicsDt );
 
     frame.tornadoSystemElapsedSeconds = prediction.simulation.predictionTornadoGameplay.GetSystemElapsedSeconds();
     frame.contactsIncomplete = false;
@@ -541,7 +541,11 @@ int RunReplayPredictionWorkerRange( ReplayPrediction& predictionOwner,
 
         {
             PROFILE_SCOPED( "Frame/Replay/Prediction/WorkerRange/PhysicsStep" );
-            stepSucceeded = StepPredictionEngineTick( predictionEngine, prediction.simulation.predictionTornadoGameplay, PHYSICS_FIXED_DT, prediction.simulation.predictionWorldForces, workerPool );
+            stepSucceeded = StepPredictionEngineTick( predictionEngine,
+                                                      prediction.simulation.predictionTornadoGameplay,
+                                                      prediction.simulation.physicsDt,
+                                                      prediction.simulation.predictionWorldForces,
+                                                      workerPool );
         }
 
         bool captureSucceeded = false;
@@ -849,6 +853,7 @@ ReplayPredictionSourcePreparation ReplayPrediction::BeginFrameSource( PhysicsEng
     if ( latestSolverSample )
     {
         prediction.simulation.sourceSimulationSeconds = latestSolverSample->simulationSeconds;
+        prediction.simulation.physicsDt = latestSolverSample->physicsDt > 0 ? latestSolverSample->physicsDt : PHYSICS_FIXED_DT;
     }
     else
     {
@@ -924,7 +929,7 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine,
 
     prediction.simulation.horizonSeconds = std::clamp( prediction.simulation.horizonSeconds, minHorizonSeconds, maxHorizonSeconds );
 
-    const int predictionTicks = (std::max)( 1, static_cast<int>( std::ceil( prediction.simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) );
+    const int predictionTicks = (std::max)( 1, static_cast<int>( std::ceil( prediction.simulation.horizonSeconds / prediction.simulation.physicsDt ) ) );
 
     prediction.build.targetTickCount = predictionTicks;
     prediction.build.nextTick = 1;
@@ -1445,6 +1450,16 @@ void ReplayPrediction::SetVerificationRevealFrame( ReplayFrameIndex frame ) noex
     m_state.revealClock.presentedFrame = frame;
 }
 
+void ReplayPrediction::SetPhysicsTickDuration( float seconds )
+{
+    if ( seconds > 0 && seconds != m_state.simulation.physicsDt )
+    {
+        CancelJob( true );
+        m_state.simulation.physicsDt = seconds;
+        MarkDirty();
+    }
+}
+
 void ReplayPrediction::SetEnabled( bool enabled ) noexcept
 {
     m_state.enabled = enabled;
@@ -1930,7 +1945,7 @@ bool ReplayPrediction::ApplyHorizonContinuation()
         return false;
     }
 
-    const int requestedTicks = (std::max)( 1, static_cast<int>( std::ceil( prediction.simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) );
+    const int requestedTicks = (std::max)( 1, static_cast<int>( std::ceil( prediction.simulation.horizonSeconds / prediction.simulation.physicsDt ) ) );
     const std::size_t frameCapacity = (std::max)( retainedCount, static_cast<std::size_t>( requestedTicks ) + 1u );
 
     if ( !wasBuilding && frameCapacity == retainedCount )
@@ -2018,7 +2033,7 @@ void ReplayPrediction::SetHorizonSeconds( float horizonSeconds ) noexcept
     m_state.futureNodeCache.ResetRetainedMarkers();
     // Presentation clips immediately; the frame owner joins and extends the
     // existing worker only when more simulated frames are actually needed.
-    m_state.revealClock.presentedFrame = (std::min)( m_state.revealClock.presentedFrame, static_cast<ReplayFrameIndex>( std::ceil( horizonSeconds / PHYSICS_FIXED_DT ) ) );
+    m_state.revealClock.presentedFrame = (std::min)( m_state.revealClock.presentedFrame, static_cast<ReplayFrameIndex>( std::ceil( horizonSeconds / m_state.simulation.physicsDt ) ) );
 }
 
 bool ReplayPrediction::RevealProgress01( float& outProgress ) const noexcept
@@ -2042,13 +2057,13 @@ bool ReplayPrediction::RevealProgress01( float& outProgress ) const noexcept
         return false;
     }
 
-    const double availableSeconds = static_cast<double>( lastFrame ) * PHYSICS_FIXED_DT;
+    const double availableSeconds = static_cast<double>( lastFrame ) * m_state.simulation.physicsDt;
     const auto now = std::chrono::steady_clock::now();
     const double elapsedSeconds = (std::max)( 0.0, std::chrono::duration<double>( now - m_state.revealClock.anchor ).count() );
 
     const double revealRate = m_state.revealClock.secondsPerSecond > 0.0 ? m_state.revealClock.secondsPerSecond : 1.0;
     const double revealedSeconds = (std::min)( availableSeconds, elapsedSeconds * revealRate );
-    const double revealFrame = revealedSeconds / static_cast<double>( PHYSICS_FIXED_DT );
+    const double revealFrame = revealedSeconds / static_cast<double>( m_state.simulation.physicsDt );
     outProgress = std::clamp( static_cast<float>( revealFrame / static_cast<double>( lastFrame ) ), 0.0f, 1.0f );
     return true;
 }

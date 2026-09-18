@@ -633,6 +633,7 @@ void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData,
     uiData.world.physicsInspector.settingsNotice = m_physicsSettingsNotice;
     uiData.world.physicsInspector.droppedTicks = m_simulation.DroppedPhysicsTickCount();
     uiData.world.physicsInspector.physicsMs = uiData.surface.physicsMs;
+    uiData.world.physicsInspector.physicsHz = m_simulation.TickRate();
     uiData.world.physicsInspector.timeScale = m_sceneController.State().timeScale;
     uiData.world.physicsInspector.geometry = Renderer().PhysicsDebugGeometryCounts();
 

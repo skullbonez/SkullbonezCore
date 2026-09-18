@@ -92,6 +92,16 @@ struct PhysicsDebugFrameView
     std::span<const Physics::PointJointConstraint> joints {};
 };
 
+// Bounded display samples are keyed by stable identity and never restore live Physics.
+struct PhysicsDebugBodySample
+{
+    uint32_t id = 0;
+    Math::Vector::Vector3 position, linearVelocity, angularVelocity;
+    Math::Orientation::Quaternion orientation;
+    float mass = 0;
+    bool sleeping = false;
+};
+
 struct PhysicsContactLabel
 {
     Math::Vector::Vector3 point;
@@ -123,6 +133,10 @@ class PhysicsDebugVisualizer
 
     std::array<PhysicsContactLabel, 32> m_contactLabels {};
     std::size_t m_labelCount = 0, m_droppedLabels = 0;
+    std::vector<PhysicsDebugBodySample> m_presentedBodies;
+    bool m_presented = false;
+    Math::Vector::Vector3 BodyPosition( const Physics::PhysicsBodyStore& bodies, std::size_t row ) const;
+    Math::Orientation::Quaternion BodyOrientation( const Physics::PhysicsBodyStore& bodies, std::size_t row ) const;
     uint32_t m_flags = Physics::PHYSICS_DEBUG_NONE;
     int m_pipelineStageCursor = 0;
     uint32_t m_selectedBody = 0;
@@ -161,6 +175,8 @@ class PhysicsDebugVisualizer
     PhysicsDebugVisualizer();
 
     void ResetTransientState();
+    void BeginPresentedFrame( bool presented, std::span<const Physics::PhysicsDebugContact> contacts );
+    void SetPresentedBody( std::size_t row, const PhysicsDebugBodySample& sample );
 
     void SetFlags( uint32_t flags )
     {

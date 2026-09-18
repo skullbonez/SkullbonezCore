@@ -91,6 +91,10 @@ PresentationPreferences SanitizePreferences( const PresentationPreferences& pref
     result.diagnosticsHeight = FiniteDimension( result.diagnosticsHeight, 140.0f );
     result.physicsSection = std::clamp( result.physicsSection, 0, 3 );
     result.lastTool = std::clamp( result.lastTool, 0, 10 );
+    if ( result.lastTool == 3 )
+    {
+        result.lastTool = 1;
+    }
     if ( result.foldedSections > 7 )
     {
         result.foldedSections = 7;

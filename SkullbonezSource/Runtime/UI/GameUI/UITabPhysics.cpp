@@ -64,7 +64,11 @@ constexpr SliderLayout SLIDERS[] = { { &PhysicsState::alphaSlider, 1, 374 },
                                      { &PhysicsState::tornadoSwirlSlider, 0, 200 },
                                      { &PhysicsState::tornadoLiftSlider, 0, 244 }, };
 constexpr int TOGGLE_SECTION[] = { 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1 };
-constexpr float TOGGLE_Y[] = { 20, 50, 80, 110, 140, 170, 614, 200, 230, 34, 260, 290, 320 };
+constexpr float TOGGLE_Y[] = { 564, 624, 80, 110, 140, 170, 614, 200, 230, 34, 260, 290, 320 };
+float LayerY( int index )
+{
+    return index == 1 ? 20.0f : index == 3 ? 50.0f : 534.0f + static_cast<float>( index ) * 30;
+}
 float TornadoY( bool advancedOpen )
 {
     return advancedOpen ? 1012.0f : 482.0f;
@@ -97,6 +101,10 @@ void SetContentBounds( PhysicsState& state, float x, float firstToggleY, float w
         const bool shown = state.section == 0 && ( i < 4 || i == 12 || state.advancedOpen );
         state.numericalSliders[i].SetBounds( shown ? x : -10000, shown ? base + NumericalY( i ) : -10000, shown ? width : 0, shown ? 34.0f : 0 );
     }
+    for ( int i = 0; i < 4; ++i )
+    {
+        state.hzButtons[i] = state.section == 0 ? SkullbonezCore::UI::UIRect { x + i * width / 4, base, width / 4 - 2, 20 } : SkullbonezCore::UI::UIRect {};
+    }
     state.advancedButton = state.section == 0 ? SkullbonezCore::UI::UIRect { x, base + 444, width, 26 } : SkullbonezCore::UI::UIRect {};
     state.tornadoButton = state.section == 0 ? SkullbonezCore::UI::UIRect { x, base + TornadoY( state.advancedOpen ), width, 26 } : SkullbonezCore::UI::UIRect {};
     state.timeScaleSlider.SetBounds( state.section == 0 ? x : -10000, base + 400, state.section == 0 ? width : 0, 34 );
@@ -104,7 +112,7 @@ void SetContentBounds( PhysicsState& state, float x, float firstToggleY, float w
     state.saveDefaultsButton = state.section == 0 ? SkullbonezCore::UI::UIRect { x, base + RestoreY( state.advancedOpen, state.tornadoOpen ) + 32, width, 26 } : SkullbonezCore::UI::UIRect {};
     for ( int i = 0; i < 10; ++i )
     {
-        state.additionalLayers[i].SetBounds( state.section == 1 ? x : -10000, state.section == 1 ? base + 534 + i * 30 : -10000, state.section == 1 ? width : 0, 24 );
+        state.additionalLayers[i].SetBounds( state.section == 1 ? x : -10000, state.section == 1 ? base + LayerY( i ) : -10000, state.section == 1 ? width : 0, 24 );
     }
     state.impulseScaleSlider.SetBounds( state.section == 1 ? x : -10000, base + 928, state.section == 1 ? width : 0, 34 );
     state.impulseThresholdSlider.SetBounds( state.section == 1 ? x : -10000, base + 972, state.section == 1 ? width : 0, 34 );
@@ -239,6 +247,14 @@ bool HandleContentClick( UIPhysicsTabState& state, InGameUIInputResult& result, 
         if ( !state.liveEditable )
         {
             return true;
+        }
+        for ( int i = 0; i < 4; ++i )
+        {
+            if ( state.hzButtons[i].Contains( mouseX, mouseY ) )
+            {
+                result.commands.physics.requestedHz = 30 << i;
+                return true;
+            }
         }
         if ( state.timeScaleSlider.HitTest( mouseX, mouseY ) )
         {
@@ -1041,7 +1057,14 @@ void Draw( UIPhysicsTabState& state,
                                           "Sleep angular speed",
                                           "Sleep ticks",
                                           "Warm start (0/1)" };
-        draw.Text( contentX, scrolledY + 4, 10, 1, 1, 1, "PGS | fixed 120 Hz / 8.33 ms" );
+        for ( int i = 0; i < 4; ++i )
+        {
+            const auto bounds = state.hzButtons[i];
+            const bool selected = data.inspector.physicsHz == ( 30 << i );
+            draw.RoundedPanel( bounds, 3, selected ? palette.selection : palette.control, palette.border );
+            std::snprintf( text, sizeof( text ), "%d Hz", 30 << i );
+            draw.Text( bounds.x + 4, bounds.y + 4, 10, 1, 1, 1, text );
+        }
         draw.Text( contentX, scrolledY + 242, 10, 1, 1, 1, data.inspector.liveEditable ? "Edits apply on release; new recording." : "Live values; inspection is read-only." );
         draw.RoundedPanel( state.advancedButton, 3, palette.control, palette.border );
         draw.RoundedPanel( state.tornadoButton, 3, palette.control, palette.border );
@@ -1065,9 +1088,9 @@ void Draw( UIPhysicsTabState& state,
     if ( state.section == 1 )
     {
         const char* layerLabels[] = { "Normal direction",
-                                      "Normal impulses",
+                                      "Impulse arrows",
                                       "Friction impulses",
-                                      "Center of mass",
+                                      "Mass labels / center of mass",
                                       "Body AABBs",
                                       "Joint anchors / links",
                                       "Joint error",
@@ -1076,7 +1099,7 @@ void Draw( UIPhysicsTabState& state,
                                       "Collider wireframes" };
         for ( int i = 0; i < 10; ++i )
         {
-            DrawContentToggle( draw, contentY, contentH, state.additionalLayers[i], contentX, scrolledY + 534 + i * 30, contentW, layerLabels[i], data.physicsDebug.additionalLayers[i] );
+            DrawContentToggle( draw, contentY, contentH, state.additionalLayers[i], contentX, scrolledY + LayerY( i ), contentW, layerLabels[i], data.physicsDebug.additionalLayers[i] );
         }
         draw.Text( contentX, scrolledY + 844, 10, 1, 1, 1, "Cyan: direction | green: normal impulse" );
         draw.Text( contentX, scrolledY + 862, 10, 1, 1, 1, "Orange: friction | faded: contact history" );

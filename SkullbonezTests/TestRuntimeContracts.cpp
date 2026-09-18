@@ -1483,6 +1483,14 @@ TEST_CASE( "Runtime debug visualizers bound staging and clear transient epochs" 
     CHECK( collision.DiagnosticTrackedModelCount() == 0u );
     CHECK( physicsDebug.DiagnosticTrackedContactCount() == 0u );
 
+    // Scrubbing replaces the live linger cache with precisely the selected sample.
+    physicsDebug.BeginPresentedFrame( true, std::span<const Physics::PhysicsDebugContact>( contacts.data(), 1 ) );
+    CHECK( physicsDebug.DiagnosticTrackedContactCount() == 1u );
+    physicsDebug.BeginPresentedFrame( true, {} );
+    CHECK( physicsDebug.DiagnosticTrackedContactCount() == 0u );
+    physicsDebug.BeginPresentedFrame( false, {} );
+    CHECK( physicsDebug.DiagnosticLineFloatCapacity() == Runtime::PhysicsDebugVisualizer::DiagnosticRequiredLineFloatCapacity() );
+
     const uint8_t noCollisionContact = 0u;
     collision.Update( 0.0f, Runtime::CollisionVisualizerFrameView { colliders, renderInstances, std::span<const uint8_t>( &noCollisionContact, 1 ), std::span<const uint8_t>( &awake, 1 ), {}, 1 } );
     CHECK( collision.DiagnosticCollisionAmount( 0u ) == doctest::Approx( 0.0f ) );

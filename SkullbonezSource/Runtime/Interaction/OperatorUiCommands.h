@@ -265,6 +265,7 @@ struct UIPhysicsPointImpulse
 
 struct UIPhysicsCommands
 {
+    int requestedHz = 0;
     bool applyPointImpulse = false;
     UIPhysicsPointImpulse pointImpulse;
 

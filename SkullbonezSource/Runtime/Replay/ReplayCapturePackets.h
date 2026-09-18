@@ -30,6 +30,7 @@ namespace SkullbonezCore::Runtime
 {
 struct ReplayRecorderStats
 {
+    double durationSeconds = 0;
     bool enabled = false;
     uint64_t totalFramesCaptured = 0;
     uint64_t totalFramesEvicted = 0;

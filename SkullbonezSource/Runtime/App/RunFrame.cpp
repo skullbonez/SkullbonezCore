@@ -258,7 +258,7 @@ void CaptureReplayPostStep( RuntimeTools& runtimeTools,
                             SkullbonezCore::Runtime::SceneController& sceneController,
                             const RuntimeOverlayDiagnostics& overlays,
                             ReplayRuntime& replayRuntime,
-                            SkullbonezCore::Core::Profiler* )
+                            float physicsDt )
 {
     const SceneSessionState& scene = sceneController.State();
     const OverlayDebugState debug = overlays.PresentationSnapshot();
@@ -285,15 +285,8 @@ void CaptureReplayPostStep( RuntimeTools& runtimeTools,
     cameraSample.view = cameras.GetCameraView();
     cameraSample.up = cameras.GetCameraUp();
 
-    replayRuntime.CaptureFrame( scene.currentFrame,
-                                PHYSICS_FIXED_DT,
-                                worldSample,
-                                cameraSample,
-                                physics,
-                                sceneController.Scene().Tornado(),
-                                entities,
-                                runtimeTools,
-                                sceneController.Scene().MutableRenderInstances() );
+    replayRuntime
+        .CaptureFrame( scene.currentFrame, physicsDt, worldSample, cameraSample, physics, sceneController.Scene().Tornado(), entities, runtimeTools, sceneController.Scene().MutableRenderInstances() );
 }
 
 } // namespace
@@ -1546,6 +1539,7 @@ void Run::PublishSkarnessFrameState()
     state.presentation.replayControlsBounds = { layout.replayControls.x, layout.replayControls.y, layout.replayControls.w, layout.replayControls.h };
     state.presentation.replayDetailsBounds = { layout.replayDetails.x, layout.replayDetails.y, layout.replayDetails.w, layout.replayDetails.h };
     state.presentation.replayScroll = layout.replayScroll;
+    state.presentation.physicsHz = m_simulation.TickRate();
     state.presentation.physicsCompletedSteps = m_sceneController.Scene().Physics().CompletedStepCount();
     state.presentation.physicsSettings = Physics::InteractivePhysicsValues( m_sceneController.Scene().Physics().RuntimeSettings() );
     state.presentation.physicsPeer = layout.physicsPeer;
@@ -1870,8 +1864,8 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned, 
 
             SkullbonezCore::Rendering::RenderInstanceStore& contactPresentation = m_sceneController.Scene().MutableRenderInstances();
 
-            contactPresentation.TickContactFeedback( m_sceneController.Scene().SceneEntityCount(), PHYSICS_FIXED_DT );
-            const ScenePhysicsPostStepOutput postStep = m_sceneController.Scene().StepPhysics( PHYSICS_FIXED_DT, physicsWorldForces, m_workerPool );
+            contactPresentation.TickContactFeedback( m_sceneController.Scene().SceneEntityCount(), m_simulation.PhysicsDt() );
+            const ScenePhysicsPostStepOutput postStep = m_sceneController.Scene().StepPhysics( m_simulation.PhysicsDt(), physicsWorldForces, m_workerPool );
 
             // The physics owner publishes a bounded span; the presentation owner
             // consumes it before the next step can replace those dense-row facts.
@@ -1949,7 +1943,7 @@ void Run::AfterPhysicsStep()
 
     if ( replayCaptured )
     {
-        CaptureReplayPostStep( m_runtimeTools, m_sceneController, *m_overlayDiagnostics, m_replayRuntime, m_profiler );
+        CaptureReplayPostStep( m_runtimeTools, m_sceneController, *m_overlayDiagnostics, m_replayRuntime, m_simulation.PhysicsDt() );
     }
 
 #ifdef _DEBUG

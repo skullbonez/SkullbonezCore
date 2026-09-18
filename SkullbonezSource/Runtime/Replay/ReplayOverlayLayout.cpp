@@ -352,14 +352,20 @@ void PlaceScrubberInShell( const ReplayScrubberSurfaceInput& input, ReplayScrubb
     }
     const UI::UIRect& transport = input.transportBounds;
     const UI::UIRect& controls = input.controlsBounds;
-    const float inset = (std::min)( 72.0f, transport.w * 0.22f );
+    const float inset = (std::min)( 180.0f, transport.w * 0.6f );
     const UI::UIRect track { transport.x + inset, transport.y + transport.h * 0.5f - 2.0f, (std::max)( 1.0f, transport.w - inset - 12.0f ), 4.0f };
     const float scroll = std::clamp( input.controlsScroll, 0.0f, 1.0f ) * (std::max)( 0.0f, 434.0f - controls.h );
     for ( std::size_t index = 0; index < surface.controlCount; ++index )
     {
         ReplayOverlayControl& control = surface.controls[index];
         const ReplayScrubberControl id = static_cast<ReplayScrubberControl>( control.id.value );
-        if ( id == ReplayScrubberControl::ScrubTrack )
+        if ( id == ReplayScrubberControl::Play || id == ReplayScrubberControl::Pause )
+        {
+            const float width = (std::min)( 52.0f, transport.w * .18f );
+            control.drawRect = { transport.x + 4 + ( id == ReplayScrubberControl::Pause ? width + 3 : 0 ), transport.y + 2, width, transport.h - 4 };
+            control.hitRect = control.drawRect;
+        }
+        else if ( id == ReplayScrubberControl::ScrubTrack )
         {
             control.drawRect = track;
             control.hitRect = { track.x, transport.y, track.w, transport.h };
@@ -501,6 +507,8 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
 
     addControl( ReplayScrubberControl::Load, ReplayScrubberAction::Load, ReplayOverlayControlKind::Button, load, load, true, true );
 
+    addControl( ReplayScrubberControl::Play, ReplayScrubberAction::Play, ReplayOverlayControlKind::Button, {}, {}, input.transportBounds.w > 0, true );
+    addControl( ReplayScrubberControl::Pause, ReplayScrubberAction::Pause, ReplayOverlayControlKind::Button, {}, {}, input.transportBounds.w > 0, true );
     addControl( ReplayScrubberControl::ScrubTrack, ReplayScrubberAction::Scrub, ReplayOverlayControlKind::Track, track, track, true, input.scrubTrackDragEnabled );
 
     addControl( ReplayScrubberControl::PredictionPanel,

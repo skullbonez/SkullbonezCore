@@ -83,6 +83,7 @@ struct ReplayScrubberView
 {
     bool visible = false;
     bool historicalSamplePaused = false;
+    bool playing = false;
     bool liveAdvanceHeld = false;
     bool restoreConsumedThisFrame = false;
     RunReplayTrack activeTrack = RunReplayTrack::Solver;

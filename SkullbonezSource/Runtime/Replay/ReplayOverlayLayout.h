@@ -88,7 +88,7 @@ struct ReplayOverlayControl
 // every frame and carries no UI owner or callback.
 struct ReplayOverlaySurface
 {
-    static constexpr std::size_t CONTROL_CAPACITY = 13;
+    static constexpr std::size_t CONTROL_CAPACITY = 15;
     std::array<ReplayOverlayControl, CONTROL_CAPACITY> controls = {};
     std::size_t controlCount = 0;
     ReplayOverlayControlId hotControl;
@@ -153,7 +153,9 @@ enum class ReplayScrubberControl : uint32_t
     ScrubTrack,
     PredictionPanel,
     Panel,
-    HotZone
+    HotZone,
+    Play,
+    Pause
 };
 
 inline ReplayOverlayControlId ReplayScrubberControlId( ReplayScrubberControl control )

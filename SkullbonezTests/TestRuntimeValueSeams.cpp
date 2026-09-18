@@ -921,7 +921,7 @@ TEST_CASE( "Replay overlay: surface description publishes owner availability as 
 
     ReplayScrubberSurface surface;
     BuildReplayScrubberSurface( input, surface );
-    CHECK( surface.controlCount == 13u );
+    CHECK( surface.controlCount == 15u );
     CHECK( surface.hasActiveControl );
     CHECK( surface.activeControl == ReplayScrubberControlId( ReplayScrubberControl::ScrubTrack ) );
     const ReplayOverlayControl* active = surface.Find( surface.activeControl );

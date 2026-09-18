@@ -451,3 +451,29 @@ TEST_CASE( "SimulationSystem explicit single tick ignores pace and clears accumu
         }
     }
 }
+
+TEST_CASE( "SimulationSystem selected Hz controls wall clock and one-shot ticks" )
+{
+    for ( int hz : { 30, 60, 120, 240 } )
+    {
+        SimulationSystem simulation;
+        simulation.SetTickRate( hz );
+        SimulationTickInput input;
+        input.canStepPhysics = true;
+        input.secondsPerFrame = 1.0 / 480;
+        int ticks = 0;
+        for ( int frame = 0; frame < 480; ++frame )
+        {
+            ticks += simulation.Tick( input ).committedPhysicsTicks;
+        }
+        CHECK( ticks == hz );
+        CHECK( simulation.PhysicsDt() == doctest::Approx( 1.0 / hz ) );
+        input.exactSingleTick = true;
+        input.timeScale = 10;
+        const auto single = simulation.Tick( input );
+        CHECK( single.committedPhysicsTicks == 1 );
+        CHECK( single.simulationDt == doctest::Approx( 1.0 / hz ) );
+        CHECK_FALSE( simulation.SetTickRate( 0 ) );
+        CHECK( simulation.TickRate() == hz );
+    }
+}

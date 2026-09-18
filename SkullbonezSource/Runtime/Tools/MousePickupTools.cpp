@@ -53,11 +53,15 @@ using Math::Vector::VectorMagSquared;
 using Physics::PhysicsBodyRecord;
 using Physics::PhysicsBodyStore;
 
-MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePointerEvent& pointer, bool hasWorldRay,
-                                                                const Geometry::Ray& worldRay, bool hasClampedWorldRay,
+MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePointerEvent& pointer,
+                                                                bool hasWorldRay,
+                                                                const Geometry::Ray& worldRay,
+                                                                bool hasClampedWorldRay,
                                                                 const Geometry::Ray& clampedWorldRay,
-                                                                const Vector3& cameraEye, const Vector3& cameraView,
-                                                                const SceneWorld& world, InputRouter& inputRouter,
+                                                                const Vector3& cameraEye,
+                                                                const Vector3& cameraView,
+                                                                const SceneWorld& world,
+                                                                InputRouter& inputRouter,
                                                                 RuntimeInteractionController& interaction )
 {
     MousePickupPointerResult routeResult;
@@ -122,7 +126,8 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
         return routeResult;
     }
 
-    if ( pointer.suppressWorldAction || pointer.uiWantsNativeMouseCursor )
+    // A visible cursor is required for picking; only a claimed UI hit blocks it.
+    if ( pointer.suppressWorldAction )
     {
         return routeResult;
     }
@@ -214,8 +219,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
 }
 
 
-void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world, InputRouter& inputRouter,
-                                                RuntimeInteractionController& interaction )
+void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world, InputRouter& inputRouter, RuntimeInteractionController& interaction )
 {
     if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::MousePickupDrag )
     {
@@ -278,8 +282,7 @@ void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world, InputRouter& 
 }
 
 
-void RuntimeTools::RestoreMousePickupAngularVelocity( SceneWorld& world, InputRouter& inputRouter,
-                                                      RuntimeInteractionController& interaction )
+void RuntimeTools::RestoreMousePickupAngularVelocity( SceneWorld& world, InputRouter& inputRouter, RuntimeInteractionController& interaction )
 {
     if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::MousePickupDrag )
     {
@@ -307,8 +310,7 @@ void RuntimeTools::RestoreMousePickupAngularVelocity( SceneWorld& world, InputRo
         return;
     }
 
-    if ( !physics.SetBodyVelocity( pickup.body, PhysicsBodyLinearVelocity( hotFields, hotIndex ),
-                                   pickup.preservedAngularVelocity, false ) )
+    if ( !physics.SetBodyVelocity( pickup.body, PhysicsBodyLinearVelocity( hotFields, hotIndex ), pickup.preservedAngularVelocity, false ) )
     {
         CancelMousePickup( inputRouter, interaction );
     }

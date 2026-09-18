@@ -1054,6 +1054,7 @@ void BuildSkarnessStateTopics( const SkarnessFrameState& state, const ReplayAuto
                            { "modelCapacity", state.presentation.modelCapacity },
                            { "fileDialogResponsesConsumed", state.presentation.fileDialogResponsesConsumed },
                            { "cinematicShadows", state.presentation.cinematicShadows },
+                           { "physicsHz", state.presentation.physicsHz },
                            { "physicsCompletedSteps", state.presentation.physicsCompletedSteps },
                            { "physicsSettings", state.presentation.physicsSettings },
                            { "headerPhysicsBounds", state.presentation.headerPhysicsBounds },

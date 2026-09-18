@@ -294,7 +294,7 @@ float ReplayRuntimeScrubberRetainedPastSeconds( const ReplayRecorderStats& stats
         return PHYSICS_FIXED_DT;
     }
 
-    return static_cast<float>( stats.sampleCount - 1 ) * PHYSICS_FIXED_DT;
+    return static_cast<float>( stats.durationSeconds );
 }
 
 const std::vector<RunReplayPredictionFrame>& ReplayRuntimeActivePredictionFrames( const RunReplayPredictionState& prediction )
@@ -337,7 +337,7 @@ float ReplayRuntimePredictionAvailableFutureSeconds( const RunReplayPredictionSt
     // coherent enough to draw. The scrubber timeline follows that same prefix
     // so the live marker drifts left while prediction unfolds instead of
     // snapping only after the final frame vector swaps in.
-    return static_cast<float>( frames[frameCount - 1].frameIndex ) * PHYSICS_FIXED_DT;
+    return static_cast<float>( frames[frameCount - 1].simulationSeconds - frames.front().simulationSeconds );
 }
 
 float ReplayRuntimeScrubberPresentTrackPosition( const ReplayRecorderStats& stats, const RunReplayPredictionState& prediction )
@@ -1535,11 +1535,22 @@ void ReplayRuntime::PublishRenderPacket( EditorTracer& tracer, const Math::Vecto
 }
 
 
+void ReplayRuntime::SetPhysicsTickDuration( float seconds )
+{
+    Prediction().SetPhysicsTickDuration( seconds );
+}
+
 ReplayRenderFrameViews ReplayRuntime::BuildRenderFrameViews( const ReplayFrameSelection& selection, PhysicsEngine& physics, int modelCount, bool collisionVisualizer, bool debugTransparentBodyPass )
 {
     const RunReplayPredictionFrame* predictionFrame = selection.selectedPrediction;
     const ReplayPresentationSample* presentationSample = selection.replay.currentPresentation;
+    // Presentation scrubbing uses the exact matching solver frame for diagnostics
+    // when it is still retained; imported recordings never borrow live contacts.
     const ReplaySolverFrameSample* solverSample = selection.replay.currentSolver;
+    if ( !solverSample && presentationSample && !selection.replay.loadedPresentation )
+    {
+        solverSample = m_timeline.Solver().SampleAtFrame( presentationSample->frameIndex );
+    }
     const ReplayPredictionPresentationView prediction = Prediction().PresentationView();
     const ReplayInputView inputView = BuildInputView();
     const ReplayCauseInspectionView causeInspection = m_planningOwner.CauseInspectionView();

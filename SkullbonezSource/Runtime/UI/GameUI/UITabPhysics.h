@@ -105,6 +105,7 @@ struct UIPhysicsTabState
     int bodyContentHeight = 48;
     bool advancedOpen = false, tornadoOpen = false;
     UIRect advancedButton, tornadoButton;
+    std::array<UIRect, 4> hzButtons {};
     UISlider timeScaleSlider;
     float timeScalePreview = 1;
     bool liveEditable = true;

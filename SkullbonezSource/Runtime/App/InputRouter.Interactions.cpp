@@ -366,6 +366,15 @@ RuntimePointerRouteResult Run::RouteRuntimePointer( const RuntimePointerEvent& p
                                                                                                   m_interaction );
 
             result.enteredInteractiveScene |= pickupResult.enteredInteractive;
+            if ( pickupResult.enteredInteractive )
+            {
+                RuntimeInteractionCommand selection;
+                selection.type = RuntimeInteractionCommandType::SetEditorSelection;
+                selection.body = m_interaction.Gesture().body;
+                selection.selectionScope = RuntimeInteractionSelectionScope::Inspect;
+                selection.claimSelectionOwner = false;
+                m_editorTools.ApplySelectionCommand( selection, m_sceneController.Scene() );
+            }
             pickupConsumed = pickupResult.consumed;
         }
     }

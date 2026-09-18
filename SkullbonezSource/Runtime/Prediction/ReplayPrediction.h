@@ -582,6 +582,7 @@ struct ReplayPredictionIsolatedSimulation
     ReplayFrameIndex sourceFrameIndex = 0;
     uint64_t sourceSolverHash = 0;
     double sourceSimulationSeconds = 0.0;
+    float physicsDt = PHYSICS_FIXED_DT;
 
     // Invariant: the worker is the sole writer of probe accumulators and
     // release-publishes measuredTicksPerMs. The frame thread acquire-loads it
@@ -712,7 +713,7 @@ struct RunReplayPredictionState
 
     std::size_t HorizonFrameCount() const noexcept
     {
-        return static_cast<std::size_t>( std::ceil( simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) + 1u;
+        return static_cast<std::size_t>( std::ceil( simulation.horizonSeconds / simulation.physicsDt ) ) + 1u;
     }
 
     bool enabled = false;
@@ -1000,6 +1001,7 @@ class ReplayPrediction
     // Owner commands used by validation and UI paths. These keep rebuild and
     // baseline invalidation coupled to the state transition that requires it.
     void SetEnabled( bool enabled ) noexcept;
+    void SetPhysicsTickDuration( float seconds );
     void ReleaseDisabledCapacity() noexcept;
     ReplayPredictionDetailTransitionAction ApplyDetailModeCommand( ReplayPredictionDetailModeCommand command );
     ReplayPredictionDetailMode DetailMode() const noexcept

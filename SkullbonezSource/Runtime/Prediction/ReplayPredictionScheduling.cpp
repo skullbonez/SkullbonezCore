@@ -99,7 +99,7 @@ double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& p
 // and then holds, so every revealed line and causal box stays on screen.
 ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction, ReplayFrameIndex lastAvailableFrame )
 {
-    const ReplayFrameIndex horizonFrame = static_cast<ReplayFrameIndex>( std::ceil( prediction.simulation.horizonSeconds / ::PHYSICS_FIXED_DT ) );
+    const ReplayFrameIndex horizonFrame = static_cast<ReplayFrameIndex>( std::ceil( prediction.simulation.horizonSeconds / prediction.simulation.physicsDt ) );
     lastAvailableFrame = (std::min)( lastAvailableFrame, horizonFrame );
 
     if ( prediction.revealClock.deterministicFrameEnabled )
@@ -127,7 +127,7 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
         return prediction.revealClock.presentedFrame;
     }
 
-    const double availableSeconds = static_cast<double>( lastAvailableFrame ) * ::PHYSICS_FIXED_DT;
+    const double availableSeconds = static_cast<double>( lastAvailableFrame ) * prediction.simulation.physicsDt;
     const double elapsedSeconds = (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealClock.anchor ).count() );
 
     const double revealSecondsPerSecond = ReplayPredictionRevealSecondsPerSecond( prediction );
@@ -139,7 +139,7 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
         prediction.revealClock.anchor = now - std::chrono::duration_cast<std::chrono::steady_clock::duration>( std::chrono::duration<double>( availableSeconds / revealSecondsPerSecond ) );
     }
 
-    const double revealFrame = revealSeconds / static_cast<double>( ::PHYSICS_FIXED_DT );
+    const double revealFrame = revealSeconds / static_cast<double>( prediction.simulation.physicsDt );
     prediction.revealClock.presentedFrame = (std::min)( lastAvailableFrame, static_cast<ReplayFrameIndex>( revealFrame ) );
 
     return prediction.revealClock.presentedFrame;

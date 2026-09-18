@@ -2376,6 +2376,10 @@ ReplayRecorderStats ReplayRecorder::GetStats() const
     stats.checkpointCapacity = m_checkpoints.size();
     stats.checkpointCount = m_checkpointCount;
     stats.latestStateHash = m_latestStateHash;
+    if ( m_sampleCount > 1 )
+    {
+        stats.durationSeconds = m_samples[( m_sampleHead + m_sampleCount - 1 ) % m_samples.size()].simulationSeconds - m_samples[m_sampleHead].simulationSeconds;
+    }
     return stats;
 }
 
@@ -3028,6 +3032,10 @@ ReplayRecorderStats ReplaySolverRecorder::GetStats() const
     stats.checkpointCapacity = m_checkpoints.size();
     stats.checkpointCount = m_checkpointCount;
     stats.latestStateHash = m_latestSolverHash;
+    if ( m_sampleCount > 1 )
+    {
+        stats.durationSeconds = m_samples[( m_sampleHead + m_sampleCount - 1 ) % m_samples.size()].simulationSeconds - m_samples[m_sampleHead].simulationSeconds;
+    }
     stats.denseSampleResolveCount = m_denseSampleResolveCount;
     return stats;
 }

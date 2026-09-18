@@ -9,7 +9,7 @@ Summary:
 
 Invariants:
   - Render-frame lockstep ignores wall-clock accumulation and commits whole
-    PHYSICS_FIXED_DT ticks from the time-scale accumulator.
+    selected-rate physics ticks from the time-scale accumulator.
   - Wall-clock scenes still run physics in fixed-size steps capped by
     PHYSICS_MAX_STEPS_PER_FRAME to avoid runaway catch-up.
   - This scheduler never touches model owners, physics stores, world forces, or
@@ -72,6 +72,17 @@ double RetainSubTickFraction( double accumulator, double tickInterval, int reque
 }
 } // namespace
 
+bool SimulationSystem::SetTickRate( int hz )
+{
+    if ( ( hz != 30 && hz != 60 && hz != 120 && hz != 240 ) || hz == m_tickRate )
+    {
+        return false;
+    }
+    Reset();
+    m_tickRate = hz;
+    return true;
+}
+
 void SimulationSystem::Reset()
 {
     m_physicsAccumulator = 0.0;
@@ -92,6 +103,8 @@ void SimulationSystem::ObserveSceneLifecycle( uint64_t generation, bool reachedA
 SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
 {
     SimulationTickResult result;
+    const double fixedSeconds = 1.0 / m_tickRate;
+    const float fixedDt = PhysicsDt();
 
     if ( input.isSceneMode && !input.isScenePhysicsEnabled )
     {
@@ -114,7 +127,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
         m_physicsAccumulator = 0;
         m_renderFrameLockstepTickAccumulator = 0;
         result.committedPhysicsTicks = 1;
-        result.simulationDt = PHYSICS_FIXED_DT;
+        result.simulationDt = fixedDt;
         return result;
     }
 
@@ -125,7 +138,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
         if ( !canStepPhysics )
         {
             m_renderFrameLockstepTickAccumulator = 0.0;
-            const double requestedSimulationDt = PHYSICS_FIXED_DT_SECONDS * timeScale;
+            const double requestedSimulationDt = fixedSeconds * timeScale;
             result.simulationDt = static_cast<float>( (std::min)( requestedSimulationDt, static_cast<double>( ( std::numeric_limits<float>::max )() ) ) );
             return result;
         }
@@ -152,7 +165,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
         result.committedPhysicsTicks = ticksThisFrame;
         result.droppedPhysicsTicks = droppedTicks;
 
-        result.simulationDt = PHYSICS_FIXED_DT * static_cast<float>( ticksThisFrame );
+        result.simulationDt = fixedDt * static_cast<float>( ticksThisFrame );
         result.presentationAlpha = 1.0f;
         return result;
     }
@@ -167,14 +180,14 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
         // fixed-timestep ticks for stability. The runtime owner executes the
         // returned count; camera and miscellaneous UI updates use one frame-level dt.
         m_physicsAccumulator += scaledDt;
-        const int requestedWholeTicks = SaturatingWholeTickCount( std::floor( ( m_physicsAccumulator + SCHEDULER_ROUNDING_EPSILON_SECONDS ) / PHYSICS_FIXED_DT_SECONDS ) );
+        const int requestedWholeTicks = SaturatingWholeTickCount( std::floor( ( m_physicsAccumulator + SCHEDULER_ROUNDING_EPSILON_SECONDS ) / fixedSeconds ) );
         const int ticksThisFrame = (std::min)( requestedWholeTicks, PHYSICS_MAX_STEPS_PER_FRAME );
         const int droppedTicks = requestedWholeTicks - ticksThisFrame;
 
         // Hazard: retain sub-tick time, but never carry capped whole ticks into
         // later frames. Carrying them would turn one slow frame into a train of
         // catch-up stalls and would obscure how much time the cap discarded.
-        m_physicsAccumulator = RetainSubTickFraction( m_physicsAccumulator, PHYSICS_FIXED_DT_SECONDS, requestedWholeTicks );
+        m_physicsAccumulator = RetainSubTickFraction( m_physicsAccumulator, fixedSeconds, requestedWholeTicks );
 
         if ( droppedTicks > 0 )
         {
@@ -194,7 +207,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
 
     if ( canStepPhysics )
     {
-        result.presentationAlpha = static_cast<float>( std::clamp( m_physicsAccumulator / PHYSICS_FIXED_DT_SECONDS, 0.0, 1.0 ) );
+        result.presentationAlpha = static_cast<float>( std::clamp( m_physicsAccumulator / fixedSeconds, 0.0, 1.0 ) );
     }
 
     return result;

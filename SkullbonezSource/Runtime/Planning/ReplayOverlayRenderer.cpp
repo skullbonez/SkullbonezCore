@@ -843,7 +843,14 @@ void ReplayScrubberComposer::Compose()
         const UI::UIRect& transport = m_viewport.transportBounds;
         m_draw.PushClip( transport );
         m_draw.Rect( transport.x, transport.y, transport.w, transport.h, m_palette.window.r, m_palette.window.g, m_palette.window.b, m_fade );
-        DrawText( transport.x + 10.0f, transport.y + 8.0f, 11.0f, m_live ? m_palette.accent : m_palette.warningAccent, m_timeLabel );
+        const bool paused = !m_scrubber.playing && ( m_scrubber.historicalSamplePaused || m_scrubber.liveAdvanceHeld );
+        for ( const auto id : { ReplayScrubberControl::Play, ReplayScrubberControl::Pause } )
+        {
+            const auto bounds = Control( id ).drawRect;
+            const bool selected = ( id == ReplayScrubberControl::Pause ) == paused;
+            m_draw.RoundedPanel( bounds, 3, selected ? m_palette.selection : m_palette.control, selected ? m_palette.accentStrong : m_palette.border );
+            DrawText( bounds.x + 5, bounds.y + 5, 11, selected ? m_palette.accentStrong : m_palette.textSecondary, id == ReplayScrubberControl::Play ? "Play" : "Pause" );
+        }
         DrawTrack();
         m_draw.PopClip();
         return;

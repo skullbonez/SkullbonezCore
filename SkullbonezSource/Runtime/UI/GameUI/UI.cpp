@@ -837,7 +837,7 @@ GameLayout::ComboPopupPresentation InGameUI::ToolsPopup() const
     const bool tabs = owner.m_toolsTabCombo.IsOpen();
     const bool reflection = owner.m_reflectionCombo.IsOpen();
     const UIComboBox& popup = tabs ? owner.m_toolsTabCombo : ( reflection ? owner.m_reflectionCombo : owner.m_toolsDisplayCombo );
-    const int count = tabs ? static_cast<int>( InGameUITab::Count ) : ( reflection ? 3 : 7 );
+    const int count = tabs ? TOOL_COUNT : ( reflection ? 3 : 7 );
     return { popup.DropdownBounds( count ), popup.FirstVisibleOption( count ), popup.VisibleOptionCount( count ), count, popup.IsOpen() };
 }
 
@@ -1002,7 +1002,7 @@ void UIWindowInteractionOwner::DrawWindowHitboxes( const UIDrawContext& draw, co
         DrawHitboxRect( draw, { windowBounds.x + windowBounds.w - 26.0f, windowBounds.y + windowBounds.h - 26.0f, 26.0f, 26.0f }, chromeR, chromeG, chromeB, 0.050f, 0.86f );
     }
 
-    DrawTabHitboxes( draw, m_tabBar, static_cast<int>( InGameUITab::Count ) );
+    DrawTabHitboxes( draw, m_tabBar, TOOL_COUNT );
     DrawHitboxRect( draw, contentBounds, contentR, contentG, contentB, 0.018f, 0.48f );
 
     if ( ContentHeight() > static_cast<int>( contentBounds.h ) )
@@ -2025,16 +2025,16 @@ const UIDrawList& UIWindowInteractionOwner::Draw( const InGameUIFrameData& data 
     const UIRect objectCounterAvoidBounds = TitleButtonGroupBounds( titleButtons );
     DrawEditorObjectCounter( draw, data, screenW, screenH, &objectCounterAvoidBounds );
 
-    const int tabCount = static_cast<int>( InGameUITab::Count );
-    static_assert( std::size( TOOL_NAMES ) == static_cast<size_t>( InGameUITab::Count ) );
+    const int tabCount = TOOL_COUNT;
+    static_assert( std::size( TOOL_NAMES ) == static_cast<size_t>( TOOL_COUNT ) );
     m_tabBar.SetBounds( chrome.tabs.x, chrome.tabs.y, chrome.tabs.w, chrome.tabs.h );
     if ( chrome.compact )
     {
-        m_toolsTabCombo.Draw( draw, "", { std::span<const char* const>( TOOL_NAMES ), static_cast<int>( m_activeTab ) }, { m_mouseX, m_mouseY } );
+        m_toolsTabCombo.Draw( draw, "", { std::span<const char* const>( TOOL_NAMES ), ToolIndexFor( static_cast<int>( m_activeTab ) ) }, { m_mouseX, m_mouseY } );
     }
     else
     {
-        m_tabBar.Draw( draw, TOOL_NAMES, tabCount, static_cast<int>( m_activeTab ) );
+        m_tabBar.Draw( draw, TOOL_NAMES, tabCount, ToolIndexFor( static_cast<int>( m_activeTab ) ) );
     }
 
     const Style::UIPalette& palette = Style::Palette();

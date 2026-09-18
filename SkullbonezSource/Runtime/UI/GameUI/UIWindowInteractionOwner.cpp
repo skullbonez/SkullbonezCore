@@ -658,7 +658,7 @@ void UIWindowInteractionOwner::SetActiveTab( InGameUITab tab )
     m_tooltip.Dismiss();
     const int tabIndex = static_cast<int>( tab );
 
-    if ( tabIndex < 0 || tabIndex >= static_cast<int>( InGameUITab::Count ) )
+    if ( tabIndex < 0 || tabIndex >= static_cast<int>( InGameUITab::Count ) || tab == InGameUITab::Physics )
     {
         tab = InGameUITab::Scene;
     }
@@ -1507,7 +1507,7 @@ void UIWindowInteractionOwner::HandleWindowWheel( const InputControl::UIInputSna
     {
         if ( m_toolsTabCombo.IsOpen() )
         {
-            m_toolsTabCombo.ScrollOptions( -wheelDelta / 120, static_cast<int>( InGameUITab::Count ) );
+            m_toolsTabCombo.ScrollOptions( -wheelDelta / 120, TOOL_COUNT );
         }
         else
         {
@@ -1599,12 +1599,12 @@ bool UIWindowInteractionOwner::HandleWindowChromePress( InGameUIInputResult& res
             m_toolsTabCombo.ToggleOpen();
             return true;
         }
-        static const int kTabCount = static_cast<int>( InGameUITab::Count );
+        static const int kTabCount = TOOL_COUNT;
         const int index = m_tabBar.HitTest( m_mouseX, m_mouseY, kTabCount );
 
         if ( index >= 0 && index < kTabCount )
         {
-            SetActiveTab( static_cast<InGameUITab>( index ) );
+            SetActiveTab( static_cast<InGameUITab>( ToolIdAt( index ) ) );
             m_scrollbarVisibleUntil = now + 1.0;
         }
     }
@@ -1615,11 +1615,11 @@ bool UIWindowInteractionOwner::HandleOpenControlPress( InGameUIInputResult& resu
 {
     if ( m_toolsTabCombo.IsOpen() )
     {
-        const int index = m_toolsTabCombo.HitOption( m_mouseX, m_mouseY, static_cast<int>( InGameUITab::Count ) );
+        const int index = m_toolsTabCombo.HitOption( m_mouseX, m_mouseY, TOOL_COUNT );
         m_toolsTabCombo.Close();
         if ( index >= 0 )
         {
-            SetActiveTab( static_cast<InGameUITab>( index ) );
+            SetActiveTab( static_cast<InGameUITab>( ToolIdAt( index ) ) );
         }
         return true;
     }

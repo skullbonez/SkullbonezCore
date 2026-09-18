@@ -129,6 +129,80 @@ void ReconstructGrass( GrassPresentation& grass, ReplayRuntime& replay, const Re
     }
     grass.SetSampleTime( selectedTick, physicsDt, waterHeight );
 }
+void ProjectPhysicsVisualSamples( PhysicsDebugVisualizer& physicsVisuals, const ReplayRenderTimeView& presentedTime, const SkullbonezCore::Physics::PhysicsBodyStore& liveBodies )
+{
+    // Identity joins keep overlays on the same body and time sample as the mesh.
+    // Borrowed snapshots are copied into bounded render-owned values for this frame.
+    const bool sampledPhysics = presentedTime.solverSample || presentedTime.presentationSample || presentedTime.predictionFrame;
+    std::span<const SkullbonezCore::Physics::PhysicsDebugContact> sampledContacts;
+    if ( presentedTime.solverSample )
+    {
+        sampledContacts = presentedTime.solverSample->worldSnapshot.physics.debugContacts;
+    }
+    else if ( presentedTime.predictionFrame )
+    {
+        sampledContacts = presentedTime.predictionFrame->debugContacts;
+    }
+    physicsVisuals.BeginPresentedFrame( sampledPhysics, sampledContacts );
+    const auto publishBody = [&]( const auto& source )
+    {
+        const int row = liveBodies.ModelIndexForHandle( liveBodies.HandleForSceneObjectId( source.id ) );
+        if ( row < 0 )
+        {
+            return;
+        }
+        PhysicsDebugBodySample sample;
+        sample.id = source.id.value;
+        sample.position = source.position;
+        sample.linearVelocity = source.linearVelocity;
+        if constexpr ( requires { source.orientation.GetOrientationMatrix(); } )
+        {
+            sample.orientation = source.orientation;
+        }
+        else
+        {
+            sample.orientation = { source.orientation[0], source.orientation[1], source.orientation[2], source.orientation[3] };
+        }
+        if constexpr ( requires { source.mass; } )
+        {
+            sample.mass = source.mass;
+        }
+        else
+        {
+            sample.mass = liveBodies.Records()[static_cast<std::size_t>( row )].mass;
+        }
+        if constexpr ( requires { source.angularVelocity; } )
+        {
+            sample.angularVelocity = source.angularVelocity;
+        }
+        if constexpr ( requires { source.sleeping; } )
+        {
+            sample.sleeping = source.sleeping;
+        }
+        physicsVisuals.SetPresentedBody( static_cast<std::size_t>( row ), sample );
+    };
+    if ( presentedTime.solverSample )
+    {
+        for ( const auto& body : presentedTime.solverSample->bodies )
+        {
+            publishBody( body );
+        }
+    }
+    else if ( presentedTime.predictionFrame )
+    {
+        for ( const auto& body : presentedTime.predictionFrame->bodies )
+        {
+            publishBody( body );
+        }
+    }
+    else if ( presentedTime.presentationSample )
+    {
+        for ( const auto& body : presentedTime.presentationSample->bodies )
+        {
+            publishBody( body );
+        }
+    }
+}
 } // namespace
 
 RuntimeRenderFramePolicy Run::ProjectRenderFramePolicy( const RuntimeOverlayFramePolicy& overlay )
@@ -325,6 +399,7 @@ void Run::Render( const RuntimeRenderFrameViews& renderFrame, float presentation
                                                                                       renderFrame.modelPresentation.modelCount,
                                                                                       debug.isCollisionVisualizer,
                                                                                       debugTransparentBodyPass );
+    ProjectPhysicsVisualSamples( renderer.PhysicsDiagnostics(), replayFrame.time, m_sceneController.Scene().BodyStore() );
     const Rendering::RetainedGeometryPacket continuousOverlay = m_continuousForecast.PreparePresentation();
     const std::string* grassScenePath = m_sceneController.CurrentPath();
     renderer.Grass().Configure( m_config.ordinaryRender.grass );
@@ -410,11 +485,26 @@ void Run::Render( const RuntimeRenderFrameViews& renderFrame, float presentation
                                                             replayFrame.render.focusFadeActive,
                                                             activeCinematic,
                                                             cinematicRequested };
-    const RuntimeRenderer::OverlayFrameSubmission overlaySubmission { renderFrame.debug.physics,
-                                                                      renderFrame.worldExtensionDebug,
-                                                                      replayFrame.render.contactPresentation,
-                                                                      continuousOverlay,
-                                                                      toolOverlay };
+    auto physicsDebug = renderFrame.debug.physics;
+    if ( replayFrame.time.solverSample )
+    {
+        const auto& sample = replayFrame.time.solverSample->worldSnapshot.physics;
+        physicsDebug.physicsDebugContacts = sample.debugContacts;
+        physicsDebug.physicsPipelineTrace = sample.pipelineTrace;
+        physicsDebug.sleepStates = sample.sleepState;
+        physicsDebug.sleepSupportedStates = sample.sleepSupportedThisFrame;
+        physicsDebug.sleepInhibitedStates = sample.sleepInhibitedThisFrame;
+    }
+    else if ( replayFrame.time.predictionFrame || replayFrame.time.presentationSample )
+    {
+        physicsDebug.physicsDebugContacts = replayFrame.time.predictionFrame ? std::span<const Physics::PhysicsDebugContact>( replayFrame.time.predictionFrame->debugContacts )
+                                                                             : std::span<const Physics::PhysicsDebugContact> {};
+        physicsDebug.physicsPipelineTrace = {};
+        physicsDebug.sleepStates = {};
+        physicsDebug.sleepSupportedStates = {};
+        physicsDebug.sleepInhibitedStates = {};
+    }
+    const RuntimeRenderer::OverlayFrameSubmission overlaySubmission { physicsDebug, renderFrame.worldExtensionDebug, replayFrame.render.contactPresentation, continuousOverlay, toolOverlay };
     const auto& cameras = m_sceneController.Scene().Cameras();
     const auto panes = SkullbonezCore::UI::GameLayout::EditorPaneRects( m_operatorUi->PresentationBounds().viewport );
     const auto perspective = renderCamera.projection;

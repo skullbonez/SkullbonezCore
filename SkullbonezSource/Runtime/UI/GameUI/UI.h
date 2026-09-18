@@ -218,6 +218,7 @@ struct UIPhysicsInspector
     uint32_t selectedId = 0;
     uint64_t tick = 0, droppedTicks = 0;
     int shape = 0;
+    int physicsHz = 120;
     float physicsMs = 0, volume = 0, density = 0, timeScale = 1;
     std::array<std::size_t, 6> geometry {};
     bool historicalContext = false;

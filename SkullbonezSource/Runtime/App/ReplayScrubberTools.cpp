@@ -2662,6 +2662,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayReturnToLiveCommand&,
         PublishTransportFeedback( "ACCEPT ORIGINAL OR MODIFIED FIRST", now );
         return;
     }
+    m_scrubberOwner.SetPlaying( false, now );
     const ReplayCauseExitAction causeExit = m_planningOwner.CauseInspection().BeginReturn();
 
     if ( HasLoadedPresentation() )
@@ -2717,12 +2718,29 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
                                                                bool uiBlocksMouse,
                                                                InputRouter& inputRouter,
                                                                RuntimeInteractionController& interaction,
-                                                               CameraControlState&,
+                                                               CameraControlState& camera,
                                                                ReplayWorkspaceOutput& output )
 {
     output.restoreRequest = ReplayLiveRestoreRequest {};
     ReplayInspectionCameraAction hostAction = ReplayInspectionCameraAction::None;
     PROFILE_SCOPED( "Frame/Replay/ScrubberInput" );
+    if ( m_scrubberOwner.View().playing )
+    {
+        const auto& loaded = m_timeline.LoadedPresentation().samples;
+        const double past = HasLoadedPresentation() && loaded.size() > 1 ? loaded.back().simulationSeconds - loaded.front().simulationSeconds : m_timeline.Solver().GetStats().durationSeconds;
+        const double duration = past +
+                                ( HasLoadedPresentation()
+                                      ? 0
+                                      : ( Prediction().ActiveFrames().size() > 1 ? Prediction().ActiveFrames().back().simulationSeconds - Prediction().ActiveFrames().front().simulationSeconds : 0 ) );
+        const float position = m_scrubberOwner.View().position + static_cast<float>( m_scrubberOwner.PlaybackElapsed( input.now ) / (std::max)( .001, duration ) );
+        (void)SetTransportCursor( position, interaction, input.now, output );
+        m_scrubberOwner.SetLiveAdvanceHeld( true );
+        m_scrubberOwner.SetHistoricalSamplePaused( true );
+        if ( position >= 1 )
+        {
+            m_scrubberOwner.SetPlaying( false, input.now );
+        }
+    }
     const bool loadedPresentation = HasLoadedPresentation();
     const float solverPresentTrackPosition = SolverPresentTrackPosition();
     const RuntimeMouseEdges& pointer = inputRouter.UiSnapshot().mouse;
@@ -2791,6 +2809,28 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
     // not a callback table retained on the hot path.
     switch ( requestedAction )
     {
+    case ReplayScrubberAction::Play:
+    case ReplayScrubberAction::Pause:
+    {
+        const auto scrubber = m_scrubberOwner.View();
+        const bool paused = !scrubber.playing && ( scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld );
+        if ( requestedAction == ReplayScrubberAction::Pause && scrubber.playing )
+        {
+            m_scrubberOwner.SetPlaying( false, input.now );
+        }
+        else if ( requestedAction == ReplayScrubberAction::Play && ( scrubber.historicalSamplePaused || Prediction().State().enabled || HasLoadedPresentation() ) )
+        {
+            m_scrubberOwner.SetPlaying( true, input.now );
+            m_scrubberOwner.SetLiveAdvanceHeld( true );
+        }
+        else if ( ( requestedAction == ReplayScrubberAction::Play ) == paused )
+        {
+            ApplyTransportCommand( ReplayTogglePlayPauseCommand {}, inputRouter, interaction, camera, input.now, output );
+        }
+        KeepReplayScrubberVisible( m_scrubberOwner, input.now );
+        consumesMouse = true;
+        break;
+    }
     case ReplayScrubberAction::RestoreBranch:
     {
         ApplyTransportCommand( ReplayRestoreBranchCommand {}, interaction, input.now, output );
@@ -2862,6 +2902,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
         output.loadPresentationRequested = true;
         break;
     case ReplayScrubberAction::Scrub:
+        m_scrubberOwner.SetPlaying( false, input.now );
 
         if ( !HandleReplayScrubPressed( m_scrubberOwner, inputRouter, interaction, scrubTrack, mouse.x, mouse.y, output.enterInteractive ) )
         {

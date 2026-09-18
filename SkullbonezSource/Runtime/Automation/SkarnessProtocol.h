@@ -539,6 +539,7 @@ struct SkarnessFrameState
         bool cinematicShadows = false;
         std::array<float, 13> physicsParameters = {};
         std::array<float, 13> physicsSettings = {};
+        int physicsHz = 120;
         uint64_t physicsCompletedSteps = 0;
         std::array<float, 4> headerPhysicsBounds = {};
         std::array<bool, 13> physicsToggles = {};

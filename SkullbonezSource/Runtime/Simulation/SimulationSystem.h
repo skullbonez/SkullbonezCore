@@ -87,6 +87,16 @@ class SimulationSystem
 {
   public:
     void Reset();
+    // A rate change starts a new accumulation interval; 120 Hz remains the default.
+    bool SetTickRate( int hz );
+    int TickRate() const noexcept
+    {
+        return m_tickRate;
+    }
+    float PhysicsDt() const noexcept
+    {
+        return static_cast<float>( 1.0 / m_tickRate );
+    }
 
     // Applies the pacing reset once after a scene transaction reaches clear;
     // SimulationSystem never needs to participate in scene population.
@@ -99,6 +109,7 @@ class SimulationSystem
     uint64_t PhysicsHitchEventCount() const noexcept;
 
   private:
+    int m_tickRate = 120;
     double m_physicsAccumulator = 0.0;
     double m_renderFrameLockstepTickAccumulator = 0.0;
     uint64_t m_droppedPhysicsTickCount = 0;

@@ -51,13 +51,16 @@ enum class ReplayScrubberAction : uint32_t
     TogglePastPath,
     Save,
     Load,
-    Scrub
+    Scrub,
+    Play,
+    Pause
 };
 
 struct RunReplayScrubberState
 {
     bool visible = false;
     bool historicalSamplePaused = false;
+    bool playing = false;
     bool liveAdvanceHeld = false;
     bool pauseRestoreFlyMode = false;
     bool pauseRestoreLauncherMode = false;
@@ -198,6 +201,7 @@ class ReplayScrubber
     {
         ReplayScrubberView view;
         view.visible = m_state.visible;
+        view.playing = m_state.playing;
         view.historicalSamplePaused = m_state.historicalSamplePaused;
         view.liveAdvanceHeld = m_state.liveAdvanceHeld;
         view.restoreConsumedThisFrame = m_state.restoreConsumedThisFrame;
@@ -215,6 +219,17 @@ class ReplayScrubber
         return view;
     }
 
+    void SetPlaying( bool playing, double now ) noexcept
+    {
+        m_state.playing = playing;
+        m_playbackTime = now;
+    }
+    double PlaybackElapsed( double now ) noexcept
+    {
+        const double elapsed = std::clamp( now - m_playbackTime, 0.0, .25 );
+        m_playbackTime = now;
+        return m_state.playing ? elapsed : 0.0;
+    }
     float TrackPosition( RunReplayTrack track ) const noexcept
     {
         return track == RunReplayTrack::Solver ? m_state.solverPosition : m_state.presentationPosition;
@@ -405,6 +420,7 @@ class ReplayScrubber
   private:
     static void WriteRestoreReason( char* outReason, std::size_t reasonSize, const char* reason );
     void PublishRestoreResult( double now, bool restored, RunReplayTrack messageTrack );
+    double m_playbackTime = 0;
     RunReplayScrubberState m_state;
 };
 
