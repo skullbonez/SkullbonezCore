@@ -12,6 +12,47 @@ from skarness import SkarnessConnection, launch
 
 ROOT = Path(__file__).resolve().parents[1]
 
+
+def check_elevated_visibility(send, state, session: Path):
+    from PIL import Image, ImageChops, ImageFilter, ImageStat
+
+    send("run.pause")
+    send("window.resize", width=1600, height=900)
+    height = state()["terrainCenterHeight"]
+    send("camera.set_pose", eye=[512, height+180, 1040], target=[512, height, 512])
+    observations = {}
+    for quality, name in ((0, "off"), (1, "low"), (2, "high")):
+        send("render.set_parameter", index=38, value=quality)
+        ui = state()
+        assert ui["grassEnabled"] == (quality != 0), ui
+        assert 0 < ui["grassPatchCount"] < 12288 if quality else ui["grassPatchCount"] == 0, ui
+        assert ui["grassCacheBytes"] <= 24*1024*1024, ui
+        path = session / f"elevated-{name}.png"
+        send("capture.screenshot", path=str(path))
+        observations[name] = dict(patches=ui["grassPatchCount"], cacheBytes=ui["grassCacheBytes"])
+
+    # Compare paused, identical views. Separate foreground regions must contain
+    # both substantial grass coverage and more fine detail than the bare turf.
+    # Geometry counts alone passed the old camera-centred 24-unit implementation.
+    with Image.open(session / "elevated-off.png") as source:
+        off = source.convert("RGB")
+    for name in ("low", "high"):
+        with Image.open(session / f"elevated-{name}.png") as source:
+            on = source.convert("RGB")
+        regions = []
+        for bounds in ((100, 510, 450, 820), (500, 510, 850, 820)):
+            grass, bare = on.crop(bounds), off.crop(bounds)
+            histogram = ImageChops.difference(grass, bare).convert("L").histogram()
+            changed = sum(histogram[10:])/sum(histogram)
+            detail = ImageStat.Stat(grass.convert("L").filter(ImageFilter.FIND_EDGES)).mean[0]
+            bare_detail = ImageStat.Stat(bare.convert("L").filter(ImageFilter.FIND_EDGES)).mean[0]
+            assert changed > .35, (name, bounds, changed)
+            assert detail > bare_detail*2+2, (name, bounds, detail, bare_detail)
+            regions.append(dict(bounds=bounds, changedFraction=changed, detail=detail, bareDetail=bare_detail))
+        observations[name]["regions"] = regions
+    return observations
+
+
 def run(session: Path) -> None:
     assert not session.exists(), "Use a fresh evidence directory"
     fixture = ROOT / "SkullbonezData/scenes/grass_interaction.scene.json"
@@ -160,8 +201,9 @@ def run(session: Path) -> None:
         send("scene.load_demo")
         assert state()["grassEnabled"]
         observations["scenePolicy"] = "fixture explicit, Catto off, generated Demo on"
+        observations["elevatedVisibility"] = check_elevated_visibility(send, state, session)
         (session / "result.json").write_text(json.dumps(observations, indent=2)+"\n", encoding="utf-8")
-        print("PASS: grass contact, pause, recovery, historical parity, reverse, quality and scene policy")
+        print("PASS: grass contact, pause, recovery, historical parity, reverse, quality, scene policy and elevated visibility")
     finally:
         send("session.stop")
 

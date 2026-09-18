@@ -4,6 +4,34 @@ Date: 2026-09-18
 Branch: `nightrunner-17th-SEP-26`
 Status: Local mega PR closure complete; INTERACTIVE_GRASS 7/7 and PHYSICS_WINDOW 8/8; live portfolio 145/152. Final-head CI remains required for delivery.
 
+## Grass visibility follow-up - 2026-09-18
+
+The elevated demo camera exposed the old 24-unit grass cutoff: grass on/off
+produced identical foreground pixels. Distance-based world patches now cover
+the view with broader procedural crowns, using one third of the old vertices
+per patch. Low preserves covered ground. The per-view patch cap is reduced
+from 16,384 to 12,288; two owners retain 18,089,472 bytes, about 4.5 MiB less
+than before this follow-up. Full arenas retry at coarser detail instead of
+leaving part of the view bare. Grass remains Demo-only outside explicit fixtures.
+
+Native contact/history/scene policy and elevated pixel checks pass; the new
+pixel assertion rejects the original captures. Edge tests preserve 960 exact
+Physics rows. Final follow-up fast validation (base 320fd0c2c) passes with
+1,115 tests and 3,823,371 assertions, one existing skip. The broad performance
+comparison passes after the staging reduction, with no baseline/threshold
+changes. Raw evidence and limitations: TestOutput/grass-distance-20260918/validation.md;
+final screenshot: TestOutput/skarness/grass-distance-final/elevated-high.png.
+
+High elevated grass costs 0.319 ms GPU p95; moving-camera preparation costs
+5.342 ms p95, above the old informational CPU target. Low GPU p95 is 0.182 ms.
+The combined scene-switch fixture has a separate 120-byte allocation finding
+in unchanged SceneLoadNavigationState::LoadDemoScene; the dedicated grass
+capture has zero gameplay allocation violations. Do not conflate behavioral
+fixture PASS with a clean allocation result for that combined session.
+Final DX12 renderer and one-minute graphics stress checks pass; Profile and Debug
+are built, and the unchanged Profile rebuild passes. Final-head hosted CI remains
+separate from local results; leave PR #175 unmerged.
+
 ## Terminal closure - 2026-09-18
 
 Mega PR #175 contains Split Future, PR #174 with hull ancestry, the preserved Catto work, Demo-only interactive grass and the Physics dock:

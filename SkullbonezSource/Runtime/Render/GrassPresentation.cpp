@@ -365,10 +365,10 @@ void GrassPresentation::StampSwept( const GrassFootprint& current, const GrassFo
         }
     }
 }
-void GrassPresentation::AppendPatch( Geometry::Terrain& terrain, int x, int z, float coverage )
+void GrassPresentation::AppendPatch( Geometry::Terrain& terrain, int x, int z, float spacing, float coverage )
 {
     Vector3 root( x * CELL_SIZE, 0, z * CELL_SIZE );
-    if ( !terrain.IsInBounds( root.x + CELL_SIZE, root.z + CELL_SIZE ) || !terrain.IsInBounds( root.x, root.z ) )
+    if ( !terrain.IsInBounds( root.x + spacing, root.z + spacing ) || !terrain.IsInBounds( root.x, root.z ) )
     {
         return;
     }
@@ -382,7 +382,7 @@ void GrassPresentation::AppendPatch( Geometry::Terrain& terrain, int x, int z, f
     for ( int corner = 1; corner < 4; ++corner )
     {
         Vector3 cornerNormal;
-        terrain.GetTerrainHeightAndNormalAt( root.x + ( corner & 1 ) * CELL_SIZE, root.z + ( corner >> 1 ) * CELL_SIZE, heights[corner], cornerNormal );
+        terrain.GetTerrainHeightAndNormalAt( root.x + ( corner & 1 ) * spacing, root.z + ( corner >> 1 ) * spacing, heights[corner], cornerNormal );
         if ( heights[corner] <= m_waterHeight || cornerNormal.y < .75f )
         {
             return;
@@ -390,10 +390,10 @@ void GrassPresentation::AppendPatch( Geometry::Terrain& terrain, int x, int z, f
     }
     const float minHeight = *std::min_element( std::begin( heights ), std::end( heights ) );
     const float maxHeight = *std::max_element( std::begin( heights ), std::end( heights ) );
-    const Vector3 center( root.x + CELL_SIZE * .5f, ( minHeight + maxHeight ) * .5f, root.z + CELL_SIZE * .5f );
+    const Vector3 center( root.x + spacing * .5f, ( minHeight + maxHeight ) * .5f, root.z + spacing * .5f );
     // Include every curved tip and a metre of shadow-caster margin. Culling
     // cannot remove a blade merely because its root is just outside the view.
-    if ( !m_frustum.IntersectsSphere( center, CELL_SIZE + ( maxHeight - minHeight ) * .5f + m_settings.height * 2, 1.0f ) )
+    if ( !m_frustum.IntersectsSphere( center, spacing + ( maxHeight - minHeight ) * .5f + (std::max)( m_settings.height, spacing * .55f ) * 2, 1.0f ) )
     {
         return;
     }
@@ -402,7 +402,7 @@ void GrassPresentation::AppendPatch( Geometry::Terrain& terrain, int x, int z, f
     {
         const auto uv = GrassBladeUv( root.x, root.z, blade );
         Vector3 bladeNormal;
-        terrain.GetTerrainHeightAndNormalAt( root.x + uv[0] * CELL_SIZE, root.z + uv[1] * CELL_SIZE, bladeHeights[blade], bladeNormal );
+        terrain.GetTerrainHeightAndNormalAt( root.x + uv[0] * spacing, root.z + uv[1] * spacing, bladeHeights[blade], bladeNormal );
         if ( bladeHeights[blade] <= m_waterHeight || bladeNormal.y < .75f )
         {
             return;
@@ -414,16 +414,16 @@ void GrassPresentation::AppendPatch( Geometry::Terrain& terrain, int x, int z, f
                                                    normal.x,
                                                    normal.y,
                                                    normal.z,
-                                                   CELL_SIZE,
+                                                   spacing,
                                                    0,
                                                    0,
                                                    0,
                                                    0,
                                                    1,
                                                    0,
-                                                   m_settings.height,
-                                                   .020f,
-                                                   coverage * m_settings.density * ( m_settings.quality < 1.5f ? .5f : 1.0f ),
+                                                   (std::max)( m_settings.height, spacing * .55f ),
+                                                   (std::max)( .020f, spacing * .11f ),
+                                                   coverage * m_settings.density,
                                                    m_lightDirection.x,
                                                    m_lightDirection.y,
                                                    m_lightDirection.z,
@@ -441,55 +441,75 @@ void GrassPresentation::AppendPatch( Geometry::Terrain& terrain, int x, int z, f
     std::copy( record.begin(), record.end(), m_views[m_activeView].records.begin() + m_patchCount * PATCH_FLOATS );
     ++m_patchCount;
 }
-void GrassPresentation::SampleViewField()
+// Concept: A world-aligned quadtree covers the view without gaps between density levels.
+// Each accepted leaf replaces its parent; camera distance controls spacing, while
+// the fixed patch arena remains the hard submission bound for all four views.
+void GrassPresentation::AppendRegion( Geometry::Terrain& terrain, const Vector3& eye, int x, int z, int step )
 {
-    const int radius = static_cast<int>( m_settings.distance / CELL_SIZE );
-    const auto& view = m_views[m_activeView];
-    // Only visible corners need random field lookups. Adjacent patches share
-    // this fixed scratch; the view sequence distinguishes different cameras.
-    for ( std::size_t patch = 0; patch < view.count; ++patch )
+    if ( m_patchCount >= PATCH_CAPACITY )
     {
-        const auto* record = view.records.data() + patch * PATCH_FLOATS;
-        const int x = static_cast<int>( std::floor( record[0] / CELL_SIZE ) ) - view.centerX + radius;
-        const int z = static_cast<int>( std::floor( record[2] / CELL_SIZE ) ) - view.centerZ + radius;
-        for ( int corner = 0; corner < 4; ++corner )
+        return;
+    }
+    const float spacing = step * CELL_SIZE;
+    const float worldX = x * CELL_SIZE, worldZ = z * CELL_SIZE;
+    const auto bounds = terrain.GetXZBounds();
+    if ( worldX >= bounds.m_xMax || worldZ >= bounds.m_zMax || worldX + spacing <= bounds.m_xMin || worldZ + spacing <= bounds.m_zMin )
+    {
+        return;
+    }
+    const Vector3 center( worldX + spacing * .5f, ( terrain.GetMinHeight() + terrain.GetMaxHeight() ) * .5f, worldZ + spacing * .5f );
+    const float heightRange = ( terrain.GetMaxHeight() - terrain.GetMinHeight() ) * .5f;
+    if ( !m_frustum.IntersectsSphere( center, spacing + heightRange + 24.0f ) )
+    {
+        return;
+    }
+    const float sampleX = std::clamp( center.x, bounds.m_xMin, bounds.m_xMax );
+    const float sampleZ = std::clamp( center.z, bounds.m_zMin, bounds.m_zMax );
+    const float height = terrain.GetTerrainHeightAt( sampleX, sampleZ );
+    const float dx = eye.x - std::clamp( eye.x, worldX, worldX + spacing );
+    const float dz = eye.z - std::clamp( eye.z, worldZ, worldZ + spacing );
+    const float dy = eye.y - height;
+    const float distance = std::sqrt( dx * dx + dy * dy + dz * dz );
+    // Vary the split threshold in world space so equal-distance leaves do not
+    // form visible rings. Crown area scales with spacing to preserve turf coverage.
+    const float splitVariation = .8f + 1.6f * GrassBladeUv( worldX, worldZ, 0 )[0];
+    const float detailRange = m_detailRange * splitVariation;
+    const bool boundary = worldX < bounds.m_xMin || worldZ < bounds.m_zMin || worldX + spacing > bounds.m_xMax || worldZ + spacing > bounds.m_zMax;
+    if ( step > 1 && ( boundary || distance < detailRange * step ) )
+    {
+        const int half = step / 2;
+        for ( int child = 0; child < 4; ++child )
         {
-            const int sx = x + ( corner & 1 ), sz = z + ( corner >> 1 );
-            auto& sample = m_fieldSamples[sz * FIELD_SIDE + sx];
-            if ( sample.viewUse == m_viewUse )
-            {
-                continue;
-            }
-            sample = {};
-            sample.viewUse = m_viewUse;
-            const Cell* cell = HistoryAvailable() ? Find( view.centerX - radius + sx, view.centerZ - radius + sz ) : nullptr;
-            if ( cell )
-            {
-                sample.pressure = cell->deformation.Compression( static_cast<double>( m_tick ), m_recoveryTicks );
-                sample.bendX = cell->deformation.BendX();
-                sample.bendZ = cell->deformation.BendZ();
-            }
+            AppendRegion( terrain, eye, x + ( child & 1 ) * half, z + ( child >> 1 ) * half, half );
         }
+        return;
+    }
+    const float farDistance = m_settings.distance * 64.0f;
+    const float coverage = std::clamp( ( farDistance - distance ) / ( farDistance * .15f ), 0.0f, 1.0f );
+    if ( coverage > 0 )
+    {
+        AppendPatch( terrain, x, z, spacing, coverage );
     }
 }
 void GrassPresentation::UpdatePatchPressure( std::span<float, PATCH_FLOATS> record )
 {
-    const auto& view = m_views[m_activeView];
-    const int radius = static_cast<int>( m_settings.distance / CELL_SIZE );
-    const int x = static_cast<int>( std::floor( record[0] / CELL_SIZE ) ) - view.centerX + radius;
-    const int z = static_cast<int>( std::floor( record[2] / CELL_SIZE ) ) - view.centerZ + radius;
     float strongest = 0;
     record[11] = m_settings.bend;
     record[12] = 0;
+    // Coarse patches query the same half-unit deformation field as near blades.
+    // There is no second deformation simulation and no camera-centred field limit.
     for ( int corner = 0; corner < 4; ++corner )
     {
-        const auto& sample = m_fieldSamples[( z + ( corner >> 1 ) ) * FIELD_SIDE + x + ( corner & 1 )];
-        record[7 + corner] = sample.pressure;
-        if ( sample.pressure > strongest )
+        const int x = static_cast<int>( std::floor( ( record[0] + ( corner & 1 ) * record[6] ) / CELL_SIZE ) );
+        const int z = static_cast<int>( std::floor( ( record[2] + ( corner >> 1 ) * record[6] ) / CELL_SIZE ) );
+        const Cell* cell = HistoryAvailable() ? Find( x, z ) : nullptr;
+        const float pressure = cell ? cell->deformation.Compression( static_cast<double>( m_tick ), m_recoveryTicks ) : 0.0f;
+        record[7 + corner] = pressure;
+        if ( pressure > strongest )
         {
-            strongest = sample.pressure;
-            record[11] = sample.bendX * m_settings.bend;
-            record[12] = sample.bendZ * m_settings.bend;
+            strongest = pressure;
+            record[11] = cell->deformation.BendX() * m_settings.bend;
+            record[12] = cell->deformation.BendZ() * m_settings.bend;
         }
     }
 }
@@ -507,7 +527,6 @@ std::span<const float> GrassPresentation::Prepare( Geometry::Terrain& terrain,
     {
         return {};
     }
-    const int radius = static_cast<int>( m_settings.distance / CELL_SIZE );
     const int centerX = static_cast<int>( std::floor( eye.x / CELL_SIZE ) );
     const int centerZ = static_cast<int>( std::floor( eye.z / CELL_SIZE ) );
     if ( lightDirection.x != m_lightDirection.x || lightDirection.y != m_lightDirection.y || lightDirection.z != m_lightDirection.z || lightTint.x != m_lightTint.x || lightTint.y != m_lightTint.y ||
@@ -543,18 +562,27 @@ std::span<const float> GrassPresentation::Prepare( Geometry::Terrain& terrain,
     if ( !found )
     {
         m_frustum = Math::Visibility::Frustum::FromViewProjection( Math::Transformation::Matrix4(), viewProjection );
-        for ( int z = -radius; z < radius; ++z )
+        // Begin with 64-unit roots across the bounded visible distance. Subdivision
+        // preserves dense near grass and spends fewer crowns on distant terrain.
+        constexpr int rootStep = 128;
+        const int rootRadius = static_cast<int>( std::ceil( m_settings.distance ) );
+        const int rootX = static_cast<int>( std::floor( eye.x / ( rootStep * CELL_SIZE ) ) );
+        const int rootZ = static_cast<int>( std::floor( eye.z / ( rootStep * CELL_SIZE ) ) );
+        m_detailRange = m_settings.distance * ( m_settings.quality < 1.5f ? .70f : 1.0f );
+        // Invariant: A full arena must reduce detail across the whole view, never leave the
+        // last rows of terrain bare. Each retry reduces the subdivision detail range.
+        do
         {
-            for ( int x = -radius; x < radius; ++x )
+            m_patchCount = 0;
+            for ( int z = -rootRadius; z <= rootRadius; ++z )
             {
-                const float distance = std::sqrt( static_cast<float>( x * x + z * z ) );
-                const float coverage = std::clamp( ( radius - distance ) / 16.0f, 0.0f, 1.0f );
-                if ( coverage > 0 )
+                for ( int x = -rootRadius; x <= rootRadius; ++x )
                 {
-                    AppendPatch( terrain, centerX + x, centerZ + z, coverage );
+                    AppendRegion( terrain, eye, ( rootX + x ) * rootStep, ( rootZ + z ) * rootStep, rootStep );
                 }
             }
-        }
+            m_detailRange *= .70f;
+        } while ( m_patchCount == PATCH_CAPACITY && m_detailRange > 1.0f );
         view.count = m_patchCount;
         view.centerX = centerX;
         view.centerZ = centerZ;
@@ -564,7 +592,6 @@ std::span<const float> GrassPresentation::Prepare( Geometry::Terrain& terrain,
     m_patchCount = view.count;
     if ( !found || view.fieldVersion != m_fieldVersion || view.historyAvailable != HistoryAvailable() )
     {
-        SampleViewField();
         for ( std::size_t patch = 0; patch < view.count; ++patch )
         {
             UpdatePatchPressure( std::span<float, PATCH_FLOATS>( view.records.data() + patch * PATCH_FLOATS, PATCH_FLOATS ) );

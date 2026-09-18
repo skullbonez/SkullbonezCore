@@ -23,7 +23,7 @@ class GrassPresentation
 {
   public:
     static constexpr std::size_t CELL_CAPACITY = 65536;
-    static constexpr std::size_t PATCH_CAPACITY = 16384;
+    static constexpr std::size_t PATCH_CAPACITY = 12288;
     static constexpr std::size_t PATCH_FLOATS = 30;
     static constexpr std::size_t VIEW_CAPACITY = 4;
     static constexpr uint32_t ROOT_TEST_CAPACITY = 131072;
@@ -105,7 +105,8 @@ class GrassPresentation
     Cell* Find( int x, int z, bool create );
     const Cell* Find( int x, int z ) const;
     void Stamp( const GrassFootprint& footprint, Geometry::Terrain& terrain, float radius );
-    void AppendPatch( Geometry::Terrain& terrain, int x, int z, float coverage );
+    void AppendPatch( Geometry::Terrain& terrain, int x, int z, float spacing, float coverage );
+    void AppendRegion( Geometry::Terrain& terrain, const Math::Vector::Vector3& eye, int x, int z, int step );
     std::array<Cell, CELL_CAPACITY> m_cells {};
     struct PatchView
     {
@@ -116,14 +117,6 @@ class GrassPresentation
         bool historyAvailable = false;
         Math::Transformation::Matrix4 viewProjection;
     };
-    struct FieldSample
-    {
-        float pressure = 0, bendX = 0, bendZ = 0;
-        uint64_t viewUse = 0;
-    };
-    static constexpr int FIELD_SIDE = 129; // Maximum 32-unit radius at half-unit spacing, plus shared edge.
-    std::array<FieldSample, FIELD_SIDE * FIELD_SIDE> m_fieldSamples {};
-    void SampleViewField();
     void UpdatePatchPressure( std::span<float, PATCH_FLOATS> record );
     std::array<PatchView, VIEW_CAPACITY> m_views {};
     std::size_t m_activeView = 0;
@@ -140,6 +133,7 @@ class GrassPresentation
     std::size_t m_patchCount = 0;
     std::size_t m_stampedCells = 0;
     float m_waterHeight = -10000.0f;
+    float m_detailRange = 24.0f;
     Core::GrassRenderConfig m_settings;
     uint64_t m_fixtureGeneration = 0;
     bool m_contextValid = false;

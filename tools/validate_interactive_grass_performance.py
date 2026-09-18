@@ -15,9 +15,11 @@ def run(output: Path):
     output.mkdir(parents=True)
     base=json.loads((ROOT/'SkullbonezData/scenes/grass_interaction.scene.json').read_text())
     reports={}
-    for mode in ('standard-live','standard-paused','four-view-live','dense-live','off-live'):
+    for mode in ('standard-live','standard-paused','four-view-live','dense-live','off-live','elevated-live','elevated-low','elevated-moving'):
         session=output/mode;session.mkdir()
         fixture=copy.deepcopy(base)
+        # Perf capture must not trigger the unlimited-scene benchmark auto-cycle.
+        fixture['playback']['frames']=100000
         if mode=='dense-live':
             fixture['objects']=[]
             for i in range(100):
@@ -45,15 +47,22 @@ def run(output: Path):
             assert 'grass.enable_fixture' in send('capabilities.get')['commands']
             send('run.pause');send('window.resize',width=2560 if mode=='four-view-live' else 1920,height=1440 if mode=='four-view-live' else 1080)
             send('grass.enable_fixture',enabled=True)
-            send('render.set_parameter',index=38,value=0 if mode=='off-live' else 2)
+            send('render.set_parameter',index=38,value=0 if mode=='off-live' else 1 if mode=='elevated-low' else 2)
             send('run.step',count=1)
+            if mode.startswith('elevated-'):
+                send('camera.set_pose',eye=[512,180,1040],target=[512,0,512])
             if mode=='four-view-live':
                 ui=state();x,y,w,h=ui['headerFourViewsBounds']
                 send('input.pointer_position',enabled=True,x=round(x+w/2),y=round(y+h/2));state()
                 send('input.pointer_drag',button='left',x=round(x+w/2),y=round(y+h/2),deltaX=0,deltaY=0)
                 assert state()['fourViews']
             send('run.step_frames',count=40)
-            send('run.step_frames' if mode=='standard-paused' else 'run.step',count=240)
+            if mode=='elevated-moving':
+                for frame in range(60):
+                    send('camera.set_pose',eye=[512+frame,180,1040],target=[512,0,512])
+                    send('run.step',count=4)
+            else:
+                send('run.step_frames' if mode=='standard-paused' else 'run.step',count=240)
             observed=state()
             assert observed['grassCacheBytes']<=24*1024*1024 and observed['grassRootTests']<=131072,observed
             if mode!='off-live':assert observed['grassPatchCount']>0,observed

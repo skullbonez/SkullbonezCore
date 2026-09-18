@@ -1,5 +1,5 @@
 // One instance is a rooted surface patch. Its four world-field samples are
-// bilinearly interpolated on the GPU; eight rooted crowns each carry eight leaves.
+// bilinearly interpolated on the GPU; eight rooted crowns each carry four leaves.
 #pragma pack_matrix(column_major)
 #include "procedural_turf.hlsli"
 cbuffer Uniforms : register(b0)
@@ -35,14 +35,14 @@ uint Hash(uint value)
 float Random01(uint value) { return (Hash(value) & 65535u) / 65535.0; }
 VS_OUT main_vs(VS_IN input, uint vertexId : SV_VertexID)
 {
-    uint leaf = vertexId / 18;
-    uint blade = leaf / 8;
-    uint fan = leaf % 8;
-    uint segment = (vertexId % 18) / 6;
+    uint leaf = vertexId / 12;
+    uint blade = leaf / 4;
+    uint fan = leaf % 4;
+    uint segment = (vertexId % 12) / 6;
     uint corner = vertexId % 6;
     float endpoint = (corner == 2 || corner == 4 || corner == 5) ? 1.0 : 0.0;
     float side = (corner == 1 || corner == 2 || corner == 4) ? 1.0 : -1.0;
-    float t = (segment + endpoint) / 3.0;
+    float t = (segment + endpoint) / 2.0;
     uint seed = Hash(asuint(input.root.x) ^ Hash(asuint(input.root.z)) ^ (blade * 131u));
     float2 uv = (float2(blade & 3u, blade >> 2u) + 0.1 + 0.8 * float2(Random01(seed), Random01(seed + 17u))) / float2(4,2);
     float3 normal = normalize(input.normalAndSpacing.xyz);
@@ -56,11 +56,12 @@ VS_OUT main_vs(VS_IN input, uint vertexId : SV_VertexID)
     float compression = lerp(lerp(input.compression.x, input.compression.y, uv.x),
                              lerp(input.compression.z, input.compression.w, uv.x), uv.y);
     uint leafSeed = Hash(seed + fan * 977u);
-    float angle = (fan + Random01(seed + 47u)) * 0.78539816;
+    float angle = (fan + Random01(seed + 47u)) * 1.57079633;
     float3 across = tangent * cos(angle) + bitangent * sin(angle);
     float3 direction = float3(input.bend.x, 0, input.bend.y);
     direction -= normal * dot(direction, normal);
     float coverage = saturate(input.shape.z * 8.0 - blade);
+    // Distant crowns represent a wider turf clump instead of subpixel leaves.
     float height = input.shape.x * (0.78 + Random01(leafSeed + 83u) * 0.35) * coverage;
     // Quadratic tip displacement keeps roots fixed and creates a curved blade.
     float3 curve = normal * (height * t * (1.0 - 0.88 * compression * t));

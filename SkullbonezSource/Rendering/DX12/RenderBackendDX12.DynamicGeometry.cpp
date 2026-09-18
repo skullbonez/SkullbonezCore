@@ -733,8 +733,8 @@ void Dx12GeometryOwner::SubmitColoredTriangleBuffer( std::size_t packedFloatCoun
     }
 
     const int recordCount = static_cast<int>( packedFloatCount / vertexLayout.floatsPerVertex );
-    // Eight rooted crowns each emit eight curved leaves, three quads per leaf.
-    const int vertexCount = surfaceBlades ? 8 * 8 * 18 : ( compactRibbonInstances ? 6 : recordCount );
+    // Eight rooted crowns each emit four curved leaves, two quads per leaf.
+    const int vertexCount = surfaceBlades ? 8 * 4 * 12 : ( compactRibbonInstances ? 6 : recordCount );
     const int instanceCount = instanced ? recordCount : 1;
     const UINT64 dataSize = static_cast<UINT64>( packedFloatCount * sizeof( float ) );
 
