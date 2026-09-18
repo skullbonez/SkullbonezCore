@@ -329,12 +329,15 @@ void Run::Render( const RuntimeRenderFrameViews& renderFrame, float presentation
     const std::string* grassScenePath = m_sceneController.CurrentPath();
     renderer.Grass().Configure( m_config.ordinaryRender.grass );
     renderer.HistoricalGrass().Configure( m_config.ordinaryRender.grass );
-    framePolicy.proceduralTurf = ( ( grassScenePath && grassScenePath->empty() ) || renderer.Grass().FixtureEnabled( m_sceneController.LifecyclePacket().generation ) ) &&
-                                 !( cinematicRequested && activeCinematic.terrainReliefEnabled && activeCinematic.terrainRelief > 0 );
-    framePolicy.grassEnabled = framePolicy.proceduralTurf && m_config.ordinaryRender.grass.quality >= .5f;
+    framePolicy.grassEnabled = m_config.ordinaryRender.grass.quality >= .5f &&
+                               ( ( grassScenePath && grassScenePath->empty() ) || renderer.Grass().FixtureEnabled( m_sceneController.LifecyclePacket().generation ) ) &&
+                               !( cinematicRequested && activeCinematic.terrainReliefEnabled && activeCinematic.terrainRelief > 0 );
+
+    // Off restores the original terrain texture as well as removing blades.
+    framePolicy.proceduralTurf = framePolicy.grassEnabled;
     // Visual-only relief moves the rendered ground away from Physics. Such a
     // surface is ineligible for rooted, collider-driven grass until those
-    // surfaces share one geometry owner; ordinary Demo terrain remains enabled.
+    // surfaces share one geometry owner; ordinary Demo terrain remains eligible.
     GrassTimeCursor::Context grassContext;
     grassContext.generation = m_sceneController.LifecyclePacket().generation;
     grassContext.recording = m_replayRuntime.LiveRecordingEpoch();

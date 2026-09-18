@@ -8,7 +8,9 @@ Status: Local mega PR closure complete; INTERACTIVE_GRASS 7/7 and PHYSICS_WINDOW
 
 User requested grass off by default and explicitly stopped further validation.
 Built-in and shipped engine.cfg quality now default to Off, including Demo;
-Low/High remain explicit opt-in. The native grass fixture selects High itself.
+Low/High remain explicit opt-in. Off also restores the original ground texture;
+the procedural turf colour now follows the same opt-in as the blades.
+The native grass fixture selects High itself.
 The in-progress Automation rebuild finished before cancellation reached it;
 its binary includes an uncommitted scene fix that was subsequently removed.
 Do not treat that binary as final-head validation. Existing local evidence
