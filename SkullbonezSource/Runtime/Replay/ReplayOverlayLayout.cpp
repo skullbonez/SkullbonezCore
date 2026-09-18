@@ -352,7 +352,7 @@ void PlaceScrubberInShell( const ReplayScrubberSurfaceInput& input, ReplayScrubb
     }
     const UI::UIRect& transport = input.transportBounds;
     const UI::UIRect& controls = input.controlsBounds;
-    const float inset = (std::min)( 180.0f, transport.w * 0.6f );
+    const float inset = (std::min)( 72.0f, transport.w * 0.6f );
     const UI::UIRect track { transport.x + inset, transport.y + transport.h * 0.5f - 2.0f, (std::max)( 1.0f, transport.w - inset - 12.0f ), 4.0f };
     const float scroll = std::clamp( input.controlsScroll, 0.0f, 1.0f ) * (std::max)( 0.0f, 434.0f - controls.h );
     for ( std::size_t index = 0; index < surface.controlCount; ++index )
@@ -361,7 +361,7 @@ void PlaceScrubberInShell( const ReplayScrubberSurfaceInput& input, ReplayScrubb
         const ReplayScrubberControl id = static_cast<ReplayScrubberControl>( control.id.value );
         if ( id == ReplayScrubberControl::Play || id == ReplayScrubberControl::Pause )
         {
-            const float width = (std::min)( 52.0f, transport.w * .18f );
+            const float width = (std::min)( 28.0f, transport.w * .18f );
             control.drawRect = { transport.x + 4 + ( id == ReplayScrubberControl::Pause ? width + 3 : 0 ), transport.y + 2, width, transport.h - 4 };
             control.hitRect = control.drawRect;
         }

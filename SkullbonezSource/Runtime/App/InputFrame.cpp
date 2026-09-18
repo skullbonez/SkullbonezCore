@@ -1763,7 +1763,9 @@ void Run::ApplyEditorPlacementModeCommand( RuntimeUIFrameResult& result, const R
 
 void Run::RestartAuthoredScene()
 {
-    RestoreAuthoredSceneState( true, m_camera.mode );
+    const auto replay = m_replayRuntime.BuildInputView();
+    const RunCameraMode restoreMode = NormalizeInputCameraMode( replay.inspectionCameraActive ? replay.restoreCameraMode : m_camera.mode );
+    RestoreAuthoredSceneState( true, restoreMode );
     m_sceneController.MarkManualReset();
     m_sceneController.EnterInteractiveRun();
     m_timers.RestartSceneClock();
@@ -1780,14 +1782,15 @@ void Run::RestoreAuthoredSceneState( bool preserveCamera, RunCameraMode restoreM
     m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
     ResetEditorUnfocusedInputState( m_editorTools.Editor(), m_interaction );
     m_interaction.CancelCameraLookGesture();
-    const RunCameraMode mode = m_camera.mode;
+    const RunCameraMode mode = preserveCamera ? restoreMode : m_camera.mode;
     const auto timeline = DescribeReplaySceneTimeline( m_sceneController,
                                                        m_operatorUi->SceneNavigation().overrides,
                                                        m_sceneController.State(),
                                                        m_sceneController.Scene().ActiveSceneObjectCapacity(),
                                                        static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-    // A manual restart keeps camera values. Entering Edit may instead return
-    // from a cause inspection before the editor selects its normal free camera.
+    // A manual restart keeps the pose, but releases Replay's temporary Inspect
+    // mode before its saved return mode is cleared. An explicitly chosen Inspect
+    // mode remains Inspect. Entering Edit may also restore the camera pose.
     m_replayRuntime.ResetSceneTimeline( timeline,
                                         m_inputRouter,
                                         m_interaction,

@@ -780,6 +780,18 @@ TEST_CASE( "Unified Replay uses one thin track hit area and retains control acti
     REQUIRE( track != nullptr );
     CHECK( track->drawRect.h == 4.0f );
     CHECK( track->hitRect.h == 28.0f );
+    const auto* play = docked.Find( ReplayScrubberControlId( ReplayScrubberControl::Play ) );
+    const auto* pause = docked.Find( ReplayScrubberControlId( ReplayScrubberControl::Pause ) );
+    REQUIRE( play != nullptr );
+    REQUIRE( pause != nullptr );
+    CHECK( play->drawRect.w == 28.0f );
+    CHECK( pause->drawRect.w == 28.0f );
+    CHECK( play->hitRect.x + play->hitRect.w < pause->hitRect.x );
+    CHECK( pause->hitRect.x + pause->hitRect.w < track->hitRect.x );
+    docked.ResolvePointer( RectCenterX( play->hitRect ), RectCenterY( play->hitRect ) );
+    CHECK( docked.hotControl == play->id );
+    docked.ResolvePointer( RectCenterX( pause->hitRect ), RectCenterY( pause->hitRect ) );
+    CHECK( docked.hotControl == pause->id );
     docked.ResolvePointer( RectCenterX( track->drawRect ), static_cast<int>( track->hitRect.y + 2.0f ) );
     REQUIRE( docked.hasHotControl );
     CHECK( docked.hotControl == track->id );

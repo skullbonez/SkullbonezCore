@@ -849,7 +849,19 @@ void ReplayScrubberComposer::Compose()
             const auto bounds = Control( id ).drawRect;
             const bool selected = ( id == ReplayScrubberControl::Pause ) == paused;
             m_draw.RoundedPanel( bounds, 3, selected ? m_palette.selection : m_palette.control, selected ? m_palette.accentStrong : m_palette.border );
-            DrawText( bounds.x + 5, bounds.y + 5, 11, selected ? m_palette.accentStrong : m_palette.textSecondary, id == ReplayScrubberControl::Play ? "Play" : "Pause" );
+            const auto color = selected ? m_palette.accentStrong : m_palette.textSecondary;
+            const float cx = bounds.x + bounds.w * .5f;
+            const float cy = bounds.y + bounds.h * .5f;
+            const float size = (std::min)( 6.0f, (std::min)( bounds.w, bounds.h ) * .3f );
+            if ( id == ReplayScrubberControl::Play )
+            {
+                m_draw.Triangle( cx + size, cy, cx - size * .65f, cy - size, cx - size * .65f, cy + size, color.r, color.g, color.b, m_fade );
+            }
+            else
+            {
+                m_draw.Rect( cx - size * .75f, cy - size, size * .5f, size * 2, color.r, color.g, color.b, m_fade );
+                m_draw.Rect( cx + size * .25f, cy - size, size * .5f, size * 2, color.r, color.g, color.b, m_fade );
+            }
         }
         DrawTrack();
         m_draw.PopClip();
