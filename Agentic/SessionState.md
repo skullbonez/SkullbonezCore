@@ -4,6 +4,17 @@ Date: 2026-09-18
 Branch: `nightrunner-17th-SEP-26`
 Status: Local mega PR closure complete; INTERACTIVE_GRASS 7/7 and PHYSICS_WINDOW 8/8; live portfolio 145/152. Final-head CI remains required for delivery.
 
+## Grass default and PR handoff - 2026-09-18
+
+User requested grass off by default and explicitly stopped further validation.
+Built-in and shipped engine.cfg quality now default to Off, including Demo;
+Low/High remain explicit opt-in. The native grass fixture selects High itself.
+The in-progress Automation rebuild finished before cancellation reached it;
+its binary includes an uncommitted scene fix that was subsequently removed.
+Do not treat that binary as final-head validation. Existing local evidence
+below predates this default change. PR #175 remains unmerged; final validation
+belongs to the user. The known Demo-selection allocation finding remains open.
+
 ## Grass visibility follow-up - 2026-09-18
 
 The elevated demo camera exposed the old 24-unit grass cutoff: grass on/off

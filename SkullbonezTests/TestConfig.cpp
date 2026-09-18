@@ -374,6 +374,7 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: grass v7 bounds and legacy defau
 {
     TemporaryConfigFiles files;
     const EngineConfig defaults;
+    CHECK( defaults.ordinaryRender.grass.quality == 0 );
     REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 6\nscreen_x = 1600\n" ) );
     EngineConfig legacy;
     REQUIRE( legacy.Load( diagnostics, kConfigInputPath ).Ok() );

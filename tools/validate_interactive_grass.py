@@ -1,6 +1,6 @@
 """Identity-bound native grass contact, finite recovery and recorded-time checks.
 
-The production policy enables grass only in the generated demo. This dedicated
+Grass is off by default and can be enabled only in the generated demo. This dedicated
 fixture opts in through Skarness; activation expires with its scene generation.
 Command acknowledgements are followed by field/state observations.
 """
@@ -97,6 +97,7 @@ def run(session: Path) -> None:
         send("run.pause")
         assert not state()["grassEnabled"]
         send("grass.enable_fixture", enabled=True)
+        send("render.set_parameter", index=38, value=2)
         send("replay.set_recording_enabled", enabled=True)
         send("window.resize", width=1280, height=800)
         send("run.step", count=1)

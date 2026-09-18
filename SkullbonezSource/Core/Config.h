@@ -316,7 +316,7 @@ struct ReplayTrajectoryAppearanceConfig
 // generated demo; selecting a quality never changes collider/solver state.
 struct GrassRenderConfig
 {
-    float quality = 2.00f;
+    float quality = 0.00f;
     float density = 1.00f;
     float distance = 24.00f;
     float height = 0.22f;
