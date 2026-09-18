@@ -205,9 +205,12 @@ class Run
     SceneLifecycleGenerationObserver m_attachedCameraSceneLifecycleObserver; // App resets the Scene-owned attach target once after each clear.
     AttachedCameraController m_attachedCamera;                               // Owns non-serialized Attach target/orbit/follow state.
     LookLabController m_lookLab;                                             // Owns the current presentation-only authoring candidate.
-    SimulationSystem m_simulation;                                           // Simulation timestep policy and physics accumulators
-    ReplayRuntime m_replayRuntime;                                           // Constructs and sequences the concrete replay domain owners.
-    ContinuousOrbitalForecast m_continuousForecast;                          // Planning-owned private forecast lifecycle and detached diagnostics.
+    Physics::PhysicsRuntimeSettings m_startupPhysicsSettings;
+    std::array<char, 96> m_physicsSettingsNotice {};
+    bool m_uiFixedTickRequested = false;            // Accepted frame-local UI edge, consumed by SimulationSystem.
+    SimulationSystem m_simulation;                  // Simulation timestep policy and physics accumulators
+    ReplayRuntime m_replayRuntime;                  // Constructs and sequences the concrete replay domain owners.
+    ContinuousOrbitalForecast m_continuousForecast; // Planning-owned private forecast lifecycle and detached diagnostics.
     PhysicsComparison m_comparison;
     PhysicsComparisonPanel m_comparisonPanel;
     PhysicsComparisonLoadJob m_comparisonLoad;
@@ -263,7 +266,7 @@ class Run
         return m_backbufferCapture;
     }
 
-    static RuntimeRenderFramePolicy ProjectRenderFramePolicy( const RuntimeOverlayFramePolicy& overlay );
+    RuntimeRenderFramePolicy ProjectRenderFramePolicy( const RuntimeOverlayFramePolicy& overlay );
 
     bool PumpFrameMessages( int& messageExitCode ); // Bounded Win32 drain; true ends the frame loop.
     bool DrainNativeHostEvents( int& messageExitCode );
@@ -290,6 +293,7 @@ class Run
     bool ApplySkarnessSceneLoadCommand( const SkarnessCommand& command, bool& deferred, const char*& reason );
     void ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts );
     void ApplySkarnessComparisonCommand( const SkarnessCommand& command, SkarnessCommandApplication& application );
+    void ProjectPhysicsWindowState( SkarnessFrameState& state, const OverlayDebugState& overlayPresentation );
     void PublishSkarnessFrameState();
     void ProjectEditorPaneState( SkarnessFrameState& state );
 #endif
@@ -381,6 +385,9 @@ class Run
     void ApplyEditorModeCommands( RuntimeUIFrameResult& result, bool keyboardToggleEditorMode, const RuntimeInputFrameFacts& facts, const UI::InGameUICommands& commands );
     void ApplyEditorSceneCommands( RuntimeUIFrameResult& result, const UI::InGameUICommands& commands );
     void ApplyRuntimePresentationCommands( RuntimeUIFrameResult& result, OperatorCommandTransaction& transaction, const OperatorCommandAcceptanceLedger& acceptance );
+    void RestartRecordingForPhysicsEdit();
+    bool ApplyEditorHistory( bool redo );
+    void ApplyInteractivePhysicsSetting( const UI::UIPhysicsCommands& commands );
     void ApplyReplayAndPhysicsTuningCommands( const UI::InGameUICommands& commands, OperatorCommandTransaction& transaction, const OperatorCommandAcceptanceLedger& acceptance );
     bool ApplyGeneratedSceneCommands( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts, const OperatorCommandAcceptanceLedger& acceptance );
     void

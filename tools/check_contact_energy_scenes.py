@@ -50,6 +50,7 @@ MAX_SETTLED_UPWARD_SPEED = 0.25
 MAX_SETTLED_PENETRATION = 0.05
 MIN_TERRAIN_CLEARANCE = -0.05
 MAX_STATE_MAGNITUDE = 1.0e30
+WALL_SPLIT_FUTURE_LOOK_SHA256 = "32a85f8b307b4208e326783932dc073a605ee89102c76f4f60c097f164d2f1b7"
 WALL_SCENE_BASE_SHA256 = "ee97d7acded2e90cc63a4e32a3cccf183f55f06b53e1bcf42ead9202544025dc"
 
 
@@ -544,6 +545,10 @@ def validate_wall_scene_payload(payload: dict[str, Any]) -> set[str]:
     base_payload = dict(payload)
     base_payload["objects"] = objects[:-1]
     base_payload["version"] = 3
+    # The owner-requested Split Future look (745aae05a) changes presentation
+    # only. Admit that exact block while retaining the original physics digest.
+    if canonical_payload_sha256(payload.get("cinematic", {})) == WALL_SPLIT_FUTURE_LOOK_SHA256:
+        base_payload["cinematic"] = {}
     if canonical_payload_sha256(base_payload) != WALL_SCENE_BASE_SHA256:
         failures.add("scene_original_payload")
 
@@ -1239,6 +1244,9 @@ def run_self_test() -> None:
     unknown_schema = json.loads(json.dumps(wall_scene))
     unknown_schema["version"] = 6
     assert "scene_schema" in validate_wall_scene_payload(unknown_schema)
+    changed_look = json.loads(json.dumps(wall_scene))
+    changed_look["cinematic"]["exposure"] += 0.01
+    assert "scene_original_payload" in validate_wall_scene_payload(changed_look)
     retuned_wall = json.loads(json.dumps(wall_scene))
     retuned_wall["objects"][0]["velocity"][0] = 1.0
     retuned_wall["objects"][0]["restitution"] = 0.0

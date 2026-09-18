@@ -25,7 +25,7 @@ cbuffer Uniforms : register( b0 )
 {
     float4x4 uViewProj;
     float4 uViewportPixels;
-    float4 uRibbonStyle; // opacity scale, brightness scale, anti-aliasing scale, unused
+    float4 uRibbonStyle; // opacity scale, brightness scale, anti-aliasing scale, precision appearance
 };
 
 struct VS_IN
@@ -59,13 +59,13 @@ float SafeClipW( float w )
 VS_OUT main_vs( VS_IN input, uint vertexId : SV_VertexID )
 {
     const float3 end = input.endAndWidth.xyz;
-    const float widthPixels = clamp( input.endAndWidth.w, 1.0, 6.0 );
+    const float widthPixels = clamp( input.endAndWidth.w, 1.0, 6.0 ) * ( uRibbonStyle.w > 0.5 ? 0.70 : 1.0 );
     const float halfWidthPixels = widthPixels * 0.5;
     const float aaPixels = clamp( max( input.style.x, 0.5 ) * max( uRibbonStyle.z, 0.25 ), 0.5, 1.25 );
     const float emphasis = saturate( input.style.y );
     // Invariant: the triangles must extend beyond the ideal line edge. Without
     // this overhang, rasterization clips the analytic feather and selected halo.
-    const float geometryHalfWidthPixels = halfWidthPixels + aaPixels + emphasis * 3.0;
+    const float geometryHalfWidthPixels = halfWidthPixels + aaPixels + ( uRibbonStyle.w > 0.5 ? 3.0 : emphasis * 3.0 );
     const uint corner = vertexId % 6;
     const float endpointT = ( corner == 2 || corner == 4 || corner == 5 ) ? 1.0 : 0.0;
     const float side = ( corner == 1 || corner == 2 || corner == 4 ) ? 1.0 : -1.0;
@@ -187,6 +187,22 @@ float4 main_ps( VS_OUT input ) : SV_TARGET
     const float aaPixels = clamp( input.style.x, 0.5, 1.25 );
     const float coverage = 1.0 - smoothstep( max( halfWidthPixels - aaPixels * 0.5, 0.0 ),
                                            halfWidthPixels + aaPixels * 0.5, distancePixels );
+    if ( uRibbonStyle.w > 0.5 )
+    {
+        const float halo = exp2( -distancePixels * distancePixels * 0.24 );
+        float3 color = input.color.rgb;
+        // The default root remains gold and its outgoing child stays cyan;
+        // the old pastel child washed out to grey after compositing.
+        const bool rootLane = all( abs( color - float3( 0.46, 0.96, 0.88 ) ) < 0.015 );
+        const bool outgoingLane = all( abs( color - float3( 0.58, 0.68, 1.0 ) ) < 0.015 );
+        const bool baselineLane = all( abs( color - float3( 0.34, 0.82, 0.95 ) ) < 0.015 );
+        if ( rootLane ) color = float3( 1.0, 0.52, 0.035 );
+        if ( outgoingLane || baselineLane ) color = float3( 0.015, 0.62, 1.0 );
+        const float emphasis = saturate( input.style.y );
+        const float alpha = input.color.a * max( uRibbonStyle.x, 0.0 ) * ( coverage * 0.88 + halo * lerp( 0.22, 0.32, emphasis ) );
+        clip( alpha - 0.001 );
+        return float4( color * max( uRibbonStyle.y, 0.0 ) * lerp( 1.65, 2.50, emphasis ), saturate( alpha ) );
+    }
     const float emphasis = saturate( input.style.y );
     const float halo =
         emphasis * ( 1.0 - smoothstep( halfWidthPixels + aaPixels, halfWidthPixels + aaPixels + 3.0, distancePixels ) );

@@ -35,6 +35,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
+#include "../ContactSupportGeometry.h"
 
 #include <array>
 #include <atomic>
@@ -124,7 +125,8 @@ enum class PhysicsSleepResetReason : uint8_t
     PointJointError = 5,
     PoseDrift = 6,
     SteepSphereSlope = 7,
-    UnsupportedBoxSupport = 8
+    UnsupportedBoxSupport = 8,
+    UnsupportedHullSupport = 9
 };
 
 // Concept: related one-bit scratch decisions share one byte per model row.
@@ -206,6 +208,8 @@ class PhysicsSleepController
     static constexpr uint8_t SLEEP_POSE_ANCHOR_VALID_BIT = 1u << 0u;
     static constexpr uint8_t PENDING_NARROWPHASE_WAKE_BIT = 1u << 1u;
     PhysicsBodyRowList<PhysicsSleepScratchFlags> m_sleepScratchFlags { "PhysicsSleepController.m_sleepScratchFlags", PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<ContactSupportGeometry> m_hullSupport { "PhysicsSleepController.hullSupport", PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<uint8_t> m_hullSupported { "PhysicsSleepController.hullSupported", PhysicsCapacityReason::SceneBodies };
     PhysicsBodyRowList<int> m_sleepFirstBoxContactPartner { "PhysicsSleepController.m_sleepFirstBoxContactPartner", PhysicsCapacityReason::SceneBodies };
     PhysicsBodyRowList<int> m_restingWakeQueueScratch { "PhysicsSleepController.m_restingWakeQueueScratch", PhysicsCapacityReason::SceneBodies };
     SleepSupportPropagationSystem m_sleepSupportPropagation;

@@ -1,0 +1,194 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 5,
+  "name": "convex_quality_shallow_x_large",
+  "simulation": {
+    "seed": 62929,
+    "physics": true,
+    "text": false,
+    "timeScale": 1,
+    "world": {
+      "gravity": -32,
+      "fluidHeight": -1000,
+      "fluidDensity": 0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 2400,
+    "fixedStep": true,
+    "exitOnComplete": false
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -44.794195712,
+      "slopeX": 0.0874886635,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "cameras": [
+    {
+      "name": "diagnostic_overview",
+      "position": [
+        510,
+        170,
+        760
+      ],
+      "view": [
+        510,
+        5,
+        512
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fovDegrees": 58
+    }
+  ],
+  "objects": [
+    {
+      "type": "convexHull",
+      "name": "box_hull",
+      "position": [
+        350,
+        -9.923243453164575,
+        512
+      ],
+      "mass": 96.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        8
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_box_hull_large.hull",
+      "sceneObjectId": 1
+    },
+    {
+      "type": "convexHull",
+      "name": "wedge",
+      "position": [
+        402,
+        -6.710425134284195,
+        512
+      ],
+      "mass": 96.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        8
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_wedge_large.hull",
+      "sceneObjectId": 2
+    },
+    {
+      "type": "convexHull",
+      "name": "pyramid",
+      "position": [
+        454,
+        -2.8293107238440065,
+        512
+      ],
+      "mass": 96.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        8
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_pyramid_large.hull",
+      "sceneObjectId": 3
+    },
+    {
+      "type": "convexHull",
+      "name": "elongated",
+      "position": [
+        506,
+        0.7500296807029704,
+        512
+      ],
+      "mass": 96.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        8
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_elongated_large.hull",
+      "sceneObjectId": 4
+    },
+    {
+      "type": "convexHull",
+      "name": "rock",
+      "position": [
+        558,
+        7.91473920716943,
+        512
+      ],
+      "mass": 96.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        8
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_rock_large.hull",
+      "sceneObjectId": 5
+    },
+    {
+      "type": "convexHull",
+      "name": "tetrahedron",
+      "position": [
+        610,
+        10.713849039917717,
+        512
+      ],
+      "mass": 96.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        8
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_tetrahedron_large.hull",
+      "sceneObjectId": 6
+    },
+    {
+      "type": "box",
+      "name": "primitive_box",
+      "position": [
+        662,
+        17.373219558835423,
+        512
+      ],
+      "mass": 96.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        8
+      ],
+      "halfExtents": [
+        4.0,
+        4.0,
+        4.0
+      ],
+      "sceneObjectId": 7
+    }
+  ]
+}

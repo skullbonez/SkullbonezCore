@@ -202,6 +202,11 @@ class Profiler
     void ApplyGpuTimingSamples( std::span<const GpuTimingSample> samples );
     void InvalidateGpuSamples();
 
+    // Main-thread replay probes may borrow an interactive frame already in progress.
+    bool FrameActive() const
+    {
+        return m_inFrame;
+    }
     void FrameBegin();
     void FrameEnd(); // commits per-frame totals; recomputes p50/p99; refreshes moving avg every 500 ms
 

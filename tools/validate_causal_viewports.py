@@ -4,12 +4,14 @@ import argparse
 import json
 import math
 from pathlib import Path
+from native_ui_comparison import current_wall_comparison
 from skarness import SkarnessConnection, launch
 
 REPO = Path(__file__).resolve().parents[1]
 
 
 def run(session: Path) -> None:
+    comparison_fixture = current_wall_comparison()
     assert launch(session, REPO / "Automation/SKULLBONEZ_CORE.exe",
                   REPO / "SkullbonezData/scenes/interaction_replay_prediction_harness.scene.json",
                   hidden=True, worker_threads=4, layout_file=session / "layout.preferences",
@@ -138,7 +140,7 @@ def run(session: Path) -> None:
         ui = click(ui["replayDetailsBounds"])
         contained("tools-detail")
         send("replay.set_prediction_enabled", enabled=False)
-        send("comparison.load", path=str(REPO / "SkullbonezData/solver-lab/wall-only/comparison.json"))
+        send("comparison.load", path=str(comparison_fixture))
         sample()
         pan_checks("lab")
         (session / "result.json").write_text(json.dumps({"ok": True, "checks": checks}, indent=2))

@@ -251,6 +251,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezTests\TestLookLabController.cpp" />
     <ClCompile Include="SkullbonezTests\TestLookLabGenerator.cpp" />
     <ClCompile Include="SkullbonezTests\TestLookLabSerialization.cpp" />
+    <ClCompile Include="SkullbonezTests\TestGravityGrid.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp" />
     <ClCompile Include="SkullbonezTests\TestSbResult.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeValueSeams.cpp" />
@@ -342,6 +343,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorEditorExchange.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\UIProfilerOverlayPresenter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\BroadphaseVisualizer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\GravityGridVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\CollisionVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\PhysicsDebugVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UI.cpp" />

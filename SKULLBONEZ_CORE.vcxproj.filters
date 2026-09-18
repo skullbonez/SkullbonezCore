@@ -555,6 +555,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\GrassPresentation.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
@@ -723,6 +726,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Render\BroadphaseVisualizer.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\GravityGridVisualizer.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.cpp">
       <Filter>Source Files\Core\Allocation</Filter>
     </ClCompile>
@@ -831,6 +837,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\SceneCapacity.h">
       <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Scene\GravityFieldSettings.h">
+      <Filter>Header Files\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h">
       <Filter>Header Files\Scene</Filter>
@@ -1103,6 +1112,12 @@
       <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderResources.h">
+      <Filter>Header Files\Runtime\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Render\GrassPresentation.h">
+      <Filter>Header Files\Runtime\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Render\GrassDeformation.h">
       <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.h">
@@ -1424,6 +1439,9 @@
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Render\BroadphaseVisualizer.h">
+      <Filter>Header Files\Runtime\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Render\GravityGridVisualizer.h">
       <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.h">

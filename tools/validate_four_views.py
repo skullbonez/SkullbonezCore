@@ -6,12 +6,14 @@ import math
 import time
 from pathlib import Path
 from PIL import Image
+from native_ui_comparison import current_wall_comparison
 from skarness import SkarnessConnection, launch
 
 REPO = Path(__file__).resolve().parents[1]
 
 
 def run(session: Path) -> None:
+    comparison_fixture = current_wall_comparison()
     session.mkdir(parents=True, exist_ok=True)
     # A high ball remains visible/pickable after the orthographic eye
     # zooms below it. The lower ball gives the fitted volume real depth.
@@ -91,19 +93,30 @@ def run(session: Path) -> None:
         send('capture.screenshot', path=str(screenshot))
         (session/(label+'-four.json')).write_text(json.dumps(latest, indent=2))
         if label == 'lab':
+            send('comparison.select', sceneObjectId=1)
+            target = send('comparison.state')['result']['comparison']
+            positions = [target['positionA'], target['positionB']]
             for pane in (0, 2):
-                x, y, w, h = ui['editorPaneBounds'][pane]
-                eye, focus = ui['editorPaneEyes'][pane], ui['editorPaneFocus'][pane]
-                distance = math.dist(eye, focus)
-                image_width = int(w)//2
-                lens_y = 1/math.tan(math.pi/8)
-                # Tick one moves the 7-unit-radius striker less than two units.
-                dx = 390-focus[0]
-                dy = 500-focus[2] if pane == 0 else -(28-focus[1])
-                for side in (0, 1):
+                # Each Lab pane contains two narrower images. Fit the actual
+                # recorded target after the pan/zoom exercise before picking it.
+                for attempt in range(12):
+                    x, y, w, h = ui['editorPaneBounds'][pane]
+                    eye, focus = ui['editorPaneEyes'][pane], ui['editorPaneFocus'][pane]
+                    distance = math.dist(eye, focus)
+                    image_width = int(w)//2
+                    scale = h/(2*distance*math.tan(math.pi/8))
+                    points = [(x+side*image_width+image_width/2+(position[0]-focus[0])*scale,
+                               y+h/2+(position[2]-focus[2] if pane == 0 else -(position[1]-focus[1]))*scale)
+                              for side, position in enumerate(positions)]
+                    if all(x+side*image_width+12 < px < x+(side+1)*image_width-12
+                           and y+12 < py < y+h-12 for side, (px, py) in enumerate(points)):
+                        break
+                    send('input.pointer_wheel', x=round(x+w/2), y=round(y+h/2), wheelDelta=-120)
+                    ui = sample()
+                else:
+                    raise AssertionError(('Lab target could not be framed', pane, points))
+                for side, (px, py) in enumerate(points):
                     send('comparison.select', sceneObjectId=2)
-                    px = x+side*image_width+image_width/2+dx*lens_y*h/(2*distance)
-                    py = y+h/2+dy*lens_y*h/(2*distance)
                     ui = click((px, py, 0, 0))
                     assert send('comparison.state')['result']['comparison']['selected'] == 1, (pane, side, px, py)
             checks.append('lab-native-picking-both-tracks')
@@ -227,14 +240,11 @@ def run(session: Path) -> None:
             (session/(label+'-four.json')).write_text(json.dumps(latest, indent=2))
             checks.append(label+'-all-pane-submission')
         click(ui['headerFourViewsBounds'])
-        click(sample()['headerWorkspaceBounds'])
-        deadline = time.monotonic()+120
-        while time.monotonic() < deadline:
-            ui = sample()
-            if send('comparison.state').get('result', {}).get('comparison', {}).get('active'): break
-        else: raise AssertionError('Lab did not load')
+        send('comparison.load', path=str(comparison_fixture))
+        sample()
+        assert send('comparison.state')['result']['comparison']['active']
         exercise('lab')
-        send('comparison.load', path=str(REPO/'SkullbonezData/solver-lab/wall-only/comparison.json'))
+        send('comparison.load', path=str(comparison_fixture))
         # Rewind must stop at real A/B data, including reverse playback and loops.
         send('comparison.seek', tick=0)
         comparison = send('comparison.state')['result']['comparison']

@@ -29,6 +29,7 @@ Related:
 */
 #include "InputFrame.h"
 #include "Run.h"
+#include "../../World/Terrain.h"
 #include "OperatorCommandBoundaryPolicy.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/InteractionRecordingBrowser.h"
@@ -56,6 +57,7 @@ Related:
 #include "../Scene/SceneGeneratedControlTransaction.h"
 #include "../Scene/SceneCinematicPolicy.h"
 #include "../Scene/SceneController.h"
+#include "../Scene/SceneSaveOperations.h"
 #include "../../Core/Log.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -875,6 +877,16 @@ SkarnessSceneObjectResult BuildSkarnessSceneObjectResult( const SceneWorld& worl
         result.linearVelocity = { velocity.x, velocity.y, velocity.z };
         result.angularVelocity = { angular.x, angular.y, angular.z };
         result.fixed = hot.fixed[modelIndex] != 0u;
+        result.mass = body->mass;
+        result.inverseMass = hot.inverseMass[modelIndex];
+        result.inertia = { body->rotationalInertia.x, body->rotationalInertia.y, body->rotationalInertia.z };
+        result.inertiaProducts = { body->rotationalInertiaProducts.x, body->rotationalInertiaProducts.y, body->rotationalInertiaProducts.z };
+        const auto state = Physics::LoadPhysicsBodyHotState( hot, modelIndex );
+        result.inverseInertia = { state.inverseRotationalInertia.x, state.inverseRotationalInertia.y, state.inverseRotationalInertia.z };
+        result.inverseInertiaProducts = { state.inverseRotationalInertiaProducts.x, state.inverseRotationalInertiaProducts.y, state.inverseRotationalInertiaProducts.z };
+        result.hasPendingImpulse = body->hasPendingImpulse;
+        result.pendingImpulse = { body->pendingImpulse.x, body->pendingImpulse.y, body->pendingImpulse.z };
+        result.pendingImpulseOffset = { body->pendingImpulseWorldOffset.x, body->pendingImpulseWorldOffset.y, body->pendingImpulseWorldOffset.z };
         const auto sleep = Physics::PhysicsEngine::ReadSleepStates( world.Physics() );
         result.sleepStateAvailable = static_cast<std::size_t>( modelIndex ) < sleep.size();
         result.sleeping = result.sleepStateAvailable && sleep[modelIndex] != 0u;
@@ -915,6 +927,47 @@ void SetSkarnessUnsignedResult( SkarnessCommandApplication& application, const c
 
 bool Run::ApplySkarnessCameraCommand( const SkarnessCommand& command, const char*& reason )
 {
+    if ( command.type == SkarnessCommandType::CameraSetPose )
+    {
+        Math::Vector::Vector3 eye( static_cast<float>( command.number ), static_cast<float>( command.secondNumber ), static_cast<float>( command.thirdNumber ) );
+        Math::Vector::Vector3 target( static_cast<float>( command.fourthNumber ), static_cast<float>( command.fifthNumber ), static_cast<float>( command.sixthNumber ) );
+        if ( command.enabled )
+        {
+            auto* terrain = m_sceneController.Scene().Terrain().Get();
+            if ( !terrain || !terrain->IsInBounds( eye.x, eye.z ) || !terrain->IsInBounds( target.x, target.z ) )
+            {
+                reason = "terrain-relative camera needs in-bounds terrain points";
+                return false;
+            }
+            Math::Vector::Vector3 normal;
+            float height = 0;
+            terrain->GetTerrainHeightAndNormalAt( eye.x, eye.z, height, normal );
+            eye.y += height;
+            terrain->GetTerrainHeightAndNormalAt( target.x, target.z, height, normal );
+            target.y += height;
+        }
+        const Math::Vector::Vector3 delta = target - eye;
+        if ( delta.x * delta.x + delta.z * delta.z < 1.0e-6f || m_replayRuntime.BuildInputView().inspectionCameraActive )
+        {
+            reason = "pose needs a nonvertical direction and no active causal inspection";
+            return false;
+        }
+        m_inputRouter.ApplyCameraMode( RunCameraMode::Inspect,
+                                       RuntimeInputActionSource::Keyboard,
+                                       m_editorTools,
+                                       m_runtimeTools,
+                                       m_interaction,
+                                       m_attachedCamera,
+                                       m_camera,
+                                       m_sceneController,
+                                       m_replayRuntime,
+                                       m_inputRouter.RuntimeContext() );
+        m_sceneController.Scene().Cameras().SetPrimaryPose( eye, target, Math::Vector::Vector3( 0, 1, 0 ) );
+        m_sceneController.Scene().Cameras().CancelTween();
+        InputController::ResetMouseLook( m_camera );
+        return true;
+    }
+
     const ReplayCauseInspectionMode mode = m_replayRuntime.CauseInspectionView().Transport().mode;
 
     if ( !ReplayCauseInspectionAcceptsOrbit( mode ) )
@@ -1446,6 +1499,51 @@ void Run::ApplySkarnessSelectionCommand( const SkarnessCommand& command, Skarnes
     case SkarnessCommandType::PredictionSelectTarget:
         application.applied = ApplySkarnessPredictionTargetCommand( command, application.reason );
         return;
+    case SkarnessCommandType::SceneObjectSetVisible:
+    {
+        auto& world = m_sceneController.Scene();
+        int row = -1;
+        application.applied = m_editorTools.Editor().editorModeEnabled && ResolveSkarnessSceneObject( world, command, row, application.reason );
+        if ( application.applied )
+        {
+            application.applied = world.SetEditorEntityVisible( world.Entities().At( row ).sceneObjectId, command.enabled );
+        }
+        application.reason = application.applied ? nullptr : "visibility edit requires an existing body in Edit mode";
+        return;
+    }
+    case SkarnessCommandType::SceneObjectSetPosition:
+    {
+        auto& world = m_sceneController.Scene();
+        int row = -1;
+        application.applied = m_editorTools.Editor().editorModeEnabled && m_replayRuntime.LivePhysicsEditable() && ResolveSkarnessSceneObject( world, command, row, application.reason );
+        if ( !application.applied )
+        {
+            application.reason = "position edit requires an existing body in live Edit mode";
+            return;
+        }
+        const auto& entity = world.Entities().At( row );
+        if ( entity.editorLocked || entity.asset.isAssetBacked || entity.behaviorGroup.kind != SceneBehaviorGroupKind::None )
+        {
+            application.applied = false;
+            application.reason = "position edit requires an unlocked standalone body";
+            return;
+        }
+        RestartRecordingForPhysicsEdit();
+        PhysicsBodyUpdateDesc update;
+        update.body = entity.body;
+        update.updateMask = PHYSICS_BODY_UPDATE_POSE | PHYSICS_BODY_UPDATE_SLEEP_STATE;
+        update.position = { static_cast<float>( command.number ), static_cast<float>( command.secondNumber ), static_cast<float>( command.thirdNumber ) };
+        update.orientation = PhysicsBodyOrientation( world.BodyStore().HotFields(), static_cast<std::size_t>( row ) );
+        update.sleeping = false;
+        application.applied = world.Physics().UpdateAuthoredBody( update );
+        if ( application.applied )
+        {
+            m_editorTools.ClearEditorHistory();
+        }
+        AppendSkarnessSceneObjectResult( world, application.result, row );
+        return;
+    }
+    case SkarnessCommandType::CameraSetPose:
     case SkarnessCommandType::CameraOrbitInspection:
         application.applied = ApplySkarnessCameraCommand( command, application.reason );
         return;
@@ -1480,14 +1578,51 @@ void Run::ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInpu
     {
         SkarnessCommandApplication application;
 
-        if ( command.type == SkarnessCommandType::EditorSetTerrainBrush )
+        if ( command.type == SkarnessCommandType::EditorSetEnabled )
         {
+            application.handled = true;
+            UI::InGameUICommands commands;
+            commands.editor.toggleEditorMode = command.enabled != m_editorTools.Editor().editorModeEnabled;
+            ApplyEditorModeCommands( result, false, facts, commands );
+            application.applied = m_editorTools.Editor().editorModeEnabled == command.enabled;
+            application.reason = nullptr;
+        }
+        else if ( command.type == SkarnessCommandType::EditorSetTerrainBrush )
+        {
+            application.handled = true;
             UI::InGameUICommands commands;
             commands.editor.toggleEditorMode = command.enabled && !m_editorTools.Editor().editorModeEnabled;
             commands.editor.toggleTerrainBrush = command.enabled != m_editorTools.Editor().terrainBrushEnabled;
             ApplyEditorModeCommands( result, false, facts, commands );
             application.applied = m_editorTools.Editor().terrainBrushEnabled == command.enabled;
             application.reason = nullptr;
+        }
+        else if ( command.type == SkarnessCommandType::RenderSetParameter )
+        {
+            application.handled = true;
+            application.applied = command.integer >= 0 && command.integer < static_cast<int>( UI::UIRenderParam::Count );
+            if ( application.applied )
+            {
+                OperatorCommandTransaction::ApplyOrdinaryRenderParam( m_config.ordinaryRender, static_cast<UI::UIRenderParam>( command.integer ), static_cast<float>( command.number ) );
+            }
+            application.reason = application.applied ? nullptr : "render parameter index is out of range";
+        }
+        else if ( command.type == SkarnessCommandType::GrassEnableFixture )
+        {
+            application.handled = true;
+            Renderer( "GrassFixture" ).Grass().EnableFixture( m_sceneController.LifecyclePacket().generation, command.enabled );
+            application.applied = true;
+        }
+        else if ( command.type == SkarnessCommandType::GrassSample )
+        {
+            application.handled = true;
+            const auto& grass = Renderer( "GrassSample" ).PresentedGrass();
+            application.result.hasGrassSample = true;
+            application.result.grassCompression = grass.CompressionAt( static_cast<float>( command.number ), static_cast<float>( command.secondNumber ) );
+            application.result.grassSourceId = grass.SourceAt( static_cast<float>( command.number ), static_cast<float>( command.secondNumber ) );
+            application.result.grassTick = grass.Tick();
+            application.result.grassHistoryAvailable = grass.HistoryAvailable();
+            application.applied = true;
         }
         else if ( command.type == SkarnessCommandType::SceneSave )
         {
@@ -1671,6 +1806,7 @@ void Run::RestoreAuthoredSceneState( bool preserveCamera, RunCameraMode restoreM
     m_sceneController.State().isTestComplete = false;
     m_sceneController.State().isFinishLogged = false;
     m_simulation.Reset();
+    Renderer().ResetPhysicsDebugHistory();
     m_sceneController.Scene().BeginPhysicsStepPresentationCapture();
     m_sceneController.Scene().CompletePhysicsStepPresentationCapture();
     m_sceneController.Scene().PrepareRenderInstances( 1.0f );
@@ -1808,12 +1944,12 @@ void Run::ApplyEditorSceneCommands( RuntimeUIFrameResult& result, const Skullbon
         result.enterInteractiveScene = true;
         RecordInputModeAction( RuntimeInputAction::DeleteEditorSelection, RuntimeInputActionSource::UI );
     }
-    if ( commands.editor.requestUndo && m_editorTools.Editor().editorModeEnabled && m_editorTools.UndoEditorCommand( world, m_sceneController.State() ) )
+    if ( commands.editor.requestUndo && m_editorTools.Editor().editorModeEnabled && ApplyEditorHistory( false ) )
     {
         result.enterInteractiveScene = true;
         RecordInputModeAction( RuntimeInputAction::UndoEditor, RuntimeInputActionSource::UI );
     }
-    if ( commands.editor.requestRedo && m_editorTools.Editor().editorModeEnabled && m_editorTools.RedoEditorCommand( world, m_sceneController.State() ) )
+    if ( commands.editor.requestRedo && m_editorTools.Editor().editorModeEnabled && ApplyEditorHistory( true ) )
     {
         result.enterInteractiveScene = true;
         RecordInputModeAction( RuntimeInputAction::RedoEditor, RuntimeInputActionSource::UI );
@@ -1890,6 +2026,150 @@ void Run::ApplyRuntimePresentationCommands( RuntimeUIFrameResult& result, Operat
     RecordRuntimePresentationUIActions( acceptance, recordUiAction );
 }
 
+bool Run::ApplyEditorHistory( bool redo )
+{
+    const auto replay = m_replayRuntime.BuildInputView();
+    if ( !m_replayRuntime.LivePhysicsEditable() )
+    {
+        return false;
+    }
+    const auto& history = m_editorTools.Editor().history;
+    if ( !( redo ? history.PendingRedo() : history.PendingUndo() ) )
+    {
+        return false;
+    }
+    // Undo is a new numerical edit, including mass and authored transforms.
+    // Join prediction before any body mutation and begin a new recording epoch.
+    RestartRecordingForPhysicsEdit();
+    return redo ? m_editorTools.RedoEditorCommand( m_sceneController.Scene(), m_sceneController.State() ) : m_editorTools.UndoEditorCommand( m_sceneController.Scene(), m_sceneController.State() );
+}
+
+void Run::RestartRecordingForPhysicsEdit()
+{
+    Renderer().ResetPhysicsDebugHistory();
+    auto& world = m_sceneController.Scene();
+    const auto replay = m_replayRuntime.BuildInputView();
+    // A numerical edit ends the retained recording and joins prediction before
+    // mutation. The next solver checkpoint carries the complete effective policy.
+    const auto timeline = DescribeReplaySceneTimeline( m_sceneController,
+                                                       m_operatorUi->SceneNavigation().overrides,
+                                                       m_sceneController.State(),
+                                                       world.ActiveSceneObjectCapacity(),
+                                                       static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+    m_replayRuntime.ResetSceneTimeline( timeline,
+                                        m_inputRouter,
+                                        m_interaction,
+                                        &world.Cameras(),
+                                        world.Terrain().Get(),
+                                        m_camera,
+                                        NormalizeInputCameraMode( replay.restoreCameraMode ),
+                                        m_attachedCamera.State().activeFollow,
+                                        m_camera.director.grabbed );
+}
+
+void Run::ApplyInteractivePhysicsSetting( const UI::UIPhysicsCommands& commands )
+{
+    using Setting = Physics::InteractivePhysicsSetting;
+    if ( !m_replayRuntime.LivePhysicsEditable() )
+    {
+        return;
+    }
+    if ( commands.applyPointImpulse )
+    {
+        auto& world = m_sceneController.Scene();
+        const auto& values = commands.pointImpulse;
+        const PhysicsPointImpulse request { world.BodyStore().HandleForSceneObjectId( { values.sceneObjectId } ),
+                                            { values.impulse[0], values.impulse[1], values.impulse[2] },
+                                            { values.point[0], values.point[1], values.point[2] },
+                                            values.local };
+        PhysicsPointImpulseWorld resolved;
+        const auto* body = world.BodyStore().RecordForHandle( request.body );
+        const bool accepted = world.Physics().ResolvePointImpulse( request, resolved ) && body && !body->hasPendingImpulse;
+        if ( accepted )
+        {
+            RestartRecordingForPhysicsEdit();
+        }
+        const bool applied = accepted && world.Physics().ApplyPointImpulse( request );
+        strcpy_s( m_physicsSettingsNotice.data(), m_physicsSettingsNotice.size(), applied ? "Impulse queued once for next fixed tick." : "Impulse rejected: fixed/stale body, invalid value or already pending." );
+        return;
+    }
+    if ( commands.saveBodyScene )
+    {
+        Core::Allocation::RuntimeAllocationScope saveScope( Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        const auto* path = m_sceneController.CurrentPath();
+        const auto saved = SaveEditableSceneBeforeReplacement( m_resultDiagnostics,
+                                                               path ? path->c_str() : nullptr,
+                                                               m_sceneController.Scene().GetSaveState(),
+                                                               m_sceneController.State().GetSaveState(),
+                                                               m_overlayDiagnostics->PresentationSnapshot().GetSaveState() );
+        strcpy_s( m_physicsSettingsNotice.data(), m_physicsSettingsNotice.size(), saved.Ok() ? "Authored scene saved with body edits." : "Scene save failed; no authored path or write failure." );
+        return;
+    }
+    if ( commands.saveDefaults )
+    {
+        Core::Allocation::RuntimeAllocationScope saveScope( Core::Allocation::RuntimeAllocationPhase::Capture );
+        const std::string defaultPath = std::string( DATA_ROOT ) + "engine.cfg";
+        const char* path = defaultPath.c_str();
+#if defined( SKULLBONEZ_SKARNESS )
+        char isolatedPath[1024] {};
+        const auto length = Core::Platform::ReadEnvironmentVariable( "SKULLBONEZ_PHYSICS_DEFAULTS_FILE", isolatedPath, sizeof( isolatedPath ) );
+        if ( length > 0 && length < sizeof( isolatedPath ) )
+        {
+            path = isolatedPath;
+        }
+#endif
+        auto savedConfig = m_config;
+        m_sceneController.Scene().Physics().CopyRuntimeSettingsToConfig( savedConfig );
+        savedConfig.worldForces.gravity = m_sceneController.Scene().Environment().GetGravity();
+        const auto saved = savedConfig.SavePhysicsDefaults( m_resultDiagnostics, path );
+        strcpy_s( m_physicsSettingsNotice.data(), m_physicsSettingsNotice.size(), saved.Ok() ? "Physics defaults saved for next launch." : "Save failed; defaults unchanged." );
+        return;
+    }
+    if ( commands.setting == Setting::None && !commands.restoreStartup && !commands.requestBodyMass )
+    {
+        return;
+    }
+    float normalized = 0;
+    auto& world = m_sceneController.Scene();
+    if ( !commands.restoreStartup && !commands.requestBodyMass )
+    {
+        if ( !Physics::NormalizeInteractivePhysicsSetting( commands.setting, commands.settingValue, normalized ) )
+        {
+            return;
+        }
+        const auto current = Physics::InteractivePhysicsValues( world.Physics().RuntimeSettings() );
+        if ( current[static_cast<std::size_t>( commands.setting )] == normalized )
+        {
+            return;
+        }
+    }
+    if ( commands.requestBodyMass && !m_editorTools.CanSetEditorBodyMass( world, { commands.bodySceneObjectId }, commands.bodyMass ) )
+    {
+        strcpy_s( m_physicsSettingsNotice.data(), m_physicsSettingsNotice.size(), "Mass unchanged: requires a standalone dynamic body in Edit." );
+        return;
+    }
+    RestartRecordingForPhysicsEdit();
+    if ( commands.requestBodyMass )
+    {
+        const bool applied = m_editorTools.SetEditorBodyMass( world, { commands.bodySceneObjectId }, commands.bodyMass );
+        strcpy_s( m_physicsSettingsNotice.data(), m_physicsSettingsNotice.size(), applied ? "Mass applied with inertia; undo/save through Editor." : "Mass edit rejected: requires a standalone dynamic body in Edit." );
+        return;
+    }
+    if ( commands.restoreStartup )
+    {
+        Physics::PhysicsEngine::WriteSettingsToConfig( m_startupPhysicsSettings, m_config );
+        auto& environment = world.Environment();
+        environment.ApplyOverride( m_startupPhysicsSettings.worldForces.gravity, environment.GetFluidSurfaceHeight(), environment.GetFluidDensity() );
+    }
+    else
+    {
+        (void)Physics::PhysicsEngine::EditRuntimeConfig( m_config, commands.setting, normalized );
+    }
+    strcpy_s( m_physicsSettingsNotice.data(), m_physicsSettingsNotice.size(), commands.restoreStartup ? "Startup Physics restored; defaults unchanged." : "Applied to live Physics; defaults unchanged." );
+    world.Physics().InvalidateSolverSettings();
+    world.ApplyRuntimeConfig( m_config );
+}
+
 void Run::ApplyReplayAndPhysicsTuningCommands( const SkullbonezCore::UI::InGameUICommands& commands, OperatorCommandTransaction& transaction, const OperatorCommandAcceptanceLedger& acceptance )
 {
     const auto recordUiAction = [this]( RuntimeInputAction action ) { RecordInputModeAction( action, RuntimeInputActionSource::UI ); };
@@ -1935,7 +2215,17 @@ void Run::ApplyReplayAndPhysicsTuningCommands( const SkullbonezCore::UI::InGameU
         recordUiAction( RuntimeInputAction::SetLauncherProjectileSpeed );
     }
 
+    ApplyInteractivePhysicsSetting( commands.physics );
+    const bool materialEdit = commands.physics.requestTerrainFrictionCoeff || commands.physics.requestObjectFrictionCoeff || commands.physics.requestRollingFrictionCoeff;
+    if ( materialEdit )
+    {
+        RestartRecordingForPhysicsEdit();
+    }
     transaction.ApplyPhysicsMaterial( m_config, m_sceneController.Scene() );
+    if ( materialEdit )
+    {
+        m_sceneController.Scene().Physics().InvalidateSolverSettings();
+    }
     RecordPhysicsFrictionUIActions( acceptance, recordUiAction );
 }
 

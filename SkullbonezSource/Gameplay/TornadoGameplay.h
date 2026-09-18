@@ -65,9 +65,8 @@ class TornadoGameplay
     static constexpr uint64_t InitialReserveBytes()
     {
         constexpr std::size_t debugLineFloatCount = MAX_ACTIVE_FORCE_FIELDS * 12u * 4u * 5u * 6u * 6u;
-        return MAX_ACTIVE_FORCE_FIELDS * sizeof( TornadoVortexConfig ) +
-               2u * SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * sizeof( float ) +
-               debugLineFloatCount * sizeof( float ) + 3u * MAX_ACTIVE_FORCE_FIELDS * sizeof( TornadoActiveVortex );
+        return MAX_ACTIVE_FORCE_FIELDS * sizeof( TornadoVortexConfig ) + 2u * SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * sizeof( float ) + debugLineFloatCount * sizeof( float ) +
+               3u * MAX_ACTIVE_FORCE_FIELDS * sizeof( TornadoActiveVortex );
     }
 
     TornadoGameplay();
@@ -96,8 +95,10 @@ class TornadoGameplay
     void SetFieldInwardAcceleration( float value );
     void SetFieldSwirlAcceleration( float value );
     void SetFieldLiftAcceleration( float value );
-    void SetReplayState( const std::vector<float>& captureSeconds, const std::vector<float>& ejectCooldownSeconds,
-                         const TornadoFieldConfig& fieldConfig, const TornadoSystemConfig& systemConfig,
+    void SetReplayState( const std::vector<float>& captureSeconds,
+                         const std::vector<float>& ejectCooldownSeconds,
+                         const TornadoFieldConfig& fieldConfig,
+                         const TornadoSystemConfig& systemConfig,
                          double systemElapsedSeconds );
 
     // Mirrors PhysicsBodyStore::DestroyBodyRecord after its dense row commits.
@@ -109,6 +110,7 @@ class TornadoGameplay
     const std::vector<float>& EjectCooldownSeconds() const;
 
     const TornadoVisualSettings& VisualSettings() const;
+    TornadoVisualSnapshot VisualSnapshot() const;
     void SetVisualSettings( const TornadoVisualSettings& settings );
     bool VisualAutoEnableWithTornado() const;
     void SetVisualEnabled( bool enabled );

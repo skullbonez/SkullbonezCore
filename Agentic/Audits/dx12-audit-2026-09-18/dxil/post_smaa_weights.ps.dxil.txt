@@ -1,0 +1,756 @@
+;
+; Note: shader requires additional functionality:
+;       Resource descriptor heap indexing
+;
+;
+; Input signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; SV_Position              0   xyzw        0      POS   float       
+; TEXCOORD                 0   xy          1     NONE   float   xy  
+; TEXCOORD                 1     zw        1     NONE   float     zw
+; TEXCOORD                 2   xyzw        2     NONE   float   xyzw
+; TEXCOORD                 3   xyzw        3     NONE   float   xyzw
+; TEXCOORD                 4   xyzw        4     NONE   float   xyzw
+;
+;
+; Output signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; SV_Target                0   xyzw        0   TARGET   float   xyzw
+;
+; shader hash: aff7ce0210794535e257e413867ca846
+;
+; Pipeline Runtime Information: 
+;
+;PSVRuntimeInfo:
+; Pixel Shader
+; DepthOutput=0
+; SampleFrequency=0
+; MinimumExpectedWaveLaneCount: 0
+; MaximumExpectedWaveLaneCount: 4294967295
+; UsesViewID: false
+; SigInputElements: 4
+; SigOutputElements: 1
+; SigPatchConstOrPrimElements: 0
+; SigInputVectors: 5
+; SigOutputVectors[0]: 1
+; SigOutputVectors[1]: 0
+; SigOutputVectors[2]: 0
+; SigOutputVectors[3]: 0
+; EntryFunctionName: main_ps
+;
+;
+; Input signature:
+;
+; Name                 Index             InterpMode DynIdx
+; -------------------- ----- ---------------------- ------
+; SV_Position              0          noperspective       
+; TEXCOORD                 0                 linear       
+; TEXCOORD                 1                 linear       
+; TEXCOORD                 2                 linear       
+;
+; Output signature:
+;
+; Name                 Index             InterpMode DynIdx
+; -------------------- ----- ---------------------- ------
+; SV_Target                0                              
+;
+; Buffer Definitions:
+;
+; cbuffer Uniforms
+; {
+;
+;   struct Uniforms
+;   {
+;
+;       float4 uSmaaMetrics;                          ; Offset:    0
+;   
+;   } Uniforms;                                       ; Offset:    0 Size:    16
+;
+; }
+;
+; cbuffer BindlessTextureIndices
+; {
+;
+;   struct BindlessTextureIndices
+;   {
+;
+;       uint4 _textureDescriptorIndices0;             ; Offset:    0
+;       uint2 _textureDescriptorIndices1;             ; Offset:   16
+;   
+;   } BindlessTextureIndices;                         ; Offset:    0 Size:    24
+;
+; }
+;
+;
+; Resource Bindings:
+;
+; Name                                 Type  Format         Dim      ID      HLSL Bind  Count
+; ------------------------------ ---------- ------- ----------- ------- -------------- ------
+; Uniforms                          cbuffer      NA          NA     CB0            cb0     1
+; BindlessTextureIndices            cbuffer      NA          NA     CB1            cb1     1
+; LinearSampler                     sampler      NA          NA      S0             s1     1
+;
+;
+; ViewId state:
+;
+; Number of inputs: 20, outputs: 4
+; Outputs dependent on ViewId: {  }
+; Inputs contributing to computation of Outputs:
+;   output 0 depends on inputs: { 4, 5, 6, 8, 9, 10, 11, 13, 16, 17 }
+;   output 1 depends on inputs: { 4, 5, 6, 8, 9, 10, 11, 13, 16, 17 }
+;   output 2 depends on inputs: { 4, 5, 7, 8, 12, 13, 14, 15, 18, 19 }
+;   output 3 depends on inputs: { 4, 5, 7, 8, 12, 13, 14, 15, 18, 19 }
+;
+target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
+target triple = "dxil-ms-dx"
+
+%dx.types.Handle = type { i8* }
+%dx.types.ResBind = type { i32, i32, i32, i8 }
+%dx.types.ResourceProperties = type { i32, i32 }
+%dx.types.CBufRet.i32 = type { i32, i32, i32, i32 }
+%dx.types.ResRet.f32 = type { float, float, float, float, i32 }
+%dx.types.CBufRet.f32 = type { float, float, float, float }
+%Uniforms = type { <4 x float> }
+%BindlessTextureIndices = type { <4 x i32>, <2 x i32> }
+%struct.SamplerState = type { i32 }
+
+define void @main_ps() {
+  %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 1, i32 0, i8 3 }, i32 1, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+  %2 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 1, i32 0, i8 2 }, i32 1, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+  %3 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 2 }, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+  %4 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 13, i32 24 })  ; AnnotateHandle(res,props)  resource: CBuffer
+  %5 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 13, i32 16 })  ; AnnotateHandle(res,props)  resource: CBuffer
+  %6 = call float @dx.op.loadInput.f32(i32 4, i32 2, i32 0, i8 0, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %7 = call float @dx.op.loadInput.f32(i32 4, i32 2, i32 0, i8 1, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %8 = call float @dx.op.loadInput.f32(i32 4, i32 1, i32 0, i8 0, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %9 = call float @dx.op.loadInput.f32(i32 4, i32 1, i32 0, i8 1, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %10 = call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32(i32 59, %dx.types.Handle %4, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %11 = extractvalue %dx.types.CBufRet.i32 %10, 0
+  %12 = call %dx.types.Handle @dx.op.createHandleFromHeap(i32 218, i32 %11, i1 false, i1 false)  ; CreateHandleFromHeap(index,samplerHeap,nonUniformIndex)
+  %13 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %12, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %14 = extractvalue %dx.types.CBufRet.i32 %10, 1
+  %15 = call %dx.types.Handle @dx.op.createHandleFromHeap(i32 218, i32 %14, i1 false, i1 false)  ; CreateHandleFromHeap(index,samplerHeap,nonUniformIndex)
+  %16 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %15, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %17 = extractvalue %dx.types.CBufRet.i32 %10, 2
+  %18 = call %dx.types.Handle @dx.op.createHandleFromHeap(i32 218, i32 %17, i1 false, i1 false)  ; CreateHandleFromHeap(index,samplerHeap,nonUniformIndex)
+  %19 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %18, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
+  %20 = call float @dx.op.loadInput.f32(i32 4, i32 3, i32 0, i8 0, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %21 = call float @dx.op.loadInput.f32(i32 4, i32 3, i32 0, i8 1, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %22 = call float @dx.op.loadInput.f32(i32 4, i32 3, i32 0, i8 2, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %23 = call float @dx.op.loadInput.f32(i32 4, i32 3, i32 0, i8 3, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %24 = call float @dx.op.loadInput.f32(i32 4, i32 3, i32 1, i8 0, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %25 = call float @dx.op.loadInput.f32(i32 4, i32 3, i32 1, i8 1, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %26 = call float @dx.op.loadInput.f32(i32 4, i32 3, i32 1, i8 2, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %27 = call float @dx.op.loadInput.f32(i32 4, i32 3, i32 1, i8 3, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %28 = call float @dx.op.loadInput.f32(i32 4, i32 3, i32 2, i8 0, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %29 = call float @dx.op.loadInput.f32(i32 4, i32 3, i32 2, i8 1, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %30 = call float @dx.op.loadInput.f32(i32 4, i32 3, i32 2, i8 2, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %31 = call float @dx.op.loadInput.f32(i32 4, i32 3, i32 2, i8 3, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %32 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %33 = call %dx.types.ResRet.f32 @dx.op.sample.f32(i32 60, %dx.types.Handle %13, %dx.types.Handle %32, float %8, float %9, float undef, float undef, i32 0, i32 0, i32 undef, float undef)  ; Sample(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,clamp)
+  %34 = extractvalue %dx.types.ResRet.f32 %33, 0
+  %35 = extractvalue %dx.types.ResRet.f32 %33, 1
+  %36 = fcmp fast ogt float %35, 0.000000e+00
+  br i1 %36, label %37, label %348, !dx.controlflow.hints !26
+
+; <label>:37                                      ; preds = %0
+  %38 = fcmp fast ogt float %34, 0.000000e+00
+  br i1 %38, label %39, label %62
+
+; <label>:39                                      ; preds = %37
+  %40 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %5, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %41 = extractvalue %dx.types.CBufRet.f32 %40, 0
+  %42 = extractvalue %dx.types.CBufRet.f32 %40, 1
+  br label %43
+
+; <label>:43                                      ; preds = %43, %39
+  %44 = phi float [ -1.000000e+00, %39 ], [ %49, %43 ]
+  %45 = phi float [ %9, %39 ], [ %48, %43 ]
+  %46 = phi float [ %8, %39 ], [ %47, %43 ]
+  %47 = call float @dx.op.tertiary.f32(i32 46, float %41, float -1.000000e+00, float %46)  ; FMad(a,b,c)
+  %48 = fadd fast float %45, %42
+  %49 = fadd fast float %44, 1.000000e+00
+  %50 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %51 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %50, float %47, float %48, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %52 = extractvalue %dx.types.ResRet.f32 %51, 0
+  %53 = extractvalue %dx.types.ResRet.f32 %51, 1
+  %54 = call float @dx.op.dot2.f32(i32 54, float %52, float %53, float 5.000000e-01, float 5.000000e-01)  ; Dot2(ax,ay,bx,by)
+  %55 = fcmp fast olt float %49, 7.000000e+00
+  %56 = fcmp fast ogt float %54, 0x3FECCCCCC0000000
+  %57 = and i1 %55, %56
+  br i1 %57, label %43, label %58
+
+; <label>:58                                      ; preds = %43
+  %59 = fcmp fast ogt float %53, 0x3FECCCCCC0000000
+  %60 = uitofp i1 %59 to float
+  %61 = fadd fast float %60, %49
+  br label %62
+
+; <label>:62                                      ; preds = %58, %37
+  %63 = phi float [ %61, %58 ], [ 0.000000e+00, %37 ]
+  %64 = phi float [ %54, %58 ], [ 0.000000e+00, %37 ]
+  %65 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %5, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %66 = extractvalue %dx.types.CBufRet.f32 %65, 0
+  %67 = extractvalue %dx.types.CBufRet.f32 %65, 1
+  br label %68
+
+; <label>:68                                      ; preds = %68, %62
+  %69 = phi float [ -1.000000e+00, %62 ], [ %74, %68 ]
+  %70 = phi float [ %9, %62 ], [ %73, %68 ]
+  %71 = phi float [ %8, %62 ], [ %72, %68 ]
+  %72 = fadd fast float %71, %66
+  %73 = call float @dx.op.tertiary.f32(i32 46, float %67, float -1.000000e+00, float %70)  ; FMad(a,b,c)
+  %74 = fadd fast float %69, 1.000000e+00
+  %75 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %76 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %75, float %72, float %73, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %77 = extractvalue %dx.types.ResRet.f32 %76, 0
+  %78 = extractvalue %dx.types.ResRet.f32 %76, 1
+  %79 = call float @dx.op.dot2.f32(i32 54, float %77, float %78, float 5.000000e-01, float 5.000000e-01)  ; Dot2(ax,ay,bx,by)
+  %80 = fcmp fast olt float %74, 7.000000e+00
+  %81 = fcmp fast ogt float %79, 0x3FECCCCCC0000000
+  %82 = and i1 %80, %81
+  br i1 %82, label %68, label %83
+
+; <label>:83                                      ; preds = %68
+  %84 = fadd fast float %74, %63
+  %85 = fcmp fast ogt float %84, 2.000000e+00
+  br i1 %85, label %86, label %129, !dx.controlflow.hints !27
+
+; <label>:86                                      ; preds = %83
+  %87 = fsub fast float 2.500000e-01, %63
+  %88 = fsub fast float -1.250000e+00, %69
+  %89 = call float @dx.op.tertiary.f32(i32 46, float %87, float %66, float %8)  ; FMad(a,b,c)
+  %90 = call float @dx.op.tertiary.f32(i32 46, float %63, float %67, float %9)  ; FMad(a,b,c)
+  %91 = call float @dx.op.tertiary.f32(i32 46, float %74, float %66, float %8)  ; FMad(a,b,c)
+  %92 = call float @dx.op.tertiary.f32(i32 46, float %88, float %67, float %9)  ; FMad(a,b,c)
+  %93 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %75, float %89, float %90, float undef, float undef, i32 -1, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %94 = extractvalue %dx.types.ResRet.f32 %93, 0
+  %95 = extractvalue %dx.types.ResRet.f32 %93, 1
+  %96 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %75, float %91, float %92, float undef, float undef, i32 1, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %97 = extractvalue %dx.types.ResRet.f32 %96, 0
+  %98 = extractvalue %dx.types.ResRet.f32 %96, 1
+  %99 = fmul fast float %94, 5.000000e+00
+  %100 = fmul fast float %97, 5.000000e+00
+  %101 = fadd fast float %99, -3.750000e+00
+  %102 = fadd fast float %100, -3.750000e+00
+  %103 = call float @dx.op.unary.f32(i32 6, float %101)  ; FAbs(value)
+  %104 = call float @dx.op.unary.f32(i32 6, float %102)  ; FAbs(value)
+  %105 = fmul fast float %103, %94
+  %106 = fmul fast float %104, %97
+  %107 = call float @dx.op.unary.f32(i32 26, float %105)  ; Round_ne(value)
+  %108 = call float @dx.op.unary.f32(i32 26, float %95)  ; Round_ne(value)
+  %109 = call float @dx.op.unary.f32(i32 26, float %106)  ; Round_ne(value)
+  %110 = call float @dx.op.unary.f32(i32 26, float %98)  ; Round_ne(value)
+  %111 = call float @dx.op.tertiary.f32(i32 46, float 2.000000e+00, float %108, float %107)  ; FMad(a,b,c)
+  %112 = call float @dx.op.tertiary.f32(i32 46, float 2.000000e+00, float %110, float %109)  ; FMad(a,b,c)
+  %113 = fcmp fast olt float %64, 0x3FECCCCCC0000000
+  %114 = fcmp fast olt float %79, 0x3FECCCCCC0000000
+  %115 = select i1 %113, float 0.000000e+00, float 1.000000e+00
+  %116 = select i1 %114, float 0.000000e+00, float 1.000000e+00
+  %117 = fcmp fast une float %115, 0.000000e+00
+  %118 = fcmp fast une float %116, 0.000000e+00
+  %119 = select i1 %117, float 0.000000e+00, float %111
+  %120 = select i1 %118, float 0.000000e+00, float %112
+  %121 = call float @dx.op.tertiary.f32(i32 46, float 2.000000e+01, float %119, float %63)  ; FMad(a,b,c)
+  %122 = call float @dx.op.tertiary.f32(i32 46, float 2.000000e+01, float %120, float %74)  ; FMad(a,b,c)
+  %123 = call float @dx.op.tertiary.f32(i32 46, float 0x3F799999A0000000, float %121, float 0x3F699999A0000000)  ; FMad(a,b,c)
+  %124 = call float @dx.op.tertiary.f32(i32 46, float 0x3F5D41D420000000, float %122, float 0x3F4D41D420000000)  ; FMad(a,b,c)
+  %125 = fadd fast float %123, 5.000000e-01
+  %126 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %16, %dx.types.Handle %75, float %125, float %124, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %127 = extractvalue %dx.types.ResRet.f32 %126, 0
+  %128 = extractvalue %dx.types.ResRet.f32 %126, 3
+  br label %129
+
+; <label>:129                                     ; preds = %86, %83
+  %130 = phi float [ %127, %86 ], [ 0.000000e+00, %83 ]
+  %131 = phi float [ %128, %86 ], [ 0.000000e+00, %83 ]
+  %132 = fmul fast float %66, 2.500000e-01
+  %133 = fadd fast float %132, %8
+  br label %134
+
+; <label>:134                                     ; preds = %134, %129
+  %135 = phi float [ -1.000000e+00, %129 ], [ %140, %134 ]
+  %136 = phi float [ %9, %129 ], [ %139, %134 ]
+  %137 = phi float [ %133, %129 ], [ %138, %134 ]
+  %138 = call float @dx.op.tertiary.f32(i32 46, float %66, float -1.000000e+00, float %137)  ; FMad(a,b,c)
+  %139 = call float @dx.op.tertiary.f32(i32 46, float %67, float -1.000000e+00, float %136)  ; FMad(a,b,c)
+  %140 = fadd fast float %135, 1.000000e+00
+  %141 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %142 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %141, float %138, float %139, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %143 = extractvalue %dx.types.ResRet.f32 %142, 0
+  %144 = extractvalue %dx.types.ResRet.f32 %142, 1
+  %145 = fmul fast float %143, 5.000000e+00
+  %146 = fadd fast float %145, -3.750000e+00
+  %147 = call float @dx.op.unary.f32(i32 6, float %146)  ; FAbs(value)
+  %148 = fmul fast float %143, %147
+  %149 = call float @dx.op.unary.f32(i32 26, float %148)  ; Round_ne(value)
+  %150 = call float @dx.op.unary.f32(i32 26, float %144)  ; Round_ne(value)
+  %151 = call float @dx.op.dot2.f32(i32 54, float %149, float %150, float 5.000000e-01, float 5.000000e-01)  ; Dot2(ax,ay,bx,by)
+  %152 = fcmp fast olt float %140, 7.000000e+00
+  %153 = fcmp fast ogt float %151, 0x3FECCCCCC0000000
+  %154 = and i1 %152, %153
+  br i1 %154, label %134, label %155
+
+; <label>:155                                     ; preds = %134
+  %156 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %141, float %8, float %9, float undef, float undef, i32 1, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %157 = extractvalue %dx.types.ResRet.f32 %156, 0
+  %158 = fcmp fast ogt float %157, 0.000000e+00
+  br i1 %158, label %159, label %185
+
+; <label>:159                                     ; preds = %155
+  br label %160
+
+; <label>:160                                     ; preds = %160, %159
+  %161 = phi float [ %166, %160 ], [ -1.000000e+00, %159 ]
+  %162 = phi float [ %165, %160 ], [ %9, %159 ]
+  %163 = phi float [ %164, %160 ], [ %133, %159 ]
+  %164 = fadd fast float %163, %66
+  %165 = fadd fast float %162, %67
+  %166 = fadd fast float %161, 1.000000e+00
+  %167 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %168 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %167, float %164, float %165, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %169 = extractvalue %dx.types.ResRet.f32 %168, 0
+  %170 = extractvalue %dx.types.ResRet.f32 %168, 1
+  %171 = fmul fast float %169, 5.000000e+00
+  %172 = fadd fast float %171, -3.750000e+00
+  %173 = call float @dx.op.unary.f32(i32 6, float %172)  ; FAbs(value)
+  %174 = fmul fast float %169, %173
+  %175 = call float @dx.op.unary.f32(i32 26, float %174)  ; Round_ne(value)
+  %176 = call float @dx.op.unary.f32(i32 26, float %170)  ; Round_ne(value)
+  %177 = call float @dx.op.dot2.f32(i32 54, float %175, float %176, float 5.000000e-01, float 5.000000e-01)  ; Dot2(ax,ay,bx,by)
+  %178 = fcmp fast olt float %166, 7.000000e+00
+  %179 = fcmp fast ogt float %177, 0x3FECCCCCC0000000
+  %180 = and i1 %178, %179
+  br i1 %180, label %160, label %181
+
+; <label>:181                                     ; preds = %160
+  %182 = fcmp fast ogt float %176, 0x3FECCCCCC0000000
+  %183 = uitofp i1 %182 to float
+  %184 = fadd fast float %183, %166
+  br label %185
+
+; <label>:185                                     ; preds = %181, %155
+  %186 = phi float [ %184, %181 ], [ 0.000000e+00, %155 ]
+  %187 = phi float [ %177, %181 ], [ 0.000000e+00, %155 ]
+  %188 = fadd fast float %186, %140
+  %189 = fcmp fast ogt float %188, 2.000000e+00
+  br i1 %189, label %190, label %224, !dx.controlflow.hints !28
+
+; <label>:190                                     ; preds = %185
+  %191 = fsub fast float -0.000000e+00, %140
+  %192 = call float @dx.op.tertiary.f32(i32 46, float %191, float %66, float %8)  ; FMad(a,b,c)
+  %193 = call float @dx.op.tertiary.f32(i32 46, float %191, float %67, float %9)  ; FMad(a,b,c)
+  %194 = call float @dx.op.tertiary.f32(i32 46, float %186, float %66, float %8)  ; FMad(a,b,c)
+  %195 = call float @dx.op.tertiary.f32(i32 46, float %186, float %67, float %9)  ; FMad(a,b,c)
+  %196 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %197 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %196, float %192, float %193, float undef, float undef, i32 -1, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %198 = extractvalue %dx.types.ResRet.f32 %197, 1
+  %199 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %196, float %192, float %193, float undef, float undef, i32 0, i32 -1, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %200 = extractvalue %dx.types.ResRet.f32 %199, 0
+  %201 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %196, float %194, float %195, float undef, float undef, i32 1, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %202 = extractvalue %dx.types.ResRet.f32 %201, 0
+  %203 = extractvalue %dx.types.ResRet.f32 %201, 1
+  %204 = call float @dx.op.tertiary.f32(i32 46, float 2.000000e+00, float %198, float %200)  ; FMad(a,b,c)
+  %205 = call float @dx.op.tertiary.f32(i32 46, float 2.000000e+00, float %203, float %202)  ; FMad(a,b,c)
+  %206 = fcmp fast olt float %151, 0x3FECCCCCC0000000
+  %207 = fcmp fast olt float %187, 0x3FECCCCCC0000000
+  %208 = select i1 %206, float 0.000000e+00, float 1.000000e+00
+  %209 = select i1 %207, float 0.000000e+00, float 1.000000e+00
+  %210 = fcmp fast une float %208, 0.000000e+00
+  %211 = fcmp fast une float %209, 0.000000e+00
+  %212 = select i1 %210, float 0.000000e+00, float %204
+  %213 = select i1 %211, float 0.000000e+00, float %205
+  %214 = call float @dx.op.tertiary.f32(i32 46, float 2.000000e+01, float %212, float %140)  ; FMad(a,b,c)
+  %215 = call float @dx.op.tertiary.f32(i32 46, float 2.000000e+01, float %213, float %186)  ; FMad(a,b,c)
+  %216 = call float @dx.op.tertiary.f32(i32 46, float 0x3F799999A0000000, float %214, float 0x3F699999A0000000)  ; FMad(a,b,c)
+  %217 = call float @dx.op.tertiary.f32(i32 46, float 0x3F5D41D420000000, float %215, float 0x3F4D41D420000000)  ; FMad(a,b,c)
+  %218 = fadd fast float %216, 5.000000e-01
+  %219 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %16, %dx.types.Handle %196, float %218, float %217, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %220 = extractvalue %dx.types.ResRet.f32 %219, 0
+  %221 = extractvalue %dx.types.ResRet.f32 %219, 3
+  %222 = fadd fast float %221, %130
+  %223 = fadd fast float %220, %131
+  br label %224
+
+; <label>:224                                     ; preds = %190, %185
+  %225 = phi float [ %222, %190 ], [ %130, %185 ]
+  %226 = phi float [ %223, %190 ], [ %131, %185 ]
+  %227 = fsub fast float -0.000000e+00, %226
+  %228 = fcmp fast oeq float %225, %227
+  br i1 %228, label %229, label %348, !dx.controlflow.hints !29
+
+; <label>:229                                     ; preds = %224
+  %230 = fcmp fast ogt float %20, %28
+  br i1 %230, label %231, label %250
+
+; <label>:231                                     ; preds = %229
+  br label %232
+
+; <label>:232                                     ; preds = %232, %231
+  %233 = phi float [ %243, %232 ], [ %21, %231 ]
+  %234 = phi float [ %242, %232 ], [ %20, %231 ]
+  %235 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %236 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %235, float %234, float %233, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %237 = extractvalue %dx.types.ResRet.f32 %236, 0
+  %238 = extractvalue %dx.types.ResRet.f32 %236, 1
+  %239 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %5, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %240 = extractvalue %dx.types.CBufRet.f32 %239, 0
+  %241 = extractvalue %dx.types.CBufRet.f32 %239, 1
+  %242 = call float @dx.op.tertiary.f32(i32 46, float -2.000000e+00, float %240, float %234)  ; FMad(a,b,c)
+  %243 = call float @dx.op.tertiary.f32(i32 46, float -0.000000e+00, float %241, float %233)  ; FMad(a,b,c)
+  %244 = fcmp fast ogt float %242, %28
+  %245 = fcmp fast ogt float %238, 0x3FEA7FCBA0000000
+  %246 = and i1 %245, %244
+  %247 = fcmp fast oeq float %237, 0.000000e+00
+  %248 = and i1 %247, %246
+  br i1 %248, label %232, label %249
+
+; <label>:249                                     ; preds = %232
+  br label %250
+
+; <label>:250                                     ; preds = %249, %229
+  %251 = phi float [ 1.000000e+00, %229 ], [ %238, %249 ]
+  %252 = phi float [ 0.000000e+00, %229 ], [ %237, %249 ]
+  %253 = phi float [ %20, %229 ], [ %242, %249 ]
+  %254 = call float @dx.op.tertiary.f32(i32 46, float 5.000000e-01, float %252, float 7.812500e-03)  ; FMad(a,b,c)
+  %255 = call float @dx.op.tertiary.f32(i32 46, float -2.000000e+00, float %251, float 2.031250e+00)  ; FMad(a,b,c)
+  %256 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %257 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %19, %dx.types.Handle %256, float %254, float %255, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %258 = extractvalue %dx.types.ResRet.f32 %257, 0
+  %259 = call float @dx.op.tertiary.f32(i32 46, float 0xC000102040000000, float %258, float 3.250000e+00)  ; FMad(a,b,c)
+  %260 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %5, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %261 = extractvalue %dx.types.CBufRet.f32 %260, 0
+  %262 = call float @dx.op.tertiary.f32(i32 46, float %261, float %259, float %253)  ; FMad(a,b,c)
+  %263 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %256, float %262, float %25, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %264 = extractvalue %dx.types.ResRet.f32 %263, 0
+  %265 = fcmp fast olt float %22, %29
+  br i1 %265, label %266, label %282
+
+; <label>:266                                     ; preds = %250
+  br label %267
+
+; <label>:267                                     ; preds = %267, %266
+  %268 = phi float [ %275, %267 ], [ %22, %266 ]
+  %269 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %270 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %269, float %268, float %23, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %271 = extractvalue %dx.types.ResRet.f32 %270, 0
+  %272 = extractvalue %dx.types.ResRet.f32 %270, 1
+  %273 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %5, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %274 = extractvalue %dx.types.CBufRet.f32 %273, 0
+  %275 = call float @dx.op.tertiary.f32(i32 46, float 2.000000e+00, float %274, float %268)  ; FMad(a,b,c)
+  %276 = fcmp fast olt float %275, %29
+  %277 = fcmp fast ogt float %272, 0x3FEA7FCBA0000000
+  %278 = and i1 %277, %276
+  %279 = fcmp fast oeq float %271, 0.000000e+00
+  %280 = and i1 %279, %278
+  br i1 %280, label %267, label %281
+
+; <label>:281                                     ; preds = %267
+  br label %282
+
+; <label>:282                                     ; preds = %281, %250
+  %283 = phi float [ 1.000000e+00, %250 ], [ %272, %281 ]
+  %284 = phi float [ 0.000000e+00, %250 ], [ %271, %281 ]
+  %285 = phi float [ %22, %250 ], [ %275, %281 ]
+  %286 = call float @dx.op.tertiary.f32(i32 46, float 5.000000e-01, float %284, float 5.234375e-01)  ; FMad(a,b,c)
+  %287 = call float @dx.op.tertiary.f32(i32 46, float -2.000000e+00, float %283, float 2.031250e+00)  ; FMad(a,b,c)
+  %288 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %289 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %19, %dx.types.Handle %288, float %286, float %287, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %290 = extractvalue %dx.types.ResRet.f32 %289, 0
+  %291 = call float @dx.op.tertiary.f32(i32 46, float 0xC000102040000000, float %290, float 3.250000e+00)  ; FMad(a,b,c)
+  %292 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %5, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %293 = extractvalue %dx.types.CBufRet.f32 %292, 0
+  %294 = fsub fast float -0.000000e+00, %293
+  %295 = call float @dx.op.tertiary.f32(i32 46, float %294, float %291, float %285)  ; FMad(a,b,c)
+  %296 = fsub fast float -0.000000e+00, %6
+  %297 = extractvalue %dx.types.CBufRet.f32 %292, 2
+  %298 = call float @dx.op.tertiary.f32(i32 46, float %297, float %262, float %296)  ; FMad(a,b,c)
+  %299 = call float @dx.op.tertiary.f32(i32 46, float %297, float %295, float %296)  ; FMad(a,b,c)
+  %300 = call float @dx.op.unary.f32(i32 26, float %298)  ; Round_ne(value)
+  %301 = call float @dx.op.unary.f32(i32 26, float %299)  ; Round_ne(value)
+  %302 = call float @dx.op.unary.f32(i32 6, float %300)  ; FAbs(value)
+  %303 = call float @dx.op.unary.f32(i32 6, float %301)  ; FAbs(value)
+  %304 = call float @dx.op.unary.f32(i32 24, float %302)  ; Sqrt(value)
+  %305 = call float @dx.op.unary.f32(i32 24, float %303)  ; Sqrt(value)
+  %306 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %288, float %295, float %25, float undef, float undef, i32 1, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %307 = extractvalue %dx.types.ResRet.f32 %306, 0
+  %308 = fmul fast float %264, 4.000000e+00
+  %309 = fmul fast float %307, 4.000000e+00
+  %310 = call float @dx.op.unary.f32(i32 26, float %308)  ; Round_ne(value)
+  %311 = call float @dx.op.unary.f32(i32 26, float %309)  ; Round_ne(value)
+  %312 = call float @dx.op.tertiary.f32(i32 46, float 1.600000e+01, float %310, float %304)  ; FMad(a,b,c)
+  %313 = call float @dx.op.tertiary.f32(i32 46, float 1.600000e+01, float %311, float %305)  ; FMad(a,b,c)
+  %314 = call float @dx.op.tertiary.f32(i32 46, float 0x3F799999A0000000, float %312, float 0x3F699999A0000000)  ; FMad(a,b,c)
+  %315 = call float @dx.op.tertiary.f32(i32 46, float 0x3F5D41D420000000, float %313, float 0x3F4D41D420000000)  ; FMad(a,b,c)
+  %316 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %16, %dx.types.Handle %288, float %314, float %315, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %317 = extractvalue %dx.types.ResRet.f32 %316, 0
+  %318 = extractvalue %dx.types.ResRet.f32 %316, 3
+  %319 = fcmp fast olt float %303, %302
+  %320 = fcmp fast olt float %302, %303
+  %321 = select i1 %319, float 0.000000e+00, float 1.000000e+00
+  %322 = select i1 %320, float 0.000000e+00, float 1.000000e+00
+  %323 = fmul fast float %321, 7.500000e-01
+  %324 = fmul fast float %322, 7.500000e-01
+  %325 = fadd fast float %321, %322
+  %326 = fdiv fast float %323, %325
+  %327 = fdiv fast float %324, %325
+  %328 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %288, float %262, float %9, float undef, float undef, i32 0, i32 1, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %329 = extractvalue %dx.types.ResRet.f32 %328, 0
+  %330 = fmul fast float %329, %326
+  %331 = fsub fast float 1.000000e+00, %330
+  %332 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %288, float %295, float %9, float undef, float undef, i32 1, i32 1, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %333 = extractvalue %dx.types.ResRet.f32 %332, 0
+  %334 = fmul fast float %333, %327
+  %335 = fsub fast float %331, %334
+  %336 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %288, float %262, float %9, float undef, float undef, i32 0, i32 -2, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %337 = extractvalue %dx.types.ResRet.f32 %336, 0
+  %338 = fmul fast float %337, %326
+  %339 = fsub fast float 1.000000e+00, %338
+  %340 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %288, float %295, float %9, float undef, float undef, i32 1, i32 -2, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %341 = extractvalue %dx.types.ResRet.f32 %340, 0
+  %342 = fmul fast float %341, %327
+  %343 = fsub fast float %339, %342
+  %344 = call float @dx.op.unary.f32(i32 7, float %335)  ; Saturate(value)
+  %345 = call float @dx.op.unary.f32(i32 7, float %343)  ; Saturate(value)
+  %346 = fmul fast float %344, %317
+  %347 = fmul fast float %345, %318
+  br label %348
+
+; <label>:348                                     ; preds = %282, %224, %0
+  %349 = phi float [ %346, %282 ], [ 0.000000e+00, %0 ], [ %225, %224 ]
+  %350 = phi float [ %347, %282 ], [ 0.000000e+00, %0 ], [ %226, %224 ]
+  %351 = phi float [ %34, %282 ], [ %34, %0 ], [ 0.000000e+00, %224 ]
+  %352 = fcmp fast ogt float %351, 0.000000e+00
+  br i1 %352, label %353, label %472, !dx.controlflow.hints !30
+
+; <label>:353                                     ; preds = %348
+  %354 = fcmp fast ogt float %25, %30
+  br i1 %354, label %355, label %374
+
+; <label>:355                                     ; preds = %353
+  br label %356
+
+; <label>:356                                     ; preds = %356, %355
+  %357 = phi float [ %367, %356 ], [ %25, %355 ]
+  %358 = phi float [ %366, %356 ], [ %24, %355 ]
+  %359 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %360 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %359, float %358, float %357, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %361 = extractvalue %dx.types.ResRet.f32 %360, 0
+  %362 = extractvalue %dx.types.ResRet.f32 %360, 1
+  %363 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %5, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %364 = extractvalue %dx.types.CBufRet.f32 %363, 0
+  %365 = extractvalue %dx.types.CBufRet.f32 %363, 1
+  %366 = call float @dx.op.tertiary.f32(i32 46, float -0.000000e+00, float %364, float %358)  ; FMad(a,b,c)
+  %367 = call float @dx.op.tertiary.f32(i32 46, float -2.000000e+00, float %365, float %357)  ; FMad(a,b,c)
+  %368 = fcmp fast ogt float %367, %30
+  %369 = fcmp fast ogt float %361, 0x3FEA7FCBA0000000
+  %370 = and i1 %369, %368
+  %371 = fcmp fast oeq float %362, 0.000000e+00
+  %372 = and i1 %371, %370
+  br i1 %372, label %356, label %373
+
+; <label>:373                                     ; preds = %356
+  br label %374
+
+; <label>:374                                     ; preds = %373, %353
+  %375 = phi float [ 0.000000e+00, %353 ], [ %362, %373 ]
+  %376 = phi float [ 1.000000e+00, %353 ], [ %361, %373 ]
+  %377 = phi float [ %25, %353 ], [ %367, %373 ]
+  %378 = call float @dx.op.tertiary.f32(i32 46, float 5.000000e-01, float %375, float 7.812500e-03)  ; FMad(a,b,c)
+  %379 = call float @dx.op.tertiary.f32(i32 46, float -2.000000e+00, float %376, float 2.031250e+00)  ; FMad(a,b,c)
+  %380 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %381 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %19, %dx.types.Handle %380, float %378, float %379, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %382 = extractvalue %dx.types.ResRet.f32 %381, 0
+  %383 = call float @dx.op.tertiary.f32(i32 46, float 0xC000102040000000, float %382, float 3.250000e+00)  ; FMad(a,b,c)
+  %384 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %5, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %385 = extractvalue %dx.types.CBufRet.f32 %384, 1
+  %386 = call float @dx.op.tertiary.f32(i32 46, float %385, float %383, float %377)  ; FMad(a,b,c)
+  %387 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %380, float %20, float %386, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %388 = extractvalue %dx.types.ResRet.f32 %387, 1
+  %389 = fcmp fast olt float %27, %31
+  br i1 %389, label %390, label %406
+
+; <label>:390                                     ; preds = %374
+  br label %391
+
+; <label>:391                                     ; preds = %391, %390
+  %392 = phi float [ %399, %391 ], [ %27, %390 ]
+  %393 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %394 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %393, float %26, float %392, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %395 = extractvalue %dx.types.ResRet.f32 %394, 0
+  %396 = extractvalue %dx.types.ResRet.f32 %394, 1
+  %397 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %5, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %398 = extractvalue %dx.types.CBufRet.f32 %397, 1
+  %399 = call float @dx.op.tertiary.f32(i32 46, float 2.000000e+00, float %398, float %392)  ; FMad(a,b,c)
+  %400 = fcmp fast olt float %399, %31
+  %401 = fcmp fast ogt float %395, 0x3FEA7FCBA0000000
+  %402 = and i1 %401, %400
+  %403 = fcmp fast oeq float %396, 0.000000e+00
+  %404 = and i1 %403, %402
+  br i1 %404, label %391, label %405
+
+; <label>:405                                     ; preds = %391
+  br label %406
+
+; <label>:406                                     ; preds = %405, %374
+  %407 = phi float [ %27, %374 ], [ %399, %405 ]
+  %408 = phi float [ 0.000000e+00, %374 ], [ %396, %405 ]
+  %409 = phi float [ 1.000000e+00, %374 ], [ %395, %405 ]
+  %410 = call float @dx.op.tertiary.f32(i32 46, float 5.000000e-01, float %408, float 5.234375e-01)  ; FMad(a,b,c)
+  %411 = call float @dx.op.tertiary.f32(i32 46, float -2.000000e+00, float %409, float 2.031250e+00)  ; FMad(a,b,c)
+  %412 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
+  %413 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %19, %dx.types.Handle %412, float %410, float %411, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %414 = extractvalue %dx.types.ResRet.f32 %413, 0
+  %415 = call float @dx.op.tertiary.f32(i32 46, float 0xC000102040000000, float %414, float 3.250000e+00)  ; FMad(a,b,c)
+  %416 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %5, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %417 = extractvalue %dx.types.CBufRet.f32 %416, 1
+  %418 = fsub fast float -0.000000e+00, %417
+  %419 = call float @dx.op.tertiary.f32(i32 46, float %418, float %415, float %407)  ; FMad(a,b,c)
+  %420 = fsub fast float -0.000000e+00, %7
+  %421 = extractvalue %dx.types.CBufRet.f32 %416, 3
+  %422 = call float @dx.op.tertiary.f32(i32 46, float %421, float %386, float %420)  ; FMad(a,b,c)
+  %423 = call float @dx.op.tertiary.f32(i32 46, float %421, float %419, float %420)  ; FMad(a,b,c)
+  %424 = call float @dx.op.unary.f32(i32 26, float %422)  ; Round_ne(value)
+  %425 = call float @dx.op.unary.f32(i32 26, float %423)  ; Round_ne(value)
+  %426 = call float @dx.op.unary.f32(i32 6, float %424)  ; FAbs(value)
+  %427 = call float @dx.op.unary.f32(i32 6, float %425)  ; FAbs(value)
+  %428 = call float @dx.op.unary.f32(i32 24, float %426)  ; Sqrt(value)
+  %429 = call float @dx.op.unary.f32(i32 24, float %427)  ; Sqrt(value)
+  %430 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %412, float %20, float %419, float undef, float undef, i32 0, i32 1, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %431 = extractvalue %dx.types.ResRet.f32 %430, 1
+  %432 = fmul fast float %388, 4.000000e+00
+  %433 = fmul fast float %431, 4.000000e+00
+  %434 = call float @dx.op.unary.f32(i32 26, float %432)  ; Round_ne(value)
+  %435 = call float @dx.op.unary.f32(i32 26, float %433)  ; Round_ne(value)
+  %436 = call float @dx.op.tertiary.f32(i32 46, float 1.600000e+01, float %434, float %428)  ; FMad(a,b,c)
+  %437 = call float @dx.op.tertiary.f32(i32 46, float 1.600000e+01, float %435, float %429)  ; FMad(a,b,c)
+  %438 = call float @dx.op.tertiary.f32(i32 46, float 0x3F799999A0000000, float %436, float 0x3F699999A0000000)  ; FMad(a,b,c)
+  %439 = call float @dx.op.tertiary.f32(i32 46, float 0x3F5D41D420000000, float %437, float 0x3F4D41D420000000)  ; FMad(a,b,c)
+  %440 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %16, %dx.types.Handle %412, float %438, float %439, float undef, float undef, i32 0, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %441 = extractvalue %dx.types.ResRet.f32 %440, 0
+  %442 = extractvalue %dx.types.ResRet.f32 %440, 3
+  %443 = fcmp fast olt float %427, %426
+  %444 = fcmp fast olt float %426, %427
+  %445 = select i1 %443, float 0.000000e+00, float 1.000000e+00
+  %446 = select i1 %444, float 0.000000e+00, float 1.000000e+00
+  %447 = fmul fast float %445, 7.500000e-01
+  %448 = fmul fast float %446, 7.500000e-01
+  %449 = fadd fast float %445, %446
+  %450 = fdiv fast float %447, %449
+  %451 = fdiv fast float %448, %449
+  %452 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %412, float %8, float %386, float undef, float undef, i32 1, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %453 = extractvalue %dx.types.ResRet.f32 %452, 1
+  %454 = fmul fast float %453, %450
+  %455 = fsub fast float 1.000000e+00, %454
+  %456 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %412, float %8, float %419, float undef, float undef, i32 1, i32 1, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %457 = extractvalue %dx.types.ResRet.f32 %456, 1
+  %458 = fmul fast float %457, %451
+  %459 = fsub fast float %455, %458
+  %460 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %412, float %8, float %386, float undef, float undef, i32 -2, i32 0, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %461 = extractvalue %dx.types.ResRet.f32 %460, 1
+  %462 = fmul fast float %461, %450
+  %463 = fsub fast float 1.000000e+00, %462
+  %464 = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %13, %dx.types.Handle %412, float %8, float %419, float undef, float undef, i32 -2, i32 1, i32 undef, float 0.000000e+00)  ; SampleLevel(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,LOD)
+  %465 = extractvalue %dx.types.ResRet.f32 %464, 1
+  %466 = fmul fast float %465, %451
+  %467 = fsub fast float %463, %466
+  %468 = call float @dx.op.unary.f32(i32 7, float %459)  ; Saturate(value)
+  %469 = call float @dx.op.unary.f32(i32 7, float %467)  ; Saturate(value)
+  %470 = fmul fast float %468, %441
+  %471 = fmul fast float %469, %442
+  br label %472
+
+; <label>:472                                     ; preds = %406, %348
+  %473 = phi float [ %470, %406 ], [ 0.000000e+00, %348 ]
+  %474 = phi float [ %471, %406 ], [ 0.000000e+00, %348 ]
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %349)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float %350)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float %473)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 3, float %474)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  ret void
+}
+
+; Function Attrs: nounwind readnone
+declare float @dx.op.loadInput.f32(i32, i32, i32, i8, i32) #0
+
+; Function Attrs: nounwind
+declare void @dx.op.storeOutput.f32(i32, i32, i32, i8, float) #1
+
+; Function Attrs: nounwind readnone
+declare %dx.types.Handle @dx.op.createHandleFromHeap(i32, i32, i1, i1) #0
+
+; Function Attrs: nounwind readonly
+declare %dx.types.ResRet.f32 @dx.op.sample.f32(i32, %dx.types.Handle, %dx.types.Handle, float, float, float, float, i32, i32, i32, float) #2
+
+; Function Attrs: nounwind readonly
+declare %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32, %dx.types.Handle, %dx.types.Handle, float, float, float, float, i32, i32, i32, float) #2
+
+; Function Attrs: nounwind readnone
+declare float @dx.op.unary.f32(i32, float) #0
+
+; Function Attrs: nounwind readnone
+declare float @dx.op.tertiary.f32(i32, float, float, float) #0
+
+; Function Attrs: nounwind readnone
+declare float @dx.op.dot2.f32(i32, float, float, float, float) #0
+
+; Function Attrs: nounwind readonly
+declare %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32, %dx.types.Handle, i32) #2
+
+; Function Attrs: nounwind readonly
+declare %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32(i32, %dx.types.Handle, i32) #2
+
+; Function Attrs: nounwind readnone
+declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #0
+
+; Function Attrs: nounwind readnone
+declare %dx.types.Handle @dx.op.createHandleFromBinding(i32, %dx.types.ResBind, i32, i1) #0
+
+attributes #0 = { nounwind readnone }
+attributes #1 = { nounwind }
+attributes #2 = { nounwind readonly }
+
+!llvm.ident = !{!0}
+!dx.version = !{!1}
+!dx.valver = !{!2}
+!dx.shaderModel = !{!3}
+!dx.resources = !{!4}
+!dx.viewIdState = !{!10}
+!dx.entryPoints = !{!11}
+
+!0 = !{!"dxcoob 1.8.2502.11 (239921522)"}
+!1 = !{i32 1, i32 6}
+!2 = !{i32 1, i32 8}
+!3 = !{!"ps", i32 6, i32 6}
+!4 = !{null, null, !5, !8}
+!5 = !{!6, !7}
+!6 = !{i32 0, %Uniforms* undef, !"", i32 0, i32 0, i32 1, i32 16, null}
+!7 = !{i32 1, %BindlessTextureIndices* undef, !"", i32 0, i32 1, i32 1, i32 24, null}
+!8 = !{!9}
+!9 = !{i32 0, %struct.SamplerState* undef, !"", i32 0, i32 1, i32 1, i32 0, null}
+!10 = !{[22 x i32] [i32 20, i32 4, i32 0, i32 0, i32 0, i32 0, i32 15, i32 15, i32 3, i32 12, i32 15, i32 3, i32 3, i32 3, i32 12, i32 15, i32 12, i32 12, i32 3, i32 3, i32 12, i32 12]}
+!11 = !{void ()* @main_ps, !"main_ps", !12, !4, !25}
+!12 = !{!13, !23, null}
+!13 = !{!14, !16, !18, !20}
+!14 = !{i32 0, !"SV_Position", i8 9, i8 3, !15, i8 4, i32 1, i8 4, i32 0, i8 0, null}
+!15 = !{i32 0}
+!16 = !{i32 1, !"TEXCOORD", i8 9, i8 0, !15, i8 2, i32 1, i8 2, i32 1, i8 0, !17}
+!17 = !{i32 3, i32 3}
+!18 = !{i32 2, !"TEXCOORD", i8 9, i8 0, !19, i8 2, i32 1, i8 2, i32 1, i8 2, !17}
+!19 = !{i32 1}
+!20 = !{i32 3, !"TEXCOORD", i8 9, i8 0, !21, i8 2, i32 3, i8 4, i32 2, i8 0, !22}
+!21 = !{i32 2, i32 3, i32 4}
+!22 = !{i32 3, i32 15}
+!23 = !{!24}
+!24 = !{i32 0, !"SV_Target", i8 9, i8 16, !15, i8 0, i32 1, i8 4, i32 0, i8 0, !22}
+!25 = !{i32 0, i64 1073741824}
+!26 = distinct !{!26, !"dx.controlflow.hints", i32 1}
+!27 = distinct !{!27, !"dx.controlflow.hints", i32 1}
+!28 = distinct !{!28, !"dx.controlflow.hints", i32 1}
+!29 = distinct !{!29, !"dx.controlflow.hints", i32 1}
+!30 = distinct !{!30, !"dx.controlflow.hints", i32 1}
+

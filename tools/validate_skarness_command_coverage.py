@@ -19,6 +19,8 @@ from skarness import SkarnessConnection
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_SCENE = REPO / "SkullbonezData" / "scenes" / "interaction_replay_prediction_harness.scene.json"
 EXPECTED_COMMANDS = {
+    # Dedicated native grass and Physics dock suites exercise these commands.
+    "scene.object.set_position", "scene.object.set_visible", "grass.enable_fixture", "grass.sample", "render.set_parameter", "camera.set_pose", "editor.set_enabled",
     "editor.set_terrain_brush", "scene.save", "scene.create",
     "capabilities.get", "session.stop", "capture.screenshot", "scene.load", "scene.reset", "scene.load_demo",
     "scene.object.list", "scene.object.resolve", "scene.object.select", "scene.object.clear_selection", "run.pause",
@@ -40,7 +42,8 @@ EXPECTED_COMMANDS = {
     "input.set_prediction_key", "physics.speculative_validation",
     # UI migration routes are exercised by the native unified UI control suites.
     "input.file_dialog_response", "input.pointer_position", "window.resize", "input.set_focus", "input.set_key",
-    "ui.animation_clock",
+    # Native capture/maximize/close behavior is covered by validate_native_window.py.
+    "window.set_maximized", "window.close", "ui.animation_clock",
     "comparison.setting", "comparison.step", "comparison.mode", "comparison.state", "comparison.seek",
     "comparison.select", "comparison.camera", "comparison.event", "comparison.focus", "comparison.finding.load",
     "comparison.loop", "comparison.next_difference", "comparison.finding.save", "comparison.close",

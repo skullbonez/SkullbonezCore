@@ -1,0 +1,217 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 5,
+  "name": "convex_quality_flat_topple",
+  "simulation": {
+    "seed": 62929,
+    "physics": true,
+    "text": false,
+    "timeScale": 1,
+    "world": {
+      "gravity": -32,
+      "fluidHeight": -1000,
+      "fluidDensity": 0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 2400,
+    "fixedStep": true,
+    "exitOnComplete": false
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "cameras": [
+    {
+      "name": "diagnostic_overview",
+      "position": [
+        510,
+        170,
+        760
+      ],
+      "view": [
+        510,
+        5,
+        512
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fovDegrees": 58
+    }
+  ],
+  "objects": [
+    {
+      "type": "convexHull",
+      "name": "pyramid_balance",
+      "position": [
+        340,
+        3.03,
+        550
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        180
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_pyramid_ordinary.hull",
+      "sceneObjectId": 1
+    },
+    {
+      "type": "convexHull",
+      "name": "pyramid_topple",
+      "position": [
+        340,
+        3.0258886042637214,
+        480
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        183
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_pyramid_ordinary.hull",
+      "sceneObjectId": 2
+    },
+    {
+      "type": "convexHull",
+      "name": "box_hull_balance",
+      "position": [
+        435,
+        2.85842712474619,
+        550
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        45
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_box_hull_ordinary.hull",
+      "sceneObjectId": 3
+    },
+    {
+      "type": "convexHull",
+      "name": "box_hull_topple",
+      "position": [
+        435,
+        2.8545508636725048,
+        480
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        48
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_box_hull_ordinary.hull",
+      "sceneObjectId": 4
+    },
+    {
+      "type": "box",
+      "name": "primitive_box_balance",
+      "position": [
+        530,
+        2.85842712474619,
+        550
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        45
+      ],
+      "halfExtents": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "sceneObjectId": 5
+    },
+    {
+      "type": "box",
+      "name": "primitive_box_topple",
+      "position": [
+        530,
+        2.8545508636725048,
+        480
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        48
+      ],
+      "halfExtents": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "sceneObjectId": 6
+    },
+    {
+      "type": "convexHull",
+      "name": "wedge_balance",
+      "position": [
+        625,
+        2.269355598420747,
+        550
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        35
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_wedge_ordinary.hull",
+      "sceneObjectId": 7
+    },
+    {
+      "type": "convexHull",
+      "name": "wedge_topple",
+      "position": [
+        625,
+        2.3120039554602787,
+        480
+      ],
+      "mass": 12.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        38
+      ],
+      "hull": "SkullbonezData/hulls/convex_quality_wedge_ordinary.hull",
+      "sceneObjectId": 8
+    }
+  ]
+}

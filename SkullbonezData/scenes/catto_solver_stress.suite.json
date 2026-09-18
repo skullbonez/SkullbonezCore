@@ -1,0 +1,7 @@
+{
+  "format": "skullbonez.suite.json",
+  "version": 1,
+  "scenes": [
+    "SkullbonezData/scenes/catto_pyramid_100.scene.json"
+  ]
+}

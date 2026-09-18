@@ -134,7 +134,7 @@ PhysicsBodyCreateDesc MakeSceneBodyDesc( Physics::PhysicsSceneObjectId sceneObje
                                          const Quaternion& orientation,
                                          const Vector3& linearVelocity,
                                          const Vector3& angularVelocity,
-                                         const Vector3& rotationalInertia,
+                                         const Math::Transformation::SymmetricMatrix3& rotationalInertia,
                                          float mass,
                                          float restitution,
                                          bool fixed,
@@ -795,7 +795,7 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( Skullbone
             return hullLoad;
         }
 
-        const Vector3 inertia = hull.ComputeBoxApproxInertia( hullScene.mass );
+        const auto inertia = hull.ComputeInertia( hullScene.mass );
         const Vector3 authoredPosition( hullScene.posX, hullScene.posY, hullScene.posZ );
 
         SceneEntityCreateDesc entity;

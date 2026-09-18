@@ -95,6 +95,8 @@ struct ContinuousPredictionBodySeed
     float inverseMass = 0.0f;
     Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 inverseRotationalInertia = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rotationalInertiaProducts = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 inverseRotationalInertiaProducts = Math::Vector::ZERO_VECTOR;
     bool fixed = false;
 };
 
@@ -105,9 +107,7 @@ class ContinuousPredictionTickObserver
 {
   public:
     virtual ~ContinuousPredictionTickObserver() = default;
-    virtual void ObserveCompleteContinuousPredictionTick( const Physics::PhysicsBodyStore& bodies,
-                                                          std::span<const Physics::PersistentContact> contacts,
-                                                          std::uint64_t absoluteTick ) noexcept = 0;
+    virtual void ObserveCompleteContinuousPredictionTick( const Physics::PhysicsBodyStore& bodies, std::span<const Physics::PersistentContact> contacts, std::uint64_t absoluteTick ) noexcept = 0;
     virtual void ObserveInvalidContinuousPredictionPublication( std::uint64_t absoluteTick ) noexcept = 0;
 };
 
@@ -136,22 +136,22 @@ class ContinuousPredictionWorkerTask
 class ContinuousPredictionProducer
 {
   public:
-    explicit ContinuousPredictionProducer( Core::Profiler* profiler = nullptr ) noexcept : m_profiler( profiler )
-    {
-    }
+    explicit ContinuousPredictionProducer( Core::Profiler* profiler = nullptr ) noexcept;
     ~ContinuousPredictionProducer();
     ContinuousPredictionProducer( const ContinuousPredictionProducer& ) = delete;
     ContinuousPredictionProducer& operator=( const ContinuousPredictionProducer& ) = delete;
 
-    bool Begin( const Physics::PhysicsEngine& liveEngine, const Gameplay::TornadoGameplay& liveTornado,
-                const Core::EngineConfig& config, const Physics::PhysicsWorldForces& worldForces,
-                Threading::WorkerPool& workerPool, std::size_t rowCapacity = ContinuousPredictionWindowRowCapacity(),
+    bool Begin( const Physics::PhysicsEngine& liveEngine,
+                const Gameplay::TornadoGameplay& liveTornado,
+                const Core::EngineConfig& config,
+                const Physics::PhysicsWorldForces& worldForces,
+                Threading::WorkerPool& workerPool,
+                std::size_t rowCapacity = ContinuousPredictionWindowRowCapacity(),
                 ContinuousPredictionTickObserver* tickObserver = nullptr );
 
     // The frame-side budget is independent from the worker-local slice clock,
     // matching bounded PREDICT's ratified dual-check semantics.
-    bool AdvanceFrame( const std::chrono::steady_clock::time_point& frameBudgetStart,
-                       double frameBudgetMilliseconds = CONTINUOUS_PREDICTION_WORKER_BUDGET_MILLISECONDS ) noexcept;
+    bool AdvanceFrame( const std::chrono::steady_clock::time_point& frameBudgetStart, double frameBudgetMilliseconds = CONTINUOUS_PREDICTION_WORKER_BUDGET_MILLISECONDS ) noexcept;
 
     void Stop() noexcept;
     ContinuousPredictionProducerView View() const noexcept;
@@ -160,8 +160,7 @@ class ContinuousPredictionProducer
     friend class ContinuousPredictionWorkerTask;
 
     bool CaptureSeed( const Physics::PhysicsEngine& liveEngine );
-    bool SeedPrivateEngine( const Physics::PhysicsEngine& liveEngine, const Core::EngineConfig& config,
-                            const Physics::PhysicsWorldForces& worldForces );
+    bool SeedPrivateEngine( const Physics::PhysicsEngine& liveEngine, const Core::EngineConfig& config, const Physics::PhysicsWorldForces& worldForces );
     bool CapturePositionRow( std::uint64_t absoluteTick ) noexcept;
     void RunWorkerSlice( Threading::WorkerPool& workerPool ) noexcept;
     void MarkFailed() noexcept;

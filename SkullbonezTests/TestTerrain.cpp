@@ -209,14 +209,12 @@ TEST_CASE( "Terrain editor: malformed saved maps preserve the current terrain" )
     EngineConfig config;
     auto terrain = std::make_unique<Terrain>( 30.0f, 0.0f, 0.0f, config );
     Terrain* const original = terrain.get();
-    const char* invalidMaps[] = {
-        "SKULLBONEZ_HEIGHTMAP 1\n2 1 1\n0 0 0",
-        "SKULLBONEZ_HEIGHTMAP 1\n513 1 1\n",
-        "SKULLBONEZ_HEIGHTMAP 1\n2 1e-30 1\n0 0 0 0",
-        "SKULLBONEZ_HEIGHTMAP 1\n2 0 1\n0 0 0 0",
-        "SKULLBONEZ_HEIGHTMAP 1\n2 1 1\n0 0 nan 0",
-        "SKULLBONEZ_HEIGHTMAP 1\n2 1 1\n0 0 0 0 extra",
-    };
+    const char* invalidMaps[] = { "SKULLBONEZ_HEIGHTMAP 1\n2 1 1\n0 0 0",
+                                  "SKULLBONEZ_HEIGHTMAP 1\n513 1 1\n",
+                                  "SKULLBONEZ_HEIGHTMAP 1\n2 1e-30 1\n0 0 0 0",
+                                  "SKULLBONEZ_HEIGHTMAP 1\n2 0 1\n0 0 0 0",
+                                  "SKULLBONEZ_HEIGHTMAP 1\n2 1 1\n0 0 nan 0",
+                                  "SKULLBONEZ_HEIGHTMAP 1\n2 1 1\n0 0 0 0 extra", };
     constexpr const char* path = "TestOutput/terrain_invalid.heightmap";
     for ( const char* invalid : invalidMaps )
     {
@@ -287,20 +285,7 @@ TEST_CASE( "Terrain: exact-minimum height map publishes one checked quad" )
     const std::vector<float> vertexData = terrain->BuildRenderVertexData();
     REQUIRE( vertexData.size() == 48u );
 
-    constexpr float kExpectedTextureCoordinates[] = {
-        0.0f,
-        0.0f,
-        3.0f,
-        0.0f,
-        0.0f,
-        3.0f,
-        0.0f,
-        3.0f,
-        3.0f,
-        0.0f,
-        3.0f,
-        3.0f,
-    };
+    constexpr float kExpectedTextureCoordinates[] = { 0.0f, 0.0f, 3.0f, 0.0f, 0.0f, 3.0f, 0.0f, 3.0f, 3.0f, 0.0f, 3.0f, 3.0f, };
     for ( size_t vertexIndex = 0; vertexIndex < 6u; ++vertexIndex )
     {
         CHECK( vertexData[vertexIndex * 8u + 6u] == kExpectedTextureCoordinates[vertexIndex * 2u] );
@@ -453,10 +438,7 @@ TEST_CASE( "Terrain: rotated local collider offsets own sweep and manifold geome
     const Vector3 localOffset( 4.0f, 0.0f, 0.0f );
     const Vector3 desiredCenter( 20.0f, 1.0f, 20.0f );
     const Vector3 bodyPosition = desiredCenter - rotation * localOffset;
-    const CollisionShape shapes[] = {
-        BoundingSphere( 1.0f, localOffset ),
-        BoundingBox( Vector3( 1.0f, 1.0f, 1.0f ), localOffset ),
-    };
+    const CollisionShape shapes[] = { BoundingSphere( 1.0f, localOffset ), BoundingBox( Vector3( 1.0f, 1.0f, 1.0f ), localOffset ), };
 
     for ( int shapeIndex = 0; shapeIndex < 2; ++shapeIndex )
     {
@@ -538,11 +520,7 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     }
 
     const std::array<uint8_t, 3> sleepState = { 0u, 0u, 1u };
-    const std::array<uint8_t, 3> discreteState = {
-        SkullbonezCore::Physics::PhysicsMotionEligibilityNone,
-        SkullbonezCore::Physics::PhysicsMotionEligibilityNone,
-        SkullbonezCore::Physics::PhysicsMotionEligibilityNone,
-    };
+    const std::array<uint8_t, 3> discreteState = { SkullbonezCore::Physics::PhysicsMotionEligibilityNone, SkullbonezCore::Physics::PhysicsMotionEligibilityNone, SkullbonezCore::Physics::PhysicsMotionEligibilityNone, };
     const std::array<float, 3> timeRemaining = { 0.5f, 0.5f, 0.5f };
     const std::array<SkullbonezCore::Physics::BuoyancyBodyFacts, 3> buoyancyFacts;
     SkullbonezCore::Physics::PhysicsExecutionSettings execution;
@@ -566,11 +544,7 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     CHECK( candidates[1].tested == 0u );
     CHECK( candidates[2].tested == 0u );
 
-    const std::array<uint8_t, 3> promotedState = {
-        SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted,
-        SkullbonezCore::Physics::PhysicsMotionEligibilityNone,
-        SkullbonezCore::Physics::PhysicsMotionEligibilityNone,
-    };
+    const std::array<uint8_t, 3> promotedState = { SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted, SkullbonezCore::Physics::PhysicsMotionEligibilityNone, SkullbonezCore::Physics::PhysicsMotionEligibilityNone, };
     stage.Detect( bodies, colliders, buoyancyFacts, terrain.PhysicsView(), physicsSettings, sleepState, promotedState, timeRemaining, awakeBodyIndices, execution, inlinePool );
 
     const auto promotedCandidates = stage.GetDetectionCandidates();
@@ -586,11 +560,7 @@ TEST_CASE( "Coverage floor contract: terrain sweep and manifold support every co
     Terrain terrain( 0.0f, 0.0f, 0.0f, config );
     SkullbonezCore::Math::CollisionDetection::ConvexHullShape hull;
     REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/pyramid.hull", hull ) );
-    const CollisionShape shapes[] = {
-        SphereShape( 1.0f ),
-        BoxShape( Vector3( 1.0f, 1.0f, 1.0f ) ),
-        hull,
-    };
+    const CollisionShape shapes[] = { SphereShape( 1.0f ), BoxShape( Vector3( 1.0f, 1.0f, 1.0f ) ), hull, };
 
     const float centerHeights[] = { 4.0f, 4.0f, 5.0f };
 
@@ -636,4 +606,60 @@ TEST_CASE( "Coverage floor contract: terrain sweep and manifold support every co
     CHECK( restingManifold.supportsRestingPolicy );
     CHECK( restingManifold.allowsTangentFriction );
     CHECK_FALSE( restingManifold.inhibitsSleep );
+}
+
+TEST_CASE( "Terrain: touching hull edges and tips keep friction while sleep is inhibited" )
+{
+    EngineConfig config;
+    const char* paths[] = { "SkullbonezData/hulls/convex_quality_box_hull_ordinary.hull", "SkullbonezData/hulls/convex_quality_pyramid_ordinary.hull" };
+    const float angles[] = { 0.785398163f, 3.141592654f };
+    for ( int shapeIndex = 0; shapeIndex < 2; ++shapeIndex )
+    {
+        SkullbonezCore::Math::CollisionDetection::ConvexHullShape hull;
+        REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, paths[shapeIndex], hull ) );
+        for ( float slope : { 0.0f, 0.087488664f } )
+        {
+            Terrain terrain( 0.0f, slope, 0.0f, config );
+            TerrainContactBodyView body;
+            body.orientation.RotateAboutAxis( Vector3( 0, 0, 1 ), angles[shapeIndex] );
+            const auto rotation = body.orientation.GetOrientationMatrix();
+            float height = -std::numeric_limits<float>::max();
+            for ( uint16_t vertex = 0; vertex < hull.GetVertexCount(); ++vertex )
+            {
+                const Vector3 point = rotation * hull.GetVertex( vertex );
+                height = (std::max)( height, slope * ( 20.0f + point.x ) - point.y );
+            }
+            body.position = Vector3( 20.0f, height, 20.0f );
+            body.linearVelocity = Vector3( 0.0f, -1.0f, 6.0f );
+            body.terrain = terrain.PhysicsView();
+            body.boundingRadius = hull.GetBoundingRadius();
+            body.contactEpsilon = 0.001f;
+            body.terrainContactThreshold = 0.02f;
+            body.restitutionThreshold = 2.0f;
+            TerrainContactSweepResult sweep;
+            sweep.hit = true;
+            sweep.collidedPlane.m_normal = Vector3( -slope, 1.0f, 0.0f ) * ( 1.0f / sqrtf( 1.0f + slope * slope ) );
+            TerrainContactManifold manifold;
+            REQUIRE( BuildTerrainContactManifold( body, CollisionShape( hull ), shapeIndex, sweep, 1.0f / 120.0f, manifold ) );
+            REQUIRE( manifold.pointCount > 0 );
+            CHECK_FALSE( manifold.supportsRestingPolicy );
+            CHECK( manifold.inhibitsSleep );
+            CHECK( manifold.allowsTangentFriction );
+        }
+    }
+}
+
+TEST_CASE( "Terrain: content identity survives copies and invalidates after editing" )
+{
+    SkullbonezCore::Core::EngineConfig config;
+    SkullbonezCore::Geometry::Terrain original( 0, .1f, 0, config ), same( 0, .1f, 0, config ), different( 0, .2f, 0, config );
+    const auto before = original.ContentFingerprint();
+    CHECK( before != 0 );
+    CHECK( before == same.ContentFingerprint() );
+    CHECK( before != different.ContentFingerprint() );
+    original.PrepareEditing();
+    CHECK( before == original.ContentFingerprint() );
+    REQUIRE( original.Sculpt( SkullbonezCore::Math::Vector::Vector3( 500, 50, 500 ), 40, 2 ) );
+    CHECK( before != original.ContentFingerprint() );
+    CHECK( original.ContentFingerprint() == original.ContentFingerprint() );
 }

@@ -5,7 +5,7 @@ Purpose:
 
 Summary:
   Gameplay selects the visual clock from value-only live/replay candidates,
-  expands active vortices into ribbons and dust, and registers one synchronous
+  expands active vortices into condensation and dust, and registers one synchronous
   pass through Rendering's content-neutral world-extension seam.
 
 Glossary:
@@ -64,6 +64,15 @@ struct TornadoVisualTimeCandidates
     bool liveAdvanceHeld = false;
 };
 
+// A coherent observation of the last completed visual pass, including its
+// selected live/replay clock. This does not expose or advance Physics state.
+struct TornadoVisualSnapshot
+{
+    double seconds = 0.0;
+    uint32_t activeVortices = 0;
+    uint32_t vertices = 0;
+};
+
 class TornadoVisualPass
 {
   public:
@@ -75,10 +84,10 @@ class TornadoVisualPass
     void SetEnabled( bool enabled );
     bool AutoEnableWithTornado() const;
     uint64_t DynamicMemoryBytes() const;
+    TornadoVisualSnapshot Snapshot() const;
 
-    Rendering::WorldRenderExtensionRegistration PrepareFrame( const TornadoFieldConfig& field,
-                                                              const TornadoSystemConfig& system, double systemElapsedSeconds,
-                                                              const TornadoVisualTimeCandidates& time );
+    Rendering::WorldRenderExtensionRegistration
+    PrepareFrame( const TornadoFieldConfig& field, const TornadoSystemConfig& system, double systemElapsedSeconds, const TornadoVisualTimeCandidates& time );
     void ReleaseResources();
 
   private:
@@ -90,9 +99,7 @@ class TornadoVisualPass
     static constexpr int MAX_VISUAL_DUST_SEGMENTS = 56;
     static constexpr std::size_t VISUAL_FLOATS_PER_VERTEX = 11u;
     static constexpr std::size_t MAX_VISUAL_VERTEX_COUNT = MAX_TORNADO_ACTIVE_FORCE_FIELDS *
-                                                           ( MAX_VISUAL_RIBBONS * MAX_VISUAL_RIBBON_SEGMENTS * 6 +
-                                                             MAX_VISUAL_DUST_BANDS * MAX_VISUAL_DUST_SEGMENTS * 6 +
-                                                             MAX_VISUAL_PARTICLES * 6 );
+                                                           ( MAX_VISUAL_RIBBONS * MAX_VISUAL_RIBBON_SEGMENTS * 6 + MAX_VISUAL_DUST_BANDS * MAX_VISUAL_DUST_SEGMENTS * 6 + MAX_VISUAL_PARTICLES * 6 );
     static constexpr std::size_t MAX_VISUAL_FLOAT_CAPACITY = MAX_VISUAL_VERTEX_COUNT * VISUAL_FLOATS_PER_VERTEX;
 
     struct FrameSnapshot
@@ -117,11 +124,8 @@ class TornadoVisualPass
     void EnsureTransientCapacity();
     double ResolveVisualTime();
     void BuildActiveVisualVortices( double time );
-    void AppendRibbonGeometry( const TornadoActiveVortex& activeVortex, double time,
-                               const Rendering::WorldRenderExtensionFrameView& frame, int ribbonCount, int ribbonSegments,
-                               float shellAlpha );
-    void AppendDustGeometry( const TornadoActiveVortex& activeVortex, double time,
-                             const Rendering::WorldRenderExtensionFrameView& frame, int particleCount, float dustAlpha );
+    void AppendFunnelGeometry( const TornadoActiveVortex& activeVortex, double time, const Rendering::WorldRenderExtensionFrameView& frame, int ribbonCount, int ribbonSegments, float shellAlpha );
+    void AppendDustGeometry( const TornadoActiveVortex& activeVortex, double time, const Rendering::WorldRenderExtensionFrameView& frame, int particleCount, float dustAlpha );
     bool Render( const Rendering::WorldRenderExtensionFrameView& frame );
 
     TornadoVisualSettings m_settings;
@@ -131,5 +135,6 @@ class TornadoVisualPass
     float m_liveVisualTimeSeconds = 0.0f;
     double m_lastLiveVisualSourceSeconds = 0.0;
     bool m_hasLiveVisualTime = false;
+    TornadoVisualSnapshot m_snapshot;
 };
 } // namespace SkullbonezCore::Gameplay

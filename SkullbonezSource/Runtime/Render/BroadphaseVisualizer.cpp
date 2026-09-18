@@ -52,10 +52,7 @@ using SkullbonezCore::Math::Transformation::Matrix4;
 
 namespace
 {
-constexpr PassRasterStateBucket BROADPHASE_LINE_RASTER = MakePassRasterStateBucket( 0, { false, false, true,
-                                                                                         BlendFactor::SrcAlpha,
-                                                                                         BlendFactor::OneMinusSrcAlpha,
-                                                                                         CullMode::None } );
+constexpr PassRasterStateBucket BROADPHASE_LINE_RASTER = MakePassRasterStateBucket( 0, { false, false, true, BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha, CullMode::None } );
 }
 
 
@@ -253,8 +250,7 @@ void BroadphaseVisualizer::EmitCubeWireframe( int ix, int iy, int iz, float r, f
 }
 
 
-void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseActiveCell> activeCells,
-                                   std::span<const int64_t> collisionKeys )
+void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseActiveCell> activeCells, std::span<const int64_t> collisionKeys )
 {
     if ( !m_enabled )
     {
@@ -404,6 +400,20 @@ void BroadphaseVisualizer::Render( const Matrix4& viewProj, Dx12GeometryOwner& r
 
     for ( int i = 0; i < m_cellCount; ++i )
     {
+        if ( m_selectedOnly )
+        {
+            if ( !m_hasSelection )
+            {
+                continue;
+            }
+            const auto& cell = m_cells[i];
+            const float x = static_cast<float>( cell.ix ) * m_cellSize, y = static_cast<float>( cell.iy ) * m_cellSize, z = static_cast<float>( cell.iz ) * m_cellSize;
+            if ( x > m_selectionCenter.x + m_selectionRadius || x + m_cellSize < m_selectionCenter.x - m_selectionRadius || y > m_selectionCenter.y + m_selectionRadius ||
+                 y + m_cellSize < m_selectionCenter.y - m_selectionRadius || z > m_selectionCenter.z + m_selectionRadius || z + m_cellSize < m_selectionCenter.z - m_selectionRadius )
+            {
+                continue;
+            }
+        }
         float r, g, b;
         ComputeCellColor( m_cells[i], r, g, b );
         EmitCubeWireframe( m_cells[i].ix, m_cells[i].iy, m_cells[i].iz, r, g, b );

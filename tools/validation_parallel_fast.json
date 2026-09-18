@@ -102,6 +102,17 @@
       ]
     },
     {
+      "id": "catto-scenes",
+      "name": "Catto scene fixture integrity",
+      "steps": [
+        {
+          "id": "check",
+          "name": "Catto source counts, geometry and joint references",
+          "argv": ["${PYTHON}", "${TOOLS}\\validate_catto_solver_scenes.py", "--check"]
+        }
+      ]
+    },
+    {
       "id": "staged-size",
       "name": "Staged file sizes",
       "steps": [

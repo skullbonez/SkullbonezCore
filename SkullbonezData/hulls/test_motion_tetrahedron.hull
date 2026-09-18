@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name test_motion_tetrahedron
 source_hash 0x8325e67574120b63
 
@@ -21,7 +21,8 @@ default_density 0.9
 default_mass 1.2
 bounding_radius 1.6583124
 inertia_half_extents 1 1 1
-unit_inertia 0.666666667 0.666666667 0.666666667
+unit_inertia 0.3 0.3 0.3
+unit_inertia_products 0.05 0.05 0.05
 projected_surface_area 4
 
 # Baked centered vertices.

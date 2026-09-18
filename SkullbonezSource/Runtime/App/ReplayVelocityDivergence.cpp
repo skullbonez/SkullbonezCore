@@ -131,7 +131,9 @@ bool RestorePredictionSeed( Physics::PhysicsEngine& physics, const ReplayPredict
                                                          body.mass,
                                                          body.inverseMass,
                                                          body.rotationalInertia,
-                                                         body.inverseRotationalInertia };
+                                                         body.inverseRotationalInertia,
+                                                         body.rotationalInertiaProducts,
+                                                         body.inverseRotationalInertiaProducts };
         if ( !physics.RestoreReplayBodyState( restore ) )
         {
             return false;

@@ -30,6 +30,7 @@ Related:
 
 #include <algorithm>
 #include <cstdint>
+#include <cmath>
 
 namespace SkullbonezCore
 {
@@ -56,8 +57,7 @@ void StepDiagnosticsPhysicsPipelineStage( OverlayDebugState& debug, int directio
 }
 
 
-DiagnosticsPhysicsOverlayUICommandResult ApplyDiagnosticsPhysicsOverlayUICommands( OverlayDebugState& debug,
-                                                                                   const UI::UIPhysicsCommands& commands )
+DiagnosticsPhysicsOverlayUICommandResult ApplyDiagnosticsPhysicsOverlayUICommands( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands )
 {
     // Why: UI names presentation layers, while Runtime owns the only mapping to
     // Physics flags and the overlay state consumed by the concrete visualizer.
@@ -84,6 +84,36 @@ DiagnosticsPhysicsOverlayUICommandResult ApplyDiagnosticsPhysicsOverlayUICommand
         break;
     case UI::UIPhysicsDebugOverlay::Pipeline:
         physicsDebugFlag = Physics::PHYSICS_DEBUG_PIPELINE;
+        break;
+    case UI::UIPhysicsDebugOverlay::Normals:
+        physicsDebugFlag = Physics::PHYSICS_DEBUG_NORMALS;
+        break;
+    case UI::UIPhysicsDebugOverlay::NormalImpulses:
+        physicsDebugFlag = Physics::PHYSICS_DEBUG_NORMAL_IMPULSES;
+        break;
+    case UI::UIPhysicsDebugOverlay::FrictionImpulses:
+        physicsDebugFlag = Physics::PHYSICS_DEBUG_FRICTION_IMPULSES;
+        break;
+    case UI::UIPhysicsDebugOverlay::CenterOfMass:
+        physicsDebugFlag = Physics::PHYSICS_DEBUG_COM;
+        break;
+    case UI::UIPhysicsDebugOverlay::BodyAabbs:
+        physicsDebugFlag = Physics::PHYSICS_DEBUG_AABBS;
+        break;
+    case UI::UIPhysicsDebugOverlay::Joints:
+        physicsDebugFlag = Physics::PHYSICS_DEBUG_JOINTS;
+        break;
+    case UI::UIPhysicsDebugOverlay::JointError:
+        physicsDebugFlag = Physics::PHYSICS_DEBUG_JOINT_ERROR;
+        break;
+    case UI::UIPhysicsDebugOverlay::Motion:
+        physicsDebugFlag = Physics::PHYSICS_DEBUG_MOTION;
+        break;
+    case UI::UIPhysicsDebugOverlay::SelectedOnly:
+        physicsDebugFlag = Physics::PHYSICS_DEBUG_SELECTED_ONLY;
+        break;
+    case UI::UIPhysicsDebugOverlay::Shapes:
+        physicsDebugFlag = Physics::PHYSICS_DEBUG_SHAPES;
         break;
     case UI::UIPhysicsDebugOverlay::None:
         break;
@@ -135,24 +165,27 @@ bool ApplyDiagnosticsTerrainContactProbeUICommand( OverlayDebugState& debug, con
 }
 
 
-DiagnosticsPhysicsDebugValueUICommandResult
-ApplyDiagnosticsPhysicsDebugValueUICommands( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands )
+DiagnosticsPhysicsDebugValueUICommandResult ApplyDiagnosticsPhysicsDebugValueUICommands( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands )
 {
     DiagnosticsPhysicsDebugValueUICommandResult result;
 
+    if ( std::isfinite( commands.requestedImpulseScale ) && commands.requestedImpulseScale >= 0 )
+    {
+        debug.physicsImpulseScale = std::clamp( commands.requestedImpulseScale, .001f, 2.0f );
+    }
+    if ( std::isfinite( commands.requestedImpulseThreshold ) && commands.requestedImpulseThreshold >= 0 )
+    {
+        debug.physicsImpulseThreshold = std::clamp( commands.requestedImpulseThreshold, 0.0f, 100.0f );
+    }
     if ( commands.requestedPhysicsDebugAlpha >= 0.0f )
     {
-        debug.physicsDebugAlpha = std::clamp( commands.requestedPhysicsDebugAlpha,
-                                              UI::OperatorControlPolicy::UI_PHYSICS_ALPHA_MIN,
-                                              UI::OperatorControlPolicy::UI_PHYSICS_ALPHA_MAX );
+        debug.physicsDebugAlpha = std::clamp( commands.requestedPhysicsDebugAlpha, UI::OperatorControlPolicy::UI_PHYSICS_ALPHA_MIN, UI::OperatorControlPolicy::UI_PHYSICS_ALPHA_MAX );
         result.setAlpha = true;
     }
 
     if ( commands.requestedPhysicsDebugContactLinger >= 0.0f )
     {
-        debug.physicsDebugContactLinger = std::clamp( commands.requestedPhysicsDebugContactLinger,
-                                                      UI::OperatorControlPolicy::UI_CONTACT_LINGER_MIN,
-                                                      UI::OperatorControlPolicy::UI_CONTACT_LINGER_MAX );
+        debug.physicsDebugContactLinger = std::clamp( commands.requestedPhysicsDebugContactLinger, UI::OperatorControlPolicy::UI_CONTACT_LINGER_MIN, UI::OperatorControlPolicy::UI_CONTACT_LINGER_MAX );
         result.setContactLinger = true;
     }
 
@@ -163,7 +196,20 @@ ApplyDiagnosticsPhysicsDebugValueUICommands( OverlayDebugState& debug, const UI:
 UI::UIPhysicsDebugStatus BuildDiagnosticsPhysicsUIStatus( const OverlayDebugState& debug )
 {
     UI::UIPhysicsDebugStatus status;
+    status.impulseScale = debug.physicsImpulseScale;
+    status.impulseThreshold = debug.physicsImpulseThreshold;
     status.activeFlags = debug.physicsDebugFlags;
+    status.additionalLayers[0] = ( debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_NORMALS ) != 0;
+    status.additionalLayers[1] = ( debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_NORMAL_IMPULSES ) != 0;
+    status.additionalLayers[2] = ( debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_FRICTION_IMPULSES ) != 0;
+    status.additionalLayers[3] = ( debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_COM ) != 0;
+    status.additionalLayers[4] = ( debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_AABBS ) != 0;
+    status.additionalLayers[5] = ( debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_JOINTS ) != 0;
+    status.additionalLayers[6] = ( debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_JOINT_ERROR ) != 0;
+    status.additionalLayers[7] = ( debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_MOTION ) != 0;
+    status.additionalLayers[8] = ( debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_SELECTED_ONLY ) != 0;
+    status.additionalLayers[9] = ( debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_SHAPES ) != 0;
+
     status.axes = ( debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_AXES ) != 0u;
     status.contacts = ( debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_CONTACTS ) != 0u;
     status.sleep = ( debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_SLEEP ) != 0u;

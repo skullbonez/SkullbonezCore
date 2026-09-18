@@ -218,8 +218,7 @@ void OperatorCommandTransaction::ApplyDeviceAndMode( RuntimeRenderer& renderer, 
         m_acceptance.toggledVsync = true;
     }
 
-    if ( m_commands.run.requestedCameraMode >= 0 &&
-         m_commands.run.requestedCameraMode < static_cast<int>( RunCameraMode::Count ) )
+    if ( m_commands.run.requestedCameraMode >= 0 && m_commands.run.requestedCameraMode < static_cast<int>( RunCameraMode::Count ) )
     {
         m_acceptance.cameraModeAccepted = true;
         m_acceptance.cameraModeIndex = m_commands.run.requestedCameraMode;
@@ -313,10 +312,12 @@ void OperatorCommandTransaction::ApplyPhysicsControl( SceneWorld& world )
     }
 }
 
-void OperatorCommandTransaction::ApplyRuntimePresentation( OverlayDebugState& debug, SceneSessionState& scene,
+void OperatorCommandTransaction::ApplyRuntimePresentation( OverlayDebugState& debug,
+                                                           SceneSessionState& scene,
                                                            SkullbonezCore::Core::EngineConfig& config,
                                                            RunLaunchOptions& launchOptions,
-                                                           RenderDefaultsStore& renderDefaults, bool graphicsReady,
+                                                           RenderDefaultsStore& renderDefaults,
+                                                           bool graphicsReady,
                                                            double simulationSeconds )
 {
     AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::RuntimePresentation, "ApplyRuntimePresentation" );
@@ -364,6 +365,28 @@ void OperatorCommandTransaction::ApplyRuntimePresentation( OverlayDebugState& de
     {
         debug.isWaterFlatDebug = !debug.isWaterFlatDebug;
         m_acceptance.toggledWaterFlat = true;
+    }
+
+    if ( sceneOptions.requestGravityFieldHeight )
+    {
+        debug.gravityField.height = std::clamp( sceneOptions.gravityFieldHeight, -1000.0f, 1000.0f );
+    }
+    if ( sceneOptions.requestedGravityFieldOpacity >= 0 )
+    {
+        debug.gravityField.opacity = std::clamp( sceneOptions.requestedGravityFieldOpacity, 0.0f, 1.0f );
+    }
+    if ( sceneOptions.requestedGravityFieldColor >= 0 )
+    {
+        debug.gravityField.color = std::clamp( sceneOptions.requestedGravityFieldColor, 0, 2 );
+    }
+
+    if ( sceneOptions.toggleGravityFieldSnap )
+    {
+        debug.gravityField.snapBalls = !debug.gravityField.snapBalls;
+    }
+    if ( sceneOptions.toggleGravityGrid )
+    {
+        debug.isGravityGridVisible = !debug.isGravityGridVisible;
     }
 
     if ( sceneOptions.toggleShadows )
@@ -448,9 +471,7 @@ void OperatorCommandTransaction::ApplySimulationPolicy( SceneSessionState& scene
     if ( m_commands.profiler.requestedWorkerThreads >= -1 )
     {
         const int requested = m_commands.profiler.requestedWorkerThreads;
-        const int clamped = requested < 0
-                                ? -1
-                                : std::clamp( requested, 0, SkullbonezCore::Threading::WorkerPool::MaxThreadCount() );
+        const int clamped = requested < 0 ? -1 : std::clamp( requested, 0, SkullbonezCore::Threading::WorkerPool::MaxThreadCount() );
 
         const int resolved = SkullbonezCore::Threading::WorkerPool::ResolveThreadCount( clamped );
         config.runtimeCapacity.workerThreads = clamped;
@@ -472,10 +493,10 @@ void OperatorCommandTransaction::ApplyPhysicsMaterial( SkullbonezCore::Core::Eng
 
     if ( commands.requestTerrainFrictionCoeff )
     {
-        config.physicsMaterial.frictionCoeff = OperatorCommandBoundaryPolicy::
-            NormalizeFloat( commands.requestedTerrainFrictionCoeff, UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
-                            UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX,
-                            UI::OperatorControlPolicy::UI_FRICTION_COEFF_STEP );
+        config.physicsMaterial.frictionCoeff = OperatorCommandBoundaryPolicy::NormalizeFloat( commands.requestedTerrainFrictionCoeff,
+                                                                                              UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
+                                                                                              UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX,
+                                                                                              UI::OperatorControlPolicy::UI_FRICTION_COEFF_STEP );
 
         runtimePhysicsConfigChanged = true;
         ++m_acceptance.frictionApplySettingsActionCount;
@@ -483,10 +504,10 @@ void OperatorCommandTransaction::ApplyPhysicsMaterial( SkullbonezCore::Core::Eng
 
     if ( commands.requestObjectFrictionCoeff )
     {
-        config.physicsMaterial.objectFrictionCoeff = OperatorCommandBoundaryPolicy::
-            NormalizeFloat( commands.requestedObjectFrictionCoeff, UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
-                            UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX,
-                            UI::OperatorControlPolicy::UI_FRICTION_COEFF_STEP );
+        config.physicsMaterial.objectFrictionCoeff = OperatorCommandBoundaryPolicy::NormalizeFloat( commands.requestedObjectFrictionCoeff,
+                                                                                                    UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
+                                                                                                    UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX,
+                                                                                                    UI::OperatorControlPolicy::UI_FRICTION_COEFF_STEP );
 
         runtimePhysicsConfigChanged = true;
         ++m_acceptance.frictionApplySettingsActionCount;
@@ -494,10 +515,10 @@ void OperatorCommandTransaction::ApplyPhysicsMaterial( SkullbonezCore::Core::Eng
 
     if ( commands.requestRollingFrictionCoeff )
     {
-        config.physicsMaterial.rollingFrictionCoeff = OperatorCommandBoundaryPolicy::
-            NormalizeFloat( commands.requestedRollingFrictionCoeff, UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MIN,
-                            UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MAX,
-                            UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_STEP );
+        config.physicsMaterial.rollingFrictionCoeff = OperatorCommandBoundaryPolicy::NormalizeFloat( commands.requestedRollingFrictionCoeff,
+                                                                                                     UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MIN,
+                                                                                                     UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MAX,
+                                                                                                     UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_STEP );
 
         runtimePhysicsConfigChanged = true;
         ++m_acceptance.frictionApplySettingsActionCount;
@@ -520,21 +541,17 @@ void OperatorCommandTransaction::ApplyWorldPolicy( WorldEnvironment& world )
     }
 
     const float gravity = commands.requestWorldGravity ? commands.requestedWorldGravity : world.GetGravity();
-    const float fluidHeight = commands.requestWorldFluidHeight ? commands.requestedWorldFluidHeight
-                                                               : world.GetFluidSurfaceHeight();
+    const float fluidHeight = commands.requestWorldFluidHeight ? commands.requestedWorldFluidHeight : world.GetFluidSurfaceHeight();
 
-    const float fluidDensity = commands.requestWorldFluidDensity ? commands.requestedWorldFluidDensity
-                                                                 : world.GetFluidDensity();
+    const float fluidDensity = commands.requestWorldFluidDensity ? commands.requestedWorldFluidDensity : world.GetFluidDensity();
 
-    m_acceptance
-        .worldOverride = world.ApplyOverride( OperatorCommandBoundaryPolicy::NormalizeWorldGravity( gravity ),
-                                              OperatorCommandBoundaryPolicy::NormalizeWorldFluidHeight( fluidHeight ),
-                                              OperatorCommandBoundaryPolicy::NormalizeWorldFluidDensity( fluidDensity ) );
+    m_acceptance.worldOverride = world.ApplyOverride( OperatorCommandBoundaryPolicy::NormalizeWorldGravity( gravity ), OperatorCommandBoundaryPolicy::NormalizeWorldFluidHeight( fluidHeight ), OperatorCommandBoundaryPolicy::NormalizeWorldFluidDensity( fluidDensity ) );
 
     m_acceptance.worldOverrideAccepted = true;
 }
 
-void OperatorCommandTransaction::ApplyCinematicPolicy( RunLaunchOptions& launchOptions, SceneController& sceneController,
+void OperatorCommandTransaction::ApplyCinematicPolicy( RunLaunchOptions& launchOptions,
+                                                       SceneController& sceneController,
                                                        UI::RunSceneBrowserState& sceneBrowser,
                                                        const Assets::AssetSystem& assets,
                                                        SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
@@ -547,8 +564,7 @@ void OperatorCommandTransaction::ApplyCinematicPolicy( RunLaunchOptions& launchO
 
     if ( commands.toggleRendering )
     {
-        const bool currentlyEnabled = launchOptions.hasCinematicRenderingOverride ? launchOptions.cinematicRendering
-                                                                                  : activeCinematic.enabled;
+        const bool currentlyEnabled = launchOptions.hasCinematicRenderingOverride ? launchOptions.cinematicRendering : activeCinematic.enabled;
 
         activeCinematic.enabled = !currentlyEnabled;
         launchOptions.hasCinematicRenderingOverride = false;
@@ -572,8 +588,7 @@ void OperatorCommandTransaction::ApplyCinematicPolicy( RunLaunchOptions& launchO
 
     if ( commands.requestedModeSceneIndex >= -1 )
     {
-        (void)sceneController.ApplyCinematicBrowserStyle( launchOptions, sceneBrowser, assets, activeCinematic,
-                                                          defaultCinematic, commands.requestedModeSceneIndex );
+        (void)sceneController.ApplyCinematicBrowserStyle( launchOptions, sceneBrowser, assets, activeCinematic, defaultCinematic, commands.requestedModeSceneIndex );
         m_acceptance.selectedCinematicMode = true;
     }
 
@@ -595,8 +610,7 @@ void OperatorCommandTransaction::ApplyCinematicPolicy( RunLaunchOptions& launchO
     }
 }
 
-void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,
-                            UICinematicParam param, float rawValue )
+void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene, UICinematicParam param, float rawValue )
 {
     // The catalog row is the shared presentation and validation vocabulary;
     // this App boundary owns only application to concrete config fields.
@@ -878,8 +892,7 @@ void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinemat
     }
 }
 
-void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,
-                                       bool enabled )
+void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene, bool enabled )
 {
     // Why: shadow maps are configured next to the cinematic controls because the
     // original implementation grew from that renderer work, but the depth pass
@@ -891,8 +904,7 @@ void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConf
     scene.uiCinematicOverrideMask |= SCENE_CINE_SHADOWS;
 }
 
-void OperatorCommandTransaction::ApplyOrdinaryRenderParam( SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
-                                                           UIRenderParam param, float rawValue )
+void OperatorCommandTransaction::ApplyOrdinaryRenderParam( SkullbonezCore::Core::OrdinaryRenderConfig& ordinary, UIRenderParam param, float rawValue )
 {
     const float boundedValue = OperatorCommandBoundaryPolicy::NormalizeOrdinaryRenderParameter( param, rawValue );
 
@@ -1012,13 +1024,31 @@ void OperatorCommandTransaction::ApplyOrdinaryRenderParam( SkullbonezCore::Core:
     case UIRenderParam::TrajectorySelectedEmphasis:
         ordinary.replayTrajectory.selectedEmphasis = boundedValue;
         break;
+    case UIRenderParam::GrassQuality:
+        ordinary.grass.quality = boundedValue;
+        break;
+    case UIRenderParam::GrassDensity:
+        ordinary.grass.density = boundedValue;
+        break;
+    case UIRenderParam::GrassDistance:
+        ordinary.grass.distance = boundedValue;
+        break;
+    case UIRenderParam::GrassHeight:
+        ordinary.grass.height = boundedValue;
+        break;
+    case UIRenderParam::GrassBend:
+        ordinary.grass.bend = boundedValue;
+        break;
+    case UIRenderParam::GrassRecovery:
+        ordinary.grass.recoverySeconds = boundedValue;
+        break;
+
     default:
         break;
     }
 }
 
-void ToggleCinematicUIFeature( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,
-                               UICinematicFeature feature )
+void ToggleCinematicUIFeature( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene, UICinematicFeature feature )
 {
     // Concept: feature toggles are boolean pass switches: sky on/off, bloom on/off, etc.
     // Each toggle also marks the matching override bit for scene persistence.

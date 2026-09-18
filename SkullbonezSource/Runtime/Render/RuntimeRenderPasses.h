@@ -77,6 +77,7 @@ namespace Runtime
 class BroadphaseVisualizer;
 class CollisionVisualizer;
 class PhysicsDebugVisualizer;
+struct PhysicsContactLabel;
 struct SkyPassTestAccess;
 struct UiTextPassTestAccess;
 } // namespace Runtime
@@ -279,6 +280,7 @@ struct TerrainPassInputs
     const Rendering::ShadowFrameData* detailShadow;
     const float* clipPlane = nullptr; // Borrowed from PrimitiveBatchRenderer for this terrain draw.
     bool terrainHidden;               // Frame snapshot of the debug/scene visibility flag.
+    bool proceduralTurf = false;      // Ground colour stays coherent when blade LOD fades out.
 };
 
 struct ReflectionPassInputs
@@ -491,6 +493,8 @@ struct DebugOverlaySnapshot
     // The pass may draw multiple overlay families, but it should not reopen
     // broad runtime debug/tool/replay state while drawing them.
     bool broadphaseOverlayVisible = false;
+    std::span<const float> gravityGridLines;
+    float gravityGridOpacity = 1.0f;
     std::span<const float> worldExtensionDebugLines; // position.xyz + color.rgb line vertices.
     bool editorOverlayWorkVisible = false;
     std::span<const RenderToolOverlayView::LauncherShot> launcherShots;
@@ -515,6 +519,7 @@ struct DebugOverlayPassInputs
     const ReplayVisualPacket& replayVisualPacket;
     const Rendering::RetainedGeometryPacket& retainedOverlay;
     const Rendering::ContactManifoldPresentation& contactPresentation;
+    bool precisionReplayLines = false;
 };
 
 struct ShadowPassInputs
@@ -537,6 +542,8 @@ struct ShadowPassInputs
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic;
     bool terrainHidden;              // Frame snapshot of debug/scene terrain visibility.
     bool collisionVisualizerVisible; // Collision-color mode disables object shadow casters.
+    Rendering::Dx12GeometryOwner* surfaceGeometry = nullptr;
+    std::span<const float> surfacePatches; // Same rooted deformation records as the visible surface.
 };
 
 struct ShadowPassOutput
@@ -708,17 +715,11 @@ class ShadowPass
                                                      const Math::Vector::Vector3& lightDirectionWorld,
                                                      const Math::Vector::Vector3& focusHint,
                                                      Rendering::RenderInstanceRenderer& instanceRenderer );
-    void RenderShadowMap( Rendering::FramebufferDX12& target,
-                          Rendering::RenderInstanceRenderer& instanceRenderer,
-                          Rendering::Dx12Diagnostics& renderDiagnostics,
-                          const char* shadowShaderBaseName,
+    void RenderShadowMap( const ShadowPassInputs& inputs,
+                          Rendering::FramebufferDX12& target,
                           const Rendering::ShadowFrameData& shadowFrame,
-                          const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                          Rendering::Dx12FrameOwner& renderFrame,
-                          Rendering::Dx12TextureOwner& renderTextures,
                           bool renderTerrain,
-                          const Rendering::ShadowCasterBatches& objectCasters,
-                          Geometry::Terrain* terrain );
+                          const Rendering::ShadowCasterBatches& objectCasters );
 
     ShadowPassResources& m_resources;
     const SkullbonezCore::Core::EngineConfig& m_config;
@@ -927,6 +928,25 @@ Concept: TonemapPass
     final post shader contract: scene color, scene depth, optional
     volumetric light, and cinematic grading uniforms.
 */
+// Owns the immutable SMAA shaders/LUTs for one device epoch. The render graph
+// owns intermediate targets; this pass never retains frame-local bindings.
+class SmaaPass
+{
+  public:
+    explicit SmaaPass( FullscreenPassResources& fullscreen );
+    void EnsureGpuResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& resources, Rendering::Dx12TextureOwner& textures );
+    void ReleaseGpuResources( Rendering::Dx12TextureOwner& textures );
+    bool Ready() const;
+    void Render( int stage, uint32_t input, uint32_t weights, Rendering::Dx12GeometryOwner& geometry, Rendering::Dx12TextureOwner& textures, Rendering::Dx12FrameOwner& frame, int width, int height );
+
+  private:
+    FullscreenPassResources& m_fullscreen;
+    std::array<std::unique_ptr<Rendering::ShaderDX12>, 3> m_shaders;
+    uint32_t m_area = 0;
+    uint32_t m_search = 0;
+    bool m_disabled = false;
+};
+
 class TonemapPass
 {
   public:
@@ -952,7 +972,8 @@ class TonemapPass
                  Rendering::RenderGpuTimingOwner* gpuTiming,
                  bool sceneAlreadyUnbound,
                  bool volumetricReady,
-                 const Rendering::RenderGraphTextureBinding* graphVolumetric = nullptr );
+                 const Rendering::RenderGraphTextureBinding* graphVolumetric = nullptr,
+                 bool textureOutput = false );
 
   private:
     CinematicScenePassResources& m_sceneResources;
@@ -1023,6 +1044,7 @@ class UiTextPass
                                Rendering::Dx12TextureOwner& renderTextures,
                                Rendering::Dx12GeometryOwner& renderGeometry,
                                Rendering::Dx12Diagnostics& renderDiagnostics );
+    const UI::UIDrawList& BuildContactLabels( std::span<const PhysicsContactLabel> labels, const Math::Transformation::Matrix4& viewProjection, const UiTextViewport& viewport );
     void SubmitDrawList( const UI::UIDrawList& drawList,
                          const UiTextViewport& viewport,
                          Rendering::Dx12TextureOwner& renderTextures,
@@ -1079,6 +1101,7 @@ class UiTextPass
     UI::UIDrawList m_testPatternDrawList;
     UI::UIDrawList m_badgeDrawList;
     UI::UIDrawList m_profilerDrawList;
+    UI::UIDrawList m_contactLabelDrawList;
     UI::UIDrawList::Stats m_detachedDrawStats;
 
     // Lifetime: backend resource release closes profile reads before the pass's

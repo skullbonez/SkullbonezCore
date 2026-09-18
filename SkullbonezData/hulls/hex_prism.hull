@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name hex_prism
 source_hash 0x5b74184907a234f7
 
@@ -33,7 +33,8 @@ default_density 0.9
 default_mass 673.92
 bounding_radius 7.21387552
 inertia_half_extents 6 4 5.2
-unit_inertia 14.3466667 21.0133333 17.3333333
+unit_inertia 12.8444444 15.0111111 12.8333333
+unit_inertia_products -3.79563427e-17 -1.51825371e-16 0
 projected_surface_area 101.333333
 
 # Baked centered vertices.

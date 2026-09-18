@@ -1,0 +1,243 @@
+;
+; Input signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; SV_Position              0   xyzw        0      POS   float       
+; TEXCOORD                 0   xyz         1     NONE   float   xyz 
+; TEXCOORD                 1   xyzw        2     NONE   float   xyzw
+; COLOR                    0   xyzw        3     NONE   float   xyzw
+;
+;
+; Output signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; SV_Target                0   xyzw        0   TARGET   float   xyzw
+;
+; shader hash: 1012e00a03b94603bd1b5464ad2e70e4
+;
+; Pipeline Runtime Information: 
+;
+;PSVRuntimeInfo:
+; Pixel Shader
+; DepthOutput=0
+; SampleFrequency=0
+; MinimumExpectedWaveLaneCount: 0
+; MaximumExpectedWaveLaneCount: 4294967295
+; UsesViewID: false
+; SigInputElements: 4
+; SigOutputElements: 1
+; SigPatchConstOrPrimElements: 0
+; SigInputVectors: 4
+; SigOutputVectors[0]: 1
+; SigOutputVectors[1]: 0
+; SigOutputVectors[2]: 0
+; SigOutputVectors[3]: 0
+; EntryFunctionName: main_ps
+;
+;
+; Input signature:
+;
+; Name                 Index             InterpMode DynIdx
+; -------------------- ----- ---------------------- ------
+; SV_Position              0          noperspective       
+; TEXCOORD                 0                 linear       
+; TEXCOORD                 1                 linear       
+; COLOR                    0                 linear       
+;
+; Output signature:
+;
+; Name                 Index             InterpMode DynIdx
+; -------------------- ----- ---------------------- ------
+; SV_Target                0                              
+;
+; Buffer Definitions:
+;
+;
+; Resource Bindings:
+;
+; Name                                 Type  Format         Dim      ID      HLSL Bind  Count
+; ------------------------------ ---------- ------- ----------- ------- -------------- ------
+;
+;
+; ViewId state:
+;
+; Number of inputs: 16, outputs: 4
+; Outputs dependent on ViewId: {  }
+; Inputs contributing to computation of Outputs:
+;   output 0 depends on inputs: { 4, 6, 8, 9, 10, 11, 12 }
+;   output 1 depends on inputs: { 4, 6, 8, 9, 10, 11, 13 }
+;   output 2 depends on inputs: { 4, 6, 8, 9, 10, 11, 14 }
+;   output 3 depends on inputs: { 4, 5, 6, 8, 9, 10, 11, 15 }
+;
+target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
+target triple = "dxil-ms-dx"
+
+define void @main_ps() {
+  %1 = call float @dx.op.loadInput.f32(i32 4, i32 3, i32 0, i8 0, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %2 = call float @dx.op.loadInput.f32(i32 4, i32 3, i32 0, i8 1, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %3 = call float @dx.op.loadInput.f32(i32 4, i32 3, i32 0, i8 2, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %4 = call float @dx.op.loadInput.f32(i32 4, i32 3, i32 0, i8 3, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %5 = call float @dx.op.loadInput.f32(i32 4, i32 2, i32 0, i8 2, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %6 = call float @dx.op.loadInput.f32(i32 4, i32 2, i32 0, i8 3, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %7 = fcmp fast ogt float %5, 5.000000e-01
+  br i1 %7, label %8, label %106
+
+; <label>:8                                       ; preds = %0
+  %9 = call float @dx.op.loadInput.f32(i32 4, i32 1, i32 0, i8 2, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %10 = call float @dx.op.loadInput.f32(i32 4, i32 1, i32 0, i8 1, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %11 = call float @dx.op.loadInput.f32(i32 4, i32 1, i32 0, i8 0, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %12 = call float @dx.op.loadInput.f32(i32 4, i32 2, i32 0, i8 1, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %13 = call float @dx.op.loadInput.f32(i32 4, i32 2, i32 0, i8 0, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %14 = call float @dx.op.unary.f32(i32 7, float %13)  ; Saturate(value)
+  %15 = call float @dx.op.unary.f32(i32 7, float %12)  ; Saturate(value)
+  %16 = fmul fast float %11, 0x3FB2B020C0000000
+  %17 = fmul fast float %9, 0x3FB2B020C0000000
+  %18 = fmul fast float %6, 0x3F9374BC60000000
+  %19 = fadd fast float %16, %18
+  %20 = fadd fast float %17, %18
+  %21 = fmul fast float %14, 2.000000e+00
+  %22 = fmul fast float %15, 2.000000e+00
+  %23 = fadd fast float %21, -1.000000e+00
+  %24 = fadd fast float %22, -1.000000e+00
+  %25 = call float @dx.op.dot2.f32(i32 54, float %23, float %24, float %23, float %24)  ; Dot2(ax,ay,bx,by)
+  %26 = fadd fast float %25, 0xBFBEB851E0000000
+  %27 = fmul fast float %26, 0x3FF22E8BA0000000
+  %28 = call float @dx.op.unary.f32(i32 7, float %27)  ; Saturate(value)
+  %29 = fmul fast float %28, 2.000000e+00
+  %30 = fsub fast float 3.000000e+00, %29
+  %31 = fmul fast float %28, %28
+  %32 = fmul fast float %31, %30
+  %33 = fmul fast float %14, 0x402B666660000000
+  %34 = fmul fast float %15, 0x402B666660000000
+  %35 = fadd fast float %33, %19
+  %36 = fadd fast float %34, %20
+  %37 = call float @dx.op.dot2.f32(i32 54, float %35, float %36, float 0x4029FAC720000000, float 0x40538EE980000000)  ; Dot2(ax,ay,bx,by)
+  %38 = call float @dx.op.unary.f32(i32 13, float %37)  ; Sin(value)
+  %39 = fmul fast float %38, 0x40E55DD180000000
+  %40 = call float @dx.op.unary.f32(i32 22, float %39)  ; Frc(value)
+  %41 = fmul fast float %19, 0x3FDA3D70A0000000
+  %42 = fmul fast float %20, 0x3FDA3D70A0000000
+  %43 = fmul fast float %14, 5.000000e+00
+  %44 = fmul fast float %15, 5.000000e+00
+  %45 = call float @dx.op.unary.f32(i32 27, float %43)  ; Round_ni(value)
+  %46 = call float @dx.op.unary.f32(i32 27, float %44)  ; Round_ni(value)
+  %47 = fadd fast float %45, %41
+  %48 = fadd fast float %46, %42
+  %49 = call float @dx.op.dot2.f32(i32 54, float %47, float %48, float 0x4029FAC720000000, float 0x40538EE980000000)  ; Dot2(ax,ay,bx,by)
+  %50 = call float @dx.op.unary.f32(i32 13, float %49)  ; Sin(value)
+  %51 = fmul fast float %50, 0x40E55DD180000000
+  %52 = call float @dx.op.unary.f32(i32 22, float %51)  ; Frc(value)
+  %53 = fadd fast float %40, -5.000000e-01
+  %54 = fmul fast float %53, 0x3FD47AE140000000
+  %55 = fsub fast float 0x3FED70A3E0000000, %32
+  %56 = fadd fast float %55, %54
+  %57 = fmul fast float %56, 0x3FF2640BC0000000
+  %58 = call float @dx.op.unary.f32(i32 7, float %57)  ; Saturate(value)
+  %59 = fmul fast float %58, 2.000000e+00
+  %60 = fsub fast float 3.000000e+00, %59
+  %61 = fmul fast float %40, 0x3FE3D70A40000000
+  %62 = fmul fast float %52, 0x3FD851EB80000000
+  %63 = fadd fast float %61, 0xBFD5C28F60000000
+  %64 = fadd fast float %63, %62
+  %65 = fmul fast float %64, 0x3FFB961180000000
+  %66 = call float @dx.op.unary.f32(i32 7, float %65)  ; Saturate(value)
+  %67 = fmul fast float %66, 2.000000e+00
+  %68 = fsub fast float 3.000000e+00, %67
+  %69 = fmul fast float %40, 0x3FD47AE140000000
+  %70 = fadd fast float %69, 5.000000e-01
+  %71 = fmul fast float %52, 0x3FCEB851E0000000
+  %72 = fadd fast float %70, %71
+  %73 = call float @dx.op.unary.f32(i32 7, float %72)  ; Saturate(value)
+  %74 = fmul fast float %66, %66
+  %75 = fmul fast float %74, 0x3FE4CCCCC0000000
+  %76 = fmul fast float %75, %68
+  %77 = fadd fast float %76, 0x3FD6666660000000
+  %78 = fsub fast float -2.000000e+00, %6
+  %79 = fadd fast float %78, %10
+  %80 = fmul fast float %79, 0x3FB99999A0000000
+  %81 = call float @dx.op.unary.f32(i32 7, float %80)  ; Saturate(value)
+  %82 = fmul fast float %81, 2.000000e+00
+  %83 = fsub fast float 3.000000e+00, %82
+  %84 = fmul fast float %14, 3.100000e+01
+  %85 = fmul fast float %15, 3.100000e+01
+  %86 = fadd fast float %84, %19
+  %87 = fadd fast float %85, %20
+  %88 = call float @dx.op.dot2.f32(i32 54, float %86, float %87, float 0x4029FAC720000000, float 0x40538EE980000000)  ; Dot2(ax,ay,bx,by)
+  %89 = call float @dx.op.unary.f32(i32 13, float %88)  ; Sin(value)
+  %90 = fmul fast float %89, 0x40E55DD180000000
+  %91 = call float @dx.op.unary.f32(i32 22, float %90)  ; Frc(value)
+  %92 = fmul fast float %91, 0x3FDC28F580000000
+  %93 = fadd fast float %92, 0x3FE70A3D80000000
+  %94 = fmul fast float %93, %1
+  %95 = fmul fast float %93, %2
+  %96 = fmul fast float %93, %3
+  %97 = fmul float %58, %81
+  %98 = fmul float %97, %97
+  %99 = fmul fast float %60, %4
+  %100 = fmul fast float %99, %73
+  %101 = fmul fast float %100, %83
+  %102 = fmul fast float %101, %98
+  %103 = fmul fast float %102, %77
+  %104 = fadd fast float %103, 0xBF60624DE0000000
+  %105 = fcmp fast olt float %104, 0.000000e+00
+  call void @dx.op.discard(i32 82, i1 %105)  ; Discard(condition)
+  br label %106
+
+; <label>:106                                     ; preds = %8, %0
+  %107 = phi float [ %94, %8 ], [ %1, %0 ]
+  %108 = phi float [ %95, %8 ], [ %2, %0 ]
+  %109 = phi float [ %96, %8 ], [ %3, %0 ]
+  %110 = phi float [ %103, %8 ], [ %4, %0 ]
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %107)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float %108)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float %109)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 3, float %110)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  ret void
+}
+
+; Function Attrs: nounwind readnone
+declare float @dx.op.loadInput.f32(i32, i32, i32, i8, i32) #0
+
+; Function Attrs: nounwind
+declare void @dx.op.storeOutput.f32(i32, i32, i32, i8, float) #1
+
+; Function Attrs: nounwind readnone
+declare float @dx.op.unary.f32(i32, float) #0
+
+; Function Attrs: nounwind
+declare void @dx.op.discard(i32, i1) #1
+
+; Function Attrs: nounwind readnone
+declare float @dx.op.dot2.f32(i32, float, float, float, float) #0
+
+attributes #0 = { nounwind readnone }
+attributes #1 = { nounwind }
+
+!llvm.ident = !{!0}
+!dx.version = !{!1}
+!dx.valver = !{!2}
+!dx.shaderModel = !{!3}
+!dx.viewIdState = !{!4}
+!dx.entryPoints = !{!5}
+
+!0 = !{!"dxcoob 1.8.2502.11 (239921522)"}
+!1 = !{i32 1, i32 6}
+!2 = !{i32 1, i32 8}
+!3 = !{!"ps", i32 6, i32 6}
+!4 = !{[18 x i32] [i32 16, i32 4, i32 0, i32 0, i32 0, i32 0, i32 15, i32 8, i32 15, i32 0, i32 15, i32 15, i32 15, i32 15, i32 1, i32 2, i32 4, i32 8]}
+!5 = !{void ()* @main_ps, !"main_ps", !6, null, null}
+!6 = !{!7, !16, null}
+!7 = !{!8, !10, !12, !15}
+!8 = !{i32 0, !"SV_Position", i8 9, i8 3, !9, i8 4, i32 1, i8 4, i32 0, i8 0, null}
+!9 = !{i32 0}
+!10 = !{i32 1, !"TEXCOORD", i8 9, i8 0, !9, i8 2, i32 1, i8 3, i32 1, i8 0, !11}
+!11 = !{i32 3, i32 7}
+!12 = !{i32 2, !"TEXCOORD", i8 9, i8 0, !13, i8 2, i32 1, i8 4, i32 2, i8 0, !14}
+!13 = !{i32 1}
+!14 = !{i32 3, i32 15}
+!15 = !{i32 3, !"COLOR", i8 9, i8 0, !9, i8 2, i32 1, i8 4, i32 3, i8 0, !14}
+!16 = !{!17}
+!17 = !{i32 0, !"SV_Target", i8 9, i8 16, !9, i8 0, i32 1, i8 4, i32 0, i8 0, !14}
+

@@ -81,6 +81,9 @@
     <ClCompile Include="SkullbonezSource\Physics\ObjectContactManifold.cpp">
       <Filter>Source Files\Collision</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PersistentContactGeometry.cpp">
+      <Filter>Source Files\Solver</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp">
       <Filter>Source Files\Solver</Filter>
     </ClCompile>
@@ -199,6 +202,12 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\ObjectContactManifold.h">
       <Filter>Header Files\Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PersistentContactGeometry.h">
+      <Filter>Header Files\Solver</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\ContactSupportGeometry.h">
+      <Filter>Header Files\Solver</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h">
       <Filter>Header Files\Solver</Filter>

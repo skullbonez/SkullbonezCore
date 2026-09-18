@@ -519,6 +519,14 @@ void EditorTracer::EmitBoxTo( std::vector<float>& lineData, const Vector3& cente
     {
         EmitLineTo( lineData, corners[edge[0]], corners[edge[1]], r, g, bl );
     }
+
+    // Concept: coincident endpoints encode an explicit point primitive in the
+    // existing line stream. Plain lines discard these; Precision renders a
+    // screen-sized light. Emit once per true box corner, never per ring sample.
+    for ( const Vector3& corner : corners )
+    {
+        EmitLineTo( lineData, corner, corner, r, g, bl );
+    }
 }
 
 
@@ -538,7 +546,7 @@ bool EditorTracer::CanEmitShapeOutlineTo( const std::vector<float>& lineData, co
     }
     else if ( GetShapeIf<BoundingBox>( &shape ) )
     {
-        segmentCount = 12u;
+        segmentCount = 12u + 8u;
     }
     else if ( const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &shape ) )
     {

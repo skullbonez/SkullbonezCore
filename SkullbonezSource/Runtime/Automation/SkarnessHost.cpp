@@ -338,7 +338,8 @@ CommandParseStatus ParseBasicCommand( const std::string& name, const Json& argum
     {
         const char* argument;
     };
-    static constexpr std::array booleanCommands = { BooleanCommand { { "editor.set_terrain_brush", SkarnessCommandType::EditorSetTerrainBrush }, "enabled" },
+    static constexpr std::array booleanCommands = { BooleanCommand { { "editor.set_enabled", SkarnessCommandType::EditorSetEnabled }, "enabled" },
+                                                    BooleanCommand { { "editor.set_terrain_brush", SkarnessCommandType::EditorSetTerrainBrush }, "enabled" },
                                                     BooleanCommand { { "replay.set_recording_enabled", SkarnessCommandType::ReplaySetRecordingEnabled }, "enabled" },
                                                     BooleanCommand { { "replay.set_playback_paused", SkarnessCommandType::ReplaySetPlaybackPaused }, "paused" },
                                                     BooleanCommand { { "replay.set_prediction_enabled", SkarnessCommandType::ReplaySetPredictionEnabled }, "enabled" },
@@ -501,6 +502,19 @@ CommandParseStatus ParseValueCommand( const std::string& name, const Json& argum
         return ReadSceneIdentity( arguments, command ) ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
     }
 
+    if ( name == "scene.object.set_visible" )
+    {
+        command.type = SkarnessCommandType::SceneObjectSetVisible;
+        return ReadSceneIdentity( arguments, command ) && ReadBoolean( arguments, "visible", command.enabled ) ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "scene.object.set_position" )
+    {
+        command.type = SkarnessCommandType::SceneObjectSetPosition;
+        const bool valid = ReadSceneIdentity( arguments, command ) && ReadVector3( arguments, "position", command.number, command.secondNumber, command.thirdNumber ) &&
+                           std::abs( command.number ) <= 1000000 && std::abs( command.secondNumber ) <= 1000000 && std::abs( command.thirdNumber ) <= 1000000;
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
     if ( name == "scene.object.select" )
     {
         command.type = SkarnessCommandType::SceneObjectSelect;
@@ -634,6 +648,33 @@ CommandParseStatus ParsePlanningCommand( const std::string& name, const Json& ar
                            ReadUnsignedIntegerIncludingZero( arguments, "bankEpoch", command.fourthUnsignedInteger ) &&
                            ReadUnsignedIntegerIncludingZero( arguments, "topologyVersion", command.fifthUnsignedInteger ) &&
                            ReadUnsignedIntegerIncludingZero( arguments, "publicationVersion", command.sixthUnsignedInteger );
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "render.set_parameter" )
+    {
+        command.type = SkarnessCommandType::RenderSetParameter;
+        return ReadInteger( arguments, "index", command.integer ) && ReadNumber( arguments, "value", command.number ) ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+    if ( name == "grass.enable_fixture" )
+    {
+        command.type = SkarnessCommandType::GrassEnableFixture;
+        return ReadBoolean( arguments, "enabled", command.enabled ) ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+    if ( name == "grass.sample" )
+    {
+        command.type = SkarnessCommandType::GrassSample;
+        return ReadNumber( arguments, "x", command.number ) && ReadNumber( arguments, "z", command.secondNumber ) && std::fabs( command.number ) < 1000000 &&
+                       std::fabs( command.secondNumber ) < 1000000
+                   ? CommandParseStatus::Valid
+                   : CommandParseStatus::Invalid;
+    }
+    if ( name == "camera.set_pose" )
+    {
+        command.type = SkarnessCommandType::CameraSetPose;
+        const bool valid = ReadVector3( arguments, "eye", command.number, command.secondNumber, command.thirdNumber ) &&
+                           ReadVector3( arguments, "target", command.fourthNumber, command.fifthNumber, command.sixthNumber ) &&
+                           ( !arguments.contains( "terrainRelative" ) || ReadBoolean( arguments, "terrainRelative", command.enabled ) );
         return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
     }
 
@@ -1672,6 +1713,15 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
                     row["linearVelocity"] = object.linearVelocity;
                     row["angularVelocity"] = object.angularVelocity;
                     row["fixed"] = object.fixed;
+                    row["mass"] = object.mass;
+                    row["inverseMass"] = object.inverseMass;
+                    row["inertia"] = object.inertia;
+                    row["inertiaProducts"] = object.inertiaProducts;
+                    row["inverseInertia"] = object.inverseInertia;
+                    row["inverseInertiaProducts"] = object.inverseInertiaProducts;
+                    row["hasPendingImpulse"] = object.hasPendingImpulse;
+                    row["pendingImpulse"] = object.pendingImpulse;
+                    row["pendingImpulseOffset"] = object.pendingImpulseOffset;
                     row["sleepStateAvailable"] = object.sleepStateAvailable;
                     row["sleeping"] = object.sleeping;
                 }
@@ -1730,6 +1780,10 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
         if ( result->hasTextValue )
         {
             values[result->valueName] = result->textValue;
+        }
+        else if ( result->hasGrassSample )
+        {
+            values = { { "compression", result->grassCompression }, { "sceneObjectId", result->grassSourceId }, { "tick", result->grassTick }, { "historyAvailable", result->grassHistoryAvailable } };
         }
         else if ( result->hasNumberValue )
         {

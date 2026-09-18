@@ -93,8 +93,7 @@ float ContactAlpha( float seconds, float fadeSeconds )
 
 bool PoseMatchesCurrentEndpoint( const RenderInstanceRecord& record, const Vector3& position, const Quaternion& orientation )
 {
-    if ( record.currentPosition.x != position.x || record.currentPosition.y != position.y ||
-         record.currentPosition.z != position.z )
+    if ( record.currentPosition.x != position.x || record.currentPosition.y != position.y || record.currentPosition.z != position.z )
     {
         return false;
     }
@@ -157,23 +156,27 @@ bool RenderInstanceStore::CanAppendCreationRow( int expectedCount ) const
     }
 
     const std::size_t expected = static_cast<std::size_t>( expectedCount );
-    return m_presentationRecords.size() == expected && m_instances.size() == expected &&
-           m_modelInstanceHandles.size() == expected && m_presentationRecords.size() < m_presentationRecords.capacity() &&
+    return m_presentationRecords.size() == expected && m_instances.size() == expected && m_modelInstanceHandles.size() == expected && m_presentationRecords.size() < m_presentationRecords.capacity() &&
            m_instances.size() < m_instances.capacity() && m_modelInstanceHandles.size() < m_modelInstanceHandles.capacity();
 }
 
 void RenderInstanceStore::CommitCreationRow( const RenderInstancePresentationRecord& presentation,
-                                             const PhysicsBodyRecord& body, const PhysicsBodyHotState& hotState,
-                                             const ColliderRecord& collider, int expectedIndex )
+                                             const PhysicsBodyRecord& body,
+                                             const PhysicsBodyHotState& hotState,
+                                             const ColliderRecord& collider,
+                                             int expectedIndex )
 {
-    if ( !CanAppendCreationRow( expectedIndex ) || !body.handle.IsValid() || !collider.handle.IsValid() ||
-         collider.body != body.handle || collider.sceneObjectId != body.sceneObjectId )
+    if ( !CanAppendCreationRow( expectedIndex ) || !body.handle.IsValid() || !collider.handle.IsValid() || collider.body != body.handle || collider.sceneObjectId != body.sceneObjectId )
     {
         SB_FATAL( "Rendering/RenderInstanceStore",
-                  "Invalid preflighted creation commit. expected=%d presentation=%zu instances=%zu handles=%zu "
-                  "body_valid=%d collider_valid=%d body_id=%u collider_id=%u",
-                  expectedIndex, m_presentationRecords.size(), m_instances.size(), m_modelInstanceHandles.size(),
-                  body.handle.IsValid() ? 1 : 0, collider.handle.IsValid() ? 1 : 0, body.sceneObjectId.value,
+                  "Invalid preflighted creation commit. expected=%d presentation=%zu instances=%zu handles=%zu " "body_valid=%d collider_valid=%d body_id=%u collider_id=%u",
+                  expectedIndex,
+                  m_presentationRecords.size(),
+                  m_instances.size(),
+                  m_modelInstanceHandles.size(),
+                  body.handle.IsValid() ? 1 : 0,
+                  collider.handle.IsValid() ? 1 : 0,
+                  body.sceneObjectId.value,
                   collider.sceneObjectId.value );
     }
 
@@ -186,7 +189,7 @@ void RenderInstanceStore::CommitCreationRow( const RenderInstancePresentationRec
     record.boundingRadius = collider.boundingRadius;
     record.shapeKind = ShapeKindFromCollider( collider.shapeKind );
     record.shadowCasterStream = presentation.shadowCasterStream;
-    record.editorVisible = presentation.editorVisible;
+    record.editorVisible = presentation.editorVisible && presentation.material.baseColor[3] > 0.0f;
     record.isFixed = hotState.fixed;
     record.fixedContactAlpha = presentation.fixedContactAlpha;
     ResetPoseHistory( record, hotState.position, hotState.orientation );
@@ -291,7 +294,9 @@ bool RenderInstanceStore::SetEditorVisible( int modelIndex, bool visible )
     }
 
     presentation->editorVisible = visible;
-    m_instances[static_cast<std::size_t>( modelIndex )].editorVisible = visible;
+    // Fully transparent bodies retain physics identity without writing colour,
+    // depth or shadow pixels. Hierarchy visibility cannot override that material.
+    m_instances[static_cast<std::size_t>( modelIndex )].editorVisible = visible && presentation->material.baseColor[3] > 0.0f;
     return true;
 }
 
@@ -322,8 +327,7 @@ void RenderInstanceStore::BeginPhysicsStepPoseCapture( const PhysicsBodyStore& b
 {
     if ( bodyStore.Count() != Count() )
     {
-        SB_FATAL( "Rendering/RenderInstanceStore", "Physics-step pose preflight requires matching rows. bodies=%d render=%d",
-                  bodyStore.Count(), Count() );
+        SB_FATAL( "Rendering/RenderInstanceStore", "Physics-step pose preflight requires matching rows. bodies=%d render=%d", bodyStore.Count(), Count() );
     }
 
     const auto bodies = bodyStore.Records();
@@ -340,8 +344,7 @@ void RenderInstanceStore::BeginPhysicsStepPoseCapture( const PhysicsBodyStore& b
         const Vector3 position = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( index ) );
         const Quaternion orientation = PhysicsBodyOrientation( hotFields, static_cast<std::size_t>( index ) );
 
-        if ( !record.poseHistoryValid || record.sceneObjectId != body.sceneObjectId ||
-             !PoseMatchesCurrentEndpoint( record, position, orientation ) )
+        if ( !record.poseHistoryValid || record.sceneObjectId != body.sceneObjectId || !PoseMatchesCurrentEndpoint( record, position, orientation ) )
         {
             ResetPoseHistory( record, position, orientation );
         }
@@ -353,8 +356,7 @@ void RenderInstanceStore::CompletePhysicsStepPoseCapture( const PhysicsBodyStore
 {
     if ( bodyStore.Count() != Count() )
     {
-        SB_FATAL( "Rendering/RenderInstanceStore", "Physics-step pose commit requires matching rows. bodies=%d render=%d",
-                  bodyStore.Count(), Count() );
+        SB_FATAL( "Rendering/RenderInstanceStore", "Physics-step pose commit requires matching rows. bodies=%d render=%d", bodyStore.Count(), Count() );
     }
 
     const auto bodies = bodyStore.Records();
@@ -367,8 +369,7 @@ void RenderInstanceStore::CompletePhysicsStepPoseCapture( const PhysicsBodyStore
 
         if ( !record.poseHistoryValid || record.sceneObjectId != body.sceneObjectId )
         {
-            ResetPoseHistory( record, PhysicsBodyPosition( hotFields, static_cast<std::size_t>( index ) ),
-                              PhysicsBodyOrientation( hotFields, static_cast<std::size_t>( index ) ) );
+            ResetPoseHistory( record, PhysicsBodyPosition( hotFields, static_cast<std::size_t>( index ) ), PhysicsBodyOrientation( hotFields, static_cast<std::size_t>( index ) ) );
 
             continue;
         }
@@ -381,24 +382,22 @@ void RenderInstanceStore::CompletePhysicsStepPoseCapture( const PhysicsBodyStore
 }
 
 
-void RenderInstanceStore::Refresh( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                   float presentationAlpha )
+void RenderInstanceStore::Refresh( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, float presentationAlpha )
 {
     Refresh( m_presentationRecords, bodyStore, colliderStore, presentationAlpha );
 }
 
 
-void RenderInstanceStore::Refresh( const std::vector<RenderInstancePresentationRecord>& presentation,
-                                   const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                   float presentationAlpha )
+void RenderInstanceStore::Refresh( const std::vector<RenderInstancePresentationRecord>& presentation, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, float presentationAlpha )
 {
-    Refresh( presentation.empty() ? nullptr : presentation.data(), static_cast<int>( presentation.size() ), bodyStore,
-             colliderStore, presentationAlpha );
+    Refresh( presentation.empty() ? nullptr : presentation.data(), static_cast<int>( presentation.size() ), bodyStore, colliderStore, presentationAlpha );
 }
 
 
-void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* presentation, int presentationCount,
-                                   const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* presentation,
+                                   int presentationCount,
+                                   const PhysicsBodyStore& bodyStore,
+                                   const ColliderStore& colliderStore,
                                    float presentationAlpha )
 {
     if ( bodyStore.Count() != presentationCount || colliderStore.Count() != presentationCount )
@@ -439,8 +438,7 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
         const Vector3 bodyPosition = PhysicsBodyPosition( hotFields, index );
         const Quaternion bodyOrientation = PhysicsBodyOrientation( hotFields, index );
 
-        if ( !record.poseHistoryValid || bodyIdentityChanged ||
-             !PoseMatchesCurrentEndpoint( record, bodyPosition, bodyOrientation ) )
+        if ( !record.poseHistoryValid || bodyIdentityChanged || !PoseMatchesCurrentEndpoint( record, bodyPosition, bodyOrientation ) )
         {
             ResetPoseHistory( record, bodyPosition, bodyOrientation );
         }
@@ -453,21 +451,17 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
         // endpoint for both values instead of extrapolating only rotation.
         const float interpolationAlpha = std::clamp( presentationAlpha, 0.0f, 1.0f );
         const bool useCurrentEndpoint = interpolationAlpha >= 1.0f;
-        const Vector3 presentedPosition = useCurrentEndpoint ? record.currentPosition
-                                                             : InterpolatePosition( record, interpolationAlpha );
+        const Vector3 presentedPosition = useCurrentEndpoint ? record.currentPosition : InterpolatePosition( record, interpolationAlpha );
 
-        const Quaternion presentedOrientation = useCurrentEndpoint
-                                                    ? record.currentOrientation
-                                                    : Math::Orientation::NlerpShortest( record.previousOrientation,
-                                                                                        record.currentOrientation,
-                                                                                        interpolationAlpha );
+        const Quaternion presentedOrientation = useCurrentEndpoint ? record.currentOrientation
+                                                                   : Math::Orientation::NlerpShortest( record.previousOrientation, record.currentOrientation, interpolationAlpha );
 
         record.modelMatrix = BuildRenderModelMatrix( presentedPosition, presentedOrientation, collider );
         record.material = presentationRecord.material;
         record.boundingRadius = collider.boundingRadius;
         record.shapeKind = ShapeKindFromCollider( collider.shapeKind );
         record.shadowCasterStream = presentationRecord.shadowCasterStream;
-        record.editorVisible = presentationRecord.editorVisible;
+        record.editorVisible = presentationRecord.editorVisible && presentationRecord.material.baseColor[3] > 0.0f;
         record.isFixed = hotFields.fixed[index] != 0u;
         record.fixedContactAlpha = presentationRecord.fixedContactAlpha;
         m_modelInstanceHandles[index] = record.handle;
@@ -475,8 +469,7 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
 }
 
 
-bool RenderInstanceStore::TryGetPresentationPose( int modelIndex, float presentationAlpha, Vector3& outPosition,
-                                                  Quaternion& outOrientation ) const
+bool RenderInstanceStore::TryGetPresentationPose( int modelIndex, float presentationAlpha, Vector3& outPosition, Quaternion& outOrientation ) const
 {
     if ( modelIndex < 0 || modelIndex >= Count() )
     {
@@ -500,16 +493,14 @@ bool RenderInstanceStore::TryGetPresentationPose( int modelIndex, float presenta
     else
     {
         outPosition = InterpolatePosition( record, interpolationAlpha );
-        outOrientation = Math::Orientation::NlerpShortest( record.previousOrientation, record.currentOrientation,
-                                                           interpolationAlpha );
+        outOrientation = Math::Orientation::NlerpShortest( record.previousOrientation, record.currentOrientation, interpolationAlpha );
     }
 
     return true;
 }
 
 
-bool RenderInstanceStore::OverridePose( int modelIndex, Physics::PhysicsSceneObjectId sceneObjectId, const Vector3& position,
-                                        const Quaternion& orientation, const ColliderStore& colliderStore )
+bool RenderInstanceStore::OverridePose( int modelIndex, Physics::PhysicsSceneObjectId sceneObjectId, const Vector3& position, const Quaternion& orientation, const ColliderStore& colliderStore )
 {
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_instances.size() ) )
     {
@@ -537,6 +528,25 @@ bool RenderInstanceStore::OverridePose( int modelIndex, Physics::PhysicsSceneObj
     return true;
 }
 
+
+bool RenderInstanceStore::OverridePosition( int modelIndex, Physics::PhysicsSceneObjectId sceneObjectId, const Vector3& position )
+{
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_instances.size() ) )
+    {
+        return false;
+    }
+    auto& record = m_instances[static_cast<std::size_t>( modelIndex )];
+    if ( record.sceneObjectId != sceneObjectId )
+    {
+        return false;
+    }
+    // Lifetime: only this frame's matrix changes. Solver endpoints are kept so
+    // the next Refresh restores the unmodified interpolated pose.
+    record.modelMatrix.m[12] = position.x;
+    record.modelMatrix.m[13] = position.y;
+    record.modelMatrix.m[14] = position.z;
+    return true;
+}
 
 int RenderInstanceStore::Count() const
 {
@@ -593,8 +603,7 @@ bool RenderInstanceStore::HasConsistentHandleMap() const
     {
         const RenderInstanceHandle handle = m_modelInstanceHandles[index];
 
-        if ( !handle.IsValid() || handle.index != index || m_instances[index].handle != handle ||
-             ModelIndexForHandle( handle ) != static_cast<int>( index ) )
+        if ( !handle.IsValid() || handle.index != index || m_instances[index].handle != handle || ModelIndexForHandle( handle ) != static_cast<int>( index ) )
         {
             return false;
         }

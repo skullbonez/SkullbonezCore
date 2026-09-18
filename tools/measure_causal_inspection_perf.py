@@ -50,7 +50,8 @@ CAUSAL_MARKERS = (
     "Frame/Replay/CauseInspection/Selection",
     "Frame/Replay/CauseInspection/SolverDetailLookup",
     "Frame/Replay/CauseInspection/ManifoldPresentation",
-    "Frame/Replay/CauseInspection/PanelLayout",
+    # BuildReplayCauseInspectorLayout now runs inside the input/drawer scopes.
+    # Requiring its retired standalone marker would reject valid captures.
     "Frame/Replay/CauseInspection/PanelInput",
     PANEL_RENDER_MARKER,
 )
@@ -178,6 +179,7 @@ def validate_evidence(
         },
         "costMs": {
             "markers": summaries,
+            "layoutAttribution": "Input and drawer layout are included in PanelInput and RenderCauseInspectorDrawer; no standalone layout cost is measured.",
             "existingCauseOverlay": overlay,
             "maximumTopLevelCausalPhase": max_top_level_phase,
             "panelRenderShareOfEnclosingOverlayMax": (

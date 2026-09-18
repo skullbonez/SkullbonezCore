@@ -826,6 +826,27 @@ void SkullScope::EmitContactAndBodyRows( const Physics::PhysicsDiagnosticsFrameI
 
         const Vector3 diagnosticNormal = c.isTerrain ? c.terrainNormal : c.normal;
 
+        // These are world-oriented lever arms at row construction, not local
+        // anchors reconstructed from the later post-integration body pose.
+        SkullbonezCore::Core::Log().Writef( m_physicsDiagnosticsPath,
+                                            "{\"kind\":\"contact_response\",\"run\":\"%s\",\"frame\":%d,\"body_a\":%d,\"body_b\":%d,\"feature_id\":%u," "\"world_offset_a\":[%.9g,%.9g,%.9g],\"world_offset_b\":[%.9g,%.9g,%.9g]," "\"allows_friction\":%d,\"supports_resting_policy\":%d,\"inhibits_sleep\":%d,\"friction_limit\":%.9g,\"normal_coupled_friction\":%d}\n",
+                                            m_physicsDiagnosticsRunId,
+                                            summary.frame,
+                                            c.bodyA,
+                                            c.bodyB,
+                                            c.featureId,
+                                            c.rA.x,
+                                            c.rA.y,
+                                            c.rA.z,
+                                            c.rB.x,
+                                            c.rB.y,
+                                            c.rB.z,
+                                            c.allowsTangentFriction ? 1 : 0,
+                                            c.supportsRestingPolicy ? 1 : 0,
+                                            c.inhibitsSleep ? 1 : 0,
+                                            c.frictionLimit,
+                                            c.normalCoupledFriction ? 1 : 0 );
+
         SkullbonezCore::Core::Log().Writef( m_physicsDiagnosticsPath,
                                             "{\"kind\":\"contact\",\"run\":\"%s\",\"frame\":%d,\"contact_id\":\"%d:%d:%u\",\"body_a\":%d," "\"body_b\":%d,\"contact_type\":\"%s\",\"feature_id\":%u,\"point_count\":%u,\"normal\":[%.6f,%." "6f,%.6f],\"penetration\":%.6f,\"normal_impulse\":%.6f," "\"separation_bias\":%.6f," "\"pre_solve_normal_speed\":%.6f,\"pre_solve_closing_speed\":%.6f," "\"pre_solve_slip_speed\":%.6f,\"tangent_impulse\":%.6f,\"slip_speed\":%." "6f,\"rolling_residual\":%.6f,\"warm_started\":%d,\"supports_sleep\":%d}\n",
                                             m_physicsDiagnosticsRunId,
@@ -938,6 +959,13 @@ void SkullScope::EmitContactAndBodyRows( const Physics::PhysicsDiagnosticsFrameI
         const int sleepInhibited = ( i < static_cast<int>( frameInput.world.sleepInhibitedThisFrame.size() ) ) ? frameInput.world.sleepInhibitedThisFrame[i] : 0;
 
         const int sleepCounter = ( i < static_cast<int>( frameInput.world.sleepCounter.size() ) ) ? frameInput.world.sleepCounter[i] : 0;
+        const int resetReason = i < static_cast<int>( frameInput.world.sleepResetReason.size() ) ? frameInput.world.sleepResetReason[i] : 0;
+        SkullbonezCore::Core::Log().Writef( m_physicsDiagnosticsPath,
+                                            "{\"kind\":\"sleep_decision\",\"run\":\"%s\",\"frame\":%d,\"body_id\":%d,\"reset_reason\":%d}\n",
+                                            m_physicsDiagnosticsRunId,
+                                            summary.frame,
+                                            i,
+                                            resetReason );
         const int islandId = summary.bodyIslandIds[i];
         const int visualIslandId = ( i < static_cast<int>( frameInput.world.sleepIslandVisualId.size() ) ) ? frameInput.world.sleepIslandVisualId[i] : 0;
 

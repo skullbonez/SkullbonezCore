@@ -128,3 +128,44 @@ Move this file from `WNF/` to `TODO/` only when the owner explicitly resumes
 stack stability experimentation. At reactivation, refresh every source
 measurement and reference-implementation assumption against the then-current
 repository and upstream sources before implementing CS0.
+
+## Hull-plan handoff — 2026-09-17 (remains parked)
+
+CONVEX_HULL CH1-CH5 remove false swept hits, friction/sleep coupling, AABB inertia,
+fragile contact lifetime and row-count sleep admission. The same 36-case matrix
+still exposes tall-stack defects. This evidence does not activate this plan or
+approve an iteration, split-impulse, angular-correction or block-solve experiment.
+
+At 2,400 ticks, five-high box hulls retain 0.999965 height on flat and steps, but
+collapse on shallow X (-0.117763, drift 22.2182). Elongated hulls collapse on all
+three surfaces; flat height retention is 0.0022, drift 6.5565. Mixed box/slab/rock
+flat retention is -0.0483, drift 9.2259. The primitive five-high flat control also
+collapses (-0.0015, drift 25.3269), while its stepped counterpart retains 0.9999.
+Three-body hull controls retain layer order and settle on flat/shallow/ridges.
+
+Flat elongated rotation first exceeds five degrees at frame 190; early separation
+bias reaches 0.092394, peak penetration 0.0298, and 18,919 of 19,936 contact rows
+warm start. Mixed rotation crosses five degrees at frame 532; early bias reaches
+2.0, peak penetration 0.159189, and 22,395 of 26,143 rows warm start. The successful
+flat box-hull tower has no five-degree crossing, zero early bias and peak
+penetration 0.001415. The shallow box-hull tower crosses five degrees at frame 79,
+with early bias 0.274664 and peak penetration 0.037262.
+
+The full flat scene peaks at kinetic energy 12,724.922 and ends near 0.000028;
+its summed pre-inverse-mass correction magnitude is 86.178432 and maximum
+0.323797. Shallow values are 15,800.081 / 0.000059 and 30.333371 / 0.323797;
+steps values are 4,396.132 / 9.633365 and 76.623594 / 2.701928. These correction
+counters have mass-times-distance units, not body displacement. Current cleanup
+translates the deepest row by inverse mass and applies no angular correction.
+These observations establish residual penetration/bias activity and tower loss,
+not causal proof that changing one correction method will cure every case.
+A future controlled solver experiment should separate load-propagation error,
+velocity bias and linear-only cleanup while retaining legitimate toppling.
+
+Evidence roots under `TestOutput/skarness/`: `convex-quality-observed-before`,
+`convex-quality-final`, and `convex-workers-final`. Each tall case contains the
+identity receipts, full `physics.physicsdiag.ndjson`, `metrics.json`, extracted
+`stack-attribution.json` with the peak early-bias contact row, and inspected
+`final.png`. `TestOutput/convex-stack-attribution.txt` summarizes onset and rows.
+The current runtime input floats are unchanged by generator text canonicalization.
+No scalar threshold, authored gravity, iteration cap or approved baseline changed.

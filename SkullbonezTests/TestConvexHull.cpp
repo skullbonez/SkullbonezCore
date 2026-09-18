@@ -1,3 +1,4 @@
+#include "../SkullbonezSource/Maths/SymmetricMatrix3.h"
 //
 // File: SkullbonezTests/TestConvexHull.cpp
 // Purpose:
@@ -48,9 +49,9 @@ SkullbonezCore::Core::SbDiagnosticStore diagnostics;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullEdge;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullFace;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
-using SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::VectorMagSquared;
+using SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull;
 
 namespace
 {
@@ -109,7 +110,7 @@ bool WriteHullVersionFixture( unsigned int version )
     std::ostringstream contents;
     contents << input.rdbuf();
     std::string text = contents.str();
-    const std::string current = "hull_version 2";
+    const std::string current = "hull_version 3";
     const size_t offset = text.find( current );
 
     if ( !input || offset == std::string::npos )
@@ -142,8 +143,9 @@ TEST_CASE( "ConvexHull: pyramid fixture loads baked identity and mass properties
     CheckNear( hull.GetBoundingRadius(), 7.5f );
     CheckNear( hull.GetProjectedSurfaceArea(), 100.0f );
 
-    const Vector3 inertiaAtTwoKg = hull.ComputeBoxApproxInertia( 2.0f );
-    CheckVectorNear( inertiaAtTwoKg, Vector3( 33.3333334f, 33.3333334f, 33.3333334f ), 0.0001f );
+    const auto inertiaAtTwoKg = hull.ComputeInertia( 2.0f );
+    CheckVectorNear( inertiaAtTwoKg.diagonal, Vector3( 17.5f, 20.0f, 17.5f ), 0.0001f );
+    CheckVectorNear( inertiaAtTwoKg.offDiagonal, Vector3( 0.0f, 0.0f, 0.0f ) );
 }
 
 
@@ -198,20 +200,82 @@ TEST_CASE( "ConvexHull: pyramid fixture topology references live vertices and ad
 }
 
 
-TEST_CASE( "ConvexHull: previous version upgrades and future version fails recoverably" )
+TEST_CASE( "ConvexHull: previous version requests rebake and future version fails recoverably" )
 {
     TemporaryHullFixture fixture;
-    REQUIRE( WriteHullVersionFixture( 1 ) );
+    REQUIRE( WriteHullVersionFixture( 2 ) );
     ConvexHullShape previous;
-    REQUIRE( ConvexHullShape::TryLoadFromFile( diagnostics, kVersionFixturePath, previous ).Ok() );
-    CHECK( previous.GetVertexCount() == 5 );
-    CHECK( previous.GetDefaultMass() == doctest::Approx( 300.0f ) );
+    const auto previousResult = ConvexHullShape::TryLoadFromFile( diagnostics, kVersionFixturePath, previous );
+    REQUIRE_FALSE( previousResult.Ok() );
+    CHECK( std::string( previousResult.ErrorMessage() ).find( "Re-bake" ) != std::string::npos );
 
-    REQUIRE( WriteHullVersionFixture( 3 ) );
+    REQUIRE( WriteHullVersionFixture( 4 ) );
     ConvexHullShape future;
     const auto result = ConvexHullShape::TryLoadFromFile( diagnostics, kVersionFixturePath, future );
     CHECK_FALSE( result.Ok() );
     CHECK( std::string( result.ErrorOwner() ) == "Physics/ConvexHullShape" );
-    CHECK( std::string( result.ErrorMessage() ).find( "version 3" ) != std::string::npos );
-    CHECK( std::string( result.ErrorMessage() ).find( "current version 2" ) != std::string::npos );
+    CHECK( std::string( result.ErrorMessage() ).find( "version 4" ) != std::string::npos );
+    CHECK( std::string( result.ErrorMessage() ).find( "current version 3" ) != std::string::npos );
+}
+
+TEST_CASE( "Convex hull inertia: full symmetric inverse preserves asymmetric angular response" )
+{
+    using SkullbonezCore::Math::Transformation::SymmetricMatrix3;
+    using SkullbonezCore::Math::Vector::Vector3;
+    const SymmetricMatrix3 unit( Vector3( 75.0f / 80.0f, 60.0f / 80.0f, 39.0f / 80.0f ), Vector3( 6.0f / 80.0f, 8.0f / 80.0f, 12.0f / 80.0f ) );
+    for ( float mass : { 0.001f, 1.0f, 1000.0f } )
+    {
+        const auto inertia = unit * mass;
+        SymmetricMatrix3 inverse;
+        REQUIRE( inertia.TryInversePositiveDefinite( inverse ) );
+        for ( const Vector3 impulse : { Vector3( 1, 0, 0 ), Vector3( 0, 1, 0 ), Vector3( 0, 0, 1 ), Vector3( -2, 3, 4 ) } )
+        {
+            const auto response = inverse * impulse;
+            const auto reconstructed = inertia * response;
+            CHECK( reconstructed.x == doctest::Approx( impulse.x ).epsilon( 0.00001f ) );
+            CHECK( reconstructed.y == doctest::Approx( impulse.y ).epsilon( 0.00001f ) );
+            CHECK( reconstructed.z == doctest::Approx( impulse.z ).epsilon( 0.00001f ) );
+            CHECK( SkullbonezCore::Math::Vector::Dot( impulse, response ) > 0.0f );
+        }
+        const auto response = inverse * Vector3( 1, 0, 0 );
+        CHECK( response.y != 0.0f );
+        CHECK( response.z != 0.0f );
+    }
+    SymmetricMatrix3 inverse;
+    CHECK_FALSE( SymmetricMatrix3().TryInversePositiveDefinite( inverse ) );
+    CHECK_FALSE( SymmetricMatrix3( Vector3( 1, 1, 1 ), Vector3( 2, 0, 0 ) ).TryInversePositiveDefinite( inverse ) );
+    const SymmetricMatrix3 box( Vector3( 2, 4, 8 ) );
+    REQUIRE( box.TryInversePositiveDefinite( inverse ) );
+    const auto result = inverse * Vector3( 2, 8, 24 );
+    CHECK( result == Vector3( 1, 2, 3 ) );
+}
+
+
+TEST_CASE( "Convex hull inertia: copied scale preserves complete second moments" )
+{
+    ConvexHullShape base;
+    REQUIRE( TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/convex_quality_tetrahedron_ordinary.hull", base ) );
+    const auto unit = base.ComputeInertia( 1.0f );
+    CheckVectorNear( unit.diagonal, Vector3( 1.2f, 1.2f, 1.2f ) );
+    CheckVectorNear( unit.offDiagonal, Vector3( 0.2f, 0.2f, 0.2f ) );
+    auto stretched = base;
+    stretched.ScaleAxis( 0, 2.0f );
+    stretched.ScaleAxis( 1, 0.5f );
+    stretched.ScaleAxis( 2, 3.0f );
+    const auto stretchedUnit = stretched.ComputeInertia( 1.0f );
+    // Axis tetrahedron lengths 8,2,12: diagonal 3*(b²+c²)/80,
+    // off-diagonal a*b/80 after integrating about the volume centroid.
+    CheckVectorNear( stretchedUnit.diagonal, Vector3( 5.55f, 7.8f, 2.55f ) );
+    CheckVectorNear( stretchedUnit.offDiagonal, Vector3( 0.2f, 1.2f, 0.3f ) );
+    CheckNear( stretched.GetDefaultMass(), base.GetDefaultMass() * 3.0f );
+    auto enlarged = base;
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        enlarged.ScaleAxis( axis, 2.0f );
+    }
+    const auto originalInertia = base.ComputeInertia( base.GetDefaultMass() );
+    const auto enlargedInertia = enlarged.ComputeInertia( enlarged.GetDefaultMass() );
+    CheckVectorNear( enlargedInertia.diagonal, originalInertia.diagonal * 32.0f, 0.001f );
+    CheckVectorNear( enlargedInertia.offDiagonal, originalInertia.offDiagonal * 32.0f, 0.001f );
+    CheckVectorNear( base.ComputeInertia( 1.0f ).diagonal, unit.diagonal );
 }

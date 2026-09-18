@@ -1,0 +1,64 @@
+# Convex hull asset.
+# source_* directives preserve editable geometry; runtime reads baked directives.
+hull_version 3
+name catto_arch_left_5
+source_hash 0xf532e39af4e843f9
+
+# Editable source geometry.
+source_vertex 2.93395329 0.178314157 -2
+source_vertex -0.429757896 4.99813866 -2
+source_vertex -3.2474977 -0.568826043 -2
+source_vertex 1.14054042 -4.73592054 -2
+source_vertex 2.93395329 0.178314157 2
+source_vertex -0.429757896 4.99813866 2
+source_vertex -3.2474977 -0.568826043 2
+source_vertex 1.14054042 -4.73592054 2
+source_face 3 2 1 0
+source_face 4 5 6 7
+source_face 0 1 5 4
+source_face 1 2 6 5
+source_face 2 3 7 6
+source_face 3 0 4 7
+
+# Baked runtime metadata.
+center_of_mass -3.18976856e-09 1.48939516e-09 1.44786889e-17
+volume 122.687686
+default_density 0.9
+default_mass 110.418917
+bounding_radius 5.40056311
+inertia_half_extents 3.0907255 4.8670296 2
+unit_inertia 5.3124361 3.04017078 5.68594021
+unit_inertia_products 0.427342375 2.89573779e-17 -2.89573779e-17
+projected_surface_area 41.2775502
+
+# Baked centered vertices.
+vertex 2.93395329 0.178314156 -2
+vertex -0.429757893 4.99813866 -2
+vertex -3.2474977 -0.568826044 -2
+vertex 1.14054042 -4.73592054 -2
+vertex 2.93395329 0.178314156 2
+vertex -0.429757893 4.99813866 2
+vertex -3.2474977 -0.568826044 2
+vertex 1.14054042 -4.73592054 2
+
+# Baked faces: normal.xyz planeOffset vertexIndices...
+face 0 0 -1 2 3 2 1 0
+face 0 0 1 2 4 5 6 7
+face 0.820043678 0.57230094 0 2.50801921 0 1 5 4
+face -0.892220222 0.45160057 0 2.64060095 1 2 6 5
+face -0.688615537 -0.725126639 0 2.64874829 2 3 7 6
+face 0.939398745 -0.342826483 0 2.69502123 3 0 4 7
+
+# Baked edges: vertexA vertexB faceA faceB
+edge 2 3 0 4
+edge 1 2 0 3
+edge 0 1 0 2
+edge 0 3 0 5
+edge 4 5 1 2
+edge 5 6 1 3
+edge 6 7 1 4
+edge 4 7 1 5
+edge 1 5 2 3
+edge 0 4 2 5
+edge 2 6 3 4
+edge 3 7 4 5

@@ -66,6 +66,10 @@ class UIWindowInteractionOwner
   public:
     UIWindowInteractionOwner();
 
+    UIPhysicsPointImpulse PointImpulsePreview() const
+    {
+        return m_presentationEnabled && m_presentationRects.physicsControls.w > 0 && m_physicsTab.section == 2 && m_physicsTab.impulseEditable ? m_physicsTab.pointImpulse : UIPhysicsPointImpulse {};
+    }
     bool IsVisible() const;
     bool IsMinimized() const;
     void SetVisible( bool visible, double now );
@@ -147,6 +151,8 @@ class UIWindowInteractionOwner
     FrameComposition::EditorMiniPaletteLayout PresentedEditorPalette() const;
     void DrawPresentedEditorPalette( const InGameUIFrameData& data );
     void UpdateDockPresentationInput( const InputControl::UIInputSnapshot& input );
+    bool HandlePhysicsDockInput( const InputControl::UIInputSnapshot& input, InGameUIInputResult& result );
+    void DrawPhysicsDock( const InGameUIFrameData& data );
     bool HandleEditorDockInput( const InputControl::UIInputSnapshot& input, InGameUIInputResult& result );
     void UpdateToolsDrawerBounds( const InputControl::UIInputSnapshot& input, int width, int height );
     void UpdateToolsVisibility();

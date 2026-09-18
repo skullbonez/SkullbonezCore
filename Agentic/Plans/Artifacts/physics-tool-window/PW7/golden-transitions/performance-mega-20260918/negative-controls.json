@@ -1,0 +1,39 @@
+[
+  {
+    "case": "cpu",
+    "exit": 1,
+    "expected_rejection": "Frame.avg",
+    "command": [
+      "python",
+      "Agentic/Skills/skore-render-test/perf_compare.py",
+      "--current",
+      "TestOutput\\mega-20260917\\perf-negative-controls\\cpu.json",
+      "--previous",
+      "Agentic\\Plans\\Artifacts\\physics-tool-window\\PW7\\golden-transitions\\performance-mega-20260918\\dx12-candidate.json"
+    ]
+  },
+  {
+    "case": "memory",
+    "exit": 1,
+    "expected_rejection": "mem_start",
+    "command": [
+      "python",
+      "Agentic/Skills/skore-render-test/perf_compare.py",
+      "--current",
+      "TestOutput\\mega-20260917\\perf-negative-controls\\memory.json",
+      "--previous",
+      "Agentic\\Plans\\Artifacts\\physics-tool-window\\PW7\\golden-transitions\\performance-mega-20260918\\dx12-candidate.json"
+    ]
+  },
+  {
+    "case": "absolute",
+    "exit": 1,
+    "expected_rejection": "Frame/Physics.max",
+    "command": [
+      "python",
+      "tools/check_perf_budgets.py",
+      "--artifact",
+      "TestOutput\\mega-20260917\\perf-negative-controls\\absolute.json"
+    ]
+  }
+]

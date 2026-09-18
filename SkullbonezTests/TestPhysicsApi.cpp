@@ -62,6 +62,7 @@ Related:
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <limits>
 
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
@@ -1019,7 +1020,10 @@ TEST_CASE( "Authored restart restores initial motion without retiring bodies or 
     future.rotationalInertia = Vector3( 1, 1, 1 );
     future.inverseRotationalInertia = Vector3( 1, 1, 1 );
     REQUIRE( engine.RestoreReplayBodyState( future ) );
+    engine.SeedBodyAsleep( first.body );
+    CHECK( PhysicsEngine::ReadBodies( engine ).HotFields().awake[0] == 0u );
     REQUIRE( engine.RestoreAuthoredBodyState() );
+    CHECK( PhysicsEngine::ReadBodies( engine ).HotFields().awake[0] != 0u );
     const auto& bodies = PhysicsEngine::ReadBodies( engine );
     CHECK( bodies.HandleForModelIndex( 0 ) == first.body );
     CHECK( bodies.HandleForModelIndex( 1 ) == second.body );
@@ -1038,4 +1042,112 @@ TEST_CASE( "Authored restart restores initial motion without retiring bodies or 
     REQUIRE( engine.RestoreAuthoredBodyState() );
     CheckVectorExact( PhysicsBodyLinearVelocity( bodies.HotFields(), 0 ), edit.linearVelocity );
     CheckVectorExact( PhysicsBodyAngularVelocity( bodies.HotFields(), 0 ), edit.angularVelocity );
+}
+
+TEST_CASE( "Physics API mass edits scale complete inertia and reject fixed or invalid bodies" )
+{
+    PhysicsEngine engine;
+    PhysicsAuthoredBodyRegistration dynamic, fixed;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope loading( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        engine.ReserveAuthoredBodyCapacity( 2u, 0u, 2u, 0u, 0u );
+        const CollisionShape shape = BoundingBox( Vector3( 1, 2, 3 ), ZERO_VECTOR );
+        auto desc = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 991u ), shape, ZERO_VECTOR, Quaternion(), ZERO_VECTOR, ZERO_VECTOR, Vector3( 3, 4, 5 ), 2, 0, PhysicsBodyMotionKind::Dynamic );
+        desc.rotationalInertiaProducts = Vector3( .1f, .2f, .3f );
+        dynamic = engine.RegisterAuthoredBody( desc, MakeColliderCreateDesc( shape, 0, 0 ) );
+        desc.sceneObjectId = MakePhysicsSceneObjectId( 992u );
+        desc.motionKind = PhysicsBodyMotionKind::Fixed;
+        fixed = engine.RegisterAuthoredBody( desc, MakeColliderCreateDesc( shape, 0, 0 ) );
+    }
+    REQUIRE( dynamic.IsValid() );
+    REQUIRE( fixed.IsValid() );
+    const auto& bodies = PhysicsEngine::ReadBodies( engine );
+    const auto before = SkullbonezCore::Physics::LoadPhysicsBodyHotState( bodies.HotFields(), 0 );
+    REQUIRE( engine.SetAuthoredBodyMass( dynamic.body, 8 ) );
+    const auto* record = bodies.RecordForHandle( dynamic.body );
+    CHECK( record->mass == 8 );
+    CHECK( record->rotationalInertia == Vector3( 12, 16, 20 ) );
+    CHECK( record->rotationalInertiaProducts == Vector3( .4f, .8f, 1.2f ) );
+    const auto after = SkullbonezCore::Physics::LoadPhysicsBodyHotState( bodies.HotFields(), 0 );
+    CHECK( after.inverseMass == .125f );
+    CHECK( after.inverseRotationalInertia.x == doctest::Approx( before.inverseRotationalInertia.x / 4 ) );
+    CHECK( after.inverseRotationalInertiaProducts.x == doctest::Approx( before.inverseRotationalInertiaProducts.x / 4 ) );
+    CHECK( after.awake );
+    CHECK_FALSE( engine.SetAuthoredBodyMass( fixed.body, 8 ) );
+    CHECK_FALSE( engine.SetAuthoredBodyMass( dynamic.body, 0 ) );
+    CHECK_FALSE( engine.SetAuthoredBodyMass( dynamic.body, 1000001 ) );
+    CHECK_FALSE( engine.SetAuthoredBodyMass( dynamic.body, std::numeric_limits<float>::quiet_NaN() ) );
+    CHECK( record->mass == 8 );
+    REQUIRE( engine.RestoreAuthoredBodyState() );
+    CHECK( bodies.RecordForHandle( dynamic.body )->mass == 8 );
+}
+
+TEST_CASE( "Physics API point impulses convert world and local frames and apply exactly once" )
+{
+    using SkullbonezCore::Physics::PhysicsPointImpulse;
+    using SkullbonezCore::Physics::PhysicsPointImpulseWorld;
+    for ( bool local : { false, true } )
+    {
+        for ( bool offCenter : { false, true } )
+        {
+            SkullbonezCore::Core::EngineConfig config;
+            SkullbonezCore::Geometry::Terrain terrain( -100000.0f, 0.0f, 0.0f, config );
+            PhysicsEngine engine;
+            engine.SetTerrainView( terrain.PhysicsView() );
+            PhysicsAuthoredBodyRegistration dynamic, fixed;
+            const Vector3 center( 10, 20, 30 );
+            Quaternion rotation;
+            rotation.RotateAboutAxis( Vector3( 0, 0, 1 ), HALF_PI_RADIANS );
+            {
+                SkullbonezCore::Core::Allocation::RuntimeAllocationScope loading( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+                engine.ReserveAuthoredBodyCapacity( 2u, 2u );
+                const CollisionShape shape = BoundingSphere( 1, ZERO_VECTOR, .4f );
+                auto desc = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 991u ), shape, center, rotation, ZERO_VECTOR, ZERO_VECTOR, Vector3( 2, 2, 2 ), 2, 0, PhysicsBodyMotionKind::Dynamic );
+                dynamic = engine.RegisterAuthoredBody( desc, MakeColliderCreateDesc( shape, 0, 0 ) );
+                desc.sceneObjectId = MakePhysicsSceneObjectId( 992u );
+                desc.position = Vector3( 100, 100, 100 );
+                desc.motionKind = PhysicsBodyMotionKind::Fixed;
+                fixed = engine.RegisterAuthoredBody( desc, MakeColliderCreateDesc( shape, 0, 0 ) );
+            }
+            REQUIRE( dynamic.IsValid() );
+            REQUIRE( fixed.IsValid() );
+            const Vector3 localPoint = offCenter ? Vector3( 0, 1, 0 ) : ZERO_VECTOR;
+            PhysicsPointImpulse request { dynamic.body, Vector3( 4, 0, 0 ), local ? localPoint : center + localPoint, local };
+            PhysicsPointImpulseWorld resolved;
+            REQUIRE( engine.ResolvePointImpulse( request, resolved ) );
+            CheckVectorApprox( resolved.impulse, local ? Vector3( 0, 4, 0 ) : Vector3( 4, 0, 0 ) );
+            CheckVectorApprox( resolved.point, center + ( local ? rotation.GetOrientationMatrix() * localPoint : localPoint ) );
+            const auto& bodies = PhysicsEngine::ReadBodies( engine );
+            REQUIRE( engine.ApplyPointImpulse( request ) );
+            CHECK_FALSE( engine.ApplyPointImpulse( request ) );
+            auto invalid = request;
+            invalid.body = fixed.body;
+            CHECK_FALSE( engine.ApplyPointImpulse( invalid ) );
+            invalid = request;
+            invalid.impulse.x = std::numeric_limits<float>::quiet_NaN();
+            CHECK_FALSE( engine.ResolvePointImpulse( invalid, resolved ) );
+            invalid = request;
+            invalid.point.z = 1000001;
+            CHECK_FALSE( engine.ResolvePointImpulse( invalid, resolved ) );
+            invalid = request;
+            invalid.impulse = ZERO_VECTOR;
+            CHECK_FALSE( engine.ResolvePointImpulse( invalid, resolved ) );
+            SkullbonezCore::Threading::LockOrderValidator order;
+            SkullbonezCore::Threading::WorkerPool workers( order );
+            PhysicsWorldForces forces;
+            forces.angularDragMultiplier = 0;
+            engine.Step( PHYSICS_FIXED_DT, forces, workers, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
+            const auto first = SkullbonezCore::Physics::LoadPhysicsBodyHotState( bodies.HotFields(), 0 );
+            CheckVectorApprox( first.linearVelocity, local ? Vector3( 0, 2, 0 ) : Vector3( 2, 0, 0 ) );
+            CheckVectorApprox( first.angularVelocity, offCenter ? Vector3( 0, 0, -2 ) : ZERO_VECTOR );
+            CHECK_FALSE( bodies.RecordForHandle( dynamic.body )->hasPendingImpulse );
+            engine.Step( PHYSICS_FIXED_DT, forces, workers, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
+            const auto second = SkullbonezCore::Physics::LoadPhysicsBodyHotState( bodies.HotFields(), 0 );
+            CheckVectorApprox( second.linearVelocity, first.linearVelocity );
+            CheckVectorApprox( second.angularVelocity, first.angularVelocity );
+            REQUIRE( engine.RestoreAuthoredBodyState() );
+            CHECK_FALSE( bodies.RecordForHandle( dynamic.body )->hasPendingImpulse );
+            CheckVectorApprox( SkullbonezCore::Physics::LoadPhysicsBodyHotState( bodies.HotFields(), 0 ).linearVelocity, ZERO_VECTOR );
+        }
+    }
 }

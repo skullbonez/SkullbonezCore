@@ -35,6 +35,7 @@ Related:
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <variant>
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/CollisionShape.h"
@@ -237,6 +238,8 @@ void PhysicsDebugVisualizer::ResetTransientState()
     // contact fades or staged geometry from the previous scene epoch.
     m_trackedContacts.clear();
     m_lineData.clear();
+    m_droppedLines = m_droppedContacts = m_cappedArrows = 0;
+    m_labelCount = m_droppedLabels = 0;
 }
 
 // Contact debug rows are produced by the solver only for the current physics
@@ -248,7 +251,8 @@ PhysicsDebugVisualizer::TrackedContact* PhysicsDebugVisualizer::FindTrackedConta
 {
     for ( TrackedContact& tracked : m_trackedContacts )
     {
-        if ( tracked.contact.bodyA == contact.bodyA && tracked.contact.bodyB == contact.bodyB && tracked.contact.featureId == contact.featureId )
+        if ( tracked.contact.sceneObjectA == contact.sceneObjectA && tracked.contact.sceneObjectB == contact.sceneObjectB && tracked.contact.featureId == contact.featureId &&
+             ( contact.sceneObjectA != 0 || ( tracked.contact.bodyA == contact.bodyA && tracked.contact.bodyB == contact.bodyB ) ) )
         {
             return &tracked;
         }
@@ -283,6 +287,7 @@ void PhysicsDebugVisualizer::EmitLine( const Vector3& a, const Vector3& b, float
 {
     if ( m_lineData.size() + 12u > LINE_FLOAT_CAPACITY )
     {
+        ++m_droppedLines;
         // Hazard: diagnostic layers can be enabled together. Once their shared
         // visual budget is full, omit later lines instead of allocating in Render.
         return;
@@ -332,7 +337,8 @@ void PhysicsDebugVisualizer::EmitArrow( const Vector3& a, const Vector3& b, floa
 void PhysicsDebugVisualizer::EmitContactGlyph( const ContactPointPresentation& point, float normalImpulse, float fade, bool inspectionStyle )
 {
     const float size = 0.35f + (std::min)( point.penetration, 2.0f ) * 0.25f;
-    const float normalLen = 2.5f + (std::min)( point.penetration, 4.0f ) * 0.8f + (std::min)( normalImpulse, 8.0f ) * 0.08f;
+    (void)normalImpulse;
+    const float normalLen = 2.5f; // Direction glyph only; penetration and impulse never change its length.
     const Vector3 pointColor = inspectionStyle ? Vector3( 1.0f, point.exactSourcePoint ? 0.82f : 0.65f, 0.43f ) : Vector3( 1.0f, point.exactSourcePoint ? 0.95f : 0.62f, 0.15f );
     const Vector3 normalColor = inspectionStyle ? Vector3( 0.32f, 0.88f, 0.98f ) : Vector3( 0.0f, 0.9f, 1.0f );
     const Vector3 tangentColor = inspectionStyle ? Vector3( 0.94f, 0.69f, 0.38f ) : Vector3( 1.0f, 0.45f, 0.05f );
@@ -369,6 +375,10 @@ void PhysicsDebugVisualizer::EmitObjectAxes( const PhysicsDebugBodyView& view )
     {
         const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
+        if ( !AcceptBody( bodies[bodyIndex].sceneObjectId.value ) )
+        {
+            continue;
+        }
         Vector3 center = PhysicsBodyPosition( hotFields, bodyIndex );
         Quaternion orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
         RotationMatrix rot = orientation.GetOrientationMatrix();
@@ -398,6 +408,10 @@ void PhysicsDebugVisualizer::EmitConvexHullWireframes( const PhysicsDebugBodyVie
         }
 
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
+        if ( !AcceptBody( bodies[bodyIndex].sceneObjectId.value ) )
+        {
+            continue;
+        }
         Quaternion orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
         RotationMatrix rot = orientation.GetOrientationMatrix();
         const Vector3 center = PhysicsBodyPosition( hotFields, bodyIndex ) + rot * hull->GetPosition();
@@ -412,31 +426,247 @@ void PhysicsDebugVisualizer::EmitConvexHullWireframes( const PhysicsDebugBodyVie
     }
 }
 
+void PhysicsDebugVisualizer::EmitImpulse( const Vector3& point, const Vector3& impulse, float fade, bool friction )
+{
+    const float magnitude = VectorMag( impulse );
+    if ( !std::isfinite( magnitude ) || magnitude <= 0 || magnitude < m_impulseThreshold )
+    {
+        return;
+    }
+    const float length = (std::min)( 16.0f, magnitude * m_impulseScale );
+    const Vector3 end = point + impulse * ( length / magnitude );
+    EmitArrow( point, end, friction ? fade : .2f * fade, friction ? .45f * fade : fade, .05f * fade );
+    if ( magnitude * m_impulseScale > 16 )
+    {
+        ++m_cappedArrows;
+        EmitCross( end, .25f, fade, 0, 0 );
+    }
+}
+
 void PhysicsDebugVisualizer::EmitContacts( const PhysicsDebugContactView& view )
 {
-    // Yellow cross = contact point. Cyan arrow = normal push direction. Orange
-    // lines = the two sideways friction axes. A gray body-to-body line helps
-    // locate which pair produced the row.
     for ( const TrackedContact& tracked : m_trackedContacts )
     {
-        const PhysicsDebugContact& contact = tracked.contact;
-        const float fade = ContactFade( tracked );
-        ContactPointPresentation point;
-        point.point = contact.point;
-        point.normal = contact.normal;
-        point.tangent1 = contact.tangent1;
-        point.tangent2 = contact.tangent2;
-        point.penetration = contact.penetration;
-        point.exactSourcePoint = true;
-        EmitContactGlyph( point, contact.normalImpulse, fade );
-        const auto& bodies = view.bodies.Records();
-        const auto hotFields = view.bodies.HotFields();
-
-        if ( contact.bodyA >= 0 && contact.bodyB >= 0 && contact.bodyA < static_cast<int>( bodies.size() ) && contact.bodyB < static_cast<int>( bodies.size() ) )
+        const auto& contact = tracked.contact;
+        if ( !AcceptBody( contact.sceneObjectA ) && !AcceptBody( contact.sceneObjectB ) )
         {
-            Vector3 a = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( contact.bodyA ) );
-            Vector3 b = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( contact.bodyB ) );
-            EmitLine( a, b, 0.45f * fade, 0.45f * fade, 0.45f * fade );
+            continue;
+        }
+        // Dense rows are hints only. Removed or replaced identities cannot inherit
+        // an old contact glyph, even while presentation linger remains active.
+        if ( contact.sceneObjectA == 0 )
+        {
+            continue;
+        }
+        const int rowA = view.bodies.ModelIndexForHandle( view.bodies.HandleForSceneObjectId( { contact.sceneObjectA }, contact.bodyA ) );
+        const int rowB = contact.sceneObjectB == 0 ? -1 : view.bodies.ModelIndexForHandle( view.bodies.HandleForSceneObjectId( { contact.sceneObjectB }, contact.bodyB ) );
+        if ( rowA < 0 || ( contact.sceneObjectB != 0 && rowB < 0 ) )
+        {
+            continue;
+        }
+        const float fade = ContactFade( tracked );
+        const bool normalVisible = ( m_flags & PHYSICS_DEBUG_NORMAL_IMPULSES ) != 0 && std::abs( contact.normalImpulse ) >= m_impulseThreshold;
+        const float tangentMagnitude = std::sqrt( contact.tangentImpulse1 * contact.tangentImpulse1 + contact.tangentImpulse2 * contact.tangentImpulse2 );
+        const bool tangentVisible = ( m_flags & PHYSICS_DEBUG_FRICTION_IMPULSES ) != 0 && tangentMagnitude >= m_impulseThreshold;
+        if ( normalVisible || tangentVisible )
+        {
+            if ( m_labelCount < m_contactLabels.size() )
+            {
+                auto& label = m_contactLabels[m_labelCount++];
+                label.point = contact.point;
+                label.fade = fade;
+                // Values retain their solver magnitude even when the displayed
+                // arrow is capped. Pair and feature match this exact linger row.
+                std::snprintf( label.text.data(),
+                               label.text.size(),
+                               "%u/%u f%u %s N %.3g T %.3g,%.3g",
+                               contact.sceneObjectA,
+                               contact.sceneObjectB,
+                               contact.featureId,
+                               fade < .999f ? "past" : "now",
+                               contact.normalImpulse,
+                               contact.tangentImpulse1,
+                               contact.tangentImpulse2 );
+            }
+            else
+            {
+                ++m_droppedLabels;
+            }
+        }
+
+        if ( ( m_flags & PHYSICS_DEBUG_CONTACTS ) != 0 )
+        {
+            EmitCross( contact.point, .35f, fade, .95f * fade, .15f * fade );
+        }
+        if ( ( m_flags & PHYSICS_DEBUG_NORMALS ) != 0 )
+        {
+            EmitArrow( contact.point, contact.point + contact.normal * 2.5f, 0, .9f * fade, fade );
+        }
+        if ( ( m_flags & PHYSICS_DEBUG_NORMAL_IMPULSES ) != 0 )
+        {
+            EmitImpulse( contact.point, contact.solverNormal * contact.normalImpulse, fade, false );
+        }
+        if ( ( m_flags & PHYSICS_DEBUG_FRICTION_IMPULSES ) != 0 )
+        {
+            EmitImpulse( contact.point, contact.tangent1 * contact.tangentImpulse1 + contact.tangent2 * contact.tangentImpulse2, fade, true );
+        }
+    }
+}
+
+void PhysicsDebugVisualizer::EmitSphereWire( const Vector3& origin, float radius )
+{
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        for ( int segment = 0; segment < 24; ++segment )
+        {
+            const float first = segment * 2 * _PI / 24, second = ( segment + 1 ) * 2 * _PI / 24;
+            const auto point = [&]( float angle )
+            {
+                const float a = radius * cosf( angle ), b = radius * sinf( angle );
+                return origin + ( axis == 0 ? Vector3( 0, a, b ) : axis == 1 ? Vector3( a, 0, b ) : Vector3( a, b, 0 ) );
+            };
+            EmitLine( point( first ), point( second ), 1, .72f, .1f );
+        }
+    }
+}
+void PhysicsDebugVisualizer::EmitWireBox( const std::array<Vector3, 8>& vertices, float r, float g, float b )
+{
+    for ( int vertex = 0; vertex < 8; ++vertex )
+    {
+        for ( int axis = 1; axis <= 4; axis *= 2 )
+        {
+            if ( ( vertex & axis ) == 0 )
+            {
+                EmitLine( vertices[vertex], vertices[vertex | axis], r, g, b );
+            }
+        }
+    }
+}
+
+void PhysicsDebugVisualizer::EmitBodyDiagnostics( const PhysicsDebugBodyView& view )
+{
+    const auto bodies = view.bodies.Records();
+    const auto colliders = view.colliders.Records();
+    const auto hot = view.bodies.HotFields();
+    const int count = (std::min)( view.modelCount, (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
+    for ( int row = 0; row < count; ++row )
+    {
+        const auto index = static_cast<std::size_t>( row );
+        if ( !AcceptBody( bodies[index].sceneObjectId.value ) )
+        {
+            continue;
+        }
+        const auto body = LoadPhysicsBodyHotState( hot, index );
+        const Vector3 center = body.position;
+        auto orientation = body.orientation;
+        const auto rotation = orientation.GetOrientationMatrix();
+        if ( ( m_flags & PHYSICS_DEBUG_COM ) != 0 )
+        {
+            EmitCross( center, .6f, 1, 1, 1 );
+        }
+        if ( ( m_flags & PHYSICS_DEBUG_MOTION ) != 0 )
+        {
+            EmitArrow( center, center + body.linearVelocity, .2f, 1, .2f );
+            EmitArrow( center, center + body.angularVelocity, 1, .2f, 1 );
+        }
+        const auto& shape = colliders[index].shape;
+        Vector3 minimum = center, maximum = center;
+        bool initialized = false;
+        const auto include = [&]( const Vector3& value )
+        {
+            if ( !initialized )
+            {
+                minimum = maximum = value;
+                initialized = true;
+                return;
+            }
+            minimum = Vector3( (std::min)( minimum.x, value.x ), (std::min)( minimum.y, value.y ), (std::min)( minimum.z, value.z ) );
+            maximum = Vector3( (std::max)( maximum.x, value.x ), (std::max)( maximum.y, value.y ), (std::max)( maximum.z, value.z ) );
+        };
+        if ( const auto* sphere = GetShapeIf<BoundingSphere>( &shape ) )
+        {
+            const Vector3 origin = center + rotation * sphere->GetPosition();
+            const float radius = sphere->GetRadius();
+            const Vector3 extents( radius, radius, radius );
+            include( origin - extents );
+            include( origin + extents );
+            if ( ( m_flags & PHYSICS_DEBUG_SHAPES ) != 0 )
+            {
+                EmitSphereWire( origin, radius );
+            }
+        }
+        if ( const auto* box = GetShapeIf<BoundingBox>( &shape ) )
+        {
+            std::array<Vector3, 8> vertices;
+            const auto extent = box->GetHalfExtents();
+            for ( int vertex = 0; vertex < 8; ++vertex )
+            {
+                vertices[vertex] = center + rotation * ( box->GetPosition() + Vector3( vertex & 1 ? extent.x : -extent.x, vertex & 2 ? extent.y : -extent.y, vertex & 4 ? extent.z : -extent.z ) );
+                include( vertices[vertex] );
+            }
+            if ( ( m_flags & PHYSICS_DEBUG_SHAPES ) != 0 )
+            {
+                EmitWireBox( vertices, 1, .72f, .1f );
+            }
+        }
+        if ( const auto* hull = GetShapeIf<ConvexHullShape>( &shape ) )
+        {
+            for ( uint16_t vertex = 0; vertex < hull->GetVertexCount(); ++vertex )
+            {
+                include( center + rotation * ( hull->GetPosition() + hull->GetVertex( vertex ) ) );
+            }
+        }
+        if ( initialized && ( m_flags & PHYSICS_DEBUG_AABBS ) != 0 )
+        {
+            std::array<Vector3, 8> vertices;
+            for ( int vertex = 0; vertex < 8; ++vertex )
+            {
+                vertices[vertex] = Vector3( vertex & 1 ? maximum.x : minimum.x, vertex & 2 ? maximum.y : minimum.y, vertex & 4 ? maximum.z : minimum.z );
+            }
+            EmitWireBox( vertices, .8f, .4f, 1 );
+        }
+    }
+    if ( ( m_flags & PHYSICS_DEBUG_SHAPES ) != 0 )
+    {
+        EmitConvexHullWireframes( view );
+    }
+}
+
+void PhysicsDebugVisualizer::EmitJointDiagnostics( const PhysicsDebugFrameView& view )
+{
+    const auto hot = view.bodies.bodies.HotFields();
+    for ( const auto& joint : view.joints )
+    {
+        const int rowA = joint.BodyAIndex( view.bodies.bodies ), rowB = joint.BodyBIndex( view.bodies.bodies );
+        if ( rowA < 0 || rowB < 0 )
+        {
+            continue;
+        }
+        const auto& records = view.bodies.bodies.Records();
+        if ( !AcceptBody( records[rowA].sceneObjectId.value ) && !AcceptBody( records[rowB].sceneObjectId.value ) )
+        {
+            continue;
+        }
+        auto orientationA = PhysicsBodyOrientation( hot, rowA ), orientationB = PhysicsBodyOrientation( hot, rowB );
+        const auto centerA = PhysicsBodyPosition( hot, rowA ), centerB = PhysicsBodyPosition( hot, rowB );
+        const auto a = centerA + orientationA.GetOrientationMatrix() * joint.localAnchorA;
+        const auto b = centerB + orientationB.GetOrientationMatrix() * joint.localAnchorB;
+        if ( ( m_flags & PHYSICS_DEBUG_JOINTS ) != 0 )
+        {
+            EmitCross( a, .25f, 1, 1, .2f );
+            EmitCross( b, .25f, 1, 1, .2f );
+            EmitLine( centerA, a, 1, 1, .2f );
+            EmitLine( centerB, b, 1, 1, .2f );
+            EmitLine( a, b, 1, 1, .2f );
+        }
+        if ( ( m_flags & PHYSICS_DEBUG_JOINT_ERROR ) != 0 )
+        {
+            const auto difference = b - a;
+            const float distance = VectorMag( difference );
+            if ( distance > joint.slack && distance > 0 )
+            {
+                EmitArrow( a, a + difference * ( ( distance - joint.slack ) / distance ), 1, .1f, .1f );
+            }
         }
     }
 }
@@ -456,6 +686,10 @@ void PhysicsDebugVisualizer::EmitSleepState( const PhysicsDebugSleepView& view )
 
     for ( int i = 0; i < count; ++i )
     {
+        if ( !AcceptBody( view.bodies.bodies.Records()[static_cast<std::size_t>( i )].sceneObjectId.value ) )
+        {
+            continue;
+        }
         const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
         Vector3 center = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( i ) );
         float radius = (std::max)( 1.0f, collider.boundingRadius * 1.15f );
@@ -520,6 +754,11 @@ void PhysicsDebugVisualizer::EmitPipelineStage( const PhysicsDebugPipelineView& 
 
         const bool hasA = record.bodyA >= 0 && record.bodyA < static_cast<int>( bodies.size() );
         const bool hasB = record.bodyB >= 0 && record.bodyB < static_cast<int>( bodies.size() );
+        if ( ( m_flags & PHYSICS_DEBUG_SELECTED_ONLY ) != 0 && !( hasA && AcceptBody( bodies[static_cast<std::size_t>( record.bodyA )].sceneObjectId.value ) ) &&
+             !( hasB && AcceptBody( bodies[static_cast<std::size_t>( record.bodyB )].sceneObjectId.value ) ) )
+        {
+            continue;
+        }
 
         if ( hasA && hasB )
         {
@@ -567,6 +806,10 @@ void PhysicsDebugVisualizer::EmitTerrainContactProbe( const PhysicsDebugBodyView
 
     for ( int i = 0; i < count; ++i )
     {
+        if ( !AcceptBody( bodies[static_cast<std::size_t>( i )].sceneObjectId.value ) )
+        {
+            continue;
+        }
         const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
 
         if ( !HoldsShape<BoundingSphere>( collider.shape ) )
@@ -624,10 +867,11 @@ void PhysicsDebugVisualizer::SetPipelineStageCursor( int cursor )
 
 void PhysicsDebugVisualizer::Update( float dt, std::span<const PhysicsDebugContact> contacts )
 {
+    m_droppedContacts = 0;
     // The C-key mode is bitmask based: axes, contacts, and sleep state can be
     // shown independently or together.  If contacts are disabled, discard the
     // linger cache immediately so re-enabling starts from live solver rows.
-    if ( ( m_flags & PHYSICS_DEBUG_CONTACTS ) == 0 )
+    if ( ( m_flags & PHYSICS_DEBUG_CONTACT_LAYERS ) == 0 )
     {
         m_trackedContacts.clear();
         return;
@@ -641,7 +885,8 @@ void PhysicsDebugVisualizer::Update( float dt, std::span<const PhysicsDebugConta
         {
             if ( m_trackedContacts.size() >= TRACKED_CONTACT_CAPACITY )
             {
-                break;
+                ++m_droppedContacts;
+                continue;
             }
 
             TrackedContact tracked;
@@ -679,11 +924,16 @@ void PhysicsDebugVisualizer::Update( float dt, std::span<const PhysicsDebugConta
         {
             m_trackedContacts.push_back( newTracked );
         }
+        else
+        {
+            ++m_droppedContacts;
+        }
     }
 }
 
 void PhysicsDebugVisualizer::Render( const PhysicsDebugFrameView& view, const Matrix4& viewProj, Dx12GeometryOwner& renderCommands, bool supportsDebugLines, Geometry::Terrain* terrain )
 {
+    m_labelCount = m_droppedLabels = 0;
     if ( m_flags == PHYSICS_DEBUG_NONE || view.bodies.modelCount <= 0 || !supportsDebugLines )
     {
         return;
@@ -691,16 +941,30 @@ void PhysicsDebugVisualizer::Render( const PhysicsDebugFrameView& view, const Ma
 
     m_lineData.clear();
 
+    m_droppedLines = m_cappedArrows = 0;
+    if ( ( m_flags & PHYSICS_DEBUG_TEST_IMPULSE ) != 0 )
+    {
+        EmitLine( m_testImpulse[0], m_testImpulse[1], 1, .8f, .2f );
+        EmitArrow( m_testImpulse[1], m_testImpulse[1] + m_testImpulse[2] * .1f, .2f, .9f, 1 );
+    }
+    if ( ( m_flags & ( PHYSICS_DEBUG_COM | PHYSICS_DEBUG_AABBS | PHYSICS_DEBUG_MOTION | PHYSICS_DEBUG_SHAPES ) ) != 0 )
+    {
+        EmitBodyDiagnostics( view.bodies );
+    }
+    if ( ( m_flags & ( PHYSICS_DEBUG_JOINTS | PHYSICS_DEBUG_JOINT_ERROR ) ) != 0 )
+    {
+        EmitJointDiagnostics( view );
+    }
+
     // Each enabled layer writes into one retained CPU line buffer, then uploads a
     // single dynamic vertex stream.  That keeps debug rendering cheap enough to
     // leave on while investigating solver state in large scenes.
     if ( ( m_flags & PHYSICS_DEBUG_AXES ) != 0 )
     {
         EmitObjectAxes( view.bodies );
-        EmitConvexHullWireframes( view.bodies );
     }
 
-    if ( ( m_flags & PHYSICS_DEBUG_CONTACTS ) != 0 )
+    if ( ( m_flags & PHYSICS_DEBUG_CONTACT_LAYERS ) != 0 )
     {
         EmitContacts( view.contacts );
     }

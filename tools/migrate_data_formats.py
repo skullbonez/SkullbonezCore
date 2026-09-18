@@ -421,7 +421,7 @@ def self_test() -> None:
         assert f"hull_version {bake_hulls.CURRENT_HULL_VERSION}" in hull
         hull_path.write_text(hull, encoding="utf-8", newline="\n")
         assert migrate_hull(hull_path) == hull
-        hull_path.write_text(hull.replace("hull_version 2", "hull_version 3", 1), encoding="utf-8")
+        hull_path.write_text(hull.replace(f"hull_version {bake_hulls.CURRENT_HULL_VERSION}", f"hull_version {bake_hulls.CURRENT_HULL_VERSION + 1}", 1), encoding="utf-8")
         try:
             migrate_hull(hull_path)
         except MigrationError as exc:

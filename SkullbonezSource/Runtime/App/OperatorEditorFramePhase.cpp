@@ -81,6 +81,118 @@ struct OperatorUiProjectionFacts
 
 namespace
 {
+UI::UIPhysicsInspector SamplePhysicsInspector( const PhysicsEngine& physics, int selectedRow )
+{
+    UI::UIPhysicsInspector view;
+    view.tick = physics.CompletedStepCount();
+    view.joints = static_cast<int>( physics.GetDiagnosticsView().pointJointConstraints.size() );
+    view.settings = Physics::InteractivePhysicsValues( physics.RuntimeSettings() );
+    const auto& bodies = PhysicsEngine::ReadBodies( physics );
+    const auto records = bodies.Records();
+    const auto hot = bodies.HotFields();
+    const auto diagnostics = physics.GetDiagnosticsView();
+    for ( std::size_t i = 0; i < records.size(); ++i )
+    {
+        const auto body = Physics::LoadPhysicsBodyHotState( hot, i );
+        if ( body.fixed )
+        {
+            ++view.fixedBodies;
+        }
+        else if ( body.awake )
+        {
+            ++view.awakeBodies;
+        }
+        else
+        {
+            ++view.sleepingBodies;
+        }
+    }
+    const auto& stats = diagnostics.persistentContactSolverStats;
+    view.rows = stats.rowCount;
+    view.actualIterations = stats.solverIterations;
+    view.sweepBudget = stats.solverSweepBudget;
+    view.cacheHits = stats.cacheHits;
+    view.cacheMisses = stats.cacheMisses;
+    view.warmRows = stats.warmStartedRows;
+    view.correctionTotal = stats.positionCorrectionTotal;
+    view.correctionMax = stats.positionCorrectionMax;
+    const auto samples = diagnostics.persistentContactConvergenceTrace.Samples();
+    view.convergenceCount = static_cast<int>( samples.size() );
+    view.droppedIterations = diagnostics.persistentContactConvergenceTrace.DroppedIterationCount();
+    for ( std::size_t i = 0; i < samples.size(); ++i )
+    {
+        view.convergence[i] = samples[i].maxRowImpulseDeltaSq;
+    }
+    if ( selectedRow < 0 || selectedRow >= bodies.Count() )
+    {
+        return view;
+    }
+    const auto& record = records[static_cast<std::size_t>( selectedRow )];
+    const auto body = Physics::LoadPhysicsBodyHotState( hot, static_cast<std::size_t>( selectedRow ) );
+    const auto copyVector = []( const auto& value ) -> std::array<float, 3> { return { value.x, value.y, value.z }; };
+    view.selected = true;
+    view.selectedId = record.sceneObjectId.value;
+    view.fixed = body.fixed;
+    view.awake = body.awake;
+    view.mass = record.mass;
+    view.inverseMass = body.inverseMass;
+    view.center = copyVector( body.position );
+    view.origin = view.center;
+    body.orientation.GetComponents( view.orientation[0], view.orientation[1], view.orientation[2], view.orientation[3] );
+    view.velocity = copyVector( body.linearVelocity );
+    view.angularVelocity = copyVector( body.angularVelocity );
+    view.inertia = copyVector( record.rotationalInertia );
+    view.inertiaProducts = copyVector( record.rotationalInertiaProducts );
+    const auto& collider = PhysicsEngine::ReadColliders( physics ).Records()[static_cast<std::size_t>( selectedRow )];
+    view.shape = static_cast<int>( collider.shapeKind );
+    if ( const auto* sphere = GetShapeIf<BoundingSphere>( &collider.shape ) )
+    {
+        view.volume = sphere->GetVolume();
+    }
+    if ( const auto* box = GetShapeIf<BoundingBox>( &collider.shape ) )
+    {
+        view.volume = box->GetVolume();
+    }
+    if ( const auto* hull = GetShapeIf<ConvexHullShape>( &collider.shape ) )
+    {
+        view.volume = hull->GetVolume();
+        auto orientation = body.orientation;
+        view.origin = copyVector( body.position - orientation.GetOrientationMatrix() * hull->GetAuthoredCenterOfMass() );
+    }
+    if ( view.volume > 0 )
+    {
+        view.density = view.mass / view.volume;
+    }
+    view.restitution = collider.restitution;
+    view.friction = collider.friction;
+    for ( const auto& contact : diagnostics.persistentContacts )
+    {
+        if ( contact.bodyA != selectedRow && contact.bodyB != selectedRow )
+        {
+            continue;
+        }
+        if ( view.contactCount == static_cast<int>( view.contacts.size() ) )
+        {
+            ++view.droppedContacts;
+            continue;
+        }
+        auto& row = view.contacts[static_cast<std::size_t>( view.contactCount++ )];
+        row.bodyA = contact.bodyA >= 0 && contact.bodyA < bodies.Count() ? records[static_cast<std::size_t>( contact.bodyA )].sceneObjectId.value : 0;
+        row.bodyB = contact.bodyB >= 0 && contact.bodyB < bodies.Count() ? records[static_cast<std::size_t>( contact.bodyB )].sceneObjectId.value : 0;
+        row.feature = contact.featureId;
+        row.penetration = contact.penetration;
+        row.normalImpulse = contact.accN;
+        row.tangentImpulse1 = contact.accT1;
+        row.tangentImpulse2 = contact.accT2;
+        row.normalMass = contact.normalMass;
+        row.tangentMass1 = contact.tangentMass1;
+        row.tangentMass2 = contact.tangentMass2;
+        row.frictionLimit = contact.appliedFrictionLimit;
+        row.warmStarted = contact.warmStarted;
+    }
+    return view;
+}
+
 UiCameraBadgeMode ProjectUiCameraBadgeMode( RunCameraMode mode )
 {
     switch ( mode )
@@ -498,8 +610,32 @@ void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData,
                                              debug.isWaterHidden,
                                              debug.isWaterNoReflect,
                                              debug.isWaterRTReflect,
-                                             projection.cinematicRendering };
+                                             projection.cinematicRendering,
+                                             debug.isGravityGridVisible,
+                                             debug.gravityField.height,
+                                             debug.gravityField.opacity,
+                                             debug.gravityField.color,
+                                             debug.gravityField.snapBalls };
     ProjectOperatorUiSettings( uiData, settings );
+    if ( m_operatorUi->PresentationBounds().physicsControls.w > 0 )
+    {
+        uiData.world.physicsInspector = SamplePhysicsInspector( sceneWorld.Physics(), PeekSelectedEditorModelIndex( m_editorTools.Editor(), sceneWorld.BodyStore() ) );
+    }
+    uiData.world.physicsInspector.requestedIterations = sceneWorld.Physics().RuntimeSettings().solver.iterations;
+    uiData.world.physicsInspector.liveEditable = m_replayRuntime.LivePhysicsEditable();
+    uiData.world.physicsInspector.historicalContext = !uiData.world.physicsInspector.liveEditable;
+    if ( uiData.world.physicsInspector.selected && uiData.world.physicsInspector.liveEditable && !uiData.world.physicsInspector.fixed )
+    {
+        const auto* entity = sceneWorld.Entities().TryGet( sceneWorld.Entities().FindBySceneObjectId( { uiData.world.physicsInspector.selectedId } ) );
+        uiData.world.physicsInspector.massEditable = m_editorTools.Editor().editorModeEnabled && entity && !entity->editorLocked && !entity->asset.isAssetBacked &&
+                                                     entity->behaviorGroup.kind == SceneBehaviorGroupKind::None;
+    }
+    uiData.world.physicsInspector.settingsNotice = m_physicsSettingsNotice;
+    uiData.world.physicsInspector.droppedTicks = m_simulation.DroppedPhysicsTickCount();
+    uiData.world.physicsInspector.physicsMs = uiData.surface.physicsMs;
+    uiData.world.physicsInspector.timeScale = m_sceneController.State().timeScale;
+    uiData.world.physicsInspector.geometry = Renderer().PhysicsDebugGeometryCounts();
+
 
     const RunRayCastTestState& rayCast = m_runtimeTools.RayCastTest();
     const RunEditorPlacementState& editor = m_editorTools.Editor();

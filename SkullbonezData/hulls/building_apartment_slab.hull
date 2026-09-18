@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name building_apartment_slab
 source_hash 0xf15ca2a8fe5e948d
 
@@ -28,6 +28,7 @@ default_mass 325.584
 bounding_radius 16.382747
 inertia_half_extents 14 0.38 8.5
 unit_inertia 24.1314667 89.4166667 65.3814667
+unit_inertia_products 0 0 0
 projected_surface_area 170.066667
 
 # Baked centered vertices.

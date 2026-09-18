@@ -43,7 +43,7 @@ namespace SkullbonezCore
 namespace Core
 {
 
-inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 6;
+inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 8;
 
 /*
     Process configuration loaded once from SkullbonezData/engine.cfg at startup.
@@ -99,7 +99,7 @@ struct CameraConfig
     float frustumFar = 5500.0f;
     float mouseSensitivity = 0.2f;
     float keySpeed = 200.0f;
-    float cameraTweenRate = 3.0f;          // Legacy config compatibility; finite-duration camera transitions ignore this rate.
+    float cameraTweenRate = 3.0f; // Legacy config compatibility; finite-duration camera transitions ignore this rate.
     float cameraCollisionThreshold = 0.01f;
     float minCameraHeight = 1.5f;
     float maxCameraHeight = 110.0f;
@@ -120,7 +120,7 @@ struct SkyboxConfig
 struct RuntimeCapacityConfig
 {
     int sceneObjectCapacity = 4000;
-    int workerThreads = -1;                // -1 = auto, 0 = disabled, positive = explicit worker count.
+    int workerThreads = -1; // -1 = auto, 0 = disabled, positive = explicit worker count.
 };
 
 // Private replay-prediction scheduling policy. These values never alter the
@@ -196,6 +196,7 @@ struct PersistentContactSolverConfig
     float baumgarteBeta = 0.2f;
     float positionCorrectionPercent = 0.35f;
     int iterations = 12;
+    bool warmStart = true;
 };
 
 // Terrain-specific contact generation and correction policy. It stays
@@ -311,6 +312,19 @@ struct ReplayTrajectoryAppearanceConfig
     float selectedEmphasis = 0.45f;
 };
 
+// Presentation-only settings. Runtime scene policy restricts vegetation to the
+// generated demo; selecting a quality never changes collider/solver state.
+struct GrassRenderConfig
+{
+    float quality = 0.00f;
+    float density = 1.00f;
+    float distance = 24.00f;
+    float height = 0.22f;
+    float bend = 1.00f;
+    float recoverySeconds = 3.00f;
+    bool operator==( const GrassRenderConfig& ) const = default;
+};
+
 // RuntimeRenderer owns the ordinary render profile; its pass/shader owners
 // consume these lighting, shadow, water, and material values each frame.
 struct OrdinaryRenderConfig
@@ -342,6 +356,7 @@ struct OrdinaryRenderConfig
     float boxSpecularScale = 0.82f;
 
     ReplayTrajectoryAppearanceConfig replayTrajectory;
+    GrassRenderConfig grass;
 };
 
 // Style-mode value table shared by config defaults, authored scene/style data,
@@ -560,6 +575,7 @@ class EngineConfig
     // mutated, so an unsupported format cannot leave a partially loaded config.
     SbResult Load( SbDiagnosticStore& diagnostics, const char* path );
     void Dump( FILE* out ) const;
+    SbResult SavePhysicsDefaults( SbDiagnosticStore& diagnostics, const char* path ) const;
 
     // Composition invariant: parser rows retain historical order and key
     // spellings while consumers select the narrow domain value they own.

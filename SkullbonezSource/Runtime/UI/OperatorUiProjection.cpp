@@ -117,6 +117,13 @@ void ProjectOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRende
     ordinaryValue( UIRenderParam::TrajectoryMarkerAlpha, ordinary.replayTrajectory.markerAlpha );
     ordinaryValue( UIRenderParam::TrajectoryMarkerEdgeFeather, ordinary.replayTrajectory.markerEdgeFeather );
     ordinaryValue( UIRenderParam::TrajectorySelectedEmphasis, ordinary.replayTrajectory.selectedEmphasis );
+    ordinaryValue( UIRenderParam::GrassQuality, ordinary.grass.quality );
+    ordinaryValue( UIRenderParam::GrassDensity, ordinary.grass.density );
+    ordinaryValue( UIRenderParam::GrassDistance, ordinary.grass.distance );
+    ordinaryValue( UIRenderParam::GrassHeight, ordinary.grass.height );
+    ordinaryValue( UIRenderParam::GrassBend, ordinary.grass.bend );
+    ordinaryValue( UIRenderParam::GrassRecovery, ordinary.grass.recoverySeconds );
+
 
     const auto cinematicValue = [&]( UICinematicParam parameter, float value ) { view.cinematicParameters[static_cast<int>( parameter )] = value; };
 
@@ -647,6 +654,11 @@ void ProjectOperatorUiSettings( UI::InGameUIFrameData& UIData, const OperatorUiS
     UIData.world.waterFlatDebug = facts.waterFlat;
     UIData.world.terrainHidden = facts.terrainHidden;
     UIData.world.waterHidden = facts.waterHidden;
+    UIData.world.gravityGridVisible = facts.gravityGridVisible;
+    UIData.world.gravityFieldHeight = facts.gravityFieldHeight;
+    UIData.world.gravityFieldOpacity = facts.gravityFieldOpacity;
+    UIData.world.gravityFieldColor = facts.gravityFieldColor;
+    UIData.world.gravityFieldSnapBalls = facts.gravityFieldSnapBalls;
     UIData.world.waterNoReflect = facts.waterNoReflect;
     UIData.world.waterRTReflect = facts.waterRtReflect;
     UIData.rendering.cinematicRendering = facts.cinematicRendering;

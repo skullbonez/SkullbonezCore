@@ -61,6 +61,9 @@
     <ClInclude Include="SkullbonezSource\Maths\ScalarMath.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Maths\SymmetricMatrix3.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Maths\Vector3.h">
       <Filter>Header Files</Filter>
     </ClInclude>

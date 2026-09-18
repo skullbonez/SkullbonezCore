@@ -1,0 +1,766 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 5,
+  "name": "Catto - Circle Stack",
+  "simulation": {
+    "seed": 20240205,
+    "physics": true,
+    "text": false,
+    "timeScale": 1,
+    "world": {
+      "gravity": -40.0,
+      "fluidHeight": -1844.0,
+      "fluidDensity": 0
+    }
+  },
+  "cinematic": {
+    "rendering": true,
+    "skyAtmosphere": true,
+    "clouds": false,
+    "fog": false,
+    "godRays": false,
+    "volumetricLighting": false,
+    "bloom": false,
+    "skyHorizonR": 0.16,
+    "skyHorizonG": 0.2,
+    "skyHorizonB": 0.27,
+    "skyZenithR": 0.06,
+    "skyZenithG": 0.08,
+    "skyZenithB": 0.12,
+    "exposure": 1.0,
+    "gamma": 2.2
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true,
+    "exitOnComplete": false,
+    "pauseSnapshotState": false
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -844.0,
+      "slopeX": 0,
+      "slopeZ": 0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true
+  },
+  "cameras": [
+    {
+      "name": "catto_front",
+      "position": [
+        512.0,
+        222.0,
+        703.0755666174017
+      ],
+      "view": [
+        512.0,
+        222.0,
+        512.0
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fovDegrees": 50
+    }
+  ],
+  "objects": [
+    {
+      "name": "ground_00",
+      "sceneObjectId": 1001,
+      "position": [
+        363.42857142857144,
+        156.0,
+        512.0
+      ],
+      "mass": 11.428571428571429,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_01",
+      "sceneObjectId": 1002,
+      "position": [
+        386.2857142857143,
+        156.0,
+        512.0
+      ],
+      "mass": 11.428571428571429,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_02",
+      "sceneObjectId": 1003,
+      "position": [
+        409.1428571428571,
+        156.0,
+        512.0
+      ],
+      "mass": 11.428571428571429,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_03",
+      "sceneObjectId": 1004,
+      "position": [
+        432.0,
+        156.0,
+        512.0
+      ],
+      "mass": 11.428571428571429,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_04",
+      "sceneObjectId": 1005,
+      "position": [
+        454.85714285714283,
+        156.0,
+        512.0
+      ],
+      "mass": 11.428571428571429,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_05",
+      "sceneObjectId": 1006,
+      "position": [
+        477.7142857142857,
+        156.0,
+        512.0
+      ],
+      "mass": 11.428571428571429,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_06",
+      "sceneObjectId": 1007,
+      "position": [
+        500.57142857142856,
+        156.0,
+        512.0
+      ],
+      "mass": 11.428571428571429,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_07",
+      "sceneObjectId": 1008,
+      "position": [
+        523.4285714285714,
+        156.0,
+        512.0
+      ],
+      "mass": 11.428571428571429,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_08",
+      "sceneObjectId": 1009,
+      "position": [
+        546.2857142857142,
+        156.0,
+        512.0
+      ],
+      "mass": 11.428571428571429,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_09",
+      "sceneObjectId": 1010,
+      "position": [
+        569.1428571428571,
+        156.0,
+        512.0
+      ],
+      "mass": 11.428571428571429,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_10",
+      "sceneObjectId": 1011,
+      "position": [
+        592.0,
+        156.0,
+        512.0
+      ],
+      "mass": 11.428571428571429,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_11",
+      "sceneObjectId": 1012,
+      "position": [
+        614.8571428571429,
+        156.0,
+        512.0
+      ],
+      "mass": 11.428571428571429,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_12",
+      "sceneObjectId": 1013,
+      "position": [
+        637.7142857142857,
+        156.0,
+        512.0
+      ],
+      "mass": 11.428571428571429,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_13",
+      "sceneObjectId": 1014,
+      "position": [
+        660.5714285714286,
+        156.0,
+        512.0
+      ],
+      "mass": 11.428571428571429,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.428571428571429,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ball_00",
+      "sceneObjectId": 1015,
+      "position": [
+        512.0,
+        176.0,
+        512.0
+      ],
+      "mass": 3.141592653589793,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "ball",
+      "radius": 4.0,
+      "moment": 20.106192982974676
+    },
+    {
+      "name": "ball_01",
+      "sceneObjectId": 1016,
+      "position": [
+        512.0,
+        188.0,
+        512.0
+      ],
+      "mass": 3.141592653589793,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "ball",
+      "radius": 4.0,
+      "moment": 20.106192982974676
+    },
+    {
+      "name": "ball_02",
+      "sceneObjectId": 1017,
+      "position": [
+        512.0,
+        200.0,
+        512.0
+      ],
+      "mass": 3.141592653589793,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "ball",
+      "radius": 4.0,
+      "moment": 20.106192982974676
+    },
+    {
+      "name": "ball_03",
+      "sceneObjectId": 1018,
+      "position": [
+        512.0,
+        212.0,
+        512.0
+      ],
+      "mass": 3.141592653589793,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "ball",
+      "radius": 4.0,
+      "moment": 20.106192982974676
+    },
+    {
+      "name": "ball_04",
+      "sceneObjectId": 1019,
+      "position": [
+        512.0,
+        224.0,
+        512.0
+      ],
+      "mass": 3.141592653589793,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "ball",
+      "radius": 4.0,
+      "moment": 20.106192982974676
+    },
+    {
+      "name": "ball_05",
+      "sceneObjectId": 1020,
+      "position": [
+        512.0,
+        236.0,
+        512.0
+      ],
+      "mass": 3.141592653589793,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "ball",
+      "radius": 4.0,
+      "moment": 20.106192982974676
+    },
+    {
+      "name": "ball_06",
+      "sceneObjectId": 1021,
+      "position": [
+        512.0,
+        248.0,
+        512.0
+      ],
+      "mass": 3.141592653589793,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "ball",
+      "radius": 4.0,
+      "moment": 20.106192982974676
+    },
+    {
+      "name": "ball_07",
+      "sceneObjectId": 1022,
+      "position": [
+        512.0,
+        260.0,
+        512.0
+      ],
+      "mass": 3.141592653589793,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "ball",
+      "radius": 4.0,
+      "moment": 20.106192982974676
+    },
+    {
+      "name": "ball_08",
+      "sceneObjectId": 1023,
+      "position": [
+        512.0,
+        272.0,
+        512.0
+      ],
+      "mass": 3.141592653589793,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "ball",
+      "radius": 4.0,
+      "moment": 20.106192982974676
+    },
+    {
+      "name": "ball_09",
+      "sceneObjectId": 1024,
+      "position": [
+        512.0,
+        284.0,
+        512.0
+      ],
+      "mass": 3.141592653589793,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "ball",
+      "radius": 4.0,
+      "moment": 20.106192982974676
+    }
+  ],
+  "objectMaterials": [
+    {
+      "target": "ground_00",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_01",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_02",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_03",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_04",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_05",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_06",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_07",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_08",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_09",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_10",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_11",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_12",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_13",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ball_00",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "ball_01",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "ball_02",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "ball_03",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "ball_04",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "ball_05",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "ball_06",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "ball_07",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "ball_08",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "ball_09",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    }
+  ]
+}

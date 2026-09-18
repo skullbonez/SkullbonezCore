@@ -1,0 +1,534 @@
+{
+  "version": 1,
+  "sourceRevision": "1e0492d81f68c7831cfa549699dd98bcb8454060",
+  "video": "https://www.youtube.com/watch?v=sKHf_o_UCzI&t=596s",
+  "videoVerifiedBy": "Solver2D README links this exact video; video frames/timestamps were not accessible.",
+  "sourceSampleCount": 26,
+  "scale": 4.0,
+  "cases": [
+    {
+      "scene": "SkullbonezData/scenes/catto_single_box.scene.json",
+      "sample": "Single Box",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_contact.cpp",
+      "family": "contact",
+      "stress": false,
+      "bodies": 23,
+      "dynamicBodies": 1,
+      "joints": 0,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "Floor is 22 adjoining slabs with the original top height; seams add contact features."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_high_mass_ratio_1.scene.json",
+      "sample": "High Mass Ratio 1",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_contact.cpp",
+      "family": "contact",
+      "stress": false,
+      "bodies": 187,
+      "dynamicBodies": 165,
+      "joints": 0,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "Three 10-row pyramids retain 100:1, 200:1 and 300:1 top/body mass ratios.",
+        "Floor is 22 adjoining slabs with the original top height; seams add contact features."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_high_mass_ratio_2.scene.json",
+      "sample": "High Mass Ratio 2",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_contact.cpp",
+      "family": "contact",
+      "stress": false,
+      "bodies": 10,
+      "dynamicBodies": 3,
+      "joints": 0,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "The original 400:1 mass ratio is preserved.",
+        "Segment floor becomes a solid 3D slab.",
+        "Floor is 7 adjoining slabs with the original top height; seams add contact features."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_high_mass_ratio_3.scene.json",
+      "sample": "High Mass Ratio 3",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_contact.cpp",
+      "family": "contact",
+      "stress": false,
+      "bodies": 17,
+      "dynamicBodies": 3,
+      "joints": 0,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "The original 400:1 mass ratio is preserved.",
+        "Original thick box floor retained.",
+        "Floor is 14 adjoining slabs with the original top height; seams add contact features."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_overlap_recovery.scene.json",
+      "sample": "Overlap Recovery",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_contact.cpp",
+      "family": "contact",
+      "stress": false,
+      "bodies": 24,
+      "dynamicBodies": 10,
+      "joints": 0,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "Floor is 14 adjoining slabs with the original top height; seams add contact features."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_vertical_stack.scene.json",
+      "sample": "Vertical Stack",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_contact.cpp",
+      "family": "contact",
+      "stress": false,
+      "bodies": 49,
+      "dynamicBodies": 15,
+      "joints": 0,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "Floor is 34 adjoining slabs with the original top height; seams add contact features."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_pyramid_20.scene.json",
+      "sample": "Pyramid (20 rows)",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_contact.cpp",
+      "family": "contact",
+      "stress": false,
+      "bodies": 244,
+      "dynamicBodies": 210,
+      "joints": 0,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "Original Debug size: 210 dynamic boxes.",
+        "Floor is 34 adjoining slabs with the original top height; seams add contact features."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_pyramid_100.scene.json",
+      "sample": "Pyramid (100 rows)",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_contact.cpp",
+      "family": "contact",
+      "stress": true,
+      "bodies": 5084,
+      "dynamicBodies": 5050,
+      "joints": 0,
+      "minimumModelCapacity": 5148,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "Original NDEBUG size: 5050 dynamic boxes.",
+        "Floor is 34 adjoining slabs with the original top height; seams add contact features."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_double_domino.scene.json",
+      "sample": "Double Domino",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_contact.cpp",
+      "family": "contact",
+      "stress": false,
+      "bodies": 49,
+      "dynamicBodies": 15,
+      "joints": 0,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "Initial off-center impulse converted to equivalent linear/angular velocity using box inertia.",
+        "Floor is 34 adjoining slabs with the original top height; seams add contact features."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_card_house.scene.json",
+      "sample": "Card House",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_contact.cpp",
+      "family": "contact",
+      "stress": false,
+      "bodies": 54,
+      "dynamicBodies": 40,
+      "joints": 0,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "Original 0.001 half-thickness retained before 4x scaling; no thickening to hide instability.",
+        "Floor is 14 adjoining slabs with the original top height; seams add contact features."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_circle_stack.scene.json",
+      "sample": "Circle Stack",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_contact.cpp",
+      "family": "contact",
+      "stress": false,
+      "bodies": 24,
+      "dynamicBodies": 10,
+      "joints": 0,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "Floor is 14 adjoining slabs with the original top height; seams add contact features."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_confined.scene.json",
+      "sample": "Confined",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_contact.cpp",
+      "family": "contact",
+      "stress": false,
+      "bodies": 629,
+      "dynamicBodies": 625,
+      "joints": 0,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "Capsule boundary becomes four box walls; rounded corners are not reproduced.",
+        "Sphere extrusion can escape the original XY plane; no hidden planar lock is added."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_arch.scene.json",
+      "sample": "Arch",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_contact.cpp",
+      "family": "contact",
+      "stress": false,
+      "bodies": 55,
+      "dynamicBodies": 21,
+      "joints": 0,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "17 source quadrilaterals extruded into baked convex hulls, plus four original loading slabs.",
+        "Floor is 34 adjoining slabs with the original top height; seams add contact features."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_bridge.scene.json",
+      "sample": "Bridge",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_joints.cpp",
+      "family": "joints",
+      "stress": false,
+      "bodies": 162,
+      "dynamicBodies": 160,
+      "joints": 161,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "2D revolute joints become native 3D point joints (40 Hz, damping 1, zero slack); no hinge motors, limits or 0.1 body damping."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_ball_and_chain.scene.json",
+      "sample": "Ball & Chain",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_joints.cpp",
+      "family": "joints",
+      "stress": false,
+      "bodies": 42,
+      "dynamicBodies": 41,
+      "joints": 41,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "2D revolute joints become native 3D point joints (40 Hz, damping 1, zero slack); no hinge motors, limits or 0.1 body damping.",
+        "Capsule links become rectangular prisms; source capsule area mass retained."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_joint_grid.scene.json",
+      "sample": "Joint Grid (20 x 20)",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_joints.cpp",
+      "family": "joints",
+      "stress": false,
+      "bodies": 400,
+      "dynamicBodies": 393,
+      "joints": 760,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "2D revolute joints become native 3D point joints (40 Hz, damping 1, zero slack); no hinge motors, limits or 0.1 body damping.",
+        "Reduced from 100 x 100 release grid to 20 x 20 to fit current body/joint limits.",
+        "Original category-wide collision suppression is unavailable; spheres retain normal collision."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_stretched_chain.scene.json",
+      "sample": "Stretched Chain",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_joints.cpp",
+      "family": "joints",
+      "stress": false,
+      "bodies": 41,
+      "dynamicBodies": 40,
+      "joints": 40,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        512.0,
+        160.0,
+        512.0
+      ],
+      "adaptations": [
+        "2D revolute joints become native 3D point joints (40 Hz, damping 1, zero slack); no hinge motors, limits or 0.1 body damping.",
+        "Initial one-unit anchor errors retained; original maskBits=0 collision suppression is not reproduced."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_far_pyramid.scene.json",
+      "sample": "Far Pyramid",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_far.cpp",
+      "family": "far",
+      "stress": false,
+      "bodies": 89,
+      "dynamicBodies": 55,
+      "joints": 0,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        90000,
+        -80000,
+        512
+      ],
+      "adaptations": [
+        "Floor is 34 adjoining slabs with the original top height; seams add contact features.",
+        "Local geometry is 4x; absolute source origin is unscaled to fit native +/-100000 bounds. Far Pyramid moves x=100000 to x=90000. This changes the source precision ratio."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_far_stack.scene.json",
+      "sample": "Far Stack",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_far.cpp",
+      "family": "far",
+      "stress": false,
+      "bodies": 9,
+      "dynamicBodies": 5,
+      "joints": 0,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        40000,
+        -25000,
+        512
+      ],
+      "adaptations": [
+        "Floor is 4 adjoining slabs with the original top height; seams add contact features.",
+        "Local geometry is 4x; absolute source origin is unscaled to fit native +/-100000 bounds. Far Pyramid moves x=100000 to x=90000. This changes the source precision ratio."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_far_recovery.scene.json",
+      "sample": "Far Recovery",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_far.cpp",
+      "family": "far",
+      "stress": false,
+      "bodies": 24,
+      "dynamicBodies": 10,
+      "joints": 0,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        80000,
+        -70000,
+        512
+      ],
+      "adaptations": [
+        "Floor is 14 adjoining slabs with the original top height; seams add contact features.",
+        "Local geometry is 4x; absolute source origin is unscaled to fit native +/-100000 bounds. Far Pyramid moves x=100000 to x=90000. This changes the source precision ratio."
+      ],
+      "initialStateOnly": false
+    },
+    {
+      "scene": "SkullbonezData/scenes/catto_far_chain.scene.json",
+      "sample": "Far Chain",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_far.cpp",
+      "family": "far",
+      "stress": false,
+      "bodies": 41,
+      "dynamicBodies": 40,
+      "joints": 40,
+      "minimumModelCapacity": 4000,
+      "tickRate": 120,
+      "suggestedTicks": 1200,
+      "sourceOriginMapping": [
+        40000,
+        -35000,
+        512
+      ],
+      "adaptations": [
+        "2D revolute joints become native 3D point joints (40 Hz, damping 1, zero slack); no hinge motors, limits or 0.1 body damping.",
+        "Capsules become boxes with source capsule-area masses.",
+        "Local geometry is 4x; absolute source origin is unscaled to fit native +/-100000 bounds. Far Pyramid moves x=100000 to x=90000. This changes the source precision ratio."
+      ],
+      "initialStateOnly": false
+    }
+  ],
+  "deferred": [
+    {
+      "sample": "Warm Start Energy",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_contact.cpp",
+      "reason": "Requires deleting the heavy top body at step 120 (2 seconds in Solver2D); static preload is not the test."
+    },
+    {
+      "sample": "Friction Ramp",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_contact.cpp",
+      "reason": "Five independent exact friction coefficients and mixing are essential; scene primitives do not expose these values."
+    },
+    {
+      "sample": "Rush",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_contact.cpp",
+      "reason": "Requires constant-magnitude inward force recomputed every step, not one initial velocity or inverse-square gravity."
+    },
+    {
+      "sample": "Ragdoll",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_joints.cpp",
+      "reason": "Source capsule/compound bodies, hinge limits and motor friction are not the native point-joint ragdoll model."
+    },
+    {
+      "sample": "Ragdoll Stress",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_joints.cpp",
+      "reason": "Requires motor-driven obstacles and timed spawn/despawn in addition to source ragdoll constraints."
+    },
+    {
+      "sample": "Far Ragdoll Pile",
+      "source": "https://github.com/erincatto/solver2d/blob/1e0492d81f68c7831cfa549699dd98bcb8454060/samples/collection/sample_far.cpp",
+      "reason": "Depends on the same source ragdoll model; substituting the native template would change the test."
+    }
+  ],
+  "commonAdaptations": [
+    "Free 3D motion: no planar lock or guide walls.",
+    "Boxes have source XY dimensions scaled by 4 and default full depth 4; circles become spheres.",
+    "Source 2D area-density masses preserve ratios; 3D inertia is used.",
+    "Uniform gravity scales from -10 to -40; native tick rate is 120 Hz, not 60 Hz.",
+    "Native PGS, sleep, drag, friction and CCD policies remain unchanged; source per-shape friction is not ported.",
+    "Finite segments become fixed slabs; hidden safety terrain sits 1000 units below each test.",
+    "All scenes run indefinitely for inspection; manifest suggestedTicks is a measurement duration.",
+    "Disable replay recording for solver benchmarks; the large pyramid exceeds the existing 8 MiB solver-snapshot cap."
+  ]
+}

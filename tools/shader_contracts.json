@@ -168,6 +168,13 @@
         { "name": "uReflectionTex", "type": "Texture2D", "registerClass": "t", "slot": 1 }
       ],
       "requiredSymbols": ["uModel", "uView", "uProjection", "uReflectVP", "uReflectionTex"]
+    },
+    {
+      "name": "surface_blades",
+      "status": "active",
+      "stages": ["hlsl"],
+      "uniforms": ["uViewProj"],
+      "requiredSymbols": ["SV_VertexID", "compression", "bend", "root"]
     }
   ]
 }

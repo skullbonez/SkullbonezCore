@@ -23,6 +23,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
+#include "../../Scene/GravityFieldSettings.h"
 
 #include <cstdint>
 #include <memory>
@@ -69,8 +70,11 @@ struct RuntimeOverlayFramePolicy
     bool waterFreezeDebug = false;
     float frozenWaterTime = 0.0f;
     bool broadphaseOverlay = false;
+    bool gravityGrid = true;
+    Scene::GravityFieldSettings gravityField;
     uint32_t physicsDebugFlags = 0u;
     int physicsDebugPipelineStageCursor = 0;
+    float physicsImpulseScale = .1f, physicsImpulseThreshold = .001f;
     float physicsDebugContactLinger = 0.0f;
     double simulationSeconds = 0.0;
     double totalSimulationSeconds = 0.0;

@@ -44,7 +44,13 @@ inline constexpr UITooltipText kRenderTooltipText[] = { { "Set the strength of d
                                                         { "Set the width of marker paths.", "Pixels" },
                                                         { "Set the opacity of marker paths.", "0 transparent to 1 opaque" },
                                                         { "Soften the edges of marker paths.", "Pixels" },
-                                                        { "Set additional emphasis for selected paths.", "0 to 1" }, };
+                                                        { "Set additional emphasis for selected paths.", "0 to 1" },
+                                                        { "Demo grass: Off, Low or High. Requires undisplaced terrain; cinematic visual relief disables grass. Other scenes remain unchanged.", "0 Off / 1 Low / 2 High" },
+                                                        { "Adjust visible blades without changing contact history.", "Coverage fraction" },
+                                                        { "Fade grass into the terrain texture at this distance.", "World metres" },
+                                                        { "Set the upright height of rooted blades.", "World metres" },
+                                                        { "Scale visual bending under bodies.", "0 to 1" },
+                                                        { "Set the finite simulation-time recovery duration.", "Seconds; pause freezes recovery" }, };
 static_assert( sizeof( kRenderTooltipText ) / sizeof( kRenderTooltipText[0] ) == static_cast<int>( UIRenderParam::Count ) );
 
 inline constexpr UITooltipText kCinematicTooltipText[] = { { "Set exposure before tone mapping.", "Exposure multiplier" },

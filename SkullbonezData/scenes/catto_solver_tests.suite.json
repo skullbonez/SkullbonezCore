@@ -1,0 +1,26 @@
+{
+  "format": "skullbonez.suite.json",
+  "version": 1,
+  "scenes": [
+    "SkullbonezData/scenes/catto_single_box.scene.json",
+    "SkullbonezData/scenes/catto_high_mass_ratio_1.scene.json",
+    "SkullbonezData/scenes/catto_high_mass_ratio_2.scene.json",
+    "SkullbonezData/scenes/catto_high_mass_ratio_3.scene.json",
+    "SkullbonezData/scenes/catto_overlap_recovery.scene.json",
+    "SkullbonezData/scenes/catto_vertical_stack.scene.json",
+    "SkullbonezData/scenes/catto_pyramid_20.scene.json",
+    "SkullbonezData/scenes/catto_double_domino.scene.json",
+    "SkullbonezData/scenes/catto_card_house.scene.json",
+    "SkullbonezData/scenes/catto_circle_stack.scene.json",
+    "SkullbonezData/scenes/catto_confined.scene.json",
+    "SkullbonezData/scenes/catto_arch.scene.json",
+    "SkullbonezData/scenes/catto_bridge.scene.json",
+    "SkullbonezData/scenes/catto_ball_and_chain.scene.json",
+    "SkullbonezData/scenes/catto_joint_grid.scene.json",
+    "SkullbonezData/scenes/catto_stretched_chain.scene.json",
+    "SkullbonezData/scenes/catto_far_pyramid.scene.json",
+    "SkullbonezData/scenes/catto_far_stack.scene.json",
+    "SkullbonezData/scenes/catto_far_recovery.scene.json",
+    "SkullbonezData/scenes/catto_far_chain.scene.json"
+  ]
+}

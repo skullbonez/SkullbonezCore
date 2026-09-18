@@ -47,9 +47,7 @@ enum class SimulationPacingPolicy : uint8_t
 // Invariant: explicit launch policy always wins. A scene-session request is
 // intentionally bounded to unattended finite captures so live and unlimited
 // scenes cannot change simulation speed with render frequency.
-constexpr SimulationPacingPolicy ResolveSimulationPacingPolicy( bool explicitRenderFrameLockstep,
-                                                                bool sceneRenderFrameLockstepRequest, int targetFrameCount,
-                                                                bool isInteractiveRun ) noexcept
+constexpr SimulationPacingPolicy ResolveSimulationPacingPolicy( bool explicitRenderFrameLockstep, bool sceneRenderFrameLockstepRequest, int targetFrameCount, bool isInteractiveRun ) noexcept
 {
     if ( explicitRenderFrameLockstep || ( sceneRenderFrameLockstepRequest && targetFrameCount > 0 && !isInteractiveRun ) )
     {
@@ -72,6 +70,7 @@ struct SimulationTickInput
     // True only when the runtime owner has a valid physics target for the
     // returned commit count.
     bool canStepPhysics = false;
+    bool exactSingleTick = false; // One-shot UI request; independent of frame pace and time scale.
 };
 
 struct SimulationTickResult

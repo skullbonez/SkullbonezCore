@@ -1293,7 +1293,7 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
     constexpr uint64_t expected[] = { 2132093253974716310ull,
                                       8999909969555097215ull,
                                       15598442833394761550ull,
-                                      5029844691847507383ull,
+                                      6024593078527324281ull,
                                       10394370338941968616ull,
                                       5478074610712965329ull,
                                       6412084034923494129ull,
@@ -1329,6 +1329,11 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
         if ( tabs[surface] == InGameUITab::Editor )
         {
             REQUIRE( FindDrawTextIndex( frame, "Terrain brush" ) >= 0 );
+        }
+
+        if ( tabs[surface] == InGameUITab::Physics )
+        {
+            REQUIRE( FindDrawTextIndex( frame, "Open Physics window" ) >= 0 );
         }
 
         if ( tabs[surface] == InGameUITab::Options )
@@ -1409,11 +1414,15 @@ TEST_CASE( "GameUI gravity slider endpoints emit signed world acceleration from 
 
     SkullbonezCore::UI::InGameUIInputResult minimumResult;
     REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY, static_cast<int>( track.x ), minimumResult ) );
+    CHECK_FALSE( minimumResult.commands.water.requestWorldGravity );
+    REQUIRE( PhysicsTab::CommitActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY, minimumResult ) );
     CHECK( minimumResult.commands.water.requestWorldGravity );
     CHECK( minimumResult.commands.water.requestedWorldGravity == doctest::Approx( -Policy::UI_WORLD_GRAVITY_MIN ) );
 
     SkullbonezCore::UI::InGameUIInputResult maximumResult;
     REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY, static_cast<int>( track.x + track.w ), maximumResult ) );
+    CHECK_FALSE( maximumResult.commands.water.requestWorldGravity );
+    REQUIRE( PhysicsTab::CommitActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY, maximumResult ) );
     CHECK( maximumResult.commands.water.requestWorldGravity );
     CHECK( maximumResult.commands.water.requestedWorldGravity == doctest::Approx( -Policy::UI_WORLD_GRAVITY_MAX ) );
 }

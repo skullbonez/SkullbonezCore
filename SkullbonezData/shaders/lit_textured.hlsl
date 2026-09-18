@@ -66,6 +66,8 @@ Related:
 // =============================================================================
 
 #pragma pack_matrix(column_major)
+#include "split_environment.hlsli"
+#include "procedural_turf.hlsli"
 
 // Constant buffer: all uniform data for this shader, uploaded by the CPU once per draw.
 // register(b0) = bind to constant buffer slot 0.
@@ -85,7 +87,7 @@ cbuffer Uniforms : register(b0)
     float4   uStyleModes;       // cinematic flag, terrain, object, water
     float4   uTerrainTint;      // rgb tint
     float4   uTerrainAccent;    // rgb accent
-    float4   uTerrainGrid;      // scale, strength, unused, unused
+    float4   uTerrainGrid;      // scale, strength, procedural turf, unused
     float4x4 uShadowViewProj;
     float4   uShadowParams;     // strength, depth bias, slope bias, texel step
     float4   uShadowFlags;      // enabled, receive, pcf radius, zero-to-one depth
@@ -445,10 +447,41 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float spec = pow(max(dot(V, R), 0.0), 64.0);
     float3 specular = uLightDiffuse.rgb * spec * 0.1;
 
+    if (uTerrainGrid.z > 0.5)
+    {
+        // The base retains fine fibres at a distance; pixel derivatives remove
+        // subpixel noise before it can shimmer. Ordinary shadow receivers stay live.
+        float2 p = input.worldPos.xz;
+        float detail = 1.0 - saturate(max(length(ddx(p)), length(ddy(p))) * 30.0);
+        float grain = lerp(1.0, 0.82 + TurfHash(floor(p * 35.0)) * 0.32, detail);
+        float shadow = ShadowVisibility(input.worldPos, N, L);
+        float3 tint = TurfLightTint(uLightDiffuse.rgb * 0.6 + uLightAmbient.a * 0.4);
+        float3 color = TurfColor(p) * grain * tint * (lerp(0.94, 1.22, 1.0 - detail) + 0.14 * diff) * lerp(0.55, 1.0, shadow);
+        return float4(color, 1.0);
+    }
+
     // Sample the base color texture through the shader's bound sampler.
     float4 texColor = primaryTexture.Sample(sSampler0, input.texCoord);
 
     bool cinematicMode = uStyleModes.x > 0.5f;
+    if (cinematicMode && (int)uStyleModes.y == SPLIT_TERRAIN_STYLE)
+    {
+        float2 p = input.worldPos.xz;
+        float broad = SplitNoise(p * 0.028f);
+        float grain = SplitNoise(p * 2.8f);
+        float stones = SplitNoise(p * 0.42f);
+        float wet = smoothstep(0.32f, 0.72f, SplitNoise(p * 0.045f + 7.2f));
+        float3 earth = lerp(uTerrainAccent.rgb, uTerrainTint.rgb, 0.25f + stones * 0.75f);
+        earth *= (0.72f + grain * 0.36f) * (1.0f - wet * 0.32f);
+        float3 worldN = normalize(input.worldNormal + float3((grain - 0.5f) * 0.06f, 0.0f, (stones - 0.5f) * 0.08f));
+        float3 worldV = normalize(mul(transpose((float3x3)uView), V));
+        float shadow = ShadowVisibility(input.worldPos, N, L);
+        float3 color = earth * (SplitDiffuseLight(worldN) + uLightDiffuse.rgb * saturate(dot(N, L)) * shadow * 0.318309886f);
+        float fresnel = 0.04f + 0.96f * pow(1.0f - saturate(dot(worldN, worldV)), 5.0f);
+        color += SplitSpecularLight(reflect(-worldV, worldN), lerp(0.85f, 0.36f, wet)) * fresnel * (0.15f + wet * 0.35f);
+        color *= 0.82f + broad * 0.24f;
+        return float4(color, 1.0f);
+    }
     if (cinematicMode)
     {
         // Cinematic terrain keeps its authored warm grade; directional light

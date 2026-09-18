@@ -13,10 +13,10 @@ Glossary:
   Registry row: One public key, value type/range, and SkullbonezCore::Core::EngineConfig destination.
   Stable key hash: Compact fingerprint of every dumped key in traversal order;
     it detects an omission, duplicate, rename, or reorder without copying the
-    full 224-key registry into this test.
+    original 224-key registry into this test.
 
 Invariants:
-  - The dump contains one header plus exactly 224 unique setting rows.
+  - The dump contains one header plus exactly 231 unique setting rows.
   - Rejected rows do not block later valid rows in the same file.
   - Unsupported format versions fail before any setting mutates the config.
   - Only ENOENT is accepted as an absent optional file.
@@ -139,14 +139,7 @@ uint64_t AppendStableHash( uint64_t hash, const std::string& text )
 TEST_CASE( "SkullbonezCore::Core::EngineConfig: valid file produces the stable complete dump order" )
 {
     TemporaryConfigFiles files;
-    REQUIRE( WriteTextFile( kConfigInputPath, "screen_x = 2048\n"
-                                              "fullscreen = yes\n"
-                                              "gravity = -9.5\n"
-                                              "sky_front = unit_sky_front.jpg\n"
-                                              "physics_parallel_mutual_gravity = off\n"
-                                              "replay_trajectory_future_width = 1.35\n"
-                                              "replay_trajectory_future_edge_feather = 3.0\n"
-                                              "replay_trajectory_selected_emphasis = 0.60\n" ) );
+    REQUIRE( WriteTextFile( kConfigInputPath, "screen_x = 2048\n" "fullscreen = yes\n" "gravity = -9.5\n" "sky_front = unit_sky_front.jpg\n" "physics_parallel_mutual_gravity = off\n" "replay_trajectory_future_width = 1.35\n" "replay_trajectory_future_edge_feather = 3.0\n" "replay_trajectory_selected_emphasis = 0.60\n" ) );
 
     SkullbonezCore::Core::EngineConfig config;
     REQUIRE( config.Load( diagnostics, kConfigInputPath ).Ok() );
@@ -161,7 +154,7 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: valid file produces the stable c
 
     REQUIRE( DumpConfig( config ) );
     const std::vector<std::string> lines = ReadLines( kConfigDumpPath );
-    REQUIRE( lines.size() == 225 );
+    REQUIRE( lines.size() == 232 );
     CHECK( lines.front() == "[config]" );
 
     uint64_t keyOrderHash = 14695981039346656037ull;
@@ -173,11 +166,24 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: valid file produces the stable c
         REQUIRE_MESSAGE( separator != std::string::npos, "Every dump row must retain key = value syntax" );
         const std::string key = lines[lineIndex].substr( 0, separator );
         CHECK_MESSAGE( uniqueKeys.insert( key ).second, "Every config key must be dumped exactly once" );
-        keyOrderHash = AppendStableHash( keyOrderHash, key );
+        // Version 7 inserts only these six grass defaults; the established
+        // key order retains its digest, and their insertion is checked below.
+        if ( key.rfind( "grass_", 0 ) != 0 && key != "persistent_contact_warm_start" )
+        {
+            keyOrderHash = AppendStableHash( keyOrderHash, key );
+        }
     }
 
-    CHECK( uniqueKeys.size() == 224 );
+    CHECK( uniqueKeys.size() == 231 );
     CHECK( keyOrderHash == kStableConfigKeyOrderHash );
+    const auto beforeGrass = std::find_if( lines.begin(), lines.end(), []( const std::string& line ) { return line.rfind( "replay_trajectory_selected_emphasis =", 0 ) == 0; } );
+    REQUIRE( beforeGrass != lines.end() );
+    const char* grassKeys[] = { "grass_quality", "grass_density", "grass_distance", "grass_height", "grass_bend", "grass_recovery_seconds" };
+    for ( std::size_t i = 0; i < std::size( grassKeys ); ++i )
+    {
+        REQUIRE( static_cast<std::size_t>( lines.end() - beforeGrass ) > i + 1 );
+        CHECK( ( beforeGrass + 1 + i )->rfind( std::string( grassKeys[i] ) + " = ", 0 ) == 0 );
+    }
     CHECK( lines[1] == "screen_x = 2048" );
     CHECK( lines.back() == "presentation_interpolation = 1" );
 }
@@ -185,9 +191,7 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: valid file produces the stable c
 TEST_CASE( "SkullbonezCore::Core::EngineConfig: unknown key is ignored and later valid rows still apply" )
 {
     TemporaryConfigFiles files;
-    REQUIRE( WriteTextFile( kConfigInputPath, "screen_x = 2222\n"
-                                              "unit_unknown_setting = 77\n"
-                                              "screen_y = 777\n" ) );
+    REQUIRE( WriteTextFile( kConfigInputPath, "screen_x = 2222\n" "unit_unknown_setting = 77\n" "screen_y = 777\n" ) );
 
     SkullbonezCore::Core::EngineConfig config;
     REQUIRE( config.Load( diagnostics, kConfigInputPath ).Ok() );
@@ -199,10 +203,7 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: unknown key is ignored and later
 TEST_CASE( "SkullbonezCore::Core::EngineConfig: malformed and out-of-range values preserve defaults" )
 {
     TemporaryConfigFiles files;
-    REQUIRE( WriteTextFile( kConfigInputPath, "screen_x = 0\n"
-                                              "gravity = not-a-number\n"
-                                              "physics_sleep_frames = 1000001\n"
-                                              "screen_y = 720\n" ) );
+    REQUIRE( WriteTextFile( kConfigInputPath, "screen_x = 0\n" "gravity = not-a-number\n" "physics_sleep_frames = 1000001\n" "screen_y = 720\n" ) );
 
     SkullbonezCore::Core::EngineConfig config;
     REQUIRE( config.Load( diagnostics, kConfigInputPath ).Ok() );
@@ -326,7 +327,7 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: line buffer boundaries distingui
 TEST_CASE( "SkullbonezCore::Core::EngineConfig: current version loads and future version fails before mutation" )
 {
     TemporaryConfigFiles files;
-    REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 6\nscreen_x = 2048\n" ) );
+    REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 7\nscreen_x = 2048\n" ) );
 
     SkullbonezCore::Core::EngineConfig current;
     REQUIRE( current.Load( diagnostics, kConfigInputPath ).Ok() );
@@ -338,13 +339,13 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: current version loads and future
     CHECK( previous.window.screenX == 1600 );
     CHECK( previous.physicsExecution.parallelMutualGravity );
 
-    REQUIRE( WriteTextFile( kConfigInputPath, "screen_x = 1234\nformat_version = 7\n" ) );
+    REQUIRE( WriteTextFile( kConfigInputPath, "screen_x = 1234\nformat_version = 9\n" ) );
     SkullbonezCore::Core::EngineConfig future;
     const auto result = future.Load( diagnostics, kConfigInputPath );
     CHECK_FALSE( result.Ok() );
     CHECK( std::string( result.ErrorOwner() ) == "Core/EngineConfig" );
-    CHECK( std::string( result.ErrorMessage() ).find( "version 7" ) != std::string::npos );
-    CHECK( std::string( result.ErrorMessage() ).find( "current version 6" ) != std::string::npos );
+    CHECK( std::string( result.ErrorMessage() ).find( "version 8" ) != std::string::npos );
+    CHECK( std::string( result.ErrorMessage() ).find( "current version 8" ) != std::string::npos );
     CHECK( future.window.screenX == 1800 );
 }
 
@@ -352,12 +353,7 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: current version loads and future
 TEST_CASE( "SkullbonezCore::Core::EngineConfig: v1 physics migration is deterministic and rejects invalid rows" )
 {
     TemporaryConfigFiles files;
-    REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 1\n"
-                                              "gravity = -12.5\n"
-                                              "physics_sleep_frames = 1000001\n"
-                                              "persistent_contact_solver_iterations = 1000001\n"
-                                              "physics_parallel_mutual_gravity = off\n"
-                                              "physics_v1_unknown = 77\n" ) );
+    REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 1\n" "gravity = -12.5\n" "physics_sleep_frames = 1000001\n" "persistent_contact_solver_iterations = 1000001\n" "physics_parallel_mutual_gravity = off\n" "physics_v1_unknown = 77\n" ) );
 
     EngineConfig first;
     REQUIRE( first.Load( diagnostics, kConfigInputPath ).Ok() );
@@ -372,4 +368,62 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: v1 physics migration is determin
     REQUIRE( second.Load( diagnostics, kConfigInputPath ).Ok() );
     REQUIRE( DumpConfig( second ) );
     CHECK( ReadLines( kConfigDumpPath ) == firstDump );
+}
+
+TEST_CASE( "SkullbonezCore::Core::EngineConfig: grass v7 bounds and legacy defaults round trip" )
+{
+    TemporaryConfigFiles files;
+    const EngineConfig defaults;
+    CHECK( defaults.ordinaryRender.grass.quality == 0 );
+    REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 6\nscreen_x = 1600\n" ) );
+    EngineConfig legacy;
+    REQUIRE( legacy.Load( diagnostics, kConfigInputPath ).Ok() );
+    CHECK( legacy.ordinaryRender.grass == defaults.ordinaryRender.grass );
+    REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 7\ngrass_quality = 1\ngrass_density = .4\ngrass_distance = 12\n" "grass_height = .3\ngrass_bend = .6\ngrass_recovery_seconds = 4\n" ) );
+    EngineConfig edited;
+    REQUIRE( edited.Load( diagnostics, kConfigInputPath ).Ok() );
+    CHECK( edited.ordinaryRender.grass.quality == 1 );
+    CHECK( edited.ordinaryRender.grass.density == doctest::Approx( .4f ) );
+    CHECK( edited.ordinaryRender.grass.distance == 12 );
+    CHECK( edited.ordinaryRender.grass.height == doctest::Approx( .3f ) );
+    CHECK( edited.ordinaryRender.grass.bend == doctest::Approx( .6f ) );
+    CHECK( edited.ordinaryRender.grass.recoverySeconds == 4 );
+    REQUIRE( DumpConfig( edited ) );
+    EngineConfig restored;
+    REQUIRE( restored.Load( diagnostics, kConfigDumpPath ).Ok() );
+    CHECK( restored.ordinaryRender.grass == edited.ordinaryRender.grass );
+    REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 7\ngrass_quality = 3\ngrass_density = 0\ngrass_distance = 1000\n" "grass_height = nan\ngrass_bend = -1\ngrass_recovery_seconds = 0\n" ) );
+    REQUIRE( edited.Load( diagnostics, kConfigInputPath ).Ok() );
+    CHECK( edited.ordinaryRender.grass == restored.ordinaryRender.grass );
+}
+
+TEST_CASE( "EngineConfig Physics defaults preserve unrelated text and reject future files" )
+{
+    TemporaryConfigFiles files;
+    const auto read = []
+    {
+        std::ifstream stream( kConfigInputPath, std::ios::binary );
+        return std::string( std::istreambuf_iterator<char>( stream ), std::istreambuf_iterator<char>() );
+    };
+    REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 7\n# owner comment\nowner_unknown = unchanged\nscreen_x = 777\ngravity = -3\npersistent_contact_solver_iterations = 5\n" ) );
+    EngineConfig live;
+    live.persistentContactSolver.iterations = 19;
+    live.persistentContactSolver.warmStart = false;
+    live.worldForces.gravity = -12;
+    REQUIRE( live.SavePhysicsDefaults( diagnostics, kConfigInputPath ).Ok() );
+    const auto text = read();
+    CHECK( text.find( "# owner comment" ) != std::string::npos );
+    CHECK( text.find( "owner_unknown = unchanged" ) != std::string::npos );
+    CHECK( text.find( "screen_x = 777" ) != std::string::npos );
+    EngineConfig loaded;
+    REQUIRE( loaded.Load( diagnostics, kConfigInputPath ).Ok() );
+    CHECK( loaded.persistentContactSolver.iterations == 19 );
+    CHECK_FALSE( loaded.persistentContactSolver.warmStart );
+    CHECK( loaded.worldForces.gravity == -12 );
+    REQUIRE( live.SavePhysicsDefaults( diagnostics, kConfigInputPath ).Ok() );
+    CHECK( read() == text );
+    REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 9\nowner_unknown = keep\n" ) );
+    const auto future = read();
+    CHECK_FALSE( live.SavePhysicsDefaults( diagnostics, kConfigInputPath ).Ok() );
+    CHECK( read() == future );
 }

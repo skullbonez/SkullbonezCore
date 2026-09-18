@@ -39,57 +39,77 @@ Related:
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cmath>
 #include <limits>
 
 using namespace SkullbonezCore::Physics;
 
 namespace
 {
-#define SB_REPLAY_PERSISTENT_CONTACT_SAMPLE_FIELDS( VISIT )                                                                 \
-    VISIT( bodyA )                                                                                                          \
-    VISIT( bodyB )                                                                                                          \
-    VISIT( featureId )                                                                                                      \
-    VISIT( key )                                                                                                            \
-    VISIT( normal )                                                                                                         \
-    VISIT( tangent1 )                                                                                                       \
-    VISIT( tangent2 )                                                                                                       \
-    VISIT( rA )                                                                                                             \
-    VISIT( rB )                                                                                                             \
-    VISIT( penetration )                                                                                                    \
-    VISIT( normalMass )                                                                                                     \
-    VISIT( tangentMass1 )                                                                                                   \
-    VISIT( tangentMass2 )                                                                                                   \
-    VISIT( bias )                                                                                                           \
-    VISIT( frictionLimit )                                                                                                  \
-    VISIT( accN )                                                                                                           \
-    VISIT( accT1 )                                                                                                          \
-    VISIT( accT2 )                                                                                                          \
-    VISIT( warmStarted )                                                                                                    \
-    VISIT( isTerrain )                                                                                                      \
-    VISIT( supportsRestingPolicy )                                                                                          \
-    VISIT( allowsTangentFriction )                                                                                          \
-    VISIT( normalCoupledFriction )                                                                                          \
-    VISIT( inhibitsSleep )                                                                                                  \
-    VISIT( manifoldPointCount )                                                                                             \
-    VISIT( terrainNormal )                                                                                                  \
+#define SB_REPLAY_PERSISTENT_CONTACT_SAMPLE_FIELDS( VISIT )                                                                                                                                            \
+    VISIT( bodyA )                                                                                                                                                                                     \
+    VISIT( bodyB )                                                                                                                                                                                     \
+    VISIT( featureId )                                                                                                                                                                                 \
+    VISIT( key )                                                                                                                                                                                       \
+    VISIT( normal )                                                                                                                                                                                    \
+    VISIT( tangent1 )                                                                                                                                                                                  \
+    VISIT( tangent2 )                                                                                                                                                                                  \
+    VISIT( rA )                                                                                                                                                                                        \
+    VISIT( rB )                                                                                                                                                                                        \
+    VISIT( penetration )                                                                                                                                                                               \
+    VISIT( normalMass )                                                                                                                                                                                \
+    VISIT( tangentMass1 )                                                                                                                                                                              \
+    VISIT( tangentMass2 )                                                                                                                                                                              \
+    VISIT( bias )                                                                                                                                                                                      \
+    VISIT( frictionLimit )                                                                                                                                                                             \
+    VISIT( accN )                                                                                                                                                                                      \
+    VISIT( accT1 )                                                                                                                                                                                     \
+    VISIT( accT2 )                                                                                                                                                                                     \
+    VISIT( warmStarted )                                                                                                                                                                               \
+    VISIT( isTerrain )                                                                                                                                                                                 \
+    VISIT( supportsRestingPolicy )                                                                                                                                                                     \
+    VISIT( allowsTangentFriction )                                                                                                                                                                     \
+    VISIT( normalCoupledFriction )                                                                                                                                                                     \
+    VISIT( inhibitsSleep )                                                                                                                                                                             \
+    VISIT( manifoldPointCount )                                                                                                                                                                        \
+    VISIT( terrainNormal )                                                                                                                                                                             \
     VISIT( terrainWarmStart )
 
-#define SB_REPLAY_CONTACT_CACHE_SAMPLE_FIELDS( VISIT )                                                                      \
-    VISIT( key )                                                                                                            \
-    VISIT( accN )                                                                                                           \
-    VISIT( accT1 )                                                                                                          \
-    VISIT( accT2 )
+#define SB_REPLAY_CONTACT_CACHE_SAMPLE_FIELDS( VISIT )                                                                                                                                                 \
+    VISIT( key )                                                                                                                                                                                       \
+    VISIT( accN )                                                                                                                                                                                      \
+    VISIT( accT1 )                                                                                                                                                                                     \
+    VISIT( accT2 )                                                                                                                                                                                     \
+    VISIT( geometry )
 
-#define SB_REPLAY_SOLVER_STATS_FIELDS( VISIT )                                                                              \
-    VISIT( rowCount )                                                                                                       \
-    VISIT( cachePreviousRows )                                                                                              \
-    VISIT( cacheHits )                                                                                                      \
-    VISIT( cacheMisses )                                                                                                    \
-    VISIT( warmStartedRows )                                                                                                \
-    VISIT( positionCorrectionRows )                                                                                         \
-    VISIT( solverIterations )                                                                                               \
-    VISIT( positionCorrectionTotal )                                                                                        \
+#define SB_REPLAY_SOLVER_STATS_FIELDS( VISIT )                                                                                                                                                         \
+    VISIT( rowCount )                                                                                                                                                                                  \
+    VISIT( cachePreviousRows )                                                                                                                                                                         \
+    VISIT( cacheHits )                                                                                                                                                                                 \
+    VISIT( cacheMisses )                                                                                                                                                                               \
+    VISIT( warmStartedRows )                                                                                                                                                                           \
+    VISIT( positionCorrectionRows )                                                                                                                                                                    \
+    VISIT( solverIterations )                                                                                                                                                                          \
+    VISIT( positionCorrectionTotal )                                                                                                                                                                   \
     VISIT( positionCorrectionMax )
+
+bool ValidContactGeometry( const ContactAnchorGeometry& geometry, uint32_t version )
+{
+    const auto finite = []( const auto& value ) { return std::isfinite( value.x ) && std::isfinite( value.y ) && std::isfinite( value.z ); };
+    if ( !finite( geometry.localAnchorA ) || !finite( geometry.localAnchorB ) || !finite( geometry.localNormalA ) || !finite( geometry.localNormalB ) || !finite( geometry.localTangentImpulseA ) ||
+         !std::isfinite( geometry.breakingDistance ) )
+    {
+        return false;
+    }
+    if ( geometry.lifetime == 0u )
+    {
+        return geometry.breakingDistance == 0.0f && Dot( geometry.localAnchorA, geometry.localAnchorA ) == 0.0f && Dot( geometry.localAnchorB, geometry.localAnchorB ) == 0.0f &&
+               Dot( geometry.localNormalA, geometry.localNormalA ) == 0.0f && Dot( geometry.localNormalB, geometry.localNormalB ) == 0.0f &&
+               Dot( geometry.localTangentImpulseA, geometry.localTangentImpulseA ) == 0.0f;
+    }
+    return version >= PHYSICS_HULL_SOLVER_SNAPSHOT_VERSION && geometry.breakingDistance > 0.0f && fabsf( Dot( geometry.localNormalA, geometry.localNormalA ) - 1.0f ) < 0.01f &&
+           fabsf( Dot( geometry.localNormalB, geometry.localNormalB ) - 1.0f ) < 0.01f;
+}
 
 template <typename T> uint64_t ListCapacityBytes( const T& values )
 {
@@ -102,6 +122,9 @@ PhysicsContactSolverStage::PhysicsContactSolverStage() = default;
 void ConstraintSolveTransaction::ReserveSceneCapacity( std::size_t bodyCapacity, std::size_t jointCapacity )
 {
     m_bodies.Reserve( bodyCapacity );
+    m_materialFriction.Reserve( PhysicsContactRowCapacity( bodyCapacity ) );
+    m_contactLifetime.Reserve( PhysicsContactRowCapacity( bodyCapacity ) );
+    m_cacheUsed.Reserve( PhysicsContactRowCapacity( bodyCapacity ) );
     m_candidatePairs.Reserve( PhysicsCandidatePairCapacity( bodyCapacity ) );
     m_islands.Reserve( bodyCapacity );
     m_reactivatedBodies.Reserve( bodyCapacity );
@@ -112,6 +135,9 @@ void ConstraintSolveTransaction::ReserveSceneCapacity( std::size_t bodyCapacity,
 void ConstraintSolveTransaction::Clear()
 {
     m_bodies.clear();
+    m_materialFriction.clear();
+    m_contactLifetime.clear();
+    m_cacheUsed.clear();
     m_candidatePairs.clear();
     m_islands.Clear();
     m_reactivatedBodies.clear();
@@ -123,8 +149,8 @@ void ConstraintSolveTransaction::Clear()
 
 uint64_t ConstraintSolveTransaction::CollectDynamicMemoryBytes() const
 {
-    return ListCapacityBytes( m_reactivatedBodies ) + ListCapacityBytes( m_candidatePairs ) + ListCapacityBytes( m_bodies ) +
-           m_islands.CapacityBytes() + ListCapacityBytes( m_jointBlocks ) + ListCapacityBytes( m_jointSamples );
+    return ListCapacityBytes( m_contactLifetime ) + ListCapacityBytes( m_cacheUsed ) + ListCapacityBytes( m_materialFriction ) + ListCapacityBytes( m_reactivatedBodies ) +
+           ListCapacityBytes( m_candidatePairs ) + ListCapacityBytes( m_bodies ) + m_islands.CapacityBytes() + ListCapacityBytes( m_jointBlocks ) + ListCapacityBytes( m_jointSamples );
 }
 
 void ConstraintSolveTransaction::ResetBodies( std::size_t bodyCount )
@@ -182,12 +208,10 @@ void PhysicsContactSolverStage::Clear()
 
 bool PhysicsContactSolverStage::CanAppendObjectManifold( std::size_t pointCount ) const
 {
-    return pointCount <= m_persistentContacts.capacity() - m_persistentContacts.size() &&
-           m_sideEffects.collisionVisualBodies.capacity() - m_sideEffects.collisionVisualBodies.size() >= 2u;
+    return pointCount <= m_persistentContacts.capacity() - m_persistentContacts.size() && m_sideEffects.collisionVisualBodies.capacity() - m_sideEffects.collisionVisualBodies.size() >= 2u;
 }
 
-void PhysicsContactSolverStage::PrepareSideEffects( int modelCount, std::size_t candidatePairCount,
-                                                    int pipelineRecordCapacity )
+void PhysicsContactSolverStage::PrepareSideEffects( int modelCount, std::size_t candidatePairCount, int pipelineRecordCapacity )
 {
     m_sideEffects.pipelineRecords.clear();
     m_sideEffects.pipelineEventCount = 0;
@@ -196,13 +220,13 @@ void PhysicsContactSolverStage::PrepareSideEffects( int modelCount, std::size_t 
     m_sideEffects.releaseWakeBodies.clear();
     m_sideEffects.fixedTreeReleases.clear();
 
-    if ( modelCount < 0 || pipelineRecordCapacity < 0 ||
-         candidatePairCount > ( std::numeric_limits<std::size_t>::max )() / 2u )
+    if ( modelCount < 0 || pipelineRecordCapacity < 0 || candidatePairCount > ( std::numeric_limits<std::size_t>::max )() / 2u )
     {
         SB_FATAL( "Physics/PhysicsContactSolverStage",
-                  "Persistent-contact consequence requirement is invalid. model_count=%d candidate_pairs=%zu "
-                  "pipeline_records=%d.",
-                  modelCount, candidatePairCount, pipelineRecordCapacity );
+                  "Persistent-contact consequence requirement is invalid. model_count=%d candidate_pairs=%zu " "pipeline_records=%d.",
+                  modelCount,
+                  candidatePairCount,
+                  pipelineRecordCapacity );
     }
 
     const std::size_t bodyCount = static_cast<std::size_t>( modelCount );
@@ -216,9 +240,7 @@ void PhysicsContactSolverStage::PrepareSideEffects( int modelCount, std::size_t 
     {
         if ( capacity < required )
         {
-            SB_FATAL( "Physics/PhysicsContactSolverStage",
-                      "Persistent-contact consequence capacity exhausted. lane=%s required=%zu capacity=%zu.", lane,
-                      required, capacity );
+            SB_FATAL( "Physics/PhysicsContactSolverStage", "Persistent-contact consequence capacity exhausted. lane=%s required=%zu capacity=%zu.", lane, required, capacity );
         }
     };
 
@@ -233,9 +255,7 @@ void PhysicsContactSolverStage::PrepareSideEffects( int modelCount, std::size_t 
 
 void PhysicsContactCacheWakeAccess::ForgetBody( int bodyIndex ) const
 {
-    m_cache.erase( std::remove_if( m_cache.begin(), m_cache.end(), [bodyIndex]( const PersistentContactCacheEntry& entry )
-                                   { return PersistentContactCacheKeyReferencesBody( entry.key, bodyIndex ); } ),
-                   m_cache.end() );
+    m_cache.erase( std::remove_if( m_cache.begin(), m_cache.end(), [bodyIndex]( const PersistentContactCacheEntry& entry ) { return PersistentContactCacheKeyReferencesBody( entry.key, bodyIndex ); } ), m_cache.end() );
 }
 
 PhysicsContactCacheWakeAccess PhysicsContactSolverStage::CreateWakeAccess()
@@ -275,6 +295,10 @@ void PhysicsContactSolverStage::CaptureReplayState( PhysicsSolverSnapshot& outSn
         SB_REPLAY_CONTACT_CACHE_SAMPLE_FIELDS( CAPTURE_REPLAY_CONTACT_CACHE_FIELD )
 #undef CAPTURE_REPLAY_CONTACT_CACHE_FIELD
         outSnapshot.persistentContactCache.push_back( sample );
+        if ( cache.geometry.lifetime != 0u )
+        {
+            outSnapshot.version = PHYSICS_HULL_SOLVER_SNAPSHOT_VERSION;
+        }
     }
 
 #define CAPTURE_REPLAY_SOLVER_STAT_FIELD( field ) outSnapshot.solverStats.field = m_persistentContactSolverStats.field;
@@ -291,12 +315,9 @@ bool PhysicsContactSolverStage::CanRestoreReplayState( const PhysicsSolverSnapsh
 
     const std::size_t bodyRows = static_cast<std::size_t>( modelCount );
 
-    if ( snapshot.persistentContactCounts.size() != bodyRows ||
-         snapshot.persistentContactCounts.size() > m_persistentContactCounts.capacity() ||
-         snapshot.persistentRestingContactCounts.size() != bodyRows ||
-         snapshot.persistentRestingContactCounts.size() > m_persistentRestingContactCounts.capacity() ||
-         snapshot.persistentContacts.size() > m_persistentContacts.capacity() ||
-         snapshot.persistentContactCache.size() > m_persistentContactCache.capacity() )
+    if ( snapshot.persistentContactCounts.size() != bodyRows || snapshot.persistentContactCounts.size() > m_persistentContactCounts.capacity() ||
+         snapshot.persistentRestingContactCounts.size() != bodyRows || snapshot.persistentRestingContactCounts.size() > m_persistentRestingContactCounts.capacity() ||
+         snapshot.persistentContacts.size() > m_persistentContacts.capacity() || snapshot.persistentContactCache.size() > m_persistentContactCache.capacity() )
     {
         return false;
     }
@@ -306,8 +327,7 @@ bool PhysicsContactSolverStage::CanRestoreReplayState( const PhysicsSolverSnapsh
 
     for ( const PhysicsSolverPersistentContactSample& contact : snapshot.persistentContacts )
     {
-        if ( contact.bodyA < 0 || contact.bodyA >= modelCount || contact.bodyB < -1 || contact.bodyB >= modelCount ||
-             contact.bodyA == contact.bodyB || contact.isTerrain != ( contact.bodyB == -1 ) ||
+        if ( contact.bodyA < 0 || contact.bodyA >= modelCount || contact.bodyB < -1 || contact.bodyB >= modelCount || contact.bodyA == contact.bodyB || contact.isTerrain != ( contact.bodyB == -1 ) ||
              contact.key != MakePersistentContactCacheKey( contact.bodyA, contact.bodyB, contact.featureId ) )
         {
             return false;
@@ -330,10 +350,8 @@ bool PhysicsContactSolverStage::CanRestoreReplayState( const PhysicsSolverSnapsh
 
     for ( std::size_t bodyIndex = 0; bodyIndex < bodyRows; ++bodyIndex )
     {
-        if ( derivedContactCounts[bodyIndex] > ( std::numeric_limits<uint16_t>::max )() ||
-             derivedRestingContactCounts[bodyIndex] > ( std::numeric_limits<uint16_t>::max )() ||
-             snapshot.persistentContactCounts[bodyIndex] != derivedContactCounts[bodyIndex] ||
-             snapshot.persistentRestingContactCounts[bodyIndex] != derivedRestingContactCounts[bodyIndex] )
+        if ( derivedContactCounts[bodyIndex] > ( std::numeric_limits<uint16_t>::max )() || derivedRestingContactCounts[bodyIndex] > ( std::numeric_limits<uint16_t>::max )() ||
+             snapshot.persistentContactCounts[bodyIndex] != derivedContactCounts[bodyIndex] || snapshot.persistentRestingContactCounts[bodyIndex] != derivedRestingContactCounts[bodyIndex] )
         {
             return false;
         }
@@ -344,8 +362,7 @@ bool PhysicsContactSolverStage::CanRestoreReplayState( const PhysicsSolverSnapsh
 
     for ( const PhysicsSolverContactCacheSample& cache : snapshot.persistentContactCache )
     {
-        if ( !PersistentContactCacheKeyBodiesFit( cache.key, modelCount ) ||
-             ( hasPreviousCacheKey && cache.key <= previousCacheKey ) )
+        if ( !PersistentContactCacheKeyBodiesFit( cache.key, modelCount ) || ( hasPreviousCacheKey && cache.key <= previousCacheKey ) || !ValidContactGeometry( cache.geometry, snapshot.version ) )
         {
             return false;
         }

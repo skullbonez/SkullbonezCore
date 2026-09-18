@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name disc_16
 source_hash 0xad94756188808771
 
@@ -63,7 +63,8 @@ default_density 0.9
 default_mass 211.608615
 bounding_radius 8.02246845
 inertia_half_extents 8 0.6 8
-unit_inertia 21.4533333 42.6666667 21.4533333
+unit_inertia 15.714023 31.188046 15.714023
+unit_inertia_products 1.51101708e-17 0 3.02203415e-17
 projected_surface_area 98.1333333
 
 # Baked centered vertices.

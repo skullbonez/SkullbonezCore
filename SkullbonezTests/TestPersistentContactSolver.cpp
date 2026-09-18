@@ -50,6 +50,7 @@
 #include "../SkullbonezSource/Physics/ContactSolverCommon.h"
 #include "../SkullbonezSource/Physics/ObjectContactManifold.h"
 #include "../SkullbonezSource/Physics/PersistentContactSolver.h"
+#include "../SkullbonezSource/Physics/PersistentContactGeometry.h"
 #include "../SkullbonezSource/Physics/PhysicsMotionEligibility.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/PhysicsMass.h"
@@ -110,8 +111,10 @@ namespace SkullbonezCore::Physics
 // phase and authoritative body-store writeback.
 struct PersistentContactPositionCorrectionTestAccess
 {
-    static void Apply( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore,
-                       const PersistentContactSolverStepPolicy& policy, std::span<const uint8_t> sleepState,
+    static void Apply( PhysicsContactSolverStage& stage,
+                       PhysicsBodyStore& bodyStore,
+                       const PersistentContactSolverStepPolicy& policy,
+                       std::span<const uint8_t> sleepState,
                        std::span<const PersistentContact> contacts )
     {
         stage.m_persistentContacts.clear();
@@ -129,11 +132,15 @@ struct PersistentContactPositionCorrectionTestAccess
         transaction.BeginEntryPolicySetup();
 
         using Phase = ConstraintSolvePhaseCursor::Phase;
-        constexpr std::array phasesToCorrection { Phase::BodySetup,   Phase::BuildManifolds,
-                                                  Phase::TerrainRows, Phase::PrepareJoints,
-                                                  Phase::Precompute,  Phase::WarmStartJoints,
-                                                  Phase::SolveRows,   Phase::PointSupportInstability,
-                                                  Phase::WriteBack,   Phase::DebugContacts };
+        constexpr std::array phasesToCorrection { Phase::BodySetup,
+                                                  Phase::BuildManifolds,
+                                                  Phase::TerrainRows,
+                                                  Phase::PrepareJoints,
+                                                  Phase::Precompute,
+                                                  Phase::WarmStartJoints,
+                                                  Phase::SolveRows,
+                                                  Phase::WriteBack,
+                                                  Phase::DebugContacts };
 
         for ( const Phase phase : phasesToCorrection )
         {
@@ -158,8 +165,7 @@ PhysicsBodyStore& TestBodyStore()
     static PhysicsBodyStore store;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
 
@@ -175,8 +181,7 @@ ColliderStore& TestColliderStore()
     static ColliderStore store;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         store.ReserveShapeCapacity( 16u, 16u, 4u );
     }
@@ -192,8 +197,7 @@ PhysicsStepDiagnostics& TestStepDiagnostics()
     // simultaneous warm-start fixtures within the doctest stack budget.
     static PhysicsStepDiagnostics diagnostics;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         diagnostics.ReserveSceneCapacity( 16u );
     }
     diagnostics.Clear();
@@ -209,22 +213,17 @@ struct SolverFixture
     std::vector<uint8_t> sleepState;
     std::vector<uint8_t> collisionPathState;
     std::vector<float> timeRemaining;
-    SkullbonezCore::Physics::PhysicsCandidatePairList
-        sleepSupportEdges { "TestPersistentContactSolver.sleepSupportEdges",
-                            SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
+    SkullbonezCore::Physics::PhysicsCandidatePairList sleepSupportEdges { "TestPersistentContactSolver.sleepSupportEdges", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
     SkullbonezCore::Physics::PhysicsTerrainStage terrain;
-    std::vector<uint8_t> sleepSupportedThisFrame;
     SkullbonezCore::Physics::PhysicsRuntimeSettings config;
     PhysicsWorldForces worldForces;
     PhysicsContactSolverStage solver;
     PhysicsStepDiagnostics& diagnostics;
 
-    SolverFixture()
-        : bodyStore( TestBodyStore() ), colliderStore( TestColliderStore() ), diagnostics( TestStepDiagnostics() )
+    SolverFixture() : bodyStore( TestBodyStore() ), colliderStore( TestColliderStore() ), diagnostics( TestStepDiagnostics() )
     {
         {
-            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
 
             sleepSupportEdges.Reserve( MAX_SLEEP_SUPPORT_EDGES );
             terrain.ReserveSceneCapacity( 16u );
@@ -241,8 +240,7 @@ struct SolverFixture
         config.solver.iterations = 12;
     }
 
-    void AddDynamicSphere( const Vector3& position, const Vector3& linearVelocity, float restitution = 0.0f,
-                           bool isFixed = false )
+    void AddDynamicSphere( const Vector3& position, const Vector3& linearVelocity, float restitution = 0.0f, bool isFixed = false )
     {
         const float radius = 1.0f;
         const float mass = 2.0f;
@@ -252,8 +250,7 @@ struct SolverFixture
         body.hot.position = position;
         body.hot.linearVelocity = linearVelocity;
         body.cold.rotationalInertia = Vector3( inertia, inertia, inertia );
-        body.hot.inverseRotationalInertia = isFixed ? ZERO_VECTOR
-                                                    : Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
+        body.hot.inverseRotationalInertia = isFixed ? ZERO_VECTOR : Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
         body.cold.mass = mass;
         body.hot.inverseMass = isFixed ? 0.0f : 1.0f / mass;
         body.hot.boundingRadius = radius;
@@ -270,7 +267,6 @@ struct SolverFixture
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
         timeRemaining.assign( static_cast<std::size_t>( bodyStore.Count() ), kSolverDt );
-        sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
     }
 
     void AddBox( const Vector3& position, float xRotationRadians, bool isFixed )
@@ -286,8 +282,7 @@ struct SolverFixture
         body.hot.position = position;
         body.hot.orientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), xRotationRadians );
         body.cold.rotationalInertia = Vector3( inertia, inertia, inertia );
-        body.hot.inverseRotationalInertia = isFixed ? Vector3( 0.0f, 0.0f, 0.0f )
-                                                    : Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
+        body.hot.inverseRotationalInertia = isFixed ? Vector3( 0.0f, 0.0f, 0.0f ) : Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
 
         body.cold.mass = mass;
         body.hot.inverseMass = isFixed ? 0.0f : 1.0f / mass;
@@ -308,12 +303,17 @@ struct SolverFixture
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
         timeRemaining.assign( static_cast<std::size_t>( bodyStore.Count() ), kSolverDt );
-        sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
     }
 
-    void AddMovingBox( const Vector3& position, const Vector3& halfExtents, const Vector3& rotationAxis,
-                       float rotationRadians, const Vector3& linearVelocity, const Vector3& angularVelocity, float mass,
-                       float restitution, bool isFixed )
+    void AddMovingBox( const Vector3& position,
+                       const Vector3& halfExtents,
+                       const Vector3& rotationAxis,
+                       float rotationRadians,
+                       const Vector3& linearVelocity,
+                       const Vector3& angularVelocity,
+                       float mass,
+                       float restitution,
+                       bool isFixed )
     {
 
         // Why: this fixture uses the production box-inertia derivation and world-
@@ -327,13 +327,11 @@ struct SolverFixture
         body.hot.angularVelocity = angularVelocity;
         body.hot.orientation.RotateAboutAxis( rotationAxis, rotationRadians );
         body.cold.rotationalInertia = inertia;
-        body.hot.inverseRotationalInertia = isFixed ? Vector3( 0.0f, 0.0f, 0.0f )
-                                                    : Vector3( 1.0f / inertia.x, 1.0f / inertia.y, 1.0f / inertia.z );
+        body.hot.inverseRotationalInertia = isFixed ? Vector3( 0.0f, 0.0f, 0.0f ) : Vector3( 1.0f / inertia.x, 1.0f / inertia.y, 1.0f / inertia.z );
 
         body.cold.mass = mass;
         body.hot.inverseMass = isFixed ? 0.0f : 1.0f / mass;
-        body.hot.boundingRadius = sqrtf( halfExtents.x * halfExtents.x + halfExtents.y * halfExtents.y +
-                                         halfExtents.z * halfExtents.z );
+        body.hot.boundingRadius = sqrtf( halfExtents.x * halfExtents.x + halfExtents.y * halfExtents.y + halfExtents.z * halfExtents.z );
 
         body.hot.fixed = isFixed;
         body.cold.usesWorldInertia = true;
@@ -350,11 +348,9 @@ struct SolverFixture
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
         timeRemaining.assign( static_cast<std::size_t>( bodyStore.Count() ), kSolverDt );
-        sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
     }
 
-    void AddTerrainContactAtOffset( int bodyIndex, uint32_t featureId, float penetration, const Vector3& contactOffset,
-                                    bool supportsRestingPolicy, bool inhibitsSleep )
+    void AddTerrainContactAtOffset( int bodyIndex, uint32_t featureId, float penetration, const Vector3& contactOffset, bool supportsRestingPolicy, bool inhibitsSleep )
     {
         const auto hotFields = bodyStore.HotFields();
         TerrainContactManifold manifold;
@@ -369,19 +365,16 @@ struct SolverFixture
         manifold.inhibitsSleep = inhibitsSleep;
         manifold.points[0].featureId = featureId;
         manifold.points[0].rA = contactOffset;
-        manifold.points[0].point = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyIndex ) ) +
-                                   manifold.points[0].rA;
+        manifold.points[0].point = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyIndex ) ) + manifold.points[0].rA;
 
         manifold.points[0].penetration = penetration;
         terrain.GetContactManifolds().push_back( manifold );
     }
 
-    void AddTerrainContact( int bodyIndex, uint32_t featureId, float penetration, bool supportsRestingPolicy = true,
-                            bool inhibitsSleep = false )
+    void AddTerrainContact( int bodyIndex, uint32_t featureId, float penetration, bool supportsRestingPolicy = true, bool inhibitsSleep = false )
     {
         const float radius = bodyStore.HotFields().boundingRadius[static_cast<std::size_t>( bodyIndex )];
-        AddTerrainContactAtOffset( bodyIndex, featureId, penetration, Vector3( 0.0f, -radius, 0.0f ), supportsRestingPolicy,
-                                   inhibitsSleep );
+        AddTerrainContactAtOffset( bodyIndex, featureId, penetration, Vector3( 0.0f, -radius, 0.0f ), supportsRestingPolicy, inhibitsSleep );
     }
 
     void CopySolverStateFrom( const SolverFixture& source )
@@ -396,8 +389,7 @@ struct SolverFixture
         SkullbonezCore::Physics::PointJointConstraint joint;
         joint.handle.index = static_cast<uint32_t>( joints.size() );
         joint.handle.generation = 1u;
-        joint.SetBodies( bodyStore.Records()[static_cast<std::size_t>( bodyA )].handle,
-                         bodyStore.Records()[static_cast<std::size_t>( bodyB )].handle );
+        joint.SetBodies( bodyStore.Records()[static_cast<std::size_t>( bodyA )].handle, bodyStore.Records()[static_cast<std::size_t>( bodyB )].handle );
         joint.localAnchorA = anchorA;
         joint.localAnchorB = anchorB;
         joint.slack = 0.0f;
@@ -413,8 +405,7 @@ struct SolverFixture
         policy.collisionPathState = collisionPathState;
         policy.collectConvergenceDiagnostics = collectConvergenceDiagnostics;
         terrain.PublishRestSupport( bodyStore, sleepState );
-        solver.Solve( bodyStore, colliderStore, policy, candidatePairs, sleepState, timeRemaining, sleepSupportEdges,
-                      terrain.GetContactManifolds(), sleepSupportedThisFrame, diagnostics, joints );
+        solver.Solve( bodyStore, colliderStore, policy, candidatePairs, sleepState, timeRemaining, sleepSupportEdges, terrain.GetContactManifolds(), diagnostics, joints );
         if ( solver.HasPendingReleasedConstraints() )
         {
             for ( int body : solver.GetSideEffects().releaseWakeBodies )
@@ -424,8 +415,7 @@ struct SolverFixture
             // Production's force-aware wake is covered through PhysicsEngine;
             // this direct stage fixture supplies its explicit zero-force sleep rows.
             solver.PrepareReleasedBodies( bodyStore, sleepState );
-            solver.ContinueReleasedConstraints( bodyStore, colliderStore, policy, candidatePairs, sleepState, timeRemaining,
-                                                sleepSupportEdges, terrain.GetContactManifolds(), diagnostics, joints );
+            solver.ContinueReleasedConstraints( bodyStore, colliderStore, policy, candidatePairs, sleepState, timeRemaining, sleepSupportEdges, terrain.GetContactManifolds(), diagnostics, joints );
         }
     }
 };
@@ -468,9 +458,11 @@ PositionCorrectionResult ApplySyntheticFacePositionCorrection( std::span<const f
     PersistentContactSolverStepPolicy policy;
     policy.objectSlop = 0.1f;
     policy.objectPositionCorrectionPercent = 0.35f;
-    SkullbonezCore::Physics::PersistentContactPositionCorrectionTestAccess::
-        Apply( fixture.solver, fixture.bodyStore, policy, fixture.sleepState,
-               std::span<const PersistentContact>( contacts.data(), penetrations.size() ) );
+    SkullbonezCore::Physics::PersistentContactPositionCorrectionTestAccess::Apply( fixture.solver,
+                                                                                   fixture.bodyStore,
+                                                                                   policy,
+                                                                                   fixture.sleepState,
+                                                                                   std::span<const PersistentContact>( contacts.data(), penetrations.size() ) );
 
     const auto hotFields = fixture.bodyStore.HotFields();
     PositionCorrectionResult result;
@@ -611,21 +603,14 @@ TEST_CASE( "Speculative contacts: rotating face brakes its approaching edge agai
     {
         SolverFixture fixture;
         fixture.AddBox( ZERO_VECTOR, 0.0f, false );
-        fixture.AddMovingBox( Vector3( 1.3f, 0, 0 ), Vector3( 0.05f, 4, 4 ), Vector3( 1, 0, 0 ), 0.0f, ZERO_VECTOR,
-                              ZERO_VECTOR, 1000.0f, 0.0f, fixedWall );
+        fixture.AddMovingBox( Vector3( 1.3f, 0, 0 ), Vector3( 0.05f, 4, 4 ), Vector3( 1, 0, 0 ), 0.0f, ZERO_VECTOR, ZERO_VECTOR, 1000.0f, 0.0f, fixedWall );
         fixture.bodyStore.MutableHotFields().angularVelocityZ[0] = -100.0f;
         fixture.collisionPathState = { SkullbonezCore::Physics::PhysicsMotionEligibilityArticulated, 0u };
         fixture.candidatePairs.emplace_back( 0, 1 );
         fixture.Solve();
         const auto hot = fixture.bodyStore.HotFields();
-        const Vector3 approachingCornerVelocity = PhysicsBodyLinearVelocity( hot, 0 ) +
-                                                  CrossProduct( SkullbonezCore::Physics::PhysicsBodyAngularVelocity( hot,
-                                                                                                                     0 ),
-                                                                Vector3( 1, 1, 0 ) ) -
-                                                  PhysicsBodyLinearVelocity( hot, 1 ) -
-                                                  CrossProduct( SkullbonezCore::Physics::PhysicsBodyAngularVelocity( hot,
-                                                                                                                     1 ),
-                                                                Vector3( -0.05f, 1, 0 ) );
+        const Vector3 approachingCornerVelocity = PhysicsBodyLinearVelocity( hot, 0 ) + CrossProduct( SkullbonezCore::Physics::PhysicsBodyAngularVelocity( hot, 0 ), Vector3( 1, 1, 0 ) ) -
+                                                  PhysicsBodyLinearVelocity( hot, 1 ) - CrossProduct( SkullbonezCore::Physics::PhysicsBodyAngularVelocity( hot, 1 ), Vector3( -0.05f, 1, 0 ) );
         CHECK( approachingCornerVelocity.x <= 0.25f / kSolverDt + 0.01f );
         CHECK( hot.angularVelocityZ[0] > -100.0f );
         for ( const auto& row : fixture.solver.GetPersistentContacts() )
@@ -641,8 +626,7 @@ TEST_CASE( "Speculative contacts: rotating cube does not hit a wall outside its 
 {
     SolverFixture fixture;
     fixture.AddBox( ZERO_VECTOR, 0.0f, false );
-    fixture.AddMovingBox( Vector3( 1.6f, 0, 0 ), Vector3( 0.05f, 4, 4 ), Vector3( 1, 0, 0 ), 0.0f, ZERO_VECTOR, ZERO_VECTOR,
-                          1000.0f, 0.0f, true );
+    fixture.AddMovingBox( Vector3( 1.6f, 0, 0 ), Vector3( 0.05f, 4, 4 ), Vector3( 1, 0, 0 ), 0.0f, ZERO_VECTOR, ZERO_VECTOR, 1000.0f, 0.0f, true );
     fixture.bodyStore.MutableHotFields().angularVelocityZ[0] = -100.0f;
     fixture.collisionPathState = { SkullbonezCore::Physics::PhysicsMotionEligibilityArticulated, 0u };
     fixture.candidatePairs.emplace_back( 0, 1 );
@@ -672,8 +656,7 @@ TEST_CASE( "Speculative contacts: rotating cube cannot reach flat terrain beneat
     sweep.uniformStep = true;
     sweep.collidedPlane = body.terrain.flatSlopePlane;
     TerrainContactManifold manifold;
-    const bool hit = BuildTerrainContactManifold( body, fixture.colliderStore.Records()[0].shape, 0, sweep, kSolverDt,
-                                                  manifold );
+    const bool hit = BuildTerrainContactManifold( body, fixture.colliderStore.Records()[0].shape, 0, sweep, kSolverDt, manifold );
     CHECK_FALSE( hit );
     if ( hit )
     {
@@ -686,6 +669,68 @@ TEST_CASE( "Speculative contacts: rotating cube cannot reach flat terrain beneat
     CHECK( fixture.bodyStore.HotFields().angularVelocityZ[0] == 100.0f );
 }
 
+TEST_CASE( "Persistent contacts: a sliding hull edge receives friction without sleep support" )
+{
+    for ( float friction : { 0.0f, 0.2f } )
+    {
+        SolverFixture fixture;
+        fixture.config.material.terrainFrictionCoefficient = friction;
+        fixture.config.body.contactRestitutionThreshold = 2.0f;
+        const float height = 2.0f * sqrtf( 2.0f );
+        fixture.AddMovingBox( Vector3( 20, height, 20 ), Vector3( 2, 2, 2 ), Vector3( 0, 0, 1 ), 0.785398163f, Vector3( 0, -1, 6 ), ZERO_VECTOR, 2.0f, 0.0f, false );
+        SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+        SkullbonezCore::Math::CollisionDetection::ConvexHullShape hull;
+        REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/convex_quality_box_hull_ordinary.hull", hull ) );
+        ColliderRecord collider = fixture.colliderStore.Records()[0];
+        collider.shapeKind = ColliderShapeKind::ConvexHull;
+        collider.boundingRadius = hull.GetBoundingRadius();
+        REQUIRE( SkullbonezTests::ColliderStoreFixtures::UpdateRecordForHandle( fixture.colliderStore, collider.handle, collider, CollisionShape( hull ) ) );
+        TerrainContactBodyView body;
+        body.position = Vector3( 20, height, 20 );
+        body.orientation.RotateAboutAxis( Vector3( 0, 0, 1 ), 0.785398163f );
+        body.linearVelocity = Vector3( 0, -1, 6 );
+        body.terrain.flatSlope = true;
+        body.terrain.flatSlopeExtent = 1000.0f;
+        body.terrain.flatSlopePlane.m_normal = Vector3( 0, 1, 0 );
+        body.terrain.flatSlopePlane.m_distance = 0.0f;
+        body.boundingRadius = hull.GetBoundingRadius();
+        body.contactEpsilon = 0.001f;
+        body.terrainContactThreshold = 0.02f;
+        body.restitutionThreshold = 2.0f;
+        TerrainContactSweepResult sweep;
+        sweep.hit = true;
+        sweep.collidedPlane = body.terrain.flatSlopePlane;
+        TerrainContactManifold manifold;
+        REQUIRE( BuildTerrainContactManifold( body, fixture.colliderStore.Records()[0].shape, 0, sweep, kSolverDt, manifold ) );
+        REQUIRE_FALSE( manifold.supportsRestingPolicy );
+        REQUIRE( manifold.inhibitsSleep );
+        fixture.terrain.GetContactManifolds().push_back( manifold );
+        fixture.Solve();
+        float normalImpulse = 0.0f;
+        float tangentImpulse = 0.0f;
+        for ( const auto& row : fixture.solver.GetPersistentContacts() )
+        {
+            normalImpulse += row.accN;
+            tangentImpulse += sqrtf( row.accT1 * row.accT1 + row.accT2 * row.accT2 );
+            CHECK_FALSE( row.supportsRestingPolicy );
+        }
+        CHECK( normalImpulse > 0.0f );
+        const float speed = PhysicsBodyLinearVelocity( fixture.bodyStore.HotFields(), 0 ).z;
+        if ( friction == 0.0f )
+        {
+            CHECK( tangentImpulse == 0.0f );
+            CHECK( speed == doctest::Approx( 6.0f ) );
+        }
+        else
+        {
+            CHECK( tangentImpulse > 0.0f );
+            CHECK( speed < 6.0f );
+            CHECK( speed > 0.0f );
+            CHECK( tangentImpulse <= friction * normalImpulse + 0.0001f );
+        }
+    }
+}
+
 TEST_CASE( "Speculative contacts: airborne convex tip receives no support instability nudge" )
 {
     SolverFixture fixture;
@@ -695,13 +740,11 @@ TEST_CASE( "Speculative contacts: airborne convex tip receives no support instab
     fixture.AddBox( ZERO_VECTOR, 0.0f, true );
     SkullbonezCore::Core::SbDiagnosticStore diagnostics;
     SkullbonezCore::Math::CollisionDetection::ConvexHullShape hull;
-    REQUIRE(
-        SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/diamond.hull", hull ) );
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/diamond.hull", hull ) );
     ColliderRecord collider = fixture.colliderStore.Records()[0];
     collider.shapeKind = ColliderShapeKind::ConvexHull;
     collider.boundingRadius = hull.GetBoundingRadius();
-    REQUIRE( SkullbonezTests::ColliderStoreFixtures::UpdateRecordForHandle( fixture.colliderStore, collider.handle, collider,
-                                                                            CollisionShape( hull ) ) );
+    REQUIRE( SkullbonezTests::ColliderStoreFixtures::UpdateRecordForHandle( fixture.colliderStore, collider.handle, collider, CollisionShape( hull ) ) );
     fixture.bodyStore.MutableHotFields().boundingRadius[0] = hull.GetBoundingRadius();
     fixture.bodyStore.MutableHotFields().linearVelocityY[0] = -0.05f;
     fixture.collisionPathState = { SkullbonezCore::Physics::PhysicsMotionEligibilityArticulated, 0u };
@@ -728,15 +771,12 @@ void ConfigureClosedSolve( SolverFixture& fixture )
 
 bool EnergyWithinClosedBound( const ContactEnergyMeasurement& before, const ContactEnergyMeasurement& after )
 {
-    return after.TotalKineticEnergy() <=
-           before.TotalKineticEnergy() +
-               SkullbonezCore::Physics::ContactEnergyPrecisionTolerance( before.TotalKineticEnergy() );
+    return after.TotalKineticEnergy() <= before.TotalKineticEnergy() + SkullbonezCore::Physics::ContactEnergyPrecisionTolerance( before.TotalKineticEnergy() );
 }
 
 void CheckDynamicMomentumConserved( const ContactEnergyMeasurement& before, const ContactEnergyMeasurement& after )
 {
-    const auto componentMatches = []( double expected, double actual, double scale )
-    { return std::abs( actual - expected ) <= SkullbonezCore::Physics::ContactMomentumPrecisionTolerance( scale ); };
+    const auto componentMatches = []( double expected, double actual, double scale ) { return std::abs( actual - expected ) <= SkullbonezCore::Physics::ContactMomentumPrecisionTolerance( scale ); };
 
     CHECK( componentMatches( before.linearMomentum.x, after.linearMomentum.x, before.linearMomentumScale.x ) );
     CHECK( componentMatches( before.linearMomentum.y, after.linearMomentum.y, before.linearMomentumScale.y ) );
@@ -794,8 +834,7 @@ TEST_CASE( "Contact energy oracle: sphere restitution matrix bounds complete sol
         dynamicPair.AddDynamicSphere( Vector3( 0.95f, 0.0f, 0.0f ), Vector3( -1.0f, 0.0f, 0.0f ), restitution );
         dynamicPair.candidatePairs.emplace_back( 0, 1 );
 
-        const ContactEnergyMeasurement dynamicBefore = SkullbonezCore::Physics::MeasureContactEnergy(
-            dynamicPair.bodyStore );
+        const ContactEnergyMeasurement dynamicBefore = SkullbonezCore::Physics::MeasureContactEnergy( dynamicPair.bodyStore );
         dynamicPair.Solve();
         const ContactEnergyMeasurement dynamicAfter = SkullbonezCore::Physics::MeasureContactEnergy( dynamicPair.bodyStore );
 
@@ -805,8 +844,7 @@ TEST_CASE( "Contact energy oracle: sphere restitution matrix bounds complete sol
 
         if ( restitution == 1.0f )
         {
-            CHECK( std::abs( dynamicAfter.TotalKineticEnergy() - dynamicBefore.TotalKineticEnergy() ) <=
-                   SkullbonezCore::Physics::ContactEnergyPrecisionTolerance( dynamicBefore.TotalKineticEnergy() ) );
+            CHECK( std::abs( dynamicAfter.TotalKineticEnergy() - dynamicBefore.TotalKineticEnergy() ) <= SkullbonezCore::Physics::ContactEnergyPrecisionTolerance( dynamicBefore.TotalKineticEnergy() ) );
         }
 
         SolverFixture fixedPair;
@@ -836,11 +874,9 @@ TEST_CASE( "Contact energy oracle: box face off-center friction and anisotropic 
     SolverFixture face;
     ConfigureClosedSolve( face );
     face.config.material.terrainFrictionCoefficient = 0.0f;
-    face.AddMovingBox( Vector3( -0.99f, 0.0f, 0.0f ), unitHalfExtents, xAxis, 0.0f, Vector3( 2.0f, 0.0f, 0.0f ),
-                       Vector3( 0.0f, 0.0f, 0.0f ), 2.0f, 0.5f, false );
+    face.AddMovingBox( Vector3( -0.99f, 0.0f, 0.0f ), unitHalfExtents, xAxis, 0.0f, Vector3( 2.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 2.0f, 0.5f, false );
 
-    face.AddMovingBox( Vector3( 0.99f, 0.0f, 0.0f ), unitHalfExtents, xAxis, 0.0f, Vector3( -1.0f, 0.0f, 0.0f ),
-                       Vector3( 0.0f, 0.0f, 0.0f ), 2.0f, 0.5f, false );
+    face.AddMovingBox( Vector3( 0.99f, 0.0f, 0.0f ), unitHalfExtents, xAxis, 0.0f, Vector3( -1.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 2.0f, 0.5f, false );
 
     face.candidatePairs.emplace_back( 0, 1 );
     const ContactEnergyMeasurement faceBefore = SkullbonezCore::Physics::MeasureContactEnergy( face.bodyStore );
@@ -852,11 +888,9 @@ TEST_CASE( "Contact energy oracle: box face off-center friction and anisotropic 
     SolverFixture offCenter;
     ConfigureClosedSolve( offCenter );
     offCenter.config.material.terrainFrictionCoefficient = 0.0f;
-    offCenter.AddMovingBox( Vector3( 0.0f, 0.0f, 0.0f ), unitHalfExtents, xAxis, 0.0f, Vector3( 0.0f, 0.0f, 0.0f ),
-                            Vector3( 0.0f, 0.0f, 0.0f ), 2.0f, 0.0f, true );
+    offCenter.AddMovingBox( Vector3( 0.0f, 0.0f, 0.0f ), unitHalfExtents, xAxis, 0.0f, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 2.0f, 0.0f, true );
 
-    offCenter.AddMovingBox( Vector3( 1.9f, 0.65f, 0.0f ), unitHalfExtents, xAxis, 0.0f, Vector3( -3.0f, 0.0f, 0.0f ),
-                            Vector3( 0.0f, 0.0f, 0.0f ), 2.0f, 0.0f, false );
+    offCenter.AddMovingBox( Vector3( 1.9f, 0.65f, 0.0f ), unitHalfExtents, xAxis, 0.0f, Vector3( -3.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 2.0f, 0.0f, false );
 
     offCenter.candidatePairs.emplace_back( 0, 1 );
     const ContactEnergyMeasurement offCenterBefore = SkullbonezCore::Physics::MeasureContactEnergy( offCenter.bodyStore );
@@ -880,12 +914,11 @@ TEST_CASE( "Contact energy oracle: box face off-center friction and anisotropic 
     SolverFixture anisotropic;
     ConfigureClosedSolve( anisotropic );
     anisotropic.config.material.terrainFrictionCoefficient = 0.0f;
-    anisotropic.AddMovingBox( Vector3( 0.0f, 2.0f, 0.0f ), Vector3( 1.0f, 2.0f, 3.0f ), Vector3( 0.0f, 0.0f, 1.0f ), 0.45f,
-                              Vector3( 0.0f, -3.0f, 0.0f ), Vector3( 0.3f, -0.2f, 0.4f ), 4.0f, 0.5f, false );
+    anisotropic
+        .AddMovingBox( Vector3( 0.0f, 2.0f, 0.0f ), Vector3( 1.0f, 2.0f, 3.0f ), Vector3( 0.0f, 0.0f, 1.0f ), 0.45f, Vector3( 0.0f, -3.0f, 0.0f ), Vector3( 0.3f, -0.2f, 0.4f ), 4.0f, 0.5f, false );
 
     anisotropic.AddTerrainContactAtOffset( 0, 701u, 0.0f, Vector3( 0.6f, -2.0f, 0.5f ), false, false );
-    const ContactEnergyMeasurement anisotropicBefore = SkullbonezCore::Physics::MeasureContactEnergy(
-        anisotropic.bodyStore );
+    const ContactEnergyMeasurement anisotropicBefore = SkullbonezCore::Physics::MeasureContactEnergy( anisotropic.bodyStore );
     anisotropic.Solve();
     const ContactEnergyMeasurement anisotropicAfter = SkullbonezCore::Physics::MeasureContactEnergy( anisotropic.bodyStore );
     CHECK( anisotropicBefore.rotationalKineticEnergy > 0.0 );
@@ -941,8 +974,7 @@ TEST_CASE( "Contact energy oracle: Baumgarte solve exposes an explicit separatio
     biased.Solve();
     const ContactEnergyMeasurement after = SkullbonezCore::Physics::MeasureContactEnergy( biased.bodyStore );
     const double separationWork = ExplicitSeparationWorkBudget( biased );
-    const double tolerance = SkullbonezCore::Physics::ContactBiasedEnergyTolerance( before.TotalKineticEnergy(),
-                                                                                    separationWork );
+    const double tolerance = SkullbonezCore::Physics::ContactBiasedEnergyTolerance( before.TotalKineticEnergy(), separationWork );
 
     CHECK( separationWork > 0.0 );
     CHECK( after.TotalKineticEnergy() > before.TotalKineticEnergy() );
@@ -960,8 +992,7 @@ TEST_CASE( "Contact energy oracle: planted restitution impulse and stale-geometr
     oversized.AddDynamicSphere( Vector3( -0.95f, 0.0f, 0.0f ), Vector3( 1.0f, 0.0f, 0.0f ) );
     oversized.AddDynamicSphere( Vector3( 0.95f, 0.0f, 0.0f ), Vector3( -1.0f, 0.0f, 0.0f ) );
     const ContactEnergyMeasurement oversizedBefore = SkullbonezCore::Physics::MeasureContactEnergy( oversized.bodyStore );
-    ApplyPlantedSphereImpulse( oversized, Vector3( 4.04f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
-                               Vector3( 0.0f, 0.0f, 0.0f ) );
+    ApplyPlantedSphereImpulse( oversized, Vector3( 4.04f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
 
     const ContactEnergyMeasurement oversizedAfter = SkullbonezCore::Physics::MeasureContactEnergy( oversized.bodyStore );
     CHECK_FALSE( EnergyWithinClosedBound( oversizedBefore, oversizedAfter ) );
@@ -976,8 +1007,7 @@ TEST_CASE( "Contact energy oracle: planted restitution impulse and stale-geometr
     // Hazard: this deliberately applies a cached scalar through contact arms
     // that do not belong to the new normal/geometry. A validity check must reject
     // the resulting unaccounted translational and rotational work.
-    ApplyPlantedSphereImpulse( staleGeometry, Vector3( 0.0f, 4.0f, 0.0f ), Vector3( 1.0f, 0.0f, 0.0f ),
-                               Vector3( -1.0f, 0.0f, 0.0f ) );
+    ApplyPlantedSphereImpulse( staleGeometry, Vector3( 0.0f, 4.0f, 0.0f ), Vector3( 1.0f, 0.0f, 0.0f ), Vector3( -1.0f, 0.0f, 0.0f ) );
 
     const ContactEnergyMeasurement staleAfter = SkullbonezCore::Physics::MeasureContactEnergy( staleGeometry.bodyStore );
     CHECK_FALSE( EnergyWithinClosedBound( staleBefore, staleAfter ) );
@@ -988,11 +1018,9 @@ TEST_CASE( "Contact energy oracle: planted restitution impulse and stale-geometr
     overRestitution.AddDynamicSphere( Vector3( -0.95f, 0.0f, 0.0f ), Vector3( 1.0f, 0.0f, 0.0f ), 1.1f );
     overRestitution.AddDynamicSphere( Vector3( 0.95f, 0.0f, 0.0f ), Vector3( -1.0f, 0.0f, 0.0f ), 1.1f );
     overRestitution.candidatePairs.emplace_back( 0, 1 );
-    const ContactEnergyMeasurement restitutionBefore = SkullbonezCore::Physics::MeasureContactEnergy(
-        overRestitution.bodyStore );
+    const ContactEnergyMeasurement restitutionBefore = SkullbonezCore::Physics::MeasureContactEnergy( overRestitution.bodyStore );
     overRestitution.Solve();
-    const ContactEnergyMeasurement restitutionAfter = SkullbonezCore::Physics::MeasureContactEnergy(
-        overRestitution.bodyStore );
+    const ContactEnergyMeasurement restitutionAfter = SkullbonezCore::Physics::MeasureContactEnergy( overRestitution.bodyStore );
     CHECK_FALSE( EnergyWithinClosedBound( restitutionBefore, restitutionAfter ) );
     CheckDynamicMomentumConserved( restitutionBefore, restitutionAfter );
 }
@@ -1066,8 +1094,7 @@ TEST_CASE( "Pending gameplay impulse matches the contact path for a rotated anis
     body.cold.usesWorldInertia = true;
     body.hot.orientation.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), 0.65f );
     body.hot.inverseMass = 1.0f / body.cold.mass;
-    body.hot.inverseRotationalInertia = Vector3( 1.0f / rotationalInertia.x, 1.0f / rotationalInertia.y,
-                                                 1.0f / rotationalInertia.z );
+    body.hot.inverseRotationalInertia = Vector3( 1.0f / rotationalInertia.x, 1.0f / rotationalInertia.y, 1.0f / rotationalInertia.z );
 
     body.hot.boundingRadius = SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius( shape );
     const auto bodyHandle = fixture.bodyStore.CreateBodyRecord( body );
@@ -1077,8 +1104,7 @@ TEST_CASE( "Pending gameplay impulse matches the contact path for a rotated anis
     collider.body = bodyHandle;
     collider.shapeKind = ColliderShapeKind::Box;
     collider.boundingRadius = body.hot.boundingRadius;
-    REQUIRE(
-        SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( fixture.colliderStore, collider, shape ).IsValid() );
+    REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( fixture.colliderStore, collider, shape ).IsValid() );
 
     const Vector3 worldImpulse( 3.0f, 5.0f, -2.0f );
     const Vector3 worldApplicationOffset( 0.75f, -0.4f, 1.1f );
@@ -1088,13 +1114,11 @@ TEST_CASE( "Pending gameplay impulse matches the contact path for a rotated anis
     noForces.angularDragMultiplier = 0.0f;
     const BuoyancyBodyFacts noBuoyancy;
     REQUIRE( fixture.bodyStore.ApplyForces( noForces, fixture.colliderStore, {}, noBuoyancy, 0, kSolverDt ) );
-    const Vector3
-        gameplayAngularVelocity = SkullbonezCore::Physics::PhysicsBodyAngularVelocity( fixture.bodyStore.HotFields(), 0u );
+    const Vector3 gameplayAngularVelocity = SkullbonezCore::Physics::PhysicsBodyAngularVelocity( fixture.bodyStore.HotFields(), 0u );
 
     ConstraintSolveTransaction contactPath;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         contactPath.ReserveSceneCapacity( 1u );
     }
     contactPath.ResetBodies( 1u );
@@ -1144,8 +1168,7 @@ TEST_CASE( "Pending gameplay impulse preserves the exact isotropic sphere respon
     collider.shapeKind = ColliderShapeKind::Sphere;
     collider.boundingRadius = body.hot.boundingRadius;
     const CollisionShape shape( BoundingSphere( body.hot.boundingRadius, Vector3( 0.0f, 0.0f, 0.0f ) ) );
-    REQUIRE(
-        SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( fixture.colliderStore, collider, shape ).IsValid() );
+    REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( fixture.colliderStore, collider, shape ).IsValid() );
 
     const Vector3 worldImpulse( 3.0f, 5.0f, -2.0f );
     const Vector3 worldApplicationOffset( 0.75f, -0.4f, 1.1f );
@@ -1170,8 +1193,7 @@ TEST_CASE( "Persistent contact solver: convergence diagnostics stay bounded and 
     SkullbonezCore::Physics::PersistentContactConvergenceTrace trace;
     SkullbonezCore::Physics::PersistentContactIterationDiagnostics sample;
 
-    for ( std::size_t iteration = 0u; iteration < SkullbonezCore::Physics::PersistentContactConvergenceTrace::CAPACITY + 3u;
-          ++iteration )
+    for ( std::size_t iteration = 0u; iteration < SkullbonezCore::Physics::PersistentContactConvergenceTrace::CAPACITY + 3u; ++iteration )
     {
         sample.iteration = static_cast<int>( iteration + 1u );
         trace.Append( sample );
@@ -1180,8 +1202,7 @@ TEST_CASE( "Persistent contact solver: convergence diagnostics stay bounded and 
     REQUIRE( trace.Samples().size() == SkullbonezCore::Physics::PersistentContactConvergenceTrace::CAPACITY );
     CHECK( trace.DroppedIterationCount() == 3u );
     CHECK( trace.Samples().front().iteration == 1 );
-    CHECK( trace.Samples().back().iteration ==
-           static_cast<int>( SkullbonezCore::Physics::PersistentContactConvergenceTrace::CAPACITY ) );
+    CHECK( trace.Samples().back().iteration == static_cast<int>( SkullbonezCore::Physics::PersistentContactConvergenceTrace::CAPACITY ) );
 
     SolverFixture source;
     source.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -0.1f, 0.0f ) );
@@ -1251,14 +1272,11 @@ TEST_CASE( "Persistent contact solver: stable terrain rows do not turn overlap i
 
     REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
     const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
-    const float expectedSupportImpulse = fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) *
-                                         contactInterval;
+    const float expectedSupportImpulse = fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) * contactInterval;
     CHECK( contact.bias == 0.0f );
     CHECK( contact.separationBias == 0.0f );
     CHECK( contact.terrainWarmStart == doctest::Approx( expectedSupportImpulse ).epsilon( 0.0001 ) );
-    CHECK(
-        contact.frictionLimit ==
-        doctest::Approx( fixture.config.material.terrainFrictionCoefficient * expectedSupportImpulse ).epsilon( 0.0001 ) );
+    CHECK( contact.frictionLimit == doctest::Approx( fixture.config.material.terrainFrictionCoefficient * expectedSupportImpulse ).epsilon( 0.0001 ) );
     CHECK( fixture.bodyStore.HotFields().positionY[0] > 1.0f );
     CHECK( fabsf( fixture.bodyStore.HotFields().linearVelocityY[0] ) < 0.0001f );
 }
@@ -1316,9 +1334,7 @@ TEST_CASE( "Persistent contact solver: equal dynamic remainders own the object c
     const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
     REQUIRE_FALSE( contact.normalCoupledFriction );
     const float expectedBias = fixture.config.solver.baumgarteBeta * contact.penetration / contactInterval;
-    const float expectedFrictionLimit = fixture.config.material.objectFrictionCoefficient *
-                                        fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) *
-                                        contactInterval;
+    const float expectedFrictionLimit = fixture.config.material.objectFrictionCoefficient * fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) * contactInterval;
     CHECK( contact.bias == doctest::Approx( expectedBias ).epsilon( 0.0001 ) );
     CHECK( contact.frictionLimit == doctest::Approx( expectedFrictionLimit ).epsilon( 0.0001 ) );
 }
@@ -1339,9 +1355,7 @@ TEST_CASE( "Persistent contact solver: fixed bodies do not shorten a dynamic con
     const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
     REQUIRE_FALSE( contact.normalCoupledFriction );
     const float expectedBias = fixture.config.solver.baumgarteBeta * contact.penetration / dynamicInterval;
-    const float expectedFrictionLimit = fixture.config.material.objectFrictionCoefficient *
-                                        fixture.bodyStore.Records()[1].mass * fabsf( fixture.config.worldForces.gravity ) *
-                                        dynamicInterval;
+    const float expectedFrictionLimit = fixture.config.material.objectFrictionCoefficient * fixture.bodyStore.Records()[1].mass * fabsf( fixture.config.worldForces.gravity ) * dynamicInterval;
     CHECK( contact.bias == doctest::Approx( expectedBias ).epsilon( 0.0001 ) );
     CHECK( contact.frictionLimit == doctest::Approx( expectedFrictionLimit ).epsilon( 0.0001 ) );
 }
@@ -1363,9 +1377,7 @@ TEST_CASE( "Persistent contact solver: sleeping anchors do not shorten an awake 
     const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
     REQUIRE_FALSE( contact.normalCoupledFriction );
     const float expectedBias = fixture.config.solver.baumgarteBeta * contact.penetration / awakeInterval;
-    const float expectedFrictionLimit = fixture.config.material.objectFrictionCoefficient *
-                                        fixture.bodyStore.Records()[1].mass * fabsf( fixture.config.worldForces.gravity ) *
-                                        awakeInterval;
+    const float expectedFrictionLimit = fixture.config.material.objectFrictionCoefficient * fixture.bodyStore.Records()[1].mass * fabsf( fixture.config.worldForces.gravity ) * awakeInterval;
     CHECK( contact.bias == doctest::Approx( expectedBias ).epsilon( 0.0001 ) );
     CHECK( contact.frictionLimit == doctest::Approx( expectedFrictionLimit ).epsilon( 0.0001 ) );
 }
@@ -1386,9 +1398,7 @@ TEST_CASE( "Persistent contact solver: unequal dynamic remainders use their shar
     const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
     REQUIRE_FALSE( contact.normalCoupledFriction );
     const float expectedBias = fixture.config.solver.baumgarteBeta * contact.penetration / shorterInterval;
-    const float expectedFrictionLimit = fixture.config.material.objectFrictionCoefficient *
-                                        fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) *
-                                        shorterInterval;
+    const float expectedFrictionLimit = fixture.config.material.objectFrictionCoefficient * fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) * shorterInterval;
     CHECK( contact.bias == doctest::Approx( expectedBias ).epsilon( 0.0001 ) );
     CHECK( contact.frictionLimit == doctest::Approx( expectedFrictionLimit ).epsilon( 0.0001 ) );
 }
@@ -1492,8 +1502,7 @@ TEST_CASE( "Persistent contact solver: restitution follows loaded contact-featur
     const float expectedBaumgarteBias = persistent.config.solver.baumgarteBeta * persistentContact.penetration / kSolverDt;
     CHECK( persistentContact.bias == doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
     CHECK( persistentContact.separationBias == doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
-    CHECK( persistent.bodyStore.HotFields().linearVelocityY[1] ==
-           doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
+    CHECK( persistent.bodyStore.HotFields().linearVelocityY[1] == doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
     CHECK( persistent.bodyStore.HotFields().linearVelocityY[1] < freshSeparatingSpeed );
 
     PhysicsSolverSnapshot changedFeatureSnapshot;
@@ -1510,8 +1519,7 @@ TEST_CASE( "Persistent contact solver: restitution follows loaded contact-featur
     // impulse nor lets another row under the body-pair prefix suppress impact.
     CHECK( changedFeature.solver.GetStats().cacheHits == 0 );
     CHECK( changedFeature.solver.GetStats().cacheMisses == 1 );
-    CHECK( changedFeature.bodyStore.HotFields().linearVelocityY[1] ==
-           doctest::Approx( freshSeparatingSpeed ).epsilon( 0.0001 ) );
+    CHECK( changedFeature.bodyStore.HotFields().linearVelocityY[1] == doctest::Approx( freshSeparatingSpeed ).epsilon( 0.0001 ) );
 
     SolverFixture gap;
     buildImpact( gap );
@@ -1551,8 +1559,7 @@ TEST_CASE( "Persistent contact solver: restitution follows loaded contact-featur
     // policy. Its repeated contact solve remains perfectly elastic even when a
     // prior cache row exists for replay continuity.
     CHECK( elasticPersistent.solver.GetStats().cacheHits == 0 );
-    CHECK( elasticPersistent.bodyStore.HotFields().linearVelocityY[1] ==
-           doctest::Approx( elasticFreshSpeed ).epsilon( 0.0001 ) );
+    CHECK( elasticPersistent.bodyStore.HotFields().linearVelocityY[1] == doctest::Approx( elasticFreshSpeed ).epsilon( 0.0001 ) );
 }
 
 
@@ -1587,8 +1594,7 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
     // the plane even when the axis-angle implementation changes numerically.
     Quaternion tiltedEdgeOrientation;
     tiltedEdgeOrientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), tiltedEdgeRadians );
-    const float tiltedBoxCenterY = tiltedEdgeOrientation.GetOrientationMatrix().SupportExtentY(
-        Vector3( 1.0f, 1.0f, 1.0f ) );
+    const float tiltedBoxCenterY = tiltedEdgeOrientation.GetOrientationMatrix().SupportExtentY( Vector3( 1.0f, 1.0f, 1.0f ) );
 
     auto buildUnsupportedTerrainEdge = [&]( SolverFixture& fixture, float downwardSpeed )
     {
@@ -1623,8 +1629,7 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
         sweep.collidedPlane.m_distance = 0.0f;
 
         TerrainContactManifold manifold;
-        REQUIRE(
-            BuildTerrainContactManifold( body, fixture.colliderStore.Records()[0].shape, 0, sweep, kSolverDt, manifold ) );
+        REQUIRE( BuildTerrainContactManifold( body, fixture.colliderStore.Records()[0].shape, 0, sweep, kSolverDt, manifold ) );
         REQUIRE( manifold.pointCount == 2u );
         CHECK_FALSE( manifold.supportsRestingPolicy );
         CHECK( manifold.allowsTangentFriction );
@@ -1640,8 +1645,7 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
 
     PhysicsTerrainStage terrainStage;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         terrainStage.ReserveSceneCapacity( 1u );
     }
 
@@ -1667,9 +1671,7 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
     for ( const auto& contact : shoreline.solver.GetPersistentContacts() )
     {
         shorelineWarmStart += contact.terrainWarmStart;
-        CHECK( contact.terrainWarmStart ==
-               doctest::Approx( expectedShorelineImpulse / static_cast<float>( shorelineManifold.pointCount ) )
-                   .epsilon( 0.00001 ) );
+        CHECK( contact.terrainWarmStart == doctest::Approx( expectedShorelineImpulse / static_cast<float>( shorelineManifold.pointCount ) ).epsilon( 0.00001 ) );
     }
 
     CHECK( shorelineWarmStart == doctest::Approx( expectedShorelineImpulse ).epsilon( 0.00001 ) );
@@ -1690,20 +1692,14 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
     REQUIRE( slidingEdge.solver.GetPersistentContacts().size() == slidingEdgeManifold.pointCount );
     const auto& slidingHotFields = slidingEdge.bodyStore.HotFields();
     CHECK( fabsf( slidingHotFields.linearVelocityX[0] ) < initialSlideSpeed );
-    CHECK( std::any_of( slidingEdge.solver.GetPersistentContacts().begin(), slidingEdge.solver.GetPersistentContacts().end(),
-                        []( const PersistentContact& contact )
-                        { return fabsf( contact.accT1 ) > 0.0f || fabsf( contact.accT2 ) > 0.0f; } ) );
+    CHECK( std::any_of( slidingEdge.solver.GetPersistentContacts().begin(), slidingEdge.solver.GetPersistentContacts().end(), []( const PersistentContact& contact ) { return fabsf( contact.accT1 ) > 0.0f || fabsf( contact.accT2 ) > 0.0f; } ) );
 
     const auto& shorelinePipeline = shoreline.solver.GetSideEffects().pipelineRecords;
-    const auto
-        shorelineIteration = std::find_if( shorelinePipeline.begin(), shorelinePipeline.end(),
-                                           [&]( const SkullbonezCore::Physics::PhysicsPipelineRecord& record )
-                                           {
-                                               return record.stage ==
-                                                          SkullbonezCore::Physics::PhysicsPipelineStage::SolverIteration &&
-                                                      record.featureId == shorelineManifold.points[0].featureId &&
-                                                      record.iteration == 0;
-                                           } );
+    const auto shorelineIteration = std::find_if( shorelinePipeline.begin(), shorelinePipeline.end(), [&]( const SkullbonezCore::Physics::PhysicsPipelineRecord& record )
+                                                  {
+                                                      return record.stage == SkullbonezCore::Physics::PhysicsPipelineStage::SolverIteration &&
+                                                             record.featureId == shorelineManifold.points[0].featureId && record.iteration == 0;
+                                                  } );
     REQUIRE( shorelineIteration != shorelinePipeline.end() );
     CHECK( fabsf( shorelineIteration->scalarA ) > 0.00001f );
 
@@ -1725,15 +1721,11 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
     CHECK( unseeded.solver.GetStats().warmStartedRows == 0 );
 
     const auto& unseededPipeline = unseeded.solver.GetSideEffects().pipelineRecords;
-    const auto
-        unseededIteration = std::find_if( unseededPipeline.begin(), unseededPipeline.end(),
-                                          [&]( const SkullbonezCore::Physics::PhysicsPipelineRecord& record )
-                                          {
-                                              return record.stage ==
-                                                         SkullbonezCore::Physics::PhysicsPipelineStage::SolverIteration &&
-                                                     record.featureId == unseededManifold.points[0].featureId &&
-                                                     record.iteration == 0;
-                                          } );
+    const auto unseededIteration = std::find_if( unseededPipeline.begin(), unseededPipeline.end(), [&]( const SkullbonezCore::Physics::PhysicsPipelineRecord& record )
+                                                 {
+                                                     return record.stage == SkullbonezCore::Physics::PhysicsPipelineStage::SolverIteration &&
+                                                            record.featureId == unseededManifold.points[0].featureId && record.iteration == 0;
+                                                 } );
     REQUIRE( unseededIteration != unseededPipeline.end() );
     CHECK( unseededIteration->scalarA > 0.0f );
     const float unseededFinalVerticalVelocity = unseeded.bodyStore.HotFields().linearVelocityY[0];
@@ -1769,16 +1761,12 @@ TEST_CASE( "Persistent contact solver: terrain seed strength bounds one-iteratio
 
         fixture.candidatePairs.emplace_back( 0, 1 );
         fixture.candidatePairs.emplace_back( 1, 2 );
-        fixture.AddTerrainContactAtOffset( 0, featureId, 0.0f, Vector3( 0.0f, -1.0f, 0.0f ), supportsRestingPolicy,
-                                           inhibitsSleep );
+        fixture.AddTerrainContactAtOffset( 0, featureId, 0.0f, Vector3( 0.0f, -1.0f, 0.0f ), supportsRestingPolicy, inhibitsSleep );
 
         fixture.Solve();
 
         REQUIRE_FALSE( fixture.solver.GetPersistentContacts().empty() );
-        const auto terrainContact = std::find_if( fixture.solver.GetPersistentContacts().begin(),
-                                                  fixture.solver.GetPersistentContacts().end(),
-                                                  []( const SkullbonezCore::Physics::PersistentContact& contact )
-                                                  { return contact.isTerrain; } );
+        const auto terrainContact = std::find_if( fixture.solver.GetPersistentContacts().begin(), fixture.solver.GetPersistentContacts().end(), []( const SkullbonezCore::Physics::PersistentContact& contact ) { return contact.isTerrain; } );
 
         REQUIRE( terrainContact != fixture.solver.GetPersistentContacts().end() );
 
@@ -1839,12 +1827,19 @@ TEST_CASE( "Persistent contact solver: friction cone clamps diagonal tangent imp
     REQUIRE( fixture.solver.GetPersistentContactCache().size() == 1u );
     const PersistentContactCacheEntry& cached = fixture.solver.GetPersistentContactCache()[0];
     const float tangentMagnitude = sqrtf( cached.accT1 * cached.accT1 + cached.accT2 * cached.accT2 );
-    const float terrainWarmStart = fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) *
-                                   kSolverDt;
+    const float terrainWarmStart = fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) * kSolverDt;
 
-    const float frictionLimit = fixture.config.material.terrainFrictionCoefficient *
-                                ( ( cached.accN > terrainWarmStart ) ? cached.accN : terrainWarmStart );
+    const float frictionLimit = fixture.config.material.terrainFrictionCoefficient * ( ( cached.accN > terrainWarmStart ) ? cached.accN : terrainWarmStart );
 
+    REQUIRE( fixture.diagnostics.GetDebugContacts().size() == 1 );
+    const auto& debugContact = fixture.diagnostics.GetDebugContacts()[0];
+    CHECK( debugContact.normalImpulse == cached.accN );
+    CHECK( debugContact.tangentImpulse1 == cached.accT1 );
+    CHECK( debugContact.tangentImpulse2 == cached.accT2 );
+    CHECK( debugContact.solverNormal.y < 0 ); // + impulse is on terrain B; body A receives its negative.
+    CHECK( debugContact.normal.y > 0 );       // Display normal points out of the terrain.
+    CHECK( debugContact.sceneObjectA == fixture.bodyStore.Records()[0].sceneObjectId.value );
+    CHECK( debugContact.sceneObjectB == 0 );
     CHECK( tangentMagnitude > 0.0f );
     CHECK( tangentMagnitude <= frictionLimit + 0.0001f );
 }
@@ -1858,8 +1853,7 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
     fixture.Solve();
 
     REQUIRE( fixture.diagnostics.GetDebugContacts().size() == 1u );
-    CHECK( fixture.diagnostics.GetDebugContacts()[0].preSolveClosingSpeed >
-           fixture.config.body.contactRestitutionThreshold );
+    CHECK( fixture.diagnostics.GetDebugContacts()[0].preSolveClosingSpeed > fixture.config.body.contactRestitutionThreshold );
 
     CHECK( fixture.diagnostics.GetDebugContacts()[0].normalImpulse > 0.0f );
     CHECK( fixture.diagnostics.GetDebugContacts()[0].separationBias == 0.0f );
@@ -1871,15 +1865,13 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
 TEST_CASE( "Persistent contact solver: terrain restitution ignores manifold row count" )
 {
     const std::array onePoint { Vector3( 0.0f, -1.0f, 0.0f ) };
-    const std::array fourPoints { Vector3( -0.75f, -1.0f, -0.75f ), Vector3( 0.75f, -1.0f, -0.75f ),
-                                  Vector3( -0.75f, -1.0f, 0.75f ), Vector3( 0.75f, -1.0f, 0.75f ) };
+    const std::array fourPoints { Vector3( -0.75f, -1.0f, -0.75f ), Vector3( 0.75f, -1.0f, -0.75f ), Vector3( -0.75f, -1.0f, 0.75f ), Vector3( 0.75f, -1.0f, 0.75f ) };
 
     auto measureBounceSpeed = []( auto contactOffsets )
     {
         SolverFixture fixture;
         fixture.config.material.terrainFrictionCoefficient = 0.0f;
-        fixture.AddMovingBox( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 1.0f, 1.0f, 1.0f ), Vector3( 0.0f, 1.0f, 0.0f ), 0.0f,
-                              Vector3( 0.0f, -6.0f, 0.0f ), ZERO_VECTOR, 1.0f, 0.75f, false );
+        fixture.AddMovingBox( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 1.0f, 1.0f, 1.0f ), Vector3( 0.0f, 1.0f, 0.0f ), 0.0f, Vector3( 0.0f, -6.0f, 0.0f ), ZERO_VECTOR, 1.0f, 0.75f, false );
         fixture.AddTerrainContactAtOffset( 0, 100u, 0.0f, contactOffsets[0], true, false );
 
         TerrainContactManifold& manifold = fixture.terrain.GetContactManifolds()[0];
@@ -1915,8 +1907,7 @@ TEST_CASE( "Persistent contact solver: terrain rest policy preserves quiet resid
     SolverFixture fixture;
     fixture.config.material.terrainFrictionCoefficient = 0.0f;
     fixture.config.material.rollingFrictionCoefficient = 0.0f;
-    fixture.AddMovingBox( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 1.0f, 1.0f, 1.0f ), Vector3( 0.0f, 1.0f, 0.0f ), 0.0f,
-                          Vector3( 0.04f, 0.0f, 0.0f ), Vector3( 0.01f, 0.0f, 0.0f ), 1.0f, 0.0f, false );
+    fixture.AddMovingBox( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 1.0f, 1.0f, 1.0f ), Vector3( 0.0f, 1.0f, 0.0f ), 0.0f, Vector3( 0.04f, 0.0f, 0.0f ), Vector3( 0.01f, 0.0f, 0.0f ), 1.0f, 0.0f, false );
     fixture.AddTerrainContact( 0, 101u, 0.0f );
 
     fixture.Solve();
@@ -1953,12 +1944,9 @@ TEST_CASE( "Persistent contact solver: rolling resistance and tangent friction p
     const Vector3 angularVelocity = PhysicsBodyAngularVelocity( hotFields, 0u );
     const Vector3 contactVelocity = linearVelocity + CrossProduct( angularVelocity, contact.rA );
     const Vector3 tangentVelocity = contactVelocity - contact.normal * Dot( contactVelocity, contact.normal );
-    const float rollingImpulse = sqrtf( contact.accRollingT1 * contact.accRollingT1 +
-                                        contact.accRollingT2 * contact.accRollingT2 );
-    const float rollingLimit = fixture.config.material.rollingFrictionCoefficient *
-                               (std::max)( contact.accN, contact.terrainWarmStart ) * contact.rollingRadius;
-    const float finalEnergy = 0.5f * mass * VectorMagSquared( linearVelocity ) +
-                              0.5f * inertia * VectorMagSquared( angularVelocity );
+    const float rollingImpulse = sqrtf( contact.accRollingT1 * contact.accRollingT1 + contact.accRollingT2 * contact.accRollingT2 );
+    const float rollingLimit = fixture.config.material.rollingFrictionCoefficient * (std::max)( contact.accN, contact.terrainWarmStart ) * contact.rollingRadius;
+    const float finalEnergy = 0.5f * mass * VectorMagSquared( linearVelocity ) + 0.5f * inertia * VectorMagSquared( angularVelocity );
     const auto convergence = fixture.solver.GetConvergenceTrace().Samples();
 
     // The retired post-PGS torque reduced omega after friction had finished and
@@ -2040,8 +2028,7 @@ TEST_CASE( "Persistent contact solver: terrain spin resistance uses its own norm
     REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
     const PersistentContact& contact = fixture.solver.GetPersistentContacts()[0];
     const auto hotFields = fixture.bodyStore.HotFields();
-    const float spinImpulseLimit = fixture.config.material.spinFrictionCoefficient *
-                                   (std::max)( contact.accN, contact.terrainWarmStart );
+    const float spinImpulseLimit = fixture.config.material.spinFrictionCoefficient * (std::max)( contact.accN, contact.terrainWarmStart );
 
     // Spin friction is distinct from rolling resistance: its scalar row acts
     // only about the contact normal and cannot manufacture point slip.
@@ -2148,8 +2135,7 @@ TEST_CASE( "Persistent contact solver: object support chain exposes honest norma
     CHECK( finalIteration.maxRowImpulseDeltaSq > 1.0e-6f );
     CHECK( finalIteration.maxRowNormalImpulseDeltaSq > 1.0e-6f );
     CHECK( finalIteration.maxRowTangentImpulseDeltaSq < 1.0e-6f );
-    CHECK( finalIteration.normalImpulseDeltaSq ==
-           doctest::Approx( finalIteration.stoppingImpulseDeltaSq ).epsilon( 0.00001 ) );
+    CHECK( finalIteration.normalImpulseDeltaSq == doctest::Approx( finalIteration.stoppingImpulseDeltaSq ).epsilon( 0.00001 ) );
 
     CHECK( finalIteration.tangentImpulseDeltaSq < 1.0e-6f );
     CHECK( finalIteration.normalChangedRowCount > 0 );
@@ -2171,8 +2157,7 @@ TEST_CASE( "Persistent contact solver: individually quiet rows stop independentl
 
     for ( int bodyIndex = 0; bodyIndex < quietContactCount; ++bodyIndex )
     {
-        fixture.AddDynamicSphere( Vector3( static_cast<float>( bodyIndex ) * 3.0f, 1.0f, 0.0f ),
-                                  Vector3( 0.0f, -0.0003f, 0.0f ) );
+        fixture.AddDynamicSphere( Vector3( static_cast<float>( bodyIndex ) * 3.0f, 1.0f, 0.0f ), Vector3( 0.0f, -0.0003f, 0.0f ) );
         fixture.AddTerrainContact( bodyIndex, 200u + static_cast<uint32_t>( bodyIndex ), 0.0f );
     }
 
@@ -2241,9 +2226,7 @@ TEST_CASE( "Persistent contact solver: box edge metadata does not disable ordina
     upperView.position = PhysicsBodyPosition( edge.bodyStore.HotFields(), 1u );
     upperView.orientation = PhysicsBodyOrientation( edge.bodyStore.HotFields(), 1u );
     ObjectContactManifold edgeManifold;
-    REQUIRE( BuildObjectContactManifold( lowerView, edge.colliderStore.Records()[0].shape, upperView,
-                                         edge.colliderStore.Records()[1].shape, 0, 1, edge.config.body.contactEpsilon,
-                                         edgeManifold ) );
+    REQUIRE( BuildObjectContactManifold( lowerView, edge.colliderStore.Records()[0].shape, upperView, edge.colliderStore.Records()[1].shape, 0, 1, edge.config.body.contactEpsilon, edgeManifold ) );
 
     REQUIRE( edgeManifold.pointCount <= 2u );
     CHECK( fabsf( edgeManifold.normal.y ) > 0.25f );
@@ -2423,8 +2406,7 @@ TEST_CASE( "Shared contact schedule preserves feature rows under candidate permu
         fixture.AddBox( Vector3( 0.0f, 4.96f, 0.0f ), 0.0f, false );
         fixture.AddTerrainContact( 0, 41u, 0.0f );
         fixture.AddPointJoint( 0, 1, Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -1.0f, 0.0f ) );
-        fixture.candidatePairs = reverse ? std::vector<std::pair<int, int>> { { 2, 1 }, { 1, 0 } }
-                                         : std::vector<std::pair<int, int>> { { 0, 1 }, { 1, 2 } };
+        fixture.candidatePairs = reverse ? std::vector<std::pair<int, int>> { { 2, 1 }, { 1, 0 } } : std::vector<std::pair<int, int>> { { 0, 1 }, { 1, 2 } };
         fixture.Solve();
         PhysicsSolverSnapshot snapshot;
         fixture.solver.CaptureReplayState( snapshot );
@@ -2477,4 +2459,346 @@ TEST_CASE( "Shared release preserves unrelated sleeping joint warm impulses exac
     CHECK( fixture.joints[0].accumulatedImpulse.z == 0.75f );
     CHECK( fixture.sleepState[2] == 1u );
     CHECK( fixture.sleepState[3] == 1u );
+}
+
+TEST_CASE( "Persistent contacts: hull friction uses symmetric materials and solved load" )
+{
+    for ( const auto coefficients : { std::pair( 0.0f, 0.8f ), std::pair( 0.2f, 0.8f ), std::pair( 0.8f, 0.2f ), std::pair( 0.8f, 0.8f ) } )
+    {
+        SolverFixture fixture;
+        fixture.config.material.terrainFrictionCoefficient = 0.8f;
+        fixture.config.material.objectFrictionCoefficient = 0.8f;
+        fixture.config.body.contactRestitutionThreshold = 2.0f;
+        fixture.AddMovingBox( Vector3( 0, 3, 0 ), Vector3( 2, 2, 2 ), Vector3( 0, 1, 0 ), 0.0f, Vector3( 3, -1, 6 ), ZERO_VECTOR, 2.0f, 0.0f, false );
+        fixture.AddBox( ZERO_VECTOR, 0.0f, true );
+        SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+        SkullbonezCore::Math::CollisionDetection::ConvexHullShape hull;
+        REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/convex_quality_box_hull_ordinary.hull", hull ) );
+        ColliderRecord hullCollider = fixture.colliderStore.Records()[0];
+        hullCollider.shapeKind = ColliderShapeKind::ConvexHull;
+        hullCollider.boundingRadius = hull.GetBoundingRadius();
+        hullCollider.friction = coefficients.first;
+        REQUIRE( SkullbonezTests::ColliderStoreFixtures::UpdateRecordForHandle( fixture.colliderStore, hullCollider.handle, hullCollider, CollisionShape( hull ) ) );
+        ColliderRecord boxCollider = fixture.colliderStore.Records()[1];
+        boxCollider.friction = coefficients.second;
+        REQUIRE( SkullbonezTests::ColliderStoreFixtures::UpdateRecordForHandle( fixture.colliderStore, boxCollider.handle, boxCollider, CollisionShape( BoundingBox( Vector3( 1, 1, 1 ), ZERO_VECTOR ) ) ) );
+        fixture.candidatePairs.emplace_back( 0, 1 );
+        fixture.Solve();
+        REQUIRE_FALSE( fixture.solver.GetPersistentContacts().empty() );
+        const float coefficient = sqrtf( coefficients.first * coefficients.second );
+        float normal = 0.0f;
+        float tangent = 0.0f;
+        for ( const auto& row : fixture.solver.GetPersistentContacts() )
+        {
+            const float magnitude = sqrtf( row.accT1 * row.accT1 + row.accT2 * row.accT2 );
+            CHECK( magnitude <= coefficient * row.accN + 0.00001f );
+            CHECK( row.frictionLimit == doctest::Approx( coefficient * row.accN ).epsilon( 0.0001f ) );
+            normal += row.accN;
+            tangent += magnitude;
+        }
+        CHECK( normal > 0.0f );
+        CHECK( tangent <= coefficient * normal + 0.0001f );
+        if ( coefficient == 0.0f )
+        {
+            CHECK( tangent == 0.0f );
+            CHECK( PhysicsBodyLinearVelocity( fixture.bodyStore.HotFields(), 0 ).z == 6.0f );
+        }
+        else
+        {
+            CHECK( tangent > 0.0f );
+            CHECK( PhysicsBodyLinearVelocity( fixture.bodyStore.HotFields(), 0 ).z < 6.0f );
+        }
+    }
+}
+
+TEST_CASE( "Persistent contact solver: material mixing and partitioned loads preserve the friction cone" )
+{
+    using SkullbonezCore::Physics::ContactSolver::MixMaterialFriction;
+    CHECK( MixMaterialFriction( 0.2f, 0.8f ) == doctest::Approx( 0.4f ) );
+    CHECK( MixMaterialFriction( 0.2f, 0.8f ) == MixMaterialFriction( 0.8f, 0.2f ) );
+    CHECK( MixMaterialFriction( 0.0f, 0.8f ) == 0.0f );
+    CHECK( MixMaterialFriction( 0.8f, 0.0f ) == 0.0f );
+    CHECK( MixMaterialFriction( -0.2f, 0.8f ) == 0.0f );
+    for ( int count : { 1, 2, 4 } )
+    {
+        float total = 0.0f;
+        for ( int row = 0; row < count; ++row )
+        {
+            float x = 30.0f;
+            float y = 40.0f;
+            SkullbonezCore::Physics::ContactSolver::ClampFrictionVector( x, y, 0.4f * 8.0f / count );
+            total += sqrtf( x * x + y * y );
+        }
+        CHECK( total == doctest::Approx( 3.2f ) );
+    }
+}
+
+namespace
+{
+void MakeHullSupportFixture( SolverFixture& fixture )
+{
+    fixture.AddMovingBox( Vector3( 0, 3, 0 ), Vector3( 2, 2, 2 ), Vector3( 0, 1, 0 ), 0.0f, Vector3( 0, -1, 0 ), ZERO_VECTOR, 2.0f, 0.0f, false );
+    fixture.AddBox( ZERO_VECTOR, 0.0f, true );
+    SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+    SkullbonezCore::Math::CollisionDetection::ConvexHullShape hull;
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/convex_quality_box_hull_ordinary.hull", hull ) );
+    ColliderRecord collider = fixture.colliderStore.Records()[0];
+    collider.shapeKind = ColliderShapeKind::ConvexHull;
+    collider.boundingRadius = hull.GetBoundingRadius();
+    REQUIRE( SkullbonezTests::ColliderStoreFixtures::UpdateRecordForHandle( fixture.colliderStore, collider.handle, collider, CollisionShape( hull ) ) );
+    fixture.candidatePairs.emplace_back( 0, 1 );
+}
+} // namespace
+
+TEST_CASE( "Persistent contact solver: hull anchors survive changed IDs and reject geometric drift" )
+{
+    SolverFixture first;
+    MakeHullSupportFixture( first );
+    first.Solve();
+    PhysicsSolverSnapshot snapshot;
+    first.solver.CaptureReplayState( snapshot );
+    REQUIRE( snapshot.version == SkullbonezCore::Physics::PHYSICS_HULL_SOLVER_SNAPSHOT_VERSION );
+    REQUIRE( snapshot.persistentContactCache.size() == 4u );
+    for ( const auto& row : snapshot.persistentContactCache )
+    {
+        CHECK( row.geometry.lifetime == 1u );
+        CHECK( row.accN >= 0.0f );
+    }
+    for ( int variant = 0; variant < 4; ++variant )
+    {
+        SolverFixture next;
+        MakeHullSupportFixture( next );
+        auto changed = snapshot;
+        for ( auto& row : changed.persistentContactCache )
+        {
+            // Keep body identity while replacing every feature ID, modeling a
+            // harmless reference-face rebuild. Geometry must own continuity.
+            row.key += 100u;
+            if ( variant == 1 )
+            {
+                row.geometry.localAnchorA.x += 0.2f;
+            }
+            if ( variant == 2 )
+            {
+                row.geometry.localNormalB = Vector3( 1, 0, 0 );
+            }
+            if ( variant == 3 )
+            {
+                row.geometry.localAnchorB.y -= 0.2f;
+            }
+        }
+        next.solver.RestoreReplayState( changed );
+        next.Solve();
+        CAPTURE( variant );
+        CHECK( next.solver.GetStats().cacheHits == ( variant == 0 ? 4 : 0 ) );
+        for ( const auto& row : next.solver.GetPersistentContactCache() )
+        {
+            CHECK( row.geometry.lifetime == ( variant == 0 ? 2u : 1u ) );
+        }
+    }
+}
+
+TEST_CASE( "Persistent contact solver: exact balanced hull tip receives no artificial angular impulse" )
+{
+    SolverFixture fixture;
+    fixture.config.sleep.linearSpeed = 0.2f;
+    fixture.config.sleep.angularSpeed = 0.2f;
+    fixture.AddBox( Vector3( 0, 8.0f, 0 ), 0.0f, false );
+    fixture.AddBox( ZERO_VECTOR, 0.0f, true );
+    SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+    SkullbonezCore::Math::CollisionDetection::ConvexHullShape hull;
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/diamond.hull", hull ) );
+    ColliderRecord collider = fixture.colliderStore.Records()[0];
+    collider.shapeKind = ColliderShapeKind::ConvexHull;
+    collider.boundingRadius = hull.GetBoundingRadius();
+    REQUIRE( SkullbonezTests::ColliderStoreFixtures::UpdateRecordForHandle( fixture.colliderStore, collider.handle, collider, CollisionShape( hull ) ) );
+    fixture.bodyStore.MutableHotFields().boundingRadius[0] = hull.GetBoundingRadius();
+    fixture.bodyStore.MutableHotFields().linearVelocityY[0] = -0.05f;
+    fixture.candidatePairs.emplace_back( 0, 1 );
+    fixture.Solve();
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+    const auto& row = fixture.solver.GetPersistentContacts()[0];
+    CHECK( row.penetration >= 0.0f );
+    CHECK( row.inhibitsSleep );
+    CHECK( row.accN > 0.005f );
+    CHECK_FALSE( row.supportsRestingPolicy );
+    CHECK( SkullbonezCore::Physics::PhysicsBodyAngularVelocity( fixture.bodyStore.HotFields(), 0 ) == ZERO_VECTOR );
+}
+
+
+TEST_CASE( "Hull contact patch: harmless rebuild retains anchors and stale faces cannot restore area" )
+{
+    SolverFixture fixture;
+    MakeHullSupportFixture( fixture );
+    fixture.Solve();
+    const auto& cache = fixture.solver.GetPersistentContactCache();
+    REQUIRE( cache.size() == 4u );
+    ObjectContactManifold fresh;
+    const ObjectContactBodyView a { PhysicsBodyPosition( fixture.bodyStore.HotFields(), 0 ), PhysicsBodyOrientation( fixture.bodyStore.HotFields(), 0 ) };
+    const ObjectContactBodyView b { PhysicsBodyPosition( fixture.bodyStore.HotFields(), 1 ), PhysicsBodyOrientation( fixture.bodyStore.HotFields(), 1 ) };
+    REQUIRE( BuildObjectContactManifold( nullptr, a, fixture.colliderStore.Records()[0].shape, b, fixture.colliderStore.Records()[1].shape, 0, 1, 0.05f, fresh ) );
+    REQUIRE( fresh.pointCount == 4u );
+    for ( auto& point : fresh.points )
+    {
+        point.featureId += 100u;
+        point.point.x += 0.0001f;
+    }
+    auto refreshed = fresh;
+    SkullbonezCore::Physics::RefreshHullContactPatch( std::span<const PersistentContactCacheEntry>( cache.data(), cache.size() ), fixture.bodyStore.HotFields(), refreshed );
+    REQUIRE( refreshed.pointCount == 4u );
+    int retainedFeatureCount = 0;
+    for ( uint8_t i = 0; i < refreshed.pointCount; ++i )
+    {
+        bool originalFeature = false;
+        for ( const auto& entry : cache )
+        {
+            originalFeature |= refreshed.points[i].featureId == static_cast<uint32_t>( entry.key );
+        }
+        retainedFeatureCount += originalFeature ? 1 : 0;
+        for ( uint8_t j = 0; j < i; ++j )
+        {
+            CHECK( refreshed.points[i].featureId != refreshed.points[j].featureId );
+        }
+    }
+    CHECK( retainedFeatureCount > 0 );
+    std::reverse( std::begin( fresh.points ), std::end( fresh.points ) );
+    auto permuted = fresh;
+    SkullbonezCore::Physics::RefreshHullContactPatch( std::span<const PersistentContactCacheEntry>( cache.data(), cache.size() ), fixture.bodyStore.HotFields(), permuted );
+    for ( uint8_t i = 0; i < refreshed.pointCount; ++i )
+    {
+        CHECK( refreshed.points[i].point == permuted.points[i].point );
+        CHECK( refreshed.points[i].featureId == permuted.points[i].featureId );
+    }
+    fresh.pointCount = 1;
+    SkullbonezCore::Physics::RefreshHullContactPatch( std::span<const PersistentContactCacheEntry>( cache.data(), cache.size() ), fixture.bodyStore.HotFields(), fresh );
+    CHECK( fresh.pointCount == 1u );
+}
+
+
+TEST_CASE( "Persistent contact solver: a tilted hull tip topples from its physical lever arm" )
+{
+    for ( float angle : { -0.02f, 0.02f } )
+    {
+        SolverFixture fixture;
+        fixture.AddMovingBox( Vector3( 0, 1 + 7 * cosf( angle ), 0 ), Vector3( 5, 7, 5 ), Vector3( 0, 0, 1 ), angle, Vector3( 0, -0.05f, 0 ), ZERO_VECTOR, 1.0f, 0.0f, false );
+        fixture.AddBox( ZERO_VECTOR, 0.0f, true );
+        SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+        SkullbonezCore::Math::CollisionDetection::ConvexHullShape hull;
+        REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/diamond.hull", hull ) );
+        ColliderRecord collider = fixture.colliderStore.Records()[0];
+        collider.shapeKind = ColliderShapeKind::ConvexHull;
+        collider.boundingRadius = hull.GetBoundingRadius();
+        collider.friction = 0.0f;
+        REQUIRE( SkullbonezTests::ColliderStoreFixtures::UpdateRecordForHandle( fixture.colliderStore, collider.handle, collider, CollisionShape( hull ) ) );
+        const auto inertia = hull.ComputeInertia( 1.0f );
+        fixture.bodyStore.MutableRecords()[0].rotationalInertia = inertia.diagonal;
+        auto hot = fixture.bodyStore.MutableHotFields();
+        hot.inverseInertiaX[0] = 1.0f / inertia.diagonal.x;
+        hot.inverseInertiaY[0] = 1.0f / inertia.diagonal.y;
+        hot.inverseInertiaZ[0] = 1.0f / inertia.diagonal.z;
+        hot.boundingRadius[0] = hull.GetBoundingRadius();
+        fixture.candidatePairs.emplace_back( 0, 1 );
+        fixture.Solve();
+        REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+        const auto angular = SkullbonezCore::Physics::PhysicsBodyAngularVelocity( fixture.bodyStore.HotFields(), 0 );
+        CHECK( angular.z * angle > 0.0f );
+        CHECK( fabsf( angular.x ) < 0.000001f );
+        CHECK( fabsf( angular.y ) < 0.000001f );
+        CHECK_FALSE( fixture.solver.GetPersistentContacts()[0].supportsRestingPolicy );
+    }
+}
+
+TEST_CASE( "Persistent contacts: hull Coulomb incline boundary is invariant to mass and row count" )
+{
+    for ( const float mass : { 1.0f, 4.0f } )
+    {
+        for ( const int rowCount : { 1, 2, 4 } )
+        {
+            for ( const float friction : { 0.0f, 0.4f } )
+            {
+                for ( const float slope : { 0.3f, 0.5f } )
+                {
+                    SolverFixture fixture;
+                    fixture.config.material.terrainFrictionCoefficient = friction;
+                    fixture.config.material.rollingFrictionCoefficient = 0.0f;
+                    fixture.config.material.spinFrictionCoefficient = 0.0f;
+                    const float cosine = 1.0f / sqrtf( 1.0f + slope * slope );
+                    const float sine = slope * cosine;
+                    const Vector3 tangent( cosine, sine, 0 );
+                    fixture.AddMovingBox( ZERO_VECTOR, Vector3( 2, 2, 2 ), Vector3( 0, 1, 0 ), 0.0f, Vector3( 0, -0.1f, 0 ), ZERO_VECTOR, mass, 0.0f, false );
+                    SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+                    SkullbonezCore::Math::CollisionDetection::ConvexHullShape hull;
+                    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/convex_quality_box_hull_ordinary.hull", hull ) );
+                    ColliderRecord collider = fixture.colliderStore.Records()[0];
+                    collider.shapeKind = ColliderShapeKind::ConvexHull;
+                    REQUIRE( SkullbonezTests::ColliderStoreFixtures::UpdateRecordForHandle( fixture.colliderStore, collider.handle, collider, CollisionShape( hull ) ) );
+                    TerrainContactManifold manifold;
+                    manifold.bodyA = 0;
+                    manifold.normal = Vector3( -sine, cosine, 0 );
+                    manifold.tangent1 = tangent;
+                    manifold.tangent2 = Vector3( 0, 0, 1 );
+                    manifold.pointCount = static_cast<uint8_t>( rowCount );
+                    manifold.supportsRestingPolicy = false;
+                    manifold.inhibitsSleep = true;
+                    // Isolate translation at the center of mass: geometry/torque tests
+                    // cover support elsewhere. Duplicate constraints partition one load;
+                    // they must not manufacture extra friction capacity.
+                    for ( int row = 0; row < rowCount; ++row )
+                    {
+                        manifold.points[row].featureId = 700u + static_cast<uint32_t>( row );
+                    }
+                    fixture.terrain.GetContactManifolds().push_back( manifold );
+                    fixture.Solve();
+                    const Vector3 velocity = PhysicsBodyLinearVelocity( fixture.bodyStore.HotFields(), 0 );
+                    const float expectedSlip = 0.1f * (std::max)( sine - friction * cosine, 0.0f );
+                    CHECK( Dot( velocity, tangent ) == doctest::Approx( -expectedSlip ).epsilon( 0.001f ).scale( 0.001f ) );
+                    float normalImpulse = 0.0f;
+                    float tangentImpulse = 0.0f;
+                    for ( const auto& row : fixture.solver.GetPersistentContacts() )
+                    {
+                        normalImpulse += row.accN;
+                        tangentImpulse += sqrtf( row.accT1 * row.accT1 + row.accT2 * row.accT2 );
+                    }
+                    CHECK( normalImpulse == doctest::Approx( mass * 0.1f * cosine ).epsilon( 0.0001f ) );
+                    CHECK( tangentImpulse <= friction * normalImpulse + 0.00001f );
+                    CHECK( VectorMagSquared( velocity ) <= 0.010001f );
+                }
+            }
+        }
+    }
+}
+
+TEST_CASE( "Persistent contact solver: disabling warm starts rejects old rows and terrain weight seeds" )
+{
+    SolverFixture fixture;
+    fixture.AddDynamicSphere( Vector3( 0, 1, 0 ), Vector3( 4, -1, 0 ) );
+    fixture.AddTerrainContact( 0, 77u, .05f );
+    fixture.Solve();
+    REQUIRE( fixture.solver.GetPersistentContactCache().size() == 1 );
+    fixture.config.solver.warmStart = false;
+    fixture.Solve();
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1 );
+    const auto& row = fixture.solver.GetPersistentContacts()[0];
+    CHECK_FALSE( row.warmStarted );
+    CHECK( row.terrainWarmStart == 0 );
+}
+
+TEST_CASE( "Persistent contact solver: disabling warm starts discards cached joint impulses" )
+{
+    const auto solve = []( bool warm, const Vector3& cache )
+    {
+        SolverFixture fixture;
+        fixture.config.solver.warmStart = warm;
+        fixture.AddDynamicSphere( Vector3( 0, 3, 0 ), Vector3( 2, -1, 0 ) );
+        fixture.AddDynamicSphere( Vector3( 0, 5, 0 ), ZERO_VECTOR );
+        fixture.AddPointJoint( 0, 1, Vector3( 0, 1, 0 ), Vector3( 0, -1, 0 ) );
+        fixture.joints[0].accumulatedImpulse = cache;
+        fixture.Solve();
+        const auto hot = fixture.bodyStore.HotFields();
+        return std::array<Vector3, 3> { PhysicsBodyLinearVelocity( hot, 0 ), PhysicsBodyLinearVelocity( hot, 1 ), fixture.joints[0].accumulatedImpulse };
+    };
+    const auto cold = solve( false, ZERO_VECTOR );
+    CHECK( solve( false, Vector3( 25, -30, 10 ) ) == cold );
+    CHECK( solve( false, Vector3( -4, 2, 9 ) ) == cold );
+    CHECK( solve( true, Vector3( 25, -30, 10 ) ) != cold );
 }

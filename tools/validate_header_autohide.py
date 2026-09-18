@@ -3,19 +3,23 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shutil
 import time
 from pathlib import Path
 
 from PIL import Image
 from skarness import SkarnessConnection, launch
+from native_ui_comparison import current_library_comparisons, wait_for_comparison
 
 REPO = Path(__file__).resolve().parents[1]
 
 
 def run(session: Path) -> None:
+    comparison_fixtures = current_library_comparisons()
     session = session.resolve()
     assert launch(session, REPO / 'Automation/SKULLBONEZ_CORE.exe',
-                  REPO / 'SkullbonezData/scenes/interaction_replay_prediction_harness.scene.json', hidden=True) == 0
+                  REPO / 'SkullbonezData/scenes/interaction_replay_prediction_harness.scene.json', hidden=True, solver_lab_fixtures=comparison_fixtures) == 0
     connection = SkarnessConnection(session)
     latest: dict = {}
     offset = 0
@@ -154,6 +158,24 @@ def run(session: Path) -> None:
         press('headerCloseBounds')
         ui = sample('closed-compact')
         assert ui['workspace'] == 'Scene' and ui['viewport'] == [0, 0, 320, 240]
+        # A fixture path override must not bypass archived-input admission.
+        # Link evidence read-only, then write a separate manifest with one bad hash.
+        fixture = comparison_fixtures[1]
+        damaged = session / 'damaged-inputs'
+        shutil.copytree(fixture.parent, damaged, copy_function=os.link,
+                        ignore=shutil.ignore_patterns('comparison.json'))
+        metadata = json.loads(fixture.read_text(encoding='utf-8'))
+        metadata['inputs']['files']['scene.scene.json'] = '0' * 64
+        manifest = damaged / 'comparison.json'
+        manifest.write_text(json.dumps(metadata), encoding='utf-8')
+        rejection = connection.wait(connection.send('comparison.load', {'path': str(manifest)}))
+        assert rejection['status'] == 'rejected', rejection
+        assert 'Archived inputs or current scene assets' in rejection['reason'], rejection
+        sample('damaged-inputs-rejected')
+        rejected = send('comparison.state')['result']['comparison']
+        assert not rejected['active'] and not rejected['loading'] and rejected['loadError'], rejected
+        send('comparison.load', path=str(fixture))
+        wait_for_comparison(send, sample, fixture, 'valid-inputs-recovered')
         print('PASS: Scene header reveal, persistent Solver Lab loading/playback header, Canvas/Editor mouse exit and retained comparison')
     finally:
         try:

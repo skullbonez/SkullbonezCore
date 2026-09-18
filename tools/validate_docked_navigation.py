@@ -8,14 +8,16 @@ from pathlib import Path
 
 from PIL import Image
 from skarness import SkarnessConnection, launch
+from native_ui_comparison import current_library_comparisons
 
 REPO = Path(__file__).resolve().parents[1]
 
 
 def run(session: Path) -> None:
+    comparison_fixtures = current_library_comparisons()
     session = session.resolve()
     assert launch(session, REPO / 'Automation/SKULLBONEZ_CORE.exe',
-                  REPO / 'SkullbonezData/scenes/interaction_replay_prediction_harness.scene.json', hidden=True) == 0
+                  REPO / 'SkullbonezData/scenes/interaction_replay_prediction_harness.scene.json', hidden=True, solver_lab_fixtures=comparison_fixtures) == 0
     connection = SkarnessConnection(session)
     latest: dict = {}
     offset = 0
@@ -125,7 +127,7 @@ def run(session: Path) -> None:
             comparison = send('comparison.state')['result']['comparison']
             assert not comparison['loadError'], comparison
             if comparison['active'] and not comparison['loading']:
-                assert comparison['bundle'].replace('\\', '/').endswith('ragdoll-wall/comparison.json')
+                assert Path(comparison['bundle']).resolve() == comparison_fixtures[0]
                 break
             assert time.monotonic() < deadline
         ui = sample('lab-folded')

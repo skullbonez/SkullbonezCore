@@ -424,6 +424,13 @@ SkullbonezCore::Core::SbResult RenderDefaultsStore::PersistOrdinary( const Skull
     setFloat( "replay_trajectory_marker_alpha", ordinary.replayTrajectory.markerAlpha, "%.2f" );
     setFloat( "replay_trajectory_marker_edge_feather", ordinary.replayTrajectory.markerEdgeFeather, "%.2f" );
     setFloat( "replay_trajectory_selected_emphasis", ordinary.replayTrajectory.selectedEmphasis, "%.2f" );
+    setFloat( "grass_quality", ordinary.grass.quality, "%.2f" );
+    setFloat( "grass_density", ordinary.grass.density, "%.2f" );
+    setFloat( "grass_distance", ordinary.grass.distance, "%.2f" );
+    setFloat( "grass_height", ordinary.grass.height, "%.2f" );
+    setFloat( "grass_bend", ordinary.grass.bend, "%.2f" );
+    setFloat( "grass_recovery_seconds", ordinary.grass.recoverySeconds, "%.2f" );
+
 
     AppendMissingOrdinaryConfigLines( lines, missing );
     StampCurrentConfigVersion( lines );

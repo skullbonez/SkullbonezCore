@@ -6,12 +6,14 @@ import math
 import time
 from PIL import Image
 from pathlib import Path
+from native_ui_comparison import current_wall_comparison
 from skarness import SkarnessConnection, launch
 
 REPO = Path(__file__).resolve().parents[1]
 
 
 def run(session: Path) -> None:
+    comparison_fixture = current_wall_comparison()
     assert launch(session, REPO / 'Automation/SKULLBONEZ_CORE.exe',
                   REPO / 'SkullbonezData/scenes/space_field_200.scene.json', hidden=True,
                   layout_file=session / 'layout.preferences') == 0
@@ -156,7 +158,10 @@ def run(session: Path) -> None:
             assert_axis(axis)
             fixed = pose()
             x,y,w,h = ui['viewport']
-            send('input.pointer_drag', button='right', x=round(x+w*.7), y=round(y+h*.4), deltaX=80, deltaY=45)
+            # Move off the gizmo before pressing: UI capture uses the hovered surface.
+            send('input.pointer_position', enabled=True, x=round(x+w*.7), y=round(y+h*.4))
+            sample(label+'-pan-hover-'+str(axis))
+            send('input.pointer_drag', button='right', x=round(x+w*.7), y=round(y+h*.4), deltaX=80, deltaY=45, moveClient=True, holdMilliseconds=40)
             sample(label+'-panned-'+str(axis))
             assert_axis(axis)
             assert pose()['renderEye'] != fixed['renderEye']
@@ -187,20 +192,17 @@ def run(session: Path) -> None:
             checks.append(label+'-'+str(axis))
 
     try:
-        assert {'input.pointer_drag','input.pointer_wheel','input.set_movement','input.set_prediction_key','run.resume','run.pause'} <= set(send('capabilities.get')['commands'])
+        assert {'input.pointer_drag','input.pointer_wheel','input.set_movement','input.set_prediction_key','run.resume','run.pause','comparison.load'} <= set(send('capabilities.get')['commands'])
         send('state.subscribe', topics=[], detail='normal')
         assert_playback_preserved('space')
         exercise('space')
         preset(1)
         scene_pose = pose()
         ui = sample('scene-retained')
-        middle(ui['headerWorkspaceBounds'])
-        deadline = time.monotonic()+120
-        while time.monotonic()<deadline:
-            ui=sample('lab-loading')
-            lab=send('comparison.state').get('result',{})
-            if lab.get('comparison',{}).get('active'):
-                break
+        # The workspace button does not load a recording into an empty Lab.
+        send('comparison.load', path=str(comparison_fixture))
+        sample('lab-loaded-fixture')
+        assert send('comparison.state')['result']['comparison']['active']
         exercise('lab')
         middle(sample('lab-loaded')['headerWorkspaceBounds'])
         sample('new-scene')

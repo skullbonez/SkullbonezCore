@@ -228,6 +228,11 @@ struct OperatorUiSettingsFacts
     bool waterNoReflect = false;
     bool waterRtReflect = false;
     bool cinematicRendering = false;
+    bool gravityGridVisible = true;
+    float gravityFieldHeight = 0.0f;
+    float gravityFieldOpacity = 1.0f;
+    int gravityFieldColor = 0;
+    bool gravityFieldSnapBalls = false;
 };
 
 // Invariant: camera, pointer, and editor interaction values describe one input

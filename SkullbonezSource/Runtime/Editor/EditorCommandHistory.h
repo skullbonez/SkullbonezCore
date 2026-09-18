@@ -50,6 +50,7 @@ enum class EditorCommandKind : uint8_t
     None,
     Transform,
     Velocity,
+    Mass,
     Place,
     Delete
 };
@@ -94,6 +95,7 @@ struct EditorPrimitiveBodySnapshot
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rotationalInertiaProducts = Math::Vector::ZERO_VECTOR;
     float mass = 0.0f;
     float boundingRadius = 0.0f;
     float volume = 0.0f;
@@ -126,6 +128,9 @@ struct EditorCommandEntry
     std::array<EditorTransformHistoryItem, EDITOR_COMMAND_TRANSFORM_CAPACITY> transforms = {};
     std::size_t transformCount = 0;
     EditorPrimitiveRecreateRecipe primitive;
+    Physics::PhysicsSceneObjectId massBody;
+    float beforeMass = 0, afterMass = 0;
+    Math::Vector::Vector3 beforeInertia {}, afterInertia {}, beforeInertiaProducts {}, afterInertiaProducts {};
 };
 
 bool TryCaptureEditorPrimitiveShape( const Math::CollisionDetection::CollisionShapeReference& shape, EditorPrimitiveShapeSnapshot& outSnapshot );

@@ -60,6 +60,7 @@ enum class SkarnessCommandType : uint8_t
     UiAnimationClock,
     PhysicsSpeculativeValidation,
     EditorSetTerrainBrush,
+    EditorSetEnabled,
     SceneSave,
     SceneCreate,
     SceneLoad,
@@ -67,6 +68,8 @@ enum class SkarnessCommandType : uint8_t
     SceneLoadDemo,
     SceneObjectList,
     SceneObjectResolve,
+    SceneObjectSetPosition,
+    SceneObjectSetVisible,
     SceneObjectSelect,
     SceneObjectClearSelection,
     ReplaySetRecordingEnabled,
@@ -117,6 +120,10 @@ enum class SkarnessCommandType : uint8_t
     PredictionForecastStop,
     PredictionSelectTarget,
     CameraOrbitInspection,
+    CameraSetPose,
+    RenderSetParameter,
+    GrassEnableFixture,
+    GrassSample,
     ComparisonLoad,
     ComparisonClose,
     ComparisonSeek,
@@ -168,6 +175,10 @@ struct SkarnessSceneObjectResult
     std::array<float, 3> position {};
     std::array<float, 3> linearVelocity {};
     std::array<float, 3> angularVelocity {};
+    float mass = 0, inverseMass = 0;
+    std::array<float, 3> inertia {}, inertiaProducts {}, inverseInertia {}, inverseInertiaProducts {};
+    bool hasPendingImpulse = false;
+    std::array<float, 3> pendingImpulse {}, pendingImpulseOffset {};
     bool fixed = false;
     bool sleepStateAvailable = false;
     bool sleeping = false;
@@ -211,6 +222,11 @@ struct SkarnessCommandResult
     uint64_t unsignedValue = 0;
     int integerValue = 0;
     bool boolValue = false;
+    bool hasGrassSample = false;
+    float grassCompression = 0;
+    uint32_t grassSourceId = 0;
+    uint64_t grassTick = 0;
+    bool grassHistoryAvailable = false;
     bool hasTextValue = false;
     bool hasNumberValue = false;
     bool hasUnsignedValue = false;
@@ -245,7 +261,8 @@ struct SkarnessCapability
 
 // This catalog is the one discoverable protocol inventory. Player controls,
 // parsers, and mechanical coverage tests join on these stable command names.
-inline constexpr std::array SKARNESS_CAPABILITIES = { SkarnessCapability { "editor.set_terrain_brush", "Editor", "{enabled:bool}" },
+inline constexpr std::array SKARNESS_CAPABILITIES = { SkarnessCapability { "editor.set_enabled", "Editor", "{enabled:bool}" },
+                                                      SkarnessCapability { "editor.set_terrain_brush", "Editor", "{enabled:bool}" },
                                                       SkarnessCapability { "scene.save", "Scene", "{}" },
                                                       SkarnessCapability { "scene.create", "Scene", "{name:string}" },
                                                       SkarnessCapability { "input.file_dialog_response",
@@ -278,6 +295,8 @@ inline constexpr std::array SKARNESS_CAPABILITIES = { SkarnessCapability { "edit
                                                       SkarnessCapability { "scene.reset", "Scene", "{}" },
                                                       SkarnessCapability { "scene.load_demo", "Scene", "{}" },
                                                       SkarnessCapability { "scene.object.list", "Scene", "{}" },
+                                                      SkarnessCapability { "scene.object.set_visible", "Scene", "{sceneObjectId:uint64,visible:bool} (Edit mode)" },
+                                                      SkarnessCapability { "scene.object.set_position", "Scene", "{sceneObjectId:uint64,position:[x,y,z]} (live Edit mode)" },
                                                       SkarnessCapability { "scene.object.resolve", "Scene", "{name:string}|{sceneObjectId:uint64}" },
                                                       SkarnessCapability { "scene.object.select", "Interaction", "{scope:inspect|editor,name:string}|{scope:inspect|editor,sceneObjectId:uint64}" },
                                                       SkarnessCapability { "scene.object.clear_selection", "Interaction", "{scope:inspect|editor}" },
@@ -339,6 +358,10 @@ inline constexpr std::array SKARNESS_CAPABILITIES = { SkarnessCapability { "edit
                                                       SkarnessCapability { "prediction.select_target", "Replay", "{name:string}|{sceneObjectId:uint64}" },
                                                       SkarnessCapability { "replay.set_path_target", "Replay", "{name:string}|{sceneObjectId:uint64}" },
                                                       SkarnessCapability { "camera.orbit_inspection", "Camera", "{yawRadians:number,pitchRadians:number,wheelDelta?:int}" },
+                                                      SkarnessCapability { "render.set_parameter", "Rendering", "{index:int,value:number}" },
+                                                      SkarnessCapability { "grass.enable_fixture", "Rendering", "{enabled:bool}" },
+                                                      SkarnessCapability { "grass.sample", "Rendering", "{x:number,z:number}" },
+                                                      SkarnessCapability { "camera.set_pose", "Camera", "{eye:[x,y,z],target:[x,y,z],terrainRelative?:bool}" },
                                                       SkarnessCapability { "state.subscribe", "Automation", "{topics:[string],detail:summary|normal|full}" },
                                                       SkarnessCapability { "input.set_movement", "Input", "{w:bool,a:bool,s:bool,d:bool}", SkarnessCapabilityAvailability::AutomatedInputOnly },
                                                       SkarnessCapability { "input.set_arrows", "Input", "{left:bool,right:bool}", SkarnessCapabilityAvailability::AutomatedInputOnly },
@@ -482,19 +505,55 @@ struct SkarnessFrameState
         int replayMemoryPreset = 0;
         int replayRetentionSeconds = 0;
         int replayBudgetMiB = 0;
-        std::array<bool, 6> optionsToggles = {};
+        std::array<bool, 8> optionsToggles = {};
+        std::size_t gravityGridVertexCount = 0;
+        int gravityGridSourceCount = 0;
+        uint32_t gravityGridFirstSourceId = 0;
+        std::array<float, 3> gravityGridFirstSourcePosition = {};
+        float gravityGridMinimumHeight = 0.0f;
+        double tornadoVisualSeconds = 0.0;
+        uint32_t tornadoVisualVortices = 0;
+        uint32_t tornadoVisualVertices = 0;
+        bool grassEnabled = false;
+        uint64_t grassTick = 0;
+        uint64_t grassPatchCount = 0;
+        uint64_t grassStampedCells = 0;
+        uint32_t grassDroppedCells = 0;
+        uint32_t grassRootTests = 0;
+        uint64_t grassCacheBytes = 0;
+        uint64_t grassPatchBytes = 0;
+        bool grassHistoryAvailable = true;
+
+        float gravityFieldHeight = 0.0f;
+        float gravityFieldOpacity = 1.0f;
+        int gravityFieldColor = 0;
+        bool gravityFieldSnapBalls = false;
+        int gravityFieldSnappedCount = 0;
+        uint32_t gravityFieldFirstSnappedId = 0;
+        std::array<float, 3> gravityFieldFirstSnappedPosition = {};
+        float gravityFieldFirstSnappedRadius = 0.0f;
+        float gravityFieldFirstSnappedSurfaceHeight = 0.0f;
         std::array<float, 6> sceneControlValues = {};
         int modelCapacity = 0;
         uint64_t fileDialogResponsesConsumed = 0;
         bool cinematicShadows = false;
         std::array<float, 13> physicsParameters = {};
+        std::array<float, 13> physicsSettings = {};
+        uint64_t physicsCompletedSteps = 0;
+        std::array<float, 4> headerPhysicsBounds = {};
         std::array<bool, 13> physicsToggles = {};
+        std::array<bool, 10> physicsAdditionalLayers {};
+        std::array<std::size_t, 6> physicsGeometryCounts {};
         int physicsPipelineStage = 0;
         int physicsPipelineStages = 0;
         std::vector<float> ordinaryRenderParameters;
         std::vector<float> cinematicParameters;
         std::vector<bool> cinematicFeatures;
         float toolsScroll = 0.0f;
+        float physicsScroll = 0.0f;
+        int physicsSection = 0;
+        bool physicsPeer = false;
+        std::array<float, 4> physicsTabBounds {}, physicsHeaderBounds {}, physicsControlsBounds {};
         std::array<float, 4> toolsContentBounds = {};
         uint32_t tooltipId = 0;
         char tooltipAction[192] {};

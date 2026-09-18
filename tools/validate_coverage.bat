@@ -111,7 +111,9 @@ if exist "%COVERAGE_LOG%" del /q "%COVERAGE_LOG%"
 echo [3/4] Capturing Cobertura product coverage...
 echo       Full test output: %COVERAGE_LOG%
 "%OPENCPPCOVERAGE_EXE%" --quiet --modules "%REPO%\Debug\SKULLBONEZ_TESTS.exe" --sources "%REPO%\SkullbonezSource" --working_dir "%TEST_WORKDIR%" --export_type "cobertura:%COVERAGE_XML%" -- "%REPO%\Debug\SKULLBONEZ_TESTS.exe" "--quiet" > "%COVERAGE_LOG%" 2>&1
-if errorlevel 1 (
+set "COVERAGE_CAPTURE_EXIT=%ERRORLEVEL%"
+REM Windows exception exits can be negative and must also fail this gate.
+if not "%COVERAGE_CAPTURE_EXIT%"=="0" (
     echo FAIL: OpenCppCoverage or the Debug test process failed.
     findstr /C:"FATAL ERROR:" /C:"Status:" "%COVERAGE_LOG%"
     exit /b 4

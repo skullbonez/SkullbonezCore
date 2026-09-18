@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "physics_plan": "Agentic/Plans/TODO/physics-tool-window.md",
+  "phase": "PW7",
+  "transition_id": "performance-mega-20260918",
+  "source_commit": "f3a4186314c77546d00045ea2cbe3008028d4b85",
+  "goldens": [
+    {
+      "path": "TestOutput/baselines/dx12_perf.json",
+      "old_sha256": "abab738c2b3ce7b715c1b3d564fb28a9e0d978345934d5ed953d4ebbcccc16f7",
+      "new_sha256": "44d3a339971a390ae34c49e9692e635bb465a56b5dfd3301a82e35d2493f42f8"
+    },
+    {
+      "path": "TestOutput/baselines/physics_bench_perf.json",
+      "old_sha256": "6751caea875955e539c56a0048b86b6a02180a5cf1e185149c7d0ecebefa2330",
+      "new_sha256": "222de715974aa5473688eb7270fe10553e9bcf37fc43f0f8cac5044591e48c11"
+    }
+  ],
+  "old_behavior": {
+    "source_commit": "39bd94d2602c47ac73b4b75cb0db49b3aec1e097",
+    "golden_sha256": {
+      "TestOutput/baselines/dx12_perf.json": "abab738c2b3ce7b715c1b3d564fb28a9e0d978345934d5ed953d4ebbcccc16f7",
+      "TestOutput/baselines/physics_bench_perf.json": "6751caea875955e539c56a0048b86b6a02180a5cf1e185149c7d0ecebefa2330"
+    },
+    "executables": [
+      {
+        "configuration": "Profile|x64",
+        "path": "Agentic/Plans/Artifacts/physics-tool-window/PW7/golden-transitions/performance-mega-20260918/old/SKULLBONEZ_CORE-Profile.exe",
+        "size": 4688384,
+        "sha256": "2e63f7b658665fc251a17b686d8228131d3707c00b2c72bda0efac22cb35e67b",
+        "launch_command": "\"Agentic/Plans/Artifacts/physics-tool-window/PW7/golden-transitions/performance-mega-20260918/old/SKULLBONEZ_CORE-Profile.exe\" --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene.json\n\"Agentic/Plans/Artifacts/physics-tool-window/PW7/golden-transitions/performance-mega-20260918/old/SKULLBONEZ_CORE-Profile.exe\" --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/physics_bench_varied.scene.json",
+        "dependency_scan_command": "\"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\dumpbin.exe\" /DEPENDENTS \"Agentic/Plans/Artifacts/physics-tool-window/PW7/golden-transitions/performance-mega-20260918/old/SKULLBONEZ_CORE-Profile.exe\"",
+        "first_party_dlls": []
+      }
+    ]
+  },
+  "new_behavior": {
+    "source_commit": "f3a4186314c77546d00045ea2cbe3008028d4b85",
+    "golden_sha256": {
+      "TestOutput/baselines/dx12_perf.json": "44d3a339971a390ae34c49e9692e635bb465a56b5dfd3301a82e35d2493f42f8",
+      "TestOutput/baselines/physics_bench_perf.json": "222de715974aa5473688eb7270fe10553e9bcf37fc43f0f8cac5044591e48c11"
+    },
+    "executables": [
+      {
+        "configuration": "Profile|x64",
+        "path": "Agentic/Plans/Artifacts/physics-tool-window/PW7/golden-transitions/performance-mega-20260918/new/SKULLBONEZ_CORE-Profile.exe",
+        "size": 5082624,
+        "sha256": "03c8839d78dc8851840f005c011981435a8906784e6cd8af13df3c42210dbf6c",
+        "launch_command": "\"Agentic/Plans/Artifacts/physics-tool-window/PW7/golden-transitions/performance-mega-20260918/new/SKULLBONEZ_CORE-Profile.exe\" --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene.json\n\"Agentic/Plans/Artifacts/physics-tool-window/PW7/golden-transitions/performance-mega-20260918/new/SKULLBONEZ_CORE-Profile.exe\" --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/physics_bench_varied.scene.json",
+        "dependency_scan_command": "\"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\dumpbin.exe\" /DEPENDENTS \"Agentic/Plans/Artifacts/physics-tool-window/PW7/golden-transitions/performance-mega-20260918/new/SKULLBONEZ_CORE-Profile.exe\"",
+        "first_party_dlls": []
+      }
+    ]
+  }
+}

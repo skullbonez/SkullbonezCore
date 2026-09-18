@@ -20,6 +20,7 @@ Related:
 */
 #pragma pack_matrix(column_major)
 #include "shader_behavior.hlsli"
+#include "split_environment.hlsli"
 
 // =============================================================================
 // WORLD-SPACE CINEMATIC SKY (DirectX)
@@ -188,6 +189,16 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float3 sunDir = SunDirection();
     float2 coord = DirectionCoord(dir);
     int styleMode = uSkyMode;
+
+    if (styleMode == SPLIT_SKY_STYLE)
+    {
+        float3 color = SplitEnvironment(dir);
+        float sunAngle = dot(dir, sunDir);
+        float disc = smoothstep(0.99980f, 0.99992f, sunAngle);
+        float halo = pow(saturate(sunAngle), 96.0f);
+        color += uSunColor * (disc * uSunParams.z * 4.0f + halo * uSunParams.w);
+        return float4(color, 1.0f);
+    }
 
     // Invariant: deep-space scenes require literal black, independent of the
     // ordinary atmosphere's blue mid-sky bias and authored sun/cloud values.

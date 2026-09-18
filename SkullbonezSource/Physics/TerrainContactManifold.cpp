@@ -643,7 +643,10 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler,
     // seed sleep, receive rest-only gravity warm start, or keep cached impulses.
     out.supportsRestingPolicy = !( terrainSupport.isBox || terrainSupport.isConvexHull ) || terrainSupport.supportsRestingPolicy;
 
-    out.allowsTangentFriction = !terrainSupport.isConvexHull || out.supportsRestingPolicy;
+    // Why: edge and tip contacts still carry real normal load. Sleep geometry
+    // must not remove their tangent response while the hull is settling.
+    // The earlier speculative-gap branch remains frictionless.
+    out.allowsTangentFriction = true;
 
     const bool sphere = GetShapeIf<BoundingSphere>( &shape ) != nullptr;
     const float normalMagnitudeSquared = VectorMagSquared( planeNormal );

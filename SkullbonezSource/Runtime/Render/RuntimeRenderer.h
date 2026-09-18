@@ -19,6 +19,8 @@ Invariants:
 #include "RuntimeRenderFrameValues.h"
 #include "RuntimeRenderPasses.h"
 #include "BroadphaseVisualizer.h"
+#include "GravityGridVisualizer.h"
+#include "GrassPresentation.h"
 #include "CollisionVisualizer.h"
 #include "PhysicsDebugVisualizer.h"
 #include "RenderResourceLifecycle.h"
@@ -185,7 +187,34 @@ class RuntimeRenderer
     // Runs after Core FrameBegin and before draw-call counters reset. This
     // reads completed GPU samples and publishes the preceding render counters.
     void BeginProfilerFrame();
+    const GrassPresentation& Grass() const noexcept
+    {
+        return m_grass;
+    }
+    GrassPresentation& Grass() noexcept
+    {
+        return m_grass;
+    }
+    GrassPresentation& HistoricalGrass() noexcept
+    {
+        return m_historicalGrass;
+    }
+    const GrassPresentation& PresentedGrass() const noexcept
+    {
+        return m_presentHistoricalGrass ? m_historicalGrass : m_grass;
+    }
+    void UpdateGravityField( Rendering::RenderInstanceStore& instances, const RuntimeRenderDebugViews& debug, const RuntimeRenderFramePolicy& policy );
     void UpdateDebugVisualizers( float secondsPerFrame, const RuntimeRenderDebugViews& debug, const RuntimeRenderFramePolicy& policy );
+
+    void ToggleSplitFutureLook( bool authoredSplitFutureEnabled )
+    {
+        m_splitFutureLook.Toggle( authoredSplitFutureEnabled );
+    }
+
+    SkullbonezCore::Core::CinematicRenderConfig ResolveCinematicLook( const SkullbonezCore::Core::CinematicRenderConfig& authored, bool authoredRendering ) const
+    {
+        return m_splitFutureLook.Resolve( authored, authoredRendering );
+    }
 
     const RenderPresentationSettings& PresentationSettings() const
     {
@@ -195,6 +224,30 @@ class RuntimeRenderer
     // Replaces the complete renderer-owned presentation policy during an
     // explicit scene-reset transaction; ordinary callers use the named commands.
     void RestorePresentationSettings( const RenderPresentationSettings& settings );
+    const GravityGridVisualizer& GravityField() const
+    {
+        return m_gravityGrid;
+    }
+    std::size_t GravityGridVertexCount() const
+    {
+        return m_gravityGrid.Lines().size() / 6;
+    }
+    uint32_t GravityGridFirstSourceId() const
+    {
+        return m_gravityGrid.FirstSourceId();
+    }
+    Math::Vector::Vector3 GravityGridFirstSourcePosition() const
+    {
+        return m_gravityGrid.FirstSourcePosition();
+    }
+    int GravityGridSourceCount() const
+    {
+        return m_gravityGrid.SourceCount();
+    }
+    float GravityGridMinimumHeight() const
+    {
+        return m_gravityGrid.MinimumHeight();
+    }
     bool VsyncEnabled() const;
     void SetVsyncEnabled( bool enabled );
     bool PipelineSyncEnabled() const;
@@ -205,9 +258,18 @@ class RuntimeRenderer
         physicsDebugVisualizer.ResetTransientState();
         broadphaseVisualizer.ResetTransientState();
     }
+    std::array<std::size_t, 6> PhysicsDebugGeometryCounts() const noexcept
+    {
+        return m_physicsDebugVisualizer.DiagnosticGeometryCounts();
+    }
+    void ResetPhysicsDebugHistory()
+    {
+        m_physicsDebugVisualizer.ResetTransientState();
+    }
     void SetSceneIdentity( int sceneIndex, int sceneLoadCount )
     {
         m_resources.Log().SetSceneIdentity( sceneIndex, sceneLoadCount );
+        m_gravityGrid.Reset();
         ResetDebugVisualizerTransientState( m_collisionVisualizer, m_physicsDebugVisualizer, m_broadphaseVisualizer );
     }
 
@@ -361,7 +423,7 @@ class RuntimeRenderer
         const DebugOverlayPassInputs& pass;
         bool useCinematicTarget = false;
     };
-    void EnsureFrameResources( bool cinematicRender, int windowWidth, int windowHeight );
+    void EnsureFrameResources( bool cinematicRender, int windowWidth, int windowHeight, bool smaaRequested );
     WorldOverlayTransaction RenderWorldFrame( const WorldFrameSubmission& world );
     bool RenderFrameOverlays( const WorldOverlayTransaction& world, const OverlayFrameSubmission& overlays );
     Rendering::RenderGraph& BeginRenderPassGraph();
@@ -384,6 +446,7 @@ class RuntimeRenderer
                                                     Rendering::RenderGpuTimingOwner& gpuTiming );
     void ExecuteObjectThroughRenderGraph( const ObjectGraphInputs& inputs );
     void ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs );
+    void ExecuteGrassThroughRenderGraph( const RenderCameraLighting& camera, std::span<const float> patches, bool useCinematicTarget );
     void ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs );
     bool ExecuteWorldExtensionThroughRenderGraph( const WorldExtensionGraphInputs& inputs );
     DebugOverlaySnapshot BuildDebugOverlaySnapshot( RuntimeRenderWorldExtensionDebugView worldExtensionDebug, const RenderToolOverlayView& toolOverlay, const RuntimeRenderFramePolicy& policy ) const;
@@ -401,10 +464,17 @@ class RuntimeRenderer
     // Owner: render presentation policy survives backend rebuilds here; physics
     // state remains in its respective owner.
     RenderPresentationSettings m_presentationSettings;
+    SplitFutureLookOverride m_splitFutureLook; // Survives scene-specific presentation resets.
     Rendering::PairedViewRenderer m_pairedViews;
     Environment::WorldEnvironment& m_world; // Fluid surface and gravity owner for pass contexts.
     CollisionVisualizer m_collisionVisualizer;
     BroadphaseVisualizer m_broadphaseVisualizer;
+    GravityGridVisualizer m_gravityGrid;
+    GrassPresentation m_grass;
+    // Discardable reconstruction cache. Replay remains the only history owner;
+    // live marks survive inspection without being overwritten by historical ones.
+    GrassPresentation m_historicalGrass;
+    bool m_presentHistoricalGrass = false;
     PhysicsDebugVisualizer m_physicsDebugVisualizer;
     SkullbonezCore::Core::Profiler* m_profiler = nullptr; // Startup-bound diagnostics source; null in non-profile builds.
     std::array<Math::Transformation::Matrix4, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_dxrReflectionTransforms =
@@ -421,7 +491,8 @@ class RuntimeRenderer
     WaterPass m_waterPass;                   // Calm/ocean water pass.
     DebugOverlayPass m_debugOverlayPass;     // Broadphase and physics debug overlay pass.
     VolumetricPass m_volumetricPass;         // Half-resolution cinematic light-shaft pass.
-    TonemapPass m_tonemapPass;               // HDR-to-backbuffer resolve pass.
+    SmaaPass m_smaaPass;
+    TonemapPass m_tonemapPass; // HDR-to-backbuffer resolve pass.
 
     // Runtime allocation policy: one owner scratch graph accumulates the whole
     // frame. Pass labels are borrowed literals and pass/resource lists are

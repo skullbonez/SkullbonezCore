@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name building_side_panel
 source_hash 0x9dbb4161d4286a6d
 
@@ -28,6 +28,7 @@ default_mass 21.92832
 bounding_radius 4.31417431
 inertia_half_extents 0.36 2.35 3.6
 unit_inertia 6.16083333 4.3632 1.88403333
+unit_inertia_products 0 0 0
 projected_surface_area 14.136
 
 # Baked centered vertices.

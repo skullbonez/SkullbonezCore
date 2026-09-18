@@ -1,0 +1,159 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 5,
+  "name": "Grass interaction fixture",
+  "simulation": {
+    "seed": 1819,
+    "physics": true,
+    "text": false,
+    "timeScale": 1.0,
+    "world": {
+      "gravity": -9.8100004196167,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    },
+    "textOnly": false
+  },
+  "cinematic": {
+    "rendering": false
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": false
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true,
+    "exitOnComplete": false,
+    "pauseSnapshotState": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0,
+      "slopeX": 0,
+      "slopeZ": 0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": false,
+    "physics": {
+      "axes": false,
+      "contacts": false,
+      "sleep": false,
+      "pipeline": false,
+      "terrainContact": false,
+      "transparent": false,
+      "alpha": 0.2800000011920929,
+      "contactLinger": 0.44999998807907104
+    },
+    "collisionVisualizer": false,
+    "broadphaseOverlay": false,
+    "waterFreeze": false,
+    "waterFlat": false,
+    "gravityField": {
+      "snapBalls": false,
+      "height": 0.0,
+      "opacity": 1.0,
+      "color": "blue"
+    },
+    "waterReflection": "fbo"
+  },
+  "cameras": [
+    {
+      "name": "grass",
+      "position": [
+        512,
+        2.5,
+        506
+      ],
+      "view": [
+        514,
+        0,
+        516
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fovDegrees": 55
+    }
+  ],
+  "objects": [
+    {
+      "name": "rolling_sphere",
+      "sceneObjectId": 8101,
+      "position": [
+        512,
+        1,
+        512
+      ],
+      "mass": 2,
+      "restitution": 0,
+      "fixed": false,
+      "type": "ballState",
+      "radius": 1,
+      "velocity": [
+        8,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        -8
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "sleeping": false,
+      "inertia": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    },
+    {
+      "name": "held_box",
+      "sceneObjectId": 8102,
+      "position": [
+        512,
+        1,
+        517
+      ],
+      "mass": 2,
+      "restitution": 0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        1,
+        1,
+        1
+      ],
+      "euler": [
+        0,
+        30,
+        0
+      ]
+    },
+    {
+      "name": "airborne_control",
+      "sceneObjectId": 8103,
+      "position": [
+        517,
+        10,
+        517
+      ],
+      "mass": 2,
+      "restitution": 0,
+      "fixed": true,
+      "type": "ball",
+      "radius": 1,
+      "moment": 0.8
+    }
+  ]
+}

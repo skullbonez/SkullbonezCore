@@ -509,34 +509,36 @@ def validate_artifact_roundtrip(report: dict[str, Any]) -> dict[str, Any]:
         packet_hashes = artifact.presentation_packet_hashes()
     except ReplayQueryError as error:
         raise ValueError(f"current durable replay artifact is invalid: {error}") from error
-    if artifact.version != 5 or artifact.manifest.get("version") != 5:
+    if artifact.version != 6 or artifact.manifest.get("version") != 6:
         raise ValueError(
             "durable replay artifact version mismatch: "
             f"header={artifact.version} manifest={artifact.manifest.get('version')}"
         )
+    if artifact.manifest.get("bodyDictionaryEntryBytes") != 112:
+        raise ValueError("v6 artifact omitted durable body shape evidence")
     if artifact.manifest.get("bodyPoseBytes") != 76:
-        raise ValueError("v5 artifact did not retain the full 76-byte visual body state")
+        raise ValueError("v6 artifact did not retain the full 76-byte visual body state")
     if len(packet_hashes) != artifact_report.get("sampleCount"):
         raise ValueError(
-            "v5 artifact sample count mismatch: "
+            "v6 artifact sample count mismatch: "
             f"report={artifact_report.get('sampleCount')} loaded={len(packet_hashes)}"
         )
 
     if not packet_hashes:
-        raise ValueError("v5 artifact omitted its retained presentation samples")
+        raise ValueError("v6 artifact omitted its retained presentation samples")
     visual_ticks_report = report.get("replayVisualFidelity", {}).get("ticks", [])
     if len(artifact.visual_packets) != EXPECTED_TICKS or artifact_report.get("visualPacketCount") != EXPECTED_TICKS:
         raise ValueError(
-            "v5 artifact visual-packet horizon mismatch: "
+            "v6 artifact visual-packet horizon mismatch: "
             f"expected={EXPECTED_TICKS} loaded={len(artifact.visual_packets)} "
             f"reported={artifact_report.get('visualPacketCount')}"
         )
     prediction_chunk = artifact.chunks.get("RVPD")
     if not prediction_chunk or prediction_chunk.record_count != 1 or prediction_chunk.size <= 8:
-        raise ValueError("v5 artifact omitted its durable typed prediction-state chunk")
+        raise ValueError("v6 artifact omitted its durable typed prediction-state chunk")
     if artifact.manifest.get("visualPredictionBytes") != prediction_chunk.size:
         raise ValueError(
-            "v5 artifact prediction-state manifest mismatch: "
+            "v6 artifact prediction-state manifest mismatch: "
             f"manifest={artifact.manifest.get('visualPredictionBytes')} chunk={prediction_chunk.size}"
         )
     prediction_hash = replay_visual_byte_hash(artifact._chunk_bytes("RVPD"))
@@ -544,13 +546,13 @@ def validate_artifact_roundtrip(report: dict[str, Any]) -> dict[str, Any]:
     report_prediction_hash = artifact_report.get("visualPredictionHash")
     if manifest_prediction_hash != prediction_hash or report_prediction_hash != f"0x{prediction_hash:016X}":
         raise ValueError(
-            "v5 artifact prediction-state hash mismatch: "
+            "v6 artifact prediction-state hash mismatch: "
             f"manifest={manifest_prediction_hash} report={report_prediction_hash} "
             f"actual=0x{prediction_hash:016X}"
         )
     if artifact.manifest.get("visualPacketEntryBytes") != VISUAL_PACKET_RECORD.size:
         raise ValueError(
-            "v5 artifact visual-packet row size mismatch: "
+            "v6 artifact visual-packet row size mismatch: "
             f"manifest={artifact.manifest.get('visualPacketEntryBytes')} "
             f"reader={VISUAL_PACKET_RECORD.size}"
         )

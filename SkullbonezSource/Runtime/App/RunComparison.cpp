@@ -148,6 +148,22 @@ void Run::OpenVelocitySolverLab()
 
 void Run::LoadSolverLab( UI::UISolverLabChoice choice )
 {
+#if defined( SKULLBONEZ_SKARNESS )
+    // Why: native library tests need current-build recordings while exercising
+    // the real menu routing. Shipping archives remain immutable; fixture loads
+    // still pass through the ordinary asynchronous integrity checks.
+    if ( m_skarness.Enabled() && ( choice == UI::UISolverLabChoice::RagdollWall || choice == UI::UISolverLabChoice::WallOnly ) )
+    {
+        char fixture[1024] {};
+        const char* variable = choice == UI::UISolverLabChoice::RagdollWall ? "SKULLBONEZ_TEST_RAGDOLL_COMPARISON" : "SKULLBONEZ_TEST_WALL_COMPARISON";
+        const auto length = Core::Platform::ReadEnvironmentVariable( variable, fixture, sizeof( fixture ) );
+        if ( length > 0 && length < sizeof( fixture ) )
+        {
+            LoadComparison( fixture );
+            return;
+        }
+    }
+#endif
     switch ( choice )
     {
     case UI::UISolverLabChoice::RagdollWall:

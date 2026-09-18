@@ -90,6 +90,8 @@ struct RunReplayPredictionBodyBackup
     float inverseMass = 0.0f;
     Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 inverseRotationalInertia = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rotationalInertiaProducts = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 inverseRotationalInertiaProducts = Math::Vector::ZERO_VECTOR;
     bool fixed = false;
 };
 

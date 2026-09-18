@@ -19,6 +19,10 @@ echo [skarness] Exact pause, step, timeout, and reconnect control...
 "%PYTHON_EXE%" "%~dp0validate_skarness_run_control.py" --session TestOutput\validation\skarness\run-control
 if errorlevel 1 goto fail
 
+echo [skarness] Catto normal playback, domino impulse, reset, and scene switching...
+"%PYTHON_EXE%" "%~dp0validate_catto_playback.py" --session "%REPO%\TestOutput\skarness\catto-playback-%RANDOM%"
+if errorlevel 1 goto fail
+
 echo [skarness] Player-control capability coverage...
 "%PYTHON_EXE%" "%~dp0validate_skarness_command_coverage.py" --output-root TestOutput\validation\skarness\command-coverage
 if errorlevel 1 goto fail
@@ -59,6 +63,14 @@ echo [skarness] Held causal playback and camera adjustments...
 "%PYTHON_EXE%" "%~dp0validate_skarness_causal_playback.py" --session TestOutput\validation\skarness\causal-playback
 if errorlevel 1 goto fail
 
+echo [skarness] Catto causal ancestry, late detail playback, and equal-time camera transitions...
+"%PYTHON_EXE%" "%~dp0validate_catto_causal_playback.py" --session "%REPO%\TestOutput\skarness\catto-causal-%RANDOM%"
+if errorlevel 1 goto fail
+
+echo [skarness] Cause category buttons, search, and retained selection...
+"%PYTHON_EXE%" "%~dp0validate_cause_filters.py" --session "%REPO%\TestOutput\skarness\cause-filters-%RANDOM%"
+if errorlevel 1 goto fail
+
 echo [skarness] P shortcut pause, predict, clear and resume...
 "%PYTHON_EXE%" "%~dp0validate_skarness_prediction_shortcut.py" --session TestOutput\validation\skarness\prediction-shortcut
 if errorlevel 1 goto fail
@@ -83,6 +95,26 @@ echo [skarness] Persistent multi-scene prediction matrix...
 "%PYTHON_EXE%" "%~dp0validate_skarness_prediction_matrix.py" --self-test
 if errorlevel 1 goto fail
 "%PYTHON_EXE%" "%~dp0validate_skarness_prediction_matrix.py" --session TestOutput\validation\skarness\prediction-matrix
+if errorlevel 1 goto fail
+
+echo [skarness] Grass identity, recovery, recorded time, quality, and scene policy...
+"%PYTHON_EXE%" "%~dp0validate_interactive_grass.py" --session "%REPO%\TestOutput\skarness\grass-validation-%RANDOM%"
+if errorlevel 1 goto fail
+
+echo [skarness] Grass swept shapes, terrain exclusions, overlap, capacity, and Physics isolation...
+"%PYTHON_EXE%" "%~dp0validate_interactive_grass_edges.py" --session "%REPO%\TestOutput\skarness\grass-edges-%RANDOM%"
+if errorlevel 1 goto fail
+
+echo [skarness] Physics exact tick, settings persistence and overlay controls...
+"%PYTHON_EXE%" "%~dp0validate_physics_window_actions.py" --session "%REPO%\TestOutput\skarness\physics-window-%RANDOM%"
+if errorlevel 1 goto fail
+
+echo [skarness] Physics compact layouts, four views, retained scroll and historical isolation...
+"%PYTHON_EXE%" "%~dp0validate_physics_window_layouts.py" --session "%REPO%\TestOutput\skarness\physics-layouts-%RANDOM%"
+if errorlevel 1 goto fail
+
+echo [skarness] Physics worker edit, saved policy continuation and allocation guard...
+"%PYTHON_EXE%" "%~dp0validate_physics_window_policy.py" --session "%REPO%\TestOutput\skarness\physics-policy-%RANDOM%"
 if errorlevel 1 goto fail
 
 echo PASS: Complete Skarness Automation regression suite passed.

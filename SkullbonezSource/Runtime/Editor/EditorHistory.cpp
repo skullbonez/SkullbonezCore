@@ -138,6 +138,7 @@ bool CapturePrimitiveRecipe( const SceneWorld& world, int modelIndex, EditorPrim
     outRecipe.body.linearVelocity = hotState.linearVelocity;
     outRecipe.body.angularVelocity = hotState.angularVelocity;
     outRecipe.body.rotationalInertia = body->rotationalInertia;
+    outRecipe.body.rotationalInertiaProducts = body->rotationalInertiaProducts;
     outRecipe.body.mass = body->mass;
     outRecipe.body.boundingRadius = hotState.boundingRadius;
     const BuoyancyBodyFacts& fluidFacts = buoyancyFacts[static_cast<std::size_t>( modelIndex )];
@@ -183,6 +184,7 @@ bool RecreatePrimitive( SceneWorld& world, SceneSessionState& scene, const Edito
     bodyDesc.linearVelocity = recipe.body.linearVelocity;
     bodyDesc.angularVelocity = recipe.body.angularVelocity;
     bodyDesc.rotationalInertia = recipe.body.rotationalInertia;
+    bodyDesc.rotationalInertiaProducts = recipe.body.rotationalInertiaProducts;
     bodyDesc.mass = recipe.body.mass;
     bodyDesc.restitution = recipe.restitution;
     bodyDesc.friction = recipe.friction;
@@ -319,6 +321,21 @@ bool ApplyTransformEntry( SceneWorld& world, const EditorCommandEntry& entry, bo
 
 bool ApplyHistoryEntry( SceneWorld& world, SceneSessionState& scene, const EditorCommandEntry& entry, bool redo, PhysicsBodyHandle& outBody, PhysicsColliderHandle& outCollider )
 {
+    if ( entry.kind == EditorCommandKind::Mass )
+    {
+        PhysicsBodyUpdateDesc update;
+        update.body = world.BodyStore().HandleForSceneObjectId( entry.massBody );
+        update.updateMask = PHYSICS_BODY_UPDATE_MASS | PHYSICS_BODY_UPDATE_SLEEP_STATE;
+        update.mass = redo ? entry.afterMass : entry.beforeMass;
+        update.rotationalInertia = redo ? entry.afterInertia : entry.beforeInertia;
+        update.rotationalInertiaProducts = redo ? entry.afterInertiaProducts : entry.beforeInertiaProducts;
+        if ( !world.Physics().UpdateAuthoredBody( update ) )
+        {
+            return false;
+        }
+        world.Physics().InvalidateSolverSettings();
+        return true;
+    }
     if ( entry.kind == EditorCommandKind::Velocity && entry.transformCount == 1 )
     {
         const auto& item = entry.transforms[0];
@@ -350,6 +367,53 @@ bool ApplyHistoryEntry( SceneWorld& world, SceneSessionState& scene, const Edito
 }
 } // namespace
 
+
+bool EditorToolsOwner::CanSetEditorBodyMass( const SceneWorld& world, PhysicsSceneObjectId id, float mass ) const
+{
+    const int row = world.Entities().FindBySceneObjectId( id );
+    if ( !m_editor.editorModeEnabled || row < 0 )
+    {
+        return false;
+    }
+    const auto& entity = world.Entities().At( row );
+    if ( entity.editorLocked || entity.asset.isAssetBacked || entity.behaviorGroup.kind != SceneBehaviorGroupKind::None )
+    {
+        return false;
+    }
+    const auto handle = world.BodyStore().HandleForSceneObjectId( id );
+    const auto* body = world.BodyStore().RecordForHandle( handle );
+    if ( !body || mass == body->mass )
+    {
+        return false;
+    }
+    return world.Physics().CanSetAuthoredBodyMass( handle, mass );
+}
+
+bool EditorToolsOwner::SetEditorBodyMass( SceneWorld& world, PhysicsSceneObjectId id, float mass )
+{
+    if ( !CanSetEditorBodyMass( world, id, mass ) )
+    {
+        return false;
+    }
+    const auto handle = world.BodyStore().HandleForSceneObjectId( id );
+    const auto* body = world.BodyStore().RecordForHandle( handle );
+    EditorCommandEntry entry;
+    entry.kind = EditorCommandKind::Mass;
+    entry.massBody = id;
+    entry.beforeMass = body->mass;
+    entry.beforeInertia = body->rotationalInertia;
+    entry.beforeInertiaProducts = body->rotationalInertiaProducts;
+    if ( !world.Physics().SetAuthoredBodyMass( handle, mass ) )
+    {
+        return false;
+    }
+    body = world.BodyStore().RecordForHandle( handle );
+    entry.afterMass = body->mass;
+    entry.afterInertia = body->rotationalInertia;
+    entry.afterInertiaProducts = body->rotationalInertiaProducts;
+    m_editor.history.Push( entry );
+    return true;
+}
 
 void EditorToolsOwner::RecordEditorVelocityHistory( SceneWorld& world )
 {

@@ -49,6 +49,7 @@ from replay_query import (
     TORNADO_SYSTEM_HEADER,
     U32,
     ChunkReader,
+    FrameIndex,
     ReplayQueryError,
     ReplayV2,
 )
@@ -81,7 +82,7 @@ def remove_if_exists(path):
 
 
 def validate_snapshot_query_versions():
-    # Synthetic v1-v8 payloads pin every nested solver-snapshot width change
+    # Synthetic v1-v9 payloads pin every nested solver-snapshot width change
     # without launching the runtime. The v6 row exceeds the retired byte limit.
     def make_fixture(version, point_joint_count, motion_eligibility_state, sleep_counters=()):
         raw = bytearray()
@@ -100,7 +101,12 @@ def validate_snapshot_query_versions():
 
         # Contact/cache counts, two counted contact-stat vectors,
         # debug/pipeline counts, and collision-cell keys.
-        raw.extend(U32.pack(0) * 2)
+        raw.extend(U32.pack(0))
+        raw.extend(U32.pack(1 if version >= 9 else 0))
+        if version >= 9:
+            # Serialized geometry adds five vectors, a distance and a lifetime
+            # after the existing key and three impulses (20 + 68 bytes).
+            raw.extend(struct.pack("<Q19fI", 123, *([0.25] * 19), 7))
         raw.extend(bytes(SOLVER_STATS.size))
         raw.extend(U32.pack(0) * 5)
 
@@ -118,6 +124,9 @@ def validate_snapshot_query_versions():
             raw.extend(bytes(motion_eligibility_state))
         if version >= 6:
             raw.extend(U32.pack(0) * 3)
+        if version >= 9:
+            raw.extend(U32.pack(1))
+            raw.extend(struct.pack("<II6f", 0, 501, 1, 2, 3, -0.1, -0.2, -0.3))
         return bytes(raw)
 
     fixtures = (
@@ -129,6 +138,7 @@ def validate_snapshot_query_versions():
         (6, 1, (0, 1, 1), (1000,)),
         (7, 2, (0, 1, 1), (1000,)),
         (8, 2, (0, 1, 1), (1000,)),
+        (9, 2, (0, 1, 1), (1000,)),
     )
     for version, expected_joint_count, expected_motion_state, expected_sleep_counters in fixtures:
         raw = make_fixture(version, expected_joint_count, expected_motion_state, expected_sleep_counters)
@@ -145,13 +155,23 @@ def validate_snapshot_query_versions():
         if int(summary.get("sleepCounterCount") or 0) != len(expected_sleep_counters):
             raise RuntimeError(f"snapshot v{version} fixture reported the wrong sleep-counter count")
 
-    future_reader = ChunkReader(make_fixture(9, 1, (1,), (1000,)), "snapshot-v9-fixture")
+        if summary['bodyInertiaCount'] != (1 if version >= 9 else 0):
+            raise RuntimeError('snapshot tensor count drifted')
+        if version >= 9:
+            try:
+                ReplayV2._parse_snapshot_summary(ChunkReader(raw[:-1], 'truncated-tensor'))
+            except ReplayQueryError:
+                pass
+            else:
+                raise RuntimeError('truncated tensor tail was accepted')
+
+    future_reader = ChunkReader(make_fixture(10, 1, (1,), (1000,)), "snapshot-v10-fixture")
     try:
         ReplayV2._parse_snapshot_summary(future_reader)
     except ReplayQueryError:
         pass
     else:
-        raise RuntimeError("future solver snapshot v9 fixture was accepted")
+        raise RuntimeError("future solver snapshot v10 fixture was accepted")
 
 
 def run_checked(args, cwd):
@@ -696,9 +716,31 @@ def build_legacy_version_fixture(current):
     ):
         manifest.pop(key, None)
 
-    presentation = bytearray(current._chunk_bytes("PRES"))
-    migrated_frame_count = 0
+    # Strip v6-only shape and terrain evidence before encoding authentic v3
+    # offsets and quaternion hashes. Do not relabel newer bytes as a legacy file.
+    source_presentation = current._chunk_bytes("PRES")
+    presentation = bytearray(U32.pack(len(current.frames)))
+    index = bytearray(U32.pack(len(current.frames)))
+    legacy_frames = []
     for frame in current.frames:
+        offset = len(presentation)
+        size = FRAME_HEADER.size + frame.body_count * BODY_VISUAL_STATE_V3.size
+        presentation.extend(source_presentation[frame.presentation_offset:frame.presentation_offset + size])
+        for body in range(frame.body_count):
+            flags = offset + FRAME_HEADER.size + body * BODY_VISUAL_STATE_V3.size + 56
+            presentation[flags] &= 15
+            presentation[flags + 1:flags + 4] = b"\0\0\0"
+        legacy_frames.append(FrameIndex(frame.frame_index, offset, frame.body_count))
+        index.extend(struct.pack("<QQII", frame.frame_index, offset, frame.body_count, 0))
+    source_bodies = current._chunk_bytes("BODY")
+    dictionary = bytearray(U32.pack(len(current.bodies)))
+    stride = current.manifest["bodyDictionaryEntryBytes"]
+    for body in range(len(current.bodies)):
+        offset = 4 + body * stride
+        dictionary.extend(source_bodies[offset:offset + BODY_RECORD_V3.size])
+    manifest["bodyDictionaryEntryBytes"] = BODY_RECORD_V3.size
+    migrated_frame_count = 0
+    for frame in legacy_frames:
         canonical_hash = struct.unpack_from("<Q", presentation, frame.presentation_offset + 24)[0]
         if presentation_state_hash(presentation, frame, current.bodies) != canonical_hash:
             raise RuntimeError("current presentation state hash did not reproduce before legacy conversion")
@@ -722,19 +764,19 @@ def build_legacy_version_fixture(current):
     manifest_raw = json.dumps(manifest, separators=(",", ":")).encode("utf-8")
     chunks = [
         ("MANI", manifest_raw, 1),
-        ("BODY", current._chunk_bytes("BODY"), current.chunks["BODY"].record_count),
+        ("BODY", bytes(dictionary), current.chunks["BODY"].record_count),
         ("PRES", bytes(presentation), current.chunks["PRES"].record_count),
-        ("INDX", current._chunk_bytes("INDX"), current.chunks["INDX"].record_count),
+        ("INDX", bytes(index), current.chunks["INDX"].record_count),
     ]
     write_versioned_file(LEGACY_ARTIFACT, chunks, 3)
 
 
 def validate_version_policy():
     current = ReplayV2(ARTIFACT)
-    if current.version != 5 or current.manifest.get("version") != 5:
-        raise RuntimeError("current writer did not emit replay version 5")
-    if current.manifest.get("bodyDictionaryEntryBytes") != 80 or current.manifest.get("bodyPoseBytes") != 76:
-        raise RuntimeError("current writer did not retain the complete visual-state ABI in v5")
+    if current.version != 6 or current.manifest.get("version") != 6:
+        raise RuntimeError("current writer did not emit replay version 6")
+    if current.manifest.get("bodyDictionaryEntryBytes") != 112 or current.manifest.get("bodyPoseBytes") != 76:
+        raise RuntimeError("current writer did not retain the complete visual-state and shape ABI in v6")
     if not current.presentation_packet_hashes():
         raise RuntimeError("current writer produced no exact presentation packet hashes")
 
@@ -764,12 +806,12 @@ def validate_version_policy():
         raise RuntimeError("runtime did not scrub the deterministic legacy-version migration fixture")
 
     future_bytes = bytearray(ARTIFACT.read_bytes())
-    struct.pack_into("<I", future_bytes, 8, 6)
+    struct.pack_into("<I", future_bytes, 8, 7)
     FUTURE_ARTIFACT.write_bytes(future_bytes)
     try:
         ReplayV2(FUTURE_ARTIFACT)
     except ReplayQueryError as error:
-        if "unsupported replay version 6" not in str(error):
+        if "unsupported replay version 7" not in str(error):
             raise RuntimeError(f"future-version tooling failed for the wrong reason: {error}") from error
     else:
         raise RuntimeError("future-version artifact was accepted by replay_query")
@@ -828,9 +870,9 @@ def validate_version_policy():
         text=True,
     )
     if mutation_result.returncode == 0:
-        raise RuntimeError("runtime accepted a v5 artifact with a mutated visual-state float")
+        raise RuntimeError("runtime accepted a v6 artifact with a mutated visual-state float")
     print(
-        "  Version policy passed: writer=5 legacy=3 future=6-rejected visual-float=rejected "
+        "  Version policy passed: writer=6 legacy=3 future=7-rejected visual-float=rejected "
         f"legacy_frames={len(legacy.frames)}"
     )
 
@@ -841,15 +883,15 @@ def query_artifact():
     print("    tools\\replay_query.bat TestOutput\\validation\\replay_v2\\replay_save_probe.skreplay summary")
     summary_stdout, summary = run_json(summary_command, REPO)
 
-    if summary.get("version") != 5 or summary.get("track") != "presentation":
+    if summary.get("version") != 6 or summary.get("track") != "presentation":
         raise RuntimeError(f"unexpected current replay summary: {summary}")
     if int(summary.get("frameCount") or 0) < 24:
         raise RuntimeError(f"expected at least 24 replay frames, found {summary.get('frameCount')}")
     if int(summary.get("bodyDictionaryCount") or 0) <= 0:
         raise RuntimeError("expected at least one body dictionary entry")
-    if int(summary.get("bodyDictionaryEntryBytes") or 0) != 80:
+    if int(summary.get("bodyDictionaryEntryBytes") or 0) != 112:
         raise RuntimeError(
-            f"expected 80-byte visual metadata rows, found {summary.get('bodyDictionaryEntryBytes')}"
+            f"expected 112-byte shape metadata rows, found {summary.get('bodyDictionaryEntryBytes')}"
         )
     if int(summary.get("bodyPoseBytes") or 0) != 76:
         raise RuntimeError(f"expected 76-byte visual-state rows, found {summary.get('bodyPoseBytes')}")
@@ -1056,7 +1098,7 @@ def query_artifact():
     if int(first_checkpoint.get("bodyCount") or 0) <= 0 or not first_checkpoint.get("bodies"):
         raise RuntimeError("replay checkpoint query did not return solver body payloads")
     snapshot = first_checkpoint.get("snapshot") or {}
-    if int(snapshot.get("version") or 0) not in (1, 2, 3, 4, 5, 6, 7, 8):
+    if int(snapshot.get("version") or 0) not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
         raise RuntimeError("replay checkpoint query returned an unsupported snapshot version")
     if int(snapshot.get("modelCount") or 0) != int(first_checkpoint.get("bodyCount") or 0):
         raise RuntimeError("replay checkpoint snapshot model count did not match body count")
@@ -1111,7 +1153,7 @@ def query_artifact():
 
 def main():
     try:
-        print("  Checking replay query snapshot v1-v8 fixtures...")
+        print("  Checking replay query snapshot v1-v9 fixtures...")
         validate_snapshot_query_versions()
         print("  Generating replay v2 artifact...")
         generate_artifact()

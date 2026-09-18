@@ -91,6 +91,17 @@ GameLayout::PresentationPreferences ReadPreferences( const char* path )
         preferences.toolsOpen = open == 1;
         consumed += readBytes;
     }
+    if ( version >= 7 )
+    {
+        int peer = 0, section = 0, readBytes = 0;
+        if ( sscanf_s( bytes + consumed, "physicsPeer %d physicsSection %d %n", &peer, &section, &readBytes ) != 2 || ( peer != 0 && peer != 1 ) )
+        {
+            return {};
+        }
+        preferences.physicsPeer = peer == 1;
+        preferences.physicsSection = section;
+        consumed += readBytes;
+    }
     if ( !complete || fields != 10 || consumed != static_cast<int>( count ) || ( version < 1 || version > GameLayout::PresentationPreferences::VERSION ) )
     {
         return {};
@@ -140,7 +151,7 @@ void InGameUI::SavePresentationPreferences( SkullbonezCore::Core::SbDiagnosticSt
     char bytes[512] {};
     const int count = std::snprintf( bytes,
                                      sizeof( bytes ),
-                                     "version %u\nlayout %d\nleft %.9g\nright %.9g\ndrawer %.9g\ndiagnostics %.9g\nfolded " "%u\ntool %d\nleftFolded %d\nrightFolded %d\ntheme %d\nreplayFolded %d\ntoolsOpen %d\n",
+                                     "version %u\nlayout %d\nleft %.9g\nright %.9g\ndrawer %.9g\ndiagnostics %.9g\nfolded " "%u\ntool %d\nleftFolded %d\nrightFolded %d\ntheme %d\nreplayFolded %d\ntoolsOpen %d\nphysicsPeer %d\nphysicsSection %d\n",
                                      GameLayout::PresentationPreferences::VERSION,
                                      static_cast<int>( preferences.layout ),
                                      preferences.leftWidth,
@@ -153,7 +164,9 @@ void InGameUI::SavePresentationPreferences( SkullbonezCore::Core::SbDiagnosticSt
                                      preferences.rightFolded ? 1 : 0,
                                      static_cast<int>( Style::CurrentTheme() ),
                                      preferences.replayFolded ? 1 : 0,
-                                     IsVisible() && !IsMinimized() ? 1 : 0 );
+                                     IsVisible() && !IsMinimized() ? 1 : 0,
+                                     preferences.physicsPeer ? 1 : 0,
+                                     preferences.physicsSection );
     if ( count <= 0 || count >= static_cast<int>( sizeof( bytes ) ) )
     {
         return;

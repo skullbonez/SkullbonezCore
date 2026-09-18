@@ -64,7 +64,7 @@ def validate_recording(path: Path, ticks: int) -> dict:
     if path.stat().st_size > MEMORY_BYTES // 2:
         raise ValueError("Recording exceeds the per-side comparison memory budget")
     replay = ReplayV2(path)
-    if replay.version not in (3, 4, 5):
+    if replay.version not in (3, 4, 5, 6):
         raise ValueError("Comparison requires a replay with recorded motion and sleep fields (v3 or later)")
     headers = replay.presentation_frame_headers()
     if len(headers) != ticks:
@@ -154,9 +154,9 @@ class CaptureSide:
         self.process_handle = None
 
     def start(self, *, worker_threads: int | None = None,
-              allocation_guard: str | None = None) -> set[str]:
+              allocation_guard: str | None = None, perf_log: Path | None = None) -> set[str]:
         launch(self.directory, self.executable, self.scene, hidden=True, fixed_step=True,
-               worker_threads=worker_threads, allocation_guard=allocation_guard)
+               worker_threads=worker_threads, allocation_guard=allocation_guard, perf_log=perf_log)
         self.connection = SkarnessConnection(self.directory)
         # Hold a query handle from launch through shutdown. Reopening only after
         # session.stop can lose the exit code when Windows destroys the process.

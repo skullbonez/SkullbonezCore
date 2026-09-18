@@ -1,0 +1,56 @@
+{
+  "counts": {
+    "priorityLineHash": 2300,
+    "combinedLineHash": 2300,
+    "exactPacketHash": 2300,
+    "combinedLineBytes": 2300,
+    "priorityLineVertexCount": 2300,
+    "priorityLineBytes": 2300,
+    "priorityLineCanonicalHash": 2300,
+    "combinedLineVertexCount": 2300
+  },
+  "examples": {
+    "priorityLineHash": {
+      "tick": 101,
+      "old": "0xE0E6D273BE80FC14",
+      "new": "0x95C222413556502C"
+    },
+    "combinedLineHash": {
+      "tick": 101,
+      "old": "0x798CA0D166164725",
+      "new": "0x97ADF301EC502F26"
+    },
+    "exactPacketHash": {
+      "tick": 101,
+      "old": "0x3FF9B73D13168231",
+      "new": "0x0E961733D7A9F398"
+    },
+    "combinedLineBytes": {
+      "tick": 101,
+      "old": 13440,
+      "new": 17280
+    },
+    "priorityLineVertexCount": {
+      "tick": 101,
+      "old": 240,
+      "new": 400
+    },
+    "priorityLineBytes": {
+      "tick": 101,
+      "old": 5760,
+      "new": 9600
+    },
+    "priorityLineCanonicalHash": {
+      "tick": 101,
+      "old": "0x07C1CE22156FABBE",
+      "new": "0xA7E0296D24C86AA3"
+    },
+    "combinedLineVertexCount": {
+      "tick": 101,
+      "old": 560,
+      "new": 720
+    }
+  },
+  "finalDifference": null,
+  "causalDifference": null
+}

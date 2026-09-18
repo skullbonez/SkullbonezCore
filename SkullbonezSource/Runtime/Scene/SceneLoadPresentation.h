@@ -46,6 +46,7 @@ struct ScenePresentationValues
     bool waterFlat = false;
     bool terrainHidden = false;
     bool waterHidden = false;
+    Scene::GravityFieldSettings gravityField;
     uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;
     bool physicsDebugTransparent = false;
     float physicsDebugAlpha = 0.28f;
@@ -104,8 +105,7 @@ struct SceneUiOptionDiagnosticsProjection
     bool testPatternEnabled = false;
 };
 
-inline SceneUiOptionDiagnosticsProjection ProjectSceneUiOptionDiagnostics( const SceneUIOptions& options,
-                                                                           bool preserveUiState )
+inline SceneUiOptionDiagnosticsProjection ProjectSceneUiOptionDiagnostics( const SceneUIOptions& options, bool preserveUiState )
 {
     SceneUiOptionDiagnosticsProjection projection;
     projection.applyTestPattern = !preserveUiState && options.hasTestPattern;

@@ -1,9 +1,349 @@
 # Session State
 
-Date: 2026-09-16
-Branch: `main`
-Status: Causal detail docking and orthographic panning fixed and validated; direct main commit explicitly requested.
+Date: 2026-09-18
+Branch: `nightrunner-17th-SEP-26`
+Status: Local mega PR closure complete; INTERACTIVE_GRASS 7/7 and PHYSICS_WINDOW 8/8; live portfolio 145/152. Final-head CI remains required for delivery.
 
+## Grass default and PR handoff - 2026-09-18
+
+User requested grass off by default and explicitly stopped further validation.
+Built-in and shipped engine.cfg quality now default to Off, including Demo;
+Low/High remain explicit opt-in. Off also restores the original ground texture;
+the procedural turf colour now follows the same opt-in as the blades.
+The native grass fixture selects High itself.
+The in-progress Automation rebuild finished before cancellation reached it;
+its binary includes an uncommitted scene fix that was subsequently removed.
+Do not treat that binary as final-head validation. Existing local evidence
+below predates this default change. PR #175 remains unmerged; final validation
+belongs to the user. The known Demo-selection allocation finding remains open.
+
+## Grass visibility follow-up - 2026-09-18
+
+The elevated demo camera exposed the old 24-unit grass cutoff: grass on/off
+produced identical foreground pixels. Distance-based world patches now cover
+the view with broader procedural crowns, using one third of the old vertices
+per patch. Low preserves covered ground. The per-view patch cap is reduced
+from 16,384 to 12,288; two owners retain 18,089,472 bytes, about 4.5 MiB less
+than before this follow-up. Full arenas retry at coarser detail instead of
+leaving part of the view bare. Grass remains Demo-only outside explicit fixtures.
+
+Native contact/history/scene policy and elevated pixel checks pass; the new
+pixel assertion rejects the original captures. Edge tests preserve 960 exact
+Physics rows. Final follow-up fast validation (base 320fd0c2c) passes with
+1,115 tests and 3,823,371 assertions, one existing skip. The broad performance
+comparison passes after the staging reduction, with no baseline/threshold
+changes. Raw evidence and limitations: TestOutput/grass-distance-20260918/validation.md;
+final screenshot: TestOutput/skarness/grass-distance-final/elevated-high.png.
+
+High elevated grass costs 0.319 ms GPU p95; moving-camera preparation costs
+5.342 ms p95, above the old informational CPU target. Low GPU p95 is 0.182 ms.
+The combined scene-switch fixture has a separate 120-byte allocation finding
+in unchanged SceneLoadNavigationState::LoadDemoScene; the dedicated grass
+capture has zero gameplay allocation violations. Do not conflate behavioral
+fixture PASS with a clean allocation result for that combined session.
+Final DX12 renderer and one-minute graphics stress checks pass; Profile and Debug
+are built, and the unchanged Profile rebuild passes. Final-head hosted CI remains
+separate from local results; leave PR #175 unmerged.
+
+## Terminal closure - 2026-09-18
+
+Mega PR #175 contains Split Future, PR #174 with hull ancestry, the preserved Catto work, Demo-only interactive grass and the Physics dock:
+https://github.com/skullbonez/SkullbonezCore/pull/175
+
+Implementation is in f3a418631. The closure commit fixes Body scroll bounds, replay-v6 consumers, current-build native comparison fixtures, preference migration expectations and the LF shader-manifest provenance mismatch that stopped the first hosted scene replicas. Independent grass and Physics reviews have no remaining correctness blockers.
+
+All mapped local requirements pass across the preserved terminal run and focused recovery: full preflight (145 sources / 1,299 contexts), CPU lanes, 1,115 Profile tests with 3.82 million assertions and one existing skip, byte-exact core Physics, deep Physics, Automation/Skarness (877.92 seconds), DX12 renderer, UI/graphics stress, all native UI cases, replay artifact (84.60 seconds), replay fidelity (370.58 seconds), and final performance (127.10 seconds). Profile and Debug are built; the unchanged Profile rebuild passes. The initial umbrella's stale-v5 failure remains recorded as failed; subsequent focused gates supply closure evidence.
+
+Governed reference transitions retain exact old/new producers and negative controls. Every physical/body/trajectory/topology/causal value remains unchanged; replay line counts account for requested Split Future corner lights. Matched performance timing passes unchanged thresholds; fixed grass and inherited contact/hull stores explain memory changes. No numerical Physics golden or absolute budget was relaxed. Full evidence: `Agentic/Plans/Artifacts/physics-tool-window/PW7/terminal-validation.md`.
+
+The informational replay frame-spike diagnostic still fails its fixed-frame horizon-complete assertion; existing state-based long-horizon checks pass. It is non-blocking by the existing gate contract and provides no accepted frame-time conclusion.
+
+Both completed plan checklists are removed. Acceptance moves 158/167 to 160/167; removing their 15 completed phases leaves 145/152, matching MASTER-PLAN. The remaining CONVEX_HULL CH7 owner acceptance and PHYSICS_AB work are outside this requested queue. Additional solver algorithms remain parked.
+
+## Live Queue
+
+Push the closure commit, verify every required hosted check against the exact final PR #175 head, then mark it ready. Leave the PR unmerged. Keep the overall goal active until that delivery is complete; local plan acceptance is not a claim of green final-head CI.
+
+User Profile process 44840 remains untouched, with its original locked image preserved as Profile/SKULLBONEZ_CORE.running-44840.exe. Catto's original worktree and unrelated Agentic/Audits files remain untouched. The existing work ledger belongs to another session; the supported isolated ledger cannot obtain verified model pricing. No token/cost counters or completion-ledger artifacts were fabricated. Raw evidence remains under TestOutput/mega-20260917 and TestOutput/skarness.
+
+## Mega PR execution - 2026-09-17
+
+Current Split Future tip c686f653b contains PR #174 and hull base #173.
+Catto dirty work is preserved under TestOutput/mega-20260917 with SHA-256
+manifest and source files; its source worktree is unchanged. Integrated its
+patch, retained current shader manifest (freshness passes 54 stages), and
+resolved pause-status and dependency notices. Catto fixture check passes 21
+scenes. Build/runtime acceptance remains pending.
+
+Next: INTERACTIVE_GRASS IG0-IG6, then PHYSICS_WINDOW PW0-PW7, final integrated
+review and gates, one unmerged mega PR with green CI. Grass is demo-only;
+dedicated validation fixtures may opt in. Required subjects use each plan
+commit name and TASK n/7 or n/8 with fully evidenced phase counts.
+
+Ledger limitation: existing WORK_LEDGER.csv has another session GOV1 active;
+it was backed up without replacement. The supported isolated ledger path
+also fails because verified gpt-6-astra pricing is unavailable. Do not invent
+rates/counters; preserve command evidence under TestOutput/mega-20260917.
+
+## Mega PR grass implementation checkpoint - 2026-09-18
+
+Integration Automation build passed with zero warnings/errors. Grass now has
+bounded live and reconstructed-history caches, shared sphere/rotating-box
+sweeps, finite recovery rules, a generic instanced blade shader, demo-only
+activation, and Skarness state counters. Initial rules: 3 tests / 34 assertions
+passed. Automation grass/history and terrain-relative camera builds passed.
+Replay v6 adds collider dimensions to presentation metadata with an independent
+identity-bound digest; v2-v5 retain their physics/presentation hashes and explicit
+missing geometry. Exact-frame reconstruction uses two bounded scratch slots
+separate from the four UI borrows. The existing recorder reserve owner, phase,
+hard cap and counters remain unchanged; its category accounting includes the
+larger metadata and both additional scratch slots. No second durable timeline.
+
+Main native grass acceptance passes, including live/history/loaded parity,
+four views, pause, quality, finite recovery, held contact, and allocation guard.
+Native edge matrix passes slopes, water, fast sphere, rotating box, overlap
+order, bounded capacity, branch restore, prediction isolation, and exact Physics
+output equality (960 rows). Terrain-edit acceptance now passes in terrain-edit-09: edited terrain is
+retained across reset, and loading the original terrain correctly makes the
+saved historical grass evidence unavailable.
+Replay-focused tests found an assertion-order issue after new exact lookup tests;
+the checks were reordered without changing the prior cache expectation.
+
+Grass renders the same bent blades in terrain shadows; field storage has a
+24 MiB bound across the two owners and a 131,072 root-test budget per sample.
+Valid short-run live profiler evidence is grass-perf-visible.json: GrassPrepare
+p95 0.1265 ms, Grass GPU p95 0.0215 ms on this RTX 3080. Long profiler runs that
+cycled scenes are excluded. Replay v6 also retains independently checked terrain
+fingerprints; changed/missing terrain evidence explicitly disables old grass.
+
+Physics Window implementation has started: shared right-dock peer geometry,
+version-7 active-peer/section preferences, common clipped input/draw bounds,
+fixed simulation actions, and four sections. Existing controls moved to one
+column and old Tools Physics opens the dock. Body/statistics/settings extensions
+and all dock native acceptance remain pending. No phases are accepted yet.
+No new commits or PR yet. User Profile process 44840 remains untouched.
+
+Artifacts: TestOutput/mega-20260917/ and
+TestOutput/skarness/interactive-grass/{acceptance-09,edges-03}/.
+
+## Split Future showcase - 2026-09-17
+
+Latest art direction: `feature/split-future-15-thin-orange-rest` replaces the
+previous heavy cyan glow with subpixel strokes and very low line-halo energy.
+Contact/collision poses are blue; resting poses (including baseline rests) are
+orange. Horizon poses use a quieter orange rather than implying a collision.
+Box corner accents remain small; physics and all packet bytes are unchanged.
+Native captures: `TestOutput/skarness/thin-orange-lines-final/`.
+
+The 200-box ragdoll wall now authors the complete Split Future cinematic block
+by default on `feature/split-future-14-wall-200-style`. Only the cinematic JSON
+member changes; objects, terrain collision, cameras and simulation are equal
+to the prior scene. A fresh Automation launch proves style modes 22/16/14/5,
+212 loaded bodies (including the ragdoll), and pixel-exact F7 off/on restoration.
+Evidence: `TestOutput/skarness/wall-200-split-style/`.
+
+
+Glow follow-up: `feature/split-future-13-glowing-markers` fixes the remaining
+neutral resting outlines and pale outgoing paths in the F7 look. Eight explicit
+point records light the true corners of each box; Plain rendering discards
+these points. The existing bounded line stream owns their storage and its box
+capacity check includes all 20 records. Sphere samples do not receive lights.
+Native regression: `tools/validate_split_future_lines.py` verifies selected and
+submitted target identity, complete prediction, exact corner adjacency, fixed
+storage, long-horizon resting markers, camera rotation and resize. Evidence:
+`TestOutput/skarness/glowing-markers-regression-2/`. A separate before/after
+comparison preserves all existing trajectory records and outline edge bytes.
+
+
+F7 follow-up: `feature/split-future-12-f7-toggle`. F7 globally toggles the live
+Split Future look without changing scene files or render defaults. Its renderer
+policy survives scene loads and R, restores other scenes exactly on disable,
+and disables HDR when the authored scene already uses Split Future. The key is
+edge-triggered, registered in the shared binding table, and listed in Keys.
+Native evidence: `TestOutput/skarness/f7-global-toggle/result.json` reports zero
+restoration pixel RMS for ordinary and cinematic scenes, stable held-key input,
+scene/reset persistence, hidden-UI toggling and unchanged scene file hashes.
+The pre-existing Profile window was preserved by renaming its loaded executable
+to `Profile/SKULLBONEZ_CORE.before-f7.exe` while the updated Profile path rebuilds.
+
+Direction A follow-up: `feature/split-future-11-precision-lines` gives style 14
+crisp cyan contact outlines, a warm default root path, faint resting/horizon
+ghosts, depth hints, and narrow analytic halos. It reuses existing line/ribbon
+pipelines and retained packets. Width, opacity, feather and selected-emphasis
+inputs still drive the presentation. Other styles keep the original branch.
+To opt another scene in, enable cinematic rendering and set the third
+`cinematic.styleModes` value to 14; the full showcase style tuple is
+`[22, 16, 14, 5]`. Lighting values remain separately authored.
+
+Native evidence under `TestOutput/skarness/precision-lines-final-reviewed/`
+checks both target IDs, unchanged ball packet bytes/hash against the before
+capture, 51-second resting markers, camera input and resize. Fast validation
+and exact Physics regression passed. The full-reveal native report was
+`ok: true`; the replay provenance gate still rejects the changed shader-set
+hash against the prior approved manifest. No approved reference was changed.
+Final gate logs and timings use the `TestOutput/precision-` prefix.
+
+Replay/reset and SMAA follow-up: branches `feature/split-future-09-replay-reset`
+and `feature/split-future-10-smaa`. Use `tools/launch_split_future.bat`; the old
+bare `--scene` command intentionally disabled replay by startup policy. The
+launcher now requests interactive playback and recording. Physics reset clears
+live sleep flags before restoring authored sleeper descriptors. Split Future's
+ball stores initial motion in `ballState`, so R restores its velocity and spin.
+The pause badge now says "Pause lock off" when the lock is off. Scene mode runs
+continuously; Inspect intentionally waits for Space (F returns to Scene).
+
+SMAA 1x High uses the upstream MIT shader and lookup tables, pinned under
+`ThirdPtySource/SMAA`. Style 14 alone adds color, edge and blend-weight targets
+and three graph passes after tone mapping, before UI. Other styles keep their
+existing graph. `SKULLBONEZ_SMAA=off` is a cold diagnostic A/B override. All 54
+shader stages are baked and all 16 gameplay shader programs are warmed.
+
+Focused evidence: `TestOutput/skarness/split-replay-smaa-final/` proves both
+settled bodies wake on R and fall during natural playback; replay seeks from
+live to start and back. `TestOutput/skarness/smaa-acceptance/` verifies the pass
+order, resize and off/on edge comparison: interior coating mean difference is
+zero. `TestOutput/skarness/split-future-smaa-isolation/` preserves zero world-pixel
+RMS for both prior control scenes and passes dragging, firing and reset.
+Fast validation passes 1,094 tests; graphics stress and UI stress pass.
+The DX12 renderer gate passes with zero errors and unchanged references.
+The reset commit passes the deterministic Physics worker matrix. Final focused
+replay/seek assertions and screenshots are under
+`TestOutput/skarness/split-replay-final-reviewed/`.
+
+Broad replay fidelity is not green: native scripted assertions passed, but the
+immutable provenance check rejects the changed shader-set SHA256. No approved
+manifest or golden was updated. See `TestOutput/smaa-replay-fidelity.log`.
+The broad UI suite passes causal playback, viewport routing, velocity editing,
+divergence, reveal, 240 paths/3,000 ghosts and scrubber auto-hide, then stops at
+`header_autohide`: Solver Lab rejects an archived comparison asset identity.
+See `TestOutput/smaa-ui.log`; the comparison archive was not changed.
+
+
+
+Added the isolated `split_future` scene with PBR objects, warm/cool procedural
+environment lighting, coating detail and a rounded cube, wet reflective ground,
+and an authored camera with restrained bloom. The follow-up enables Physics,
+drops both dynamic objects with initial motion, and removes fixed decorative
+traces so they cannot obstruct play. Existing scenes and
+engine settings are unchanged; the new style values opt into the rendering paths.
+
+Five stacked branches preserve the requested parts: `feature/split-future-01-pbr`,
+`feature/split-future-02-environment`, `feature/split-future-03-surfaces`,
+`feature/split-future-04-wet-ground`, and `feature/split-future-05-finish`.
+The combined review branch is `feature/split-future`. Follow-up branches
+`feature/split-future-06-smooth-edges` and `feature/split-future-07-interactive`
+separate the derivative-filtered panel edges from the playable scene changes.
+Scene notes and controls are in `SkullbonezData/scenes/split_future.md`.
+
+Follow-up native evidence: `TestOutput/skarness/split-future-interactive/`.
+The test binds IDs to falling, rebound, terrain support, selection, a real
+pointer drag in Manipulator, and a projectile fired through N/M/left click.
+Reset restores authored poses while retaining launched objects; switching to
+another scene and back restores the two-object scene. Prior rendering controls
+still compare with zero world-pixel RMS. Follow-up gate logs are under
+`TestOutput/split-future-fix/`; renderer regression passes with zero DX12 errors.
+Physics solver, interaction routing and previous scene data are unchanged.
+
+Validation: all 48 shader stages bake; Automation/Profile builds pass; fast
+validation passes 1,094 tests / 3,821,291 assertions (one existing skip).
+DX12 regression passes with zero errors and unchanged references; the bounded
+one-minute graphics stress run passes. Native `tools/validate_split_future.py`
+checks reset, both hero identities and a ten-second run. Ordinary and cinematic
+control scenes have identical world pixels after a round trip (RMS 0.0 each).
+Evidence: `TestOutput/skarness/split-future-final/` and `TestOutput/split-future/`.
+No golden updates, PR creation or merges were performed for this scene.
+
+
+## Black-hole scene - 2026-09-17
+
+Added `space_black_hole_300.scene.json`: 300 glowing matter balls in six curved
+arms, a fixed invisible 60,000-mass core, orange gravity grid and snapping enabled
+in the saved level. Playback is unlimited. It uses Newtonian attraction and a
+small solid core; particles collect around it rather than being deleted.
+
+Fully transparent materials suppress raster/shadow submission while retaining
+physical identity. Invisible sources still contribute to the gravity surface,
+and remain excluded from ball snapping. No Physics store or allocation changes.
+
+Native evidence proves all 300 identities accelerate inward and move closer,
+301 field sources / 300 snapped balls, a stationary invisible core and uninterrupted
+playback. Screenshots were inspected before and after infall. Evidence:
+`TestOutput/skarness/black-hole-final/`; rerun with `tools/validate_black_hole.py`.
+Fast validation passes 1,093 tests / 3,811,560 assertions (one existing skip).
+DX12 passes with zero errors and unchanged references; Automation/Profile/Debug
+builds pass, followed by an unchanged Profile build without compilation/linking.
+Logs: `TestOutput/black-hole-{build,fast,dx12,profile-noop}.log`.
+This follow-up remains on PR #174; neither stacked PR is to be merged by the agent.
+
+## Space gravity field - 2026-09-17
+
+Follow-up: Tools > Options now has **Snap balls to field**, off by default and
+saved as `debug.gravityField.snapBalls`. It projects sphere bottoms onto the
+sampled surface each rendered frame after replay substitution, preserving
+physical positions, velocities, endpoint history and the field's gravity inputs.
+Grid coverage includes escaped balls deterministically, so reverse scrubs restore
+the same surface. Boxes and hidden instances are not snapped. Hiding grid lines
+does not disable the independent snap option.
+
+The native 300-ball test checks snapping, height shifts, off/on restoration,
+history/prediction repeatability and save/reset/fresh-process reload. It exposed
+an existing defaults-save lifetime defect: ordered JSON child references could
+be invalidated by sibling insertion. Edited sections now own their values until
+publication. No archived input or baseline was changed for this fix.
+
+Follow-up validation: 1,093 tests / 3,811,030 assertions pass (one existing skip),
+compiler/design/allocation/dependency preflight passes, and DX12 passes with zero
+validation errors. Logs: `TestOutput/gravity-snap-*.log`; native evidence:
+`TestOutput/skarness/gravity-snap-final/`. PR #174 remains open and unmerged.
+
+Space scenes now show a default-on, depth-tested gravity grid. Tools > Options
+provides height and opacity sliders plus Blue, Orange and Grey buttons. Level
+saving persists all three settings under `debug.gravityField`. The grid reads
+body identities and the already-presented matrices, so recorded history and
+prediction scrubbing move the wells with the visible bodies.
+
+Fixed renderer storage is about 386 KiB and does not grow with the prediction
+horizon. This is an illustrative gravitational-potential surface, with a fixed
+scene footprint and smoothly bounded well depth. It does not change Physics.
+
+The 300-ball native acceptance checks and all 1,092 CPU tests pass. The broad UI
+gate reaches an existing Solver Lab archive/current-assets mismatch at
+header_autohide; archived recordings are unchanged. See
+[the field report](Reports/gravity-field-rendering-2026-09-17.md) for final graphics,
+policy and build evidence. This feature is on a separate branch above hull PR
+#173; neither PR is to be merged by the agent. Hull CH7 remains pending below.
+
+## Convex-hull implementation — 2026-09-17
+
+Production implementation and all 36 permanent hull scenes are complete. The
+matrix includes three-body, five-high and mixed stacks on varying terrain.
+Exact CCD, material/load friction, integrated full inertia, geometric contact
+persistence and support-area sleep are implemented. All 55 hulls are v3.
+Three-body hull stacks settle on flat/shallow/ridges; five-high box hulls hold on
+flat/steps. Tall sloped, elongated and mixed stacks remain measured solver-wide
+follow-up under the still-parked contact-stack plan. Sleeping collapse is rejected.
+
+Final two-process ragdoll state/events and replay bytes are exact. The mixed hull
+stack is exact across 0/1/4 workers and a repeated process. Independent production
+and harness reviews are clear. Full CPU tests/Debug coverage, deep Physics,
+immutable replay fidelity, DX12, allocation/dependency/source-design and staged
+Physics checks pass. The 1,090-test Profile suite passes 3,747,034 assertions.
+
+CH0-CH6 are complete (7/8; portfolio 145/152). CH7 remains open for owner
+visual/cost review. Required terminal lanes pass after harness repairs and fresh
+current-build UI captures: editor 40, four-view 23 and causal-view 45 checks.
+The shipped Solver Lab archive still pins its original assets and is unchanged;
+fresh UI fixtures do not alter its recordings or any golden baseline. Paired
+performance results and the failed informational frame-spike diagnostic are
+recorded in [the owning plan](Plans/TODO/convex-hull-collision-response-and-sleep.md).
+Tall sloped/mixed/elongated stacks remain the separate owner-parked solver task.
+
+Publish the complete implementation as a review PR on the named branch; do not
+merge it or claim whole-plan completion. MASTER retains the plan for the unmet
+owner visual/cost acceptance. Next binding task is CH7;
+PHYSICS_AB remains queued at 0/6.
+Default WORK_LEDGER belongs to another task and isolated accounting lacks verified
+gpt-6-astra pricing; no counters or prices were fabricated.
 
 ## Causal detail and orthographic panning - 2026-09-16
 
@@ -2104,11 +2444,12 @@ passed on FP5. Fresh runs will be dispatched after the FP6 push.
 
 ## Current State
 
-Current objective: FP8/FP9 are committed and the requested sleep investigation
-is complete; normal push awaits explicit remote approval.
-Plan progress: RAGDOLL_PHYSICS 10/10 closed; UNIFIED_UI 8/8 closed; portfolio 138/144.
-Next binding task: resolve the pending push approval and hand off the sleep
-results. PHYSICS_AB AB1-AB6 remains queued at 0/6 outside this goal.
+Current objective: complete the owner-approved unmerged mega PR #175 on
+nightrunner-17th-SEP-26 with Catto, PR #174, Demo grass and the Physics dock.
+Plan progress: INTERACTIVE_GRASS 7/7 and PHYSICS_WINDOW 8/8 complete; live portfolio 145/152 after deleting completed checklists.
+Next binding task: push local closure and obtain green final-head CI for PR #175, then mark it ready without merging. CONVEX_HULL CH7 and PHYSICS_AB remain outside
+this user-requested execution queue. Feature commits, normal pushes and this PR
+are authorized; do not merge it.
 The live ledger limitation and final evidence are recorded at the top of this file.
 
 The owner activated `SKARNESS` SK0-SK6 and directed the Night Runner to finish
@@ -4120,3 +4461,49 @@ active. Remaining work includes the unchanged solar trip regression, narrow Lab
 event scroll and seek geometry findings, final visual inspection and mapped gates.
 See the owning plan's integrated-review checkpoint for exact artifacts and the
 unchanged live-ledger limitation. No UI completion commit or push exists yet.
+
+
+Hull task checkpoint (2026-09-17): continue the active eight-phase plan on
+nightrunner-16th-SEP-26, unattended; create a review PR and do not merge. Five-high
+and mixed hull stacks exist on varying terrain. Geometric cache/support changes
+repair the flat mixed tower and preserve both exact 2,400-tick ragdoll repeats.
+Tensor body/runtime/codec plumbing now builds; asset v3 rebake, tensor durability
+checks, remaining support/CCD checks and terminal gates are still pending. See
+the active hull plan's latest checkpoint. No hull commit or push yet; no phase
+accepted. Earlier material-cache diagnosis in the implementation-evidence note
+is superseded by the plan checkpoint.
+
+
+Hull continuation: exact v3 assets, tensor restore/clone/codec and bounded patch
+refresh are implemented. Native tensor and patch stacks expose remaining mixed
+and elongated tower collapse; box-hull towers hold. Both tensor ragdoll repeats
+remain byte exact. Latest active-plan checkpoint names all passing tests and
+supersedes earlier approximate-inertia tower stability. Finish corrected CCD
+wake check, full matrix and CH6 assessment, then terminal gates and independent
+review. User authorized a review PR, never merge it. No phase is accepted yet.
+
+## Physics implementation checkpoint - 2026-09-18 (body experiments)
+
+Automation builds pass with zero warnings. Native actions-08 passes exact
+held-click single ticks, explicit isolated defaults save/startup restore, ten
+independent overlay toggles, scaled mass/inertia, undo/redo, authored save,
+scene-schema preservation, and held one-shot point impulse consumption.
+The Body panel and native collider/impulse screenshots have been inspected.
+The defaults writer no longer downgrades stable-ID scenes to schema version 1.
+
+Physics owns bounded world/local point-impulse conversion and rejects fixed,
+stale, nonfinite, oversized, zero, and already-pending requests. Local points
+are COM-relative; world points are absolute. A transient yellow lever/cyan
+impulse preview is distinct from contact diagnostics. Numerical/body edits join
+prediction and start a fresh recording before mutation. Full effective settings
+use solver snapshot v10 while legacy default hashes retain v8/v9 behavior.
+Mass/impulse tests: 2 cases, 149 assertions passed (physics-point-tests-2.log).
+
+Simulation now has initially collapsed Advanced and Tornado groups, time scale,
+per-section scroll retention and release-only numerical edits. Stats expose
+actual sweep budget, early stop and bounded geometry drop/cap counts. Native
+Canvas/Editor dock-03 is running; terminal validation/review remain pending.
+The plans are not accepted complete yet. Remaining work includes the full
+historical/settings/prediction and overlay matrix, final grass cost/root checks,
+compact-window/input/persistence acceptance, source design/formatting, terminal
+review and all required gates, evidenced commits, and the unmerged green-CI PR.

@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name building_brick_unit
 source_hash 0xc69c15db1bbaa17d
 
@@ -28,6 +28,7 @@ default_mass 2.555712
 bounding_radius 1.65423698
 inertia_half_extents 1.45 0.72 0.34
 unit_inertia 0.211333333 0.739366667 0.873633333
+unit_inertia_products 0 -2.44354783e-18 1.22177392e-18
 projected_surface_area 2.37573333
 
 # Baked centered vertices.

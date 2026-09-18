@@ -332,7 +332,7 @@ bool PreflightMemory( const Json& manifest, const fs::path& directory, const std
         }
         const int version = metadata["version"].get<int>();
         const fs::path relative = metadata["path"].get<std::string>();
-        if ( version < 3 || version > 5 || relative.has_parent_path() || relative.is_absolute() )
+        if ( version < 3 || version > 6 || relative.has_parent_path() || relative.is_absolute() )
         {
             return false;
         }

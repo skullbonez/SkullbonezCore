@@ -26,6 +26,7 @@ Related:
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/Input/InputController.Bindings.h"
+#include "../SkullbonezSource/Runtime/Render/RenderPresentationSettings.h"
 
 using SkullbonezCore::Runtime::RuntimeInputAction;
 using SkullbonezCore::Runtime::RuntimeInputBindingContext;
@@ -70,7 +71,7 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     const RuntimeInputKeyBindingView table = TakeInputKeyboardBindings();
 
     REQUIRE( table.bindings != nullptr );
-    CHECK( table.count == 50u );
+    CHECK( table.count == 51u );
     CheckExactBinding( VK_OEM_3, keyboard, RuntimeInputAction::ToggleEditor );
     CheckExactBinding( VK_TAB, keyboard, RuntimeInputAction::CycleCameraMode );
     CheckExactBinding( 'F', keyboard, RuntimeInputAction::ToggleFlyCamera );
@@ -79,6 +80,7 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     CheckExactBinding( VK_F9, keyboard, RuntimeInputAction::ReloadShadersFromSource );
     CheckExactBinding( VK_F5, keyboard, RuntimeInputAction::TogglePerformanceHistogram );
     CheckExactBinding( VK_F6, keyboard, RuntimeInputAction::ToggleMemoryOverlay );
+    CheckExactBinding( VK_F7, keyboard, RuntimeInputAction::ToggleSplitFutureLook );
     CheckExactBinding( VK_F10, keyboard, RuntimeInputAction::RerollLookLab );
     CheckExactBinding( VK_F11, keyboard, RuntimeInputAction::SaveLookLabBundle );
     CheckExactBinding( VK_F8, keyboard, RuntimeInputAction::ToggleInteractionRecording );
@@ -106,21 +108,13 @@ TEST_CASE( "Runtime input bindings: contextual shortcuts stay on their owning co
     CheckExactBinding( VK_RIGHT, comparison, RuntimeInputAction::ComparisonStepForward );
     CheckExactBinding( VK_SPACE, comparison, RuntimeInputAction::ComparisonPlayPause );
     CheckExactBinding( 'M', keyboard | RuntimeInputBindingContext::Launcher, RuntimeInputAction::CycleLauncherFireMode );
-    CheckExactBinding( VK_F1, keyboard | RuntimeInputBindingContext::AttachedCamera,
-                       RuntimeInputAction::CycleAttachedCameraSubmode );
-    CheckExactBinding( VK_RETURN, keyboard | RuntimeInputBindingContext::AttachedCamera,
-                       RuntimeInputAction::ToggleAttachedCameraPin );
+    CheckExactBinding( VK_F1, keyboard | RuntimeInputBindingContext::AttachedCamera, RuntimeInputAction::CycleAttachedCameraSubmode );
+    CheckExactBinding( VK_RETURN, keyboard | RuntimeInputBindingContext::AttachedCamera, RuntimeInputAction::ToggleAttachedCameraPin );
     CheckExactBinding( 'B', keyboard | RuntimeInputBindingContext::Director, RuntimeInputAction::ToggleDirectorGrab );
-    CheckExactBinding( 'J', keyboard | RuntimeInputBindingContext::DirectorAuthoring,
-                       RuntimeInputAction::SetDirectorPhasePose );
-    CheckExactBinding( 'K', keyboard | RuntimeInputBindingContext::DirectorAuthoring,
-                       RuntimeInputAction::StepDirectorPhase );
-    CheckExactBinding( 'L', keyboard | RuntimeInputBindingContext::DirectorAuthoring,
-                       RuntimeInputAction::SaveDirectorShotList );
-    CheckExactBinding( VK_RETURN,
-                       keyboard | RuntimeInputBindingContext::Launcher |
-                           RuntimeInputBindingContext::ReplayRestoreNotConsumed | RuntimeInputBindingContext::DebugOnly,
-                       RuntimeInputAction::WriteLauncherReproSnapshot );
+    CheckExactBinding( 'J', keyboard | RuntimeInputBindingContext::DirectorAuthoring, RuntimeInputAction::SetDirectorPhasePose );
+    CheckExactBinding( 'K', keyboard | RuntimeInputBindingContext::DirectorAuthoring, RuntimeInputAction::StepDirectorPhase );
+    CheckExactBinding( 'L', keyboard | RuntimeInputBindingContext::DirectorAuthoring, RuntimeInputAction::SaveDirectorShotList );
+    CheckExactBinding( VK_RETURN, keyboard | RuntimeInputBindingContext::Launcher | RuntimeInputBindingContext::ReplayRestoreNotConsumed | RuntimeInputBindingContext::DebugOnly, RuntimeInputAction::WriteLauncherReproSnapshot );
 }
 
 TEST_CASE( "Runtime input bindings: late and capture shortcuts are explicitly grouped" )
@@ -128,8 +122,7 @@ TEST_CASE( "Runtime input bindings: late and capture shortcuts are explicitly gr
     const RuntimeInputContextMask afterUI = Context( RuntimeInputBindingContext::AfterUIUpdate );
     const RuntimeInputContextMask capture = Context( RuntimeInputBindingContext::Capture );
 
-    CheckExactBinding( VK_ESCAPE, afterUI | RuntimeInputBindingContext::UINotInteracted,
-                       RuntimeInputAction::DismissOrExitUI );
+    CheckExactBinding( VK_ESCAPE, afterUI | RuntimeInputBindingContext::UINotInteracted, RuntimeInputAction::DismissOrExitUI );
     CheckExactBinding( 'R', afterUI, RuntimeInputAction::ResetScene );
     CheckExactBinding( VK_BACK, afterUI | RuntimeInputBindingContext::Scene, RuntimeInputAction::ResetSceneFromBackspace );
     CheckExactBinding( VK_F2, capture, RuntimeInputAction::SaveSceneSnapshot );
@@ -150,4 +143,46 @@ TEST_CASE( "Runtime input bindings: key and context pairs are unique" )
             CHECK( !( left.virtualKey == right.virtualKey && left.contexts == right.contexts ) );
         }
     }
+}
+
+TEST_CASE( "Split Future look override: round trips preserve authored scenes and survive scene changes" )
+{
+    using SkullbonezCore::Runtime::SplitFutureLookOverride;
+    SkullbonezCore::Core::CinematicRenderConfig authored;
+    authored.objectStyle = 3;
+    authored.skyMode = 7;
+    authored.exposure = 0.42f;
+    SplitFutureLookOverride look;
+    CHECK_FALSE( look.Resolve( authored, false ).enabled );
+    look.Toggle( false );
+    const auto on = look.Resolve( authored, false );
+    CHECK( on.enabled );
+    CHECK( on.skyMode == 22 );
+    CHECK( on.terrainMode == 16 );
+    CHECK( on.objectStyle == 14 );
+    CHECK( on.waterMode == 5 );
+    CHECK( on.exposure == authored.exposure );
+    CHECK( authored.objectStyle == 3 );
+    // A different scene while enabled uses the same override, with its own light.
+    auto otherScene = authored;
+    otherScene.objectStyle = 6;
+    CHECK( look.Resolve( otherScene, true ).objectStyle == 14 );
+    look.Toggle( false );
+    CHECK_FALSE( look.Resolve( authored, false ).enabled );
+    CHECK( look.Resolve( authored, false ).skyMode == 7 );
+    CHECK( look.Resolve( otherScene, true ).enabled );
+    CHECK( look.Resolve( otherScene, true ).objectStyle == 6 );
+}
+
+TEST_CASE( "Split Future look override: authored showcase toggles off on its first press" )
+{
+    SkullbonezCore::Core::CinematicRenderConfig authored;
+    authored.objectStyle = 14;
+    SkullbonezCore::Runtime::SplitFutureLookOverride look;
+    CHECK( look.Resolve( authored, true ).enabled );
+    look.Toggle( true );
+    CHECK_FALSE( look.Resolve( authored, true ).enabled );
+    look.Toggle( true );
+    CHECK( look.Resolve( authored, true ).enabled );
+    CHECK( authored.objectStyle == 14 );
 }

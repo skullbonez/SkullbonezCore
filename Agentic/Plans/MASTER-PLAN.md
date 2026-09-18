@@ -1,9 +1,24 @@
 # MASTER PLAN
 
-Date: 2026-09-13
-Status: 138/144 tasks complete; BASELINE_REPAIR complete at 1/1; PHYSICS_SCALE complete at 7/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
+Date: 2026-09-18
+Status: 145/152 live tasks complete; INTERACTIVE_GRASS complete at 7/7; PHYSICS_WINDOW complete at 8/8; CONVEX_HULL active at 7/8; BASELINE_REPAIR complete at 1/1; PHYSICS_SCALE complete at 7/7; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
 
 ## Owner Direction
+
+- On 2026-09-17 the owner authorized one combined Night Runner PR containing
+  the current Split Future workspace (including PRs #173/#174), all Catto
+  work, Interactive Grass and Physics Tool Window. Implement grass first,
+  enabled only in the demo scene, then the complete current-solver window.
+  Both WNF plans are reactivated; selectable solver algorithms stay parked.
+  Validate the integrated result and obtain green CI; do not merge the PR.
+
+- On 2026-09-16 the owner activated CONVEX_HULL after PR #172 and confirmed
+  implementation plus all permanent hull scenes with varying terrain. Start from
+  pushed main 060cd3acc on `nightrunner-16th-SEP-26`, ahead of PHYSICS_AB.
+  Preserve exact unchanged ragdoll body/event/joint/sleep output before Physics
+  changes, plus prediction/replay and performance. The independent terrain-response
+  part of CH2 may follow CH0 before CH1; all complete phase criteria remain.
+  Feature-branch commits/pushes and a review PR are authorized; do not merge it.
 
 - On 2026-09-13 the owner approved the six exact baseline replacements in
   `TestOutput/gate-repair-2026-09-13/approval-manifest.json` and requested a
@@ -525,10 +540,17 @@ machine-local performance drift; it changes no runtime source or threshold.
 Accepting BR0 takes 138/145 to 139/145; deleting the completed one-task checklist
 returns the live inventory to 138/144. PHYSICS_AB remains queued at 0/6.
 
+## Mega PR local closure - 2026-09-18
+
+INTERACTIVE_GRASS IG0-IG6 and PHYSICS_WINDOW PW0-PW7 are complete with independent review and cumulative mapped local gates. Demo-only grass, replay continuity, the four-section Physics dock and its live edits/diagnostics are accepted. The final native UI cases, performance and replay artifact/fidelity gates pass. Core numerical Physics remains byte-exact. The explained performance/replay reference transitions retain old/new producers and negative controls. Evidence is in `Artifacts/physics-tool-window/PW7/terminal-validation.md`.
+
+The one terminal umbrella failure and its focused recovery are preserved; no failed invocation is relabeled successful. Final-head hosted CI is still required for delivery of PR #175. The overall goal stays active and the PR stays unmerged. Completing the two remaining phases moves 158/167 to 160/167; removing the two completed checklists subtracts 15/15 and leaves 145/152.
+
 ## Active Plans
 
 | Plan | Code | Total | Complete | Next task | File |
 |---|---|---|---|---|---|
+| Convex Hull Collision Response And Sleep Quality | `CONVEX_HULL` | 8 | 7 | CH7: owner visual/cost review | `TODO/convex-hull-collision-response-and-sleep.md` |
 | Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
@@ -546,16 +568,29 @@ an owner decision, not a run decision.
 
 | Plan | Status | Phases | File |
 |---|---|---|---|
+| Terrain Driving Vehicle | Owner-parked 2026-09-18 | 0/8 | `WNF/terrain-driving-vehicle.md` |
+| Interactive Grass For Legacy Rendering | Complete 2026-09-18 | 7/7 | Git history; `Artifacts/physics-tool-window/PW7/terminal-validation.md` |
+| Physics Tool Window Beside Causal | Complete 2026-09-18 | 8/8 | Git history; `Artifacts/physics-tool-window/PW7/terminal-validation.md` |
 | Skarness Command And State Harness | Complete 2026-09-05 | 7/7 | Git history |
 | Governance Simplification And Scar Removal | Complete 2026-08-28 | 5/5 | Git history |
 | Recorded Interaction Playback Cursor | Complete 2026-08-28 | 4/4 | `DONE/recorded-interaction-playback-cursor.md` |
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
 | Deterministic Trigonometry Adoption | Owner-parked 2026-08-18 | 0/8 | `WNF/deterministic-trigonometry-adoption.md` |
 | Persistent Simulation-Island Sleep | Owner-accepted scoped implementation 2026-08-31 | Archived scope | `WNF/persistent-simulation-island-sleep.md` |
-| Convex Hull Collision Response And Sleep Quality | Owner-parked 2026-08-30 | 0/8 | `WNF/convex-hull-collision-response-and-sleep.md` |
 | Debug Panel Reorganization And Sleep Policy Controls | Owner-parked 2026-08-30 | 0/6 | `WNF/debug-panel-reorganization-and-sleep-policy.md` |
 | Move Semantics And Resource Ownership Hardening | Owner-parked 2026-08-30 | 0/6 | `WNF/move-semantics-and-resource-ownership-hardening.md` |
 | Reversible GPU Fracture Replay | Backlog; blocked | 0/7 | `WNF/fracture-replay-feature.md` |
+| Selectable Solvers 1: Skullbonez Foundation | Owner-parked 2026-09-17 | 0/5 | `WNF/selectable-solvers-01-foundation.md` |
+| Selectable Solvers 2: Eight Solver Implementations | Owner-parked 2026-09-17 | 0/14 | `WNF/selectable-solvers-02-tgs.md` |
+| Selectable Solvers 3: Product Integration And Acceptance | Owner-parked 2026-09-17 | 0/6 | `WNF/selectable-solvers-03-integration.md` |
+
+Owner scope revision, 2026-09-17: the three selectable-solver plans preserve
+the custom **Skullbonez** solver and add eight separate implementations: PGS,
+PGS NGS, PGS NGS Block, PGS Soft, TGS Sticky, TGS Soft, TGS NGS and XPBD.
+Skullbonez stays default; new PGS is not an alias for the custom implementation.
+The parked sequence now contains 25 phases (5 + 14 + 6), all unchecked. This
+documentation revision does not activate any plan or alter active phase totals.
+The previous two-algorithm estimates are withdrawn pending activation-time review.
 
 One detail in that table is recorded:
 
@@ -565,6 +600,17 @@ One detail in that table is recorded:
   disagree with the directory. A review decision should settle which it is.
 
 ## Binding Order
+
+Owner override 2026-09-17: integrate the existing branches/workspace and Catto
+changes on `nightrunner-17th-SEP-26`, complete INTERACTIVE_GRASS IG0-IG6, then
+PHYSICS_WINDOW PW0-PW7 and the combined PR gates. Portfolio at activation was 145/167.
+Local feature closure is complete on 2026-09-18. The binding delivery task is to push the closure commit, obtain green checks on that exact PR head and mark PR #175 ready without merging. CONVEX_HULL CH7 and PHYSICS_AB are outside this execution request. Earlier queue notes below are historical and do not override this request.
+
+CONVEX_HULL CH7 remains: obtain owner visual/cost review. Required mechanical
+lanes pass after harness repairs and fresh current-build UI captures. CH0-CH6 are complete. Retain the owning TODO plan for
+this unmet aggregate acceptance; do not mark the whole plan complete. Current portfolio
+is 145/152; CONVEX_HULL 7/8, PHYSICS_AB 0/6. This supersedes historical queue
+notes below for task selection.
 
 `BASELINE_REPAIR` BR0 is complete at 1/1 with all six owner-approved
 references applied and mapped gates passing. Its checklist is deleted; the
@@ -613,6 +659,9 @@ selection/transport commands, but it must not rebuild evidence, add a second
 selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
+
+Current live total: **145/152**, including CONVEX_HULL 7/8 and PHYSICS_AB 0/6. INTERACTIVE_GRASS 7/7 and PHYSICS_WINDOW 8/8 are complete and removed from the live inventory. Terminal acceptance moved 158/167 to 160/167; removing their 15 completed phases produced 145/152.
+Activation adds eight incomplete phases to the prior 138/144 inventory.
 
 The prior portfolio remains 143/143 complete and all 126 bug-ledger rows are
 fixed. Skarness is complete at 7/7 phases.

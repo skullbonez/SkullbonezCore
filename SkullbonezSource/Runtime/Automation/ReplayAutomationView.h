@@ -23,6 +23,7 @@ Related:
 #include "../Planning/ReplayPlanningRuntime.h"
 #include "../Prediction/ReplayPrediction.h"
 #include "../Replay/ReplayCoordination.h"
+#include <bitset>
 #include <string_view>
 
 namespace SkullbonezCore::Runtime
@@ -71,6 +72,9 @@ struct ReplayAutomationView
     uint64_t divergenceBlueSourceHash = 0;
     std::span<const RunReplayPredictionFrame> divergenceBlueFrames;
     std::span<const ReplayPredictionGhostDrawRequest> divergenceGhosts;
+    std::bitset<REPLAY_CAUSE_TREE_ROW_CAPACITY> causeVisibleRows;
+    std::array<UI::UIRect, 3> causeFilterBounds = {};
+    int causeVisibleRowCount = 0;
 };
 #endif
 

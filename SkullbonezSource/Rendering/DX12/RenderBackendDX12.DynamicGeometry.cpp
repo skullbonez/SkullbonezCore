@@ -71,8 +71,12 @@ std::size_t TransientTriangleStyleIndex( TransientTriangleStyle style )
 {
     switch ( style )
     {
+    case TransientTriangleStyle::SurfaceBlades:
+        return 4;
+    case TransientTriangleStyle::PrecisionRibbonDepthHint:
     case TransientTriangleStyle::InstancedRibbonDepthHint:
         return 3;
+    case TransientTriangleStyle::PrecisionRibbon:
     case TransientTriangleStyle::InstancedRibbon:
         return 2;
     case TransientTriangleStyle::SoftAdditiveRibbon:
@@ -87,7 +91,11 @@ const char* TransientTriangleShaderBaseName( TransientTriangleStyle style )
 {
     switch ( style )
     {
+    case TransientTriangleStyle::SurfaceBlades:
+        return "shaders/surface_blades";
+    case TransientTriangleStyle::PrecisionRibbonDepthHint:
     case TransientTriangleStyle::InstancedRibbonDepthHint:
+    case TransientTriangleStyle::PrecisionRibbon:
     case TransientTriangleStyle::InstancedRibbon:
         return "shaders/retained_ribbon";
     case TransientTriangleStyle::SoftAdditiveRibbon:
@@ -102,8 +110,12 @@ const char* TransientTriangleTraceLabel( TransientTriangleStyle style )
 {
     switch ( style )
     {
+    case TransientTriangleStyle::SurfaceBlades:
+        return "SurfaceBlades";
+    case TransientTriangleStyle::PrecisionRibbonDepthHint:
     case TransientTriangleStyle::InstancedRibbonDepthHint:
         return "InstancedRibbonDepthHint";
+    case TransientTriangleStyle::PrecisionRibbon:
     case TransientTriangleStyle::InstancedRibbon:
         return "InstancedRibbon";
     case TransientTriangleStyle::SoftAdditiveRibbon:
@@ -116,7 +128,8 @@ const char* TransientTriangleTraceLabel( TransientTriangleStyle style )
 
 bool IsInstancedRibbonStyle( TransientTriangleStyle style )
 {
-    return style == TransientTriangleStyle::InstancedRibbon || style == TransientTriangleStyle::InstancedRibbonDepthHint;
+    return style == TransientTriangleStyle::InstancedRibbon || style == TransientTriangleStyle::InstancedRibbonDepthHint || style == TransientTriangleStyle::PrecisionRibbon ||
+           style == TransientTriangleStyle::PrecisionRibbonDepthHint;
 }
 
 bool IsRetainedGeometryCapacitySupported( const RetainedGeometryCapacity& capacity )
@@ -128,8 +141,8 @@ bool IsRetainedGeometryCapacitySupported( const RetainedGeometryCapacity& capaci
 
 bool IsGridLineRasterState( const RasterStateDesc& raster )
 {
-    return !raster.depthTest && !raster.depthWrite && raster.blendEnabled && raster.sourceBlend == BlendFactor::SrcAlpha && raster.destinationBlend == BlendFactor::OneMinusSrcAlpha &&
-           raster.cullMode == CullMode::None && !raster.depthBias.enabled;
+    return !raster.depthWrite && raster.blendEnabled && raster.sourceBlend == BlendFactor::SrcAlpha && raster.destinationBlend == BlendFactor::OneMinusSrcAlpha && raster.cullMode == CullMode::None &&
+           !raster.depthBias.enabled;
 }
 } // namespace
 
@@ -140,7 +153,7 @@ void Dx12GeometryOwner::AdoptGridLineShader( std::unique_ptr<ShaderDX12> shader 
 }
 
 
-bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12PipelineOwner& pipeline, DXGI_FORMAT rtvFormat )
+bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12PipelineOwner& pipeline, DXGI_FORMAT rtvFormat, bool depthTest )
 {
     // Runtime allocation policy: PSO cache misses are legal only during
     // backend/resource warm-up. DrawLinesColored calls this too so an unexpected
@@ -152,7 +165,7 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12Pipeli
 
     for ( size_t i = 0; i < m_gridLinePSOCount; ++i )
     {
-        if ( m_gridLinePSOs[i].format == rtvFormat )
+        if ( m_gridLinePSOs[i].format == rtvFormat && m_gridLinePSOs[i].depthTest == depthTest )
         {
             return true;
         }
@@ -202,13 +215,14 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12Pipeli
     psoDesc.BlendState.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
     psoDesc.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_INV_SRC_ALPHA;
     psoDesc.BlendState.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
-    psoDesc.DepthStencilState.DepthEnable = FALSE;
+    psoDesc.DepthStencilState.DepthEnable = depthTest ? TRUE : FALSE;
+    psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
     psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
     psoDesc.SampleMask = UINT_MAX;
     psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     psoDesc.NumRenderTargets = 1;
     psoDesc.RTVFormats[0] = rtvFormat;
-    psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+    psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
     psoDesc.SampleDesc.Count = 1;
 
     ID3D12PipelineState* gridLinePSO = nullptr;
@@ -241,6 +255,7 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12Pipeli
         SB_FATAL( "RenderBackendDX12", "DX12 grid-line PSO cache exhausted. capacity=%zu format=%u", m_gridLinePSOs.size(), static_cast<unsigned int>( rtvFormat ) );
     }
 
+    m_gridLinePSOs[m_gridLinePSOCount].depthTest = depthTest;
     m_gridLinePSOs[m_gridLinePSOCount].format = rtvFormat;
     m_gridLinePSOs[m_gridLinePSOCount].pso = gridLinePSO;
     ++m_gridLinePSOCount;
@@ -483,9 +498,11 @@ void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices,
                                           Dx12PipelineOwner& pipeline,
                                           Dx12DrawGate& drawGate,
                                           Dx12Diagnostics& diagnostics,
-                                          const RasterStateDesc& rasterState )
+                                          const RasterStateDesc& rasterState,
+                                          float opacity,
+                                          LineAppearance appearance )
 {
-    // Invariant: edge coverage requires the declared alpha-blended, depth-free,
+    // Invariant: edge coverage requires the declared alpha-blended, read-only depth,
     // two-sided recipe. Each pair of endpoints is one complete line instance.
     if ( packedVertices.empty() || packedVertices.size() % 12 != 0 || !IsGridLineRasterState( rasterState ) )
     {
@@ -498,7 +515,7 @@ void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices,
     }
 
     memcpy( uploadPointer, packedVertices.data(), packedVertices.size_bytes() );
-    DrawLinesColoredFromBuffer( packedVertices.size(), viewProjection, vbAddress, commandList, pipeline, drawGate, diagnostics, rasterState );
+    DrawLinesColoredFromBuffer( packedVertices.size(), viewProjection, vbAddress, commandList, pipeline, drawGate, diagnostics, rasterState, opacity, appearance );
 }
 
 
@@ -509,7 +526,9 @@ void Dx12GeometryOwner::DrawLinesColoredFromBuffer( std::size_t packedFloatCount
                                                     Dx12PipelineOwner& pipeline,
                                                     Dx12DrawGate& drawGate,
                                                     Dx12Diagnostics& diagnostics,
-                                                    const RasterStateDesc& rasterState )
+                                                    const RasterStateDesc& rasterState,
+                                                    float opacity,
+                                                    LineAppearance appearance )
 {
     if ( packedFloatCount == 0u || packedFloatCount % 12u != 0u || vertexAddress == 0 || !IsGridLineRasterState( rasterState ) )
     {
@@ -520,7 +539,7 @@ void Dx12GeometryOwner::DrawLinesColoredFromBuffer( std::size_t packedFloatCount
 
     for ( size_t i = 0; i < m_gridLinePSOCount; ++i )
     {
-        if ( m_gridLinePSOs[i].format == pipeline.RenderTargetFormat() )
+        if ( m_gridLinePSOs[i].format == pipeline.RenderTargetFormat() && m_gridLinePSOs[i].depthTest == rasterState.depthTest )
         {
             gridLinePSO = m_gridLinePSOs[i].pso;
             break;
@@ -549,7 +568,7 @@ void Dx12GeometryOwner::DrawLinesColoredFromBuffer( std::size_t packedFloatCount
     pipeline.InvalidateCommandState(); // Force PSO rebind on next normal draw.
 
     shader->SetMat4( "uViewProj", viewProjection );
-    shader->SetVec4( "uViewportPixels", pipeline.CurrentViewport().Width, pipeline.CurrentViewport().Height, 0, 0 );
+    shader->SetVec4( "uViewportPixels", pipeline.CurrentViewport().Width, pipeline.CurrentViewport().Height, opacity, static_cast<float>( appearance ) );
     D3D12_GPU_VIRTUAL_ADDRESS cbAddr = shader->FlushCB();
 
     if ( !drawGate.CanRecord() )
@@ -656,8 +675,9 @@ bool Dx12GeometryOwner::PrepareColoredTriangleShader( const Math::Transformation
         // normalized-device-coordinate offsets.
         shader->SetVec4( "uViewportPixels", static_cast<float>( viewportWidth ), static_cast<float>( viewportHeight ), 0.0f, 0.0f );
 
-        const bool depthHint = style == TransientTriangleStyle::InstancedRibbonDepthHint;
-        shader->SetVec4( "uRibbonStyle", depthHint ? 0.16f : 1.0f, depthHint ? 0.70f : 1.0f, 1.0f, 0.0f );
+        const bool depthHint = style == TransientTriangleStyle::InstancedRibbonDepthHint || style == TransientTriangleStyle::PrecisionRibbonDepthHint;
+        const bool precision = style == TransientTriangleStyle::PrecisionRibbon || style == TransientTriangleStyle::PrecisionRibbonDepthHint;
+        shader->SetVec4( "uRibbonStyle", depthHint ? ( precision ? 0.07f : 0.16f ) : 1.0f, depthHint ? 0.70f : 1.0f, 1.0f, precision ? 1.0f : 0.0f );
     }
     return true;
 }
@@ -676,13 +696,16 @@ void Dx12GeometryOwner::SubmitColoredTriangleBuffer( std::size_t packedFloatCoun
     {
         return;
     }
+    const bool surfaceBlades = style == TransientTriangleStyle::SurfaceBlades;
+    const bool extendedRecord = IsInstancedRibbonStyle( style ) || surfaceBlades;
+    const bool instanced = compactRibbonInstances || surfaceBlades;
     DynamicVBDX12 vertexLayout = {};
-    vertexLayout.numAttribs = IsInstancedRibbonStyle( style ) ? 6 : 3;
+    vertexLayout.numAttribs = surfaceBlades ? 9 : extendedRecord ? 6 : 3;
     vertexLayout.attribComponents[0] = 3;
     vertexLayout.attribComponents[1] = 4;
     vertexLayout.attribComponents[2] = 4;
 
-    if ( IsInstancedRibbonStyle( style ) )
+    if ( extendedRecord )
     {
         vertexLayout.attribComponents[3] = 2;
         vertexLayout.attribComponents[4] = 3;
@@ -694,8 +717,15 @@ void Dx12GeometryOwner::SubmitColoredTriangleBuffer( std::size_t packedFloatCoun
         vertexLayout.floatsPerVertex = 11;
     }
 
+    if ( surfaceBlades )
+    {
+        vertexLayout.attribComponents[6] = 4;
+        vertexLayout.attribComponents[7] = 3;
+        vertexLayout.attribComponents[8] = 4;
+        vertexLayout.floatsPerVertex = 30;
+    }
     vertexLayout.stride = vertexLayout.floatsPerVertex * static_cast<int>( sizeof( float ) );
-    vertexLayout.perInstance = compactRibbonInstances;
+    vertexLayout.perInstance = instanced;
 
     if ( packedFloatCount % static_cast<size_t>( vertexLayout.floatsPerVertex ) != 0 )
     {
@@ -703,8 +733,9 @@ void Dx12GeometryOwner::SubmitColoredTriangleBuffer( std::size_t packedFloatCoun
     }
 
     const int recordCount = static_cast<int>( packedFloatCount / vertexLayout.floatsPerVertex );
-    const int vertexCount = compactRibbonInstances ? 6 : recordCount;
-    const int instanceCount = compactRibbonInstances ? recordCount : 1;
+    // Eight rooted crowns each emit four curved leaves, two quads per leaf.
+    const int vertexCount = surfaceBlades ? 8 * 4 * 12 : ( compactRibbonInstances ? 6 : recordCount );
+    const int instanceCount = instanced ? recordCount : 1;
     const UINT64 dataSize = static_cast<UINT64>( packedFloatCount * sizeof( float ) );
 
     if ( !drawGate.PreparePipelineDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout, rasterState ) )
@@ -1115,7 +1146,11 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle, std::span<const
 }
 
 
-void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices, const Math::Transformation::Matrix4& viewProjection, const PassRasterStateBucket& bucket )
+void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices,
+                                          const Math::Transformation::Matrix4& viewProjection,
+                                          const PassRasterStateBucket& bucket,
+                                          float opacity,
+                                          LineAppearance appearance )
 {
     RequireSubmissionEpoch( "DrawLinesColored" );
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
@@ -1136,7 +1171,9 @@ void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices,
                       *m_submissionPipeline,
                       m_resourceFrame->DrawGate(),
                       *m_submissionDiagnostics,
-                      bucket.raster );
+                      bucket.raster,
+                      opacity,
+                      appearance );
 
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
 }
@@ -1149,7 +1186,7 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( std::span<const float> pa
 {
     RequireSubmissionEpoch( "DrawTransientColoredTriangles" );
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
-    const UINT64 floatsPerVertex = IsInstancedRibbonStyle( style ) ? 19u : 11u;
+    const UINT64 floatsPerVertex = style == TransientTriangleStyle::SurfaceBlades ? 30u : IsInstancedRibbonStyle( style ) ? 19u : 11u;
 
     if ( packedVertices.empty() || packedVertices.size() % floatsPerVertex != 0 || !m_resourceFrame->DrawGate().PrepareDraw() )
     {
@@ -1336,8 +1373,9 @@ void Dx12GeometryOwner::DrawRetainedGeometryRanges( std::span<const float> compa
     transientShader->SetMat4( "uViewProj", viewProjection );
     transientShader->SetVec4( "uViewportPixels", m_submissionPipeline->CurrentViewport().Width, m_submissionPipeline->CurrentViewport().Height, 0.0f, 0.0f );
 
-    const bool depthHint = style == TransientTriangleStyle::InstancedRibbonDepthHint;
-    transientShader->SetVec4( "uRibbonStyle", depthHint ? 0.16f : 1.0f, depthHint ? 0.70f : 1.0f, 1.0f, 0.0f );
+    const bool depthHint = style == TransientTriangleStyle::InstancedRibbonDepthHint || style == TransientTriangleStyle::PrecisionRibbonDepthHint;
+    const bool precision = style == TransientTriangleStyle::PrecisionRibbon || style == TransientTriangleStyle::PrecisionRibbonDepthHint;
+    transientShader->SetVec4( "uRibbonStyle", depthHint ? ( precision ? 0.07f : 0.16f ) : 1.0f, depthHint ? 0.70f : 1.0f, 1.0f, precision ? 1.0f : 0.0f );
 
     DynamicVBDX12 vertexLayout = {};
     vertexLayout.numAttribs = 6;
@@ -1379,7 +1417,8 @@ void Dx12GeometryOwner::DrawRetainedLinesColored( std::span<const float> packedV
                                                   RetainedGeometryStreamToken stream,
                                                   bool priorityLane,
                                                   const Math::Transformation::Matrix4& viewProjection,
-                                                  const PassRasterStateBucket& bucket )
+                                                  const PassRasterStateBucket& bucket,
+                                                  LineAppearance appearance )
 {
     RequireSubmissionEpoch( "DrawRetainedLinesColored" );
     const RetainedGeometryCapacity capacity = m_retainedGeometryCapacity;
@@ -1416,7 +1455,9 @@ void Dx12GeometryOwner::DrawRetainedLinesColored( std::span<const float> packedV
                                 *m_submissionPipeline,
                                 m_resourceFrame->DrawGate(),
                                 *m_submissionDiagnostics,
-                                bucket.raster );
+                                bucket.raster,
+                                1.0f,
+                                appearance );
 }
 
 

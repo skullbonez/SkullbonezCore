@@ -114,6 +114,7 @@ MATH_PREFIXES = (
     "GeometricStructures",
     "MathsCommon",
     "Matrix4",
+    "SymmetricMatrix3",
     "OrbitalMechanics",
     "Quaternion",
     "RotationMatrix",
@@ -171,6 +172,8 @@ PHYSICS_FORCE_PREFIXES = (
 PHYSICS_SOLVER_PREFIXES = (
     "ConstraintIslandSchedule",
     "ContactSolverCommon",
+    "ContactSupportGeometry",
+    "PersistentContactGeometry",
     "DisjointSet",
     "PersistentContactSolver",
     "PhysicsBroadphaseStepValues",
@@ -280,6 +283,7 @@ RENDERING_PREFIXES = (
 )
 
 SCENE_PREFIXES = (
+    "GravityFieldSettings",
     "OrbitalStabilityContract",
     "SceneRequestExecution",
     "SceneSnapshotWriter",
@@ -523,6 +527,9 @@ RUNTIME_REPLAY_PREFIXES = (
 )
 
 RUNTIME_RENDER_PREFIXES = (
+    "GrassPresentation",
+    "GrassDeformation",
+    "GravityGridVisualizer",
     *PHYSICS_DEBUG_PREFIXES,
     "RenderResourceLifecycle",
     "RenderDefaultsStore",

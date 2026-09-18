@@ -1,0 +1,1685 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 5,
+  "name": "Catto - Arch",
+  "simulation": {
+    "seed": 20240205,
+    "physics": true,
+    "text": false,
+    "timeScale": 1,
+    "world": {
+      "gravity": -40.0,
+      "fluidHeight": -1844.0,
+      "fluidDensity": 0
+    }
+  },
+  "cinematic": {
+    "rendering": true,
+    "skyAtmosphere": true,
+    "clouds": false,
+    "fog": false,
+    "godRays": false,
+    "volumetricLighting": false,
+    "bloom": false,
+    "skyHorizonR": 0.16,
+    "skyHorizonG": 0.2,
+    "skyHorizonB": 0.27,
+    "skyZenithR": 0.06,
+    "skyZenithG": 0.08,
+    "skyZenithB": 0.12,
+    "exposure": 1.0,
+    "gamma": 2.2
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true,
+    "exitOnComplete": false,
+    "pauseSnapshotState": false
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -844.0,
+      "slopeX": 0,
+      "slopeZ": 0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true
+  },
+  "cameras": [
+    {
+      "name": "catto_front",
+      "position": [
+        512.0,
+        191.14445796899662,
+        613.7461699982953
+      ],
+      "view": [
+        512.0,
+        191.14445796899662,
+        512.0
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fovDegrees": 50
+    }
+  ],
+  "objects": [
+    {
+      "name": "ground_00",
+      "sceneObjectId": 1001,
+      "position": [
+        123.76470588235293,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_01",
+      "sceneObjectId": 1002,
+      "position": [
+        147.29411764705878,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_02",
+      "sceneObjectId": 1003,
+      "position": [
+        170.8235294117647,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_03",
+      "sceneObjectId": 1004,
+      "position": [
+        194.3529411764706,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_04",
+      "sceneObjectId": 1005,
+      "position": [
+        217.88235294117646,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_05",
+      "sceneObjectId": 1006,
+      "position": [
+        241.41176470588232,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_06",
+      "sceneObjectId": 1007,
+      "position": [
+        264.94117647058823,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_07",
+      "sceneObjectId": 1008,
+      "position": [
+        288.47058823529414,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_08",
+      "sceneObjectId": 1009,
+      "position": [
+        312.0,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_09",
+      "sceneObjectId": 1010,
+      "position": [
+        335.52941176470586,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_10",
+      "sceneObjectId": 1011,
+      "position": [
+        359.05882352941177,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_11",
+      "sceneObjectId": 1012,
+      "position": [
+        382.5882352941177,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_12",
+      "sceneObjectId": 1013,
+      "position": [
+        406.11764705882354,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_13",
+      "sceneObjectId": 1014,
+      "position": [
+        429.6470588235294,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_14",
+      "sceneObjectId": 1015,
+      "position": [
+        453.1764705882353,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_15",
+      "sceneObjectId": 1016,
+      "position": [
+        476.7058823529412,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_16",
+      "sceneObjectId": 1017,
+      "position": [
+        500.2352941176471,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_17",
+      "sceneObjectId": 1018,
+      "position": [
+        523.7647058823529,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_18",
+      "sceneObjectId": 1019,
+      "position": [
+        547.2941176470588,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_19",
+      "sceneObjectId": 1020,
+      "position": [
+        570.8235294117648,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_20",
+      "sceneObjectId": 1021,
+      "position": [
+        594.3529411764706,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_21",
+      "sceneObjectId": 1022,
+      "position": [
+        617.8823529411765,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_22",
+      "sceneObjectId": 1023,
+      "position": [
+        641.4117647058824,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_23",
+      "sceneObjectId": 1024,
+      "position": [
+        664.9411764705883,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_24",
+      "sceneObjectId": 1025,
+      "position": [
+        688.4705882352941,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_25",
+      "sceneObjectId": 1026,
+      "position": [
+        712.0,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_26",
+      "sceneObjectId": 1027,
+      "position": [
+        735.5294117647059,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_27",
+      "sceneObjectId": 1028,
+      "position": [
+        759.0588235294118,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_28",
+      "sceneObjectId": 1029,
+      "position": [
+        782.5882352941177,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_29",
+      "sceneObjectId": 1030,
+      "position": [
+        806.1176470588235,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_30",
+      "sceneObjectId": 1031,
+      "position": [
+        829.6470588235295,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_31",
+      "sceneObjectId": 1032,
+      "position": [
+        853.1764705882354,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_32",
+      "sceneObjectId": 1033,
+      "position": [
+        876.7058823529412,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ground_33",
+      "sceneObjectId": 1034,
+      "position": [
+        900.2352941176471,
+        156.0,
+        512.0
+      ],
+      "mass": 11.764705882352942,
+      "restitution": 0.0,
+      "fixed": true,
+      "type": "box",
+      "halfExtents": [
+        11.764705882352942,
+        4.0,
+        4.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "arch_right_0",
+      "sceneObjectId": 1035,
+      "position": [
+        531.4289652350649,
+        162.77230875602856,
+        512.0
+      ],
+      "mass": 2.72211522621057,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_right_0.hull"
+    },
+    {
+      "name": "arch_left_0",
+      "sceneObjectId": 1036,
+      "position": [
+        492.5710347649352,
+        162.77230875602856,
+        512.0
+      ],
+      "mass": 2.72211522621057,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_left_0.hull"
+    },
+    {
+      "name": "arch_right_1",
+      "sceneObjectId": 1037,
+      "position": [
+        530.0128622695178,
+        168.34664252830217,
+        512.0
+      ],
+      "mass": 2.5755978921656695,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_right_1.hull"
+    },
+    {
+      "name": "arch_left_1",
+      "sceneObjectId": 1038,
+      "position": [
+        493.98713773048223,
+        168.34664252830217,
+        512.0
+      ],
+      "mass": 2.5755978921656695,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_left_1.hull"
+    },
+    {
+      "name": "arch_right_2",
+      "sceneObjectId": 1039,
+      "position": [
+        528.4840843171453,
+        173.8892280251118,
+        512.0
+      ],
+      "mass": 2.422009207673651,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_right_2.hull"
+    },
+    {
+      "name": "arch_left_2",
+      "sceneObjectId": 1040,
+      "position": [
+        495.5159156828547,
+        173.88922802511183,
+        512.0
+      ],
+      "mass": 2.422009207673651,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_left_2.hull"
+    },
+    {
+      "name": "arch_right_3",
+      "sceneObjectId": 1041,
+      "position": [
+        526.8114447960306,
+        179.38740242583927,
+        512.0
+      ],
+      "mass": 2.260621256767452,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_right_3.hull"
+    },
+    {
+      "name": "arch_left_3",
+      "sceneObjectId": 1042,
+      "position": [
+        497.1885552039694,
+        179.38740242583927,
+        512.0
+      ],
+      "mass": 2.260621256767452,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_left_3.hull"
+    },
+    {
+      "name": "arch_right_4",
+      "sceneObjectId": 1043,
+      "position": [
+        524.9463196345686,
+        184.818924126381,
+        512.0
+      ],
+      "mass": 2.0915617389061563,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_right_4.hull"
+    },
+    {
+      "name": "arch_left_4",
+      "sceneObjectId": 1044,
+      "position": [
+        499.05368036543143,
+        184.81892412638098,
+        512.0
+      ],
+      "mass": 2.0915617389061563,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_left_4.hull"
+    },
+    {
+      "name": "arch_right_5",
+      "sceneObjectId": 1045,
+      "position": [
+        522.8057526037458,
+        190.13961954258335,
+        512.0
+      ],
+      "mass": 1.9169950739778354,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_right_5.hull"
+    },
+    {
+      "name": "arch_left_5",
+      "sceneObjectId": 1046,
+      "position": [
+        501.1942473962542,
+        190.13961954258335,
+        512.0
+      ],
+      "mass": 1.9169950739778354,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_left_5.hull"
+    },
+    {
+      "name": "arch_right_6",
+      "sceneObjectId": 1047,
+      "position": [
+        520.2266989557846,
+        195.24048365355196,
+        512.0
+      ],
+      "mass": 1.7481182409955682,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_right_6.hull"
+    },
+    {
+      "name": "arch_left_6",
+      "sceneObjectId": 1048,
+      "position": [
+        503.77330104421543,
+        195.2404836535519,
+        512.0
+      ],
+      "mass": 1.7481182409955682,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_left_6.hull"
+    },
+    {
+      "name": "arch_right_7",
+      "sceneObjectId": 1049,
+      "position": [
+        516.8163223964252,
+        199.72980165484586,
+        512.0
+      ],
+      "mass": 1.644547352343996,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_right_7.hull"
+    },
+    {
+      "name": "arch_left_7",
+      "sceneObjectId": 1050,
+      "position": [
+        507.1836776035748,
+        199.7298016548459,
+        512.0
+      ],
+      "mass": 1.644547352343996,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_left_7.hull"
+    },
+    {
+      "name": "arch_keystone",
+      "sceneObjectId": 1051,
+      "position": [
+        512.0,
+        201.78975119837457,
+        512.0
+      ],
+      "mass": 1.7601871529357025,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/catto_arch_keystone.hull"
+    },
+    {
+      "name": "load_0",
+      "sceneObjectId": 1052,
+      "position": [
+        512.0,
+        206.2889159379932,
+        512.0
+      ],
+      "mass": 4.0,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        8.0,
+        2.0,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "load_1",
+      "sceneObjectId": 1053,
+      "position": [
+        512.0,
+        210.2889159379932,
+        512.0
+      ],
+      "mass": 4.0,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        8.0,
+        2.0,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "load_2",
+      "sceneObjectId": 1054,
+      "position": [
+        512.0,
+        214.2889159379932,
+        512.0
+      ],
+      "mass": 4.0,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        8.0,
+        2.0,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "load_3",
+      "sceneObjectId": 1055,
+      "position": [
+        512.0,
+        218.2889159379932,
+        512.0
+      ],
+      "mass": 4.0,
+      "restitution": 0.0,
+      "fixed": false,
+      "type": "box",
+      "halfExtents": [
+        8.0,
+        2.0,
+        2.0
+      ],
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "objectMaterials": [
+    {
+      "target": "ground_00",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_01",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_02",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_03",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_04",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_05",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_06",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_07",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_08",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_09",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_10",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_11",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_12",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_13",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_14",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_15",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_16",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_17",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_18",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_19",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_20",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_21",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_22",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_23",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_24",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_25",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_26",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_27",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_28",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_29",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_30",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_31",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_32",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "ground_33",
+      "mode": "matte",
+      "tint": [
+        0.24,
+        0.28,
+        0.33
+      ]
+    },
+    {
+      "target": "arch_right_0",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "arch_left_0",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "arch_right_1",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "arch_left_1",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "arch_right_2",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "arch_left_2",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "arch_right_3",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "arch_left_3",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "arch_right_4",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "arch_left_4",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "arch_right_5",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "arch_left_5",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "arch_right_6",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "arch_left_6",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "arch_right_7",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "arch_left_7",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "arch_keystone",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "load_0",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "load_1",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    },
+    {
+      "target": "load_2",
+      "mode": "matte",
+      "tint": [
+        0.95,
+        0.49,
+        0.16
+      ]
+    },
+    {
+      "target": "load_3",
+      "mode": "matte",
+      "tint": [
+        0.16,
+        0.63,
+        0.83
+      ]
+    }
+  ]
+}

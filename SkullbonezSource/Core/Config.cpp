@@ -42,6 +42,9 @@ Related:
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <filesystem>
+#include <fstream>
+#include <vector>
 
 
 using namespace SkullbonezCore::Core;
@@ -97,8 +100,7 @@ char* TrimInPlace( char* text )
 
 void WarnConfigLine( const char* path, int line, const char* key, const char* value, const char* reason )
 {
-    fprintf( stderr, "[config] %s:%d ignored %s=%s (%s).\n", path ? path : "<config>", line, key ? key : "<unknown>",
-             value ? value : "", reason ? reason : "invalid value" );
+    fprintf( stderr, "[config] %s:%d ignored %s=%s (%s).\n", path ? path : "<config>", line, key ? key : "<unknown>", value ? value : "", reason ? reason : "invalid value" );
 }
 
 bool IsRangeValid( double value, const ConfigSetting& setting )
@@ -170,15 +172,13 @@ bool ParseConfigBoolValue( const char* value, const ConfigSetting& setting, cons
         return false;
     }
 
-    if ( Platform::CompareCaseInsensitive( value, "true" ) == 0 || Platform::CompareCaseInsensitive( value, "on" ) == 0 ||
-         Platform::CompareCaseInsensitive( value, "yes" ) == 0 )
+    if ( Platform::CompareCaseInsensitive( value, "true" ) == 0 || Platform::CompareCaseInsensitive( value, "on" ) == 0 || Platform::CompareCaseInsensitive( value, "yes" ) == 0 )
     {
         out = true;
         return true;
     }
 
-    if ( Platform::CompareCaseInsensitive( value, "false" ) == 0 || Platform::CompareCaseInsensitive( value, "off" ) == 0 ||
-         Platform::CompareCaseInsensitive( value, "no" ) == 0 )
+    if ( Platform::CompareCaseInsensitive( value, "false" ) == 0 || Platform::CompareCaseInsensitive( value, "off" ) == 0 || Platform::CompareCaseInsensitive( value, "no" ) == 0 )
     {
         out = false;
         return true;
@@ -196,8 +196,7 @@ bool ParseConfigBoolValue( const char* value, const ConfigSetting& setting, cons
     return false;
 }
 
-bool ApplyConfigString( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line,
-                        std::string& out )
+bool ApplyConfigString( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line, std::string& out )
 {
     static_cast<void>( cfg );
 
@@ -211,73 +210,68 @@ bool ApplyConfigString( EngineConfig& cfg, const char* value, const ConfigSettin
     return true;
 }
 
-#define CONFIG_INT( KEY, FIELD, MIN_VALUE, MAX_VALUE )                                                                      \
-    { KEY,                                                                                                                  \
-      ConfigValueType::Int,                                                                                                 \
-      true,                                                                                                                 \
-      static_cast<double>( MIN_VALUE ),                                                                                     \
-      static_cast<double>( MAX_VALUE ),                                                                                     \
-      []( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool          \
-      {                                                                                                                     \
-          int parsed = 0;                                                                                                   \
-          if ( !ParseConfigIntValue( value, setting, path, line, parsed ) )                                                 \
-          {                                                                                                                 \
-              return false;                                                                                                 \
-          }                                                                                                                 \
-          cfg.FIELD = parsed;                                                                                               \
-          return true;                                                                                                      \
-      },                                                                                                                    \
-      []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting )                                                \
-      { fprintf( out, "%s = %d\n", setting.name, cfg.FIELD ); } }
+#define CONFIG_INT( KEY, FIELD, MIN_VALUE, MAX_VALUE )                                                                                                                                                 \
+    { KEY,                                                                                                                                                                                             \
+      ConfigValueType::Int,                                                                                                                                                                            \
+      true,                                                                                                                                                                                            \
+      static_cast<double>( MIN_VALUE ),                                                                                                                                                                \
+      static_cast<double>( MAX_VALUE ),                                                                                                                                                                \
+      []( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool                                                                                     \
+      {                                                                                                                                                                                                \
+          int parsed = 0;                                                                                                                                                                              \
+          if ( !ParseConfigIntValue( value, setting, path, line, parsed ) )                                                                                                                            \
+          {                                                                                                                                                                                            \
+              return false;                                                                                                                                                                            \
+          }                                                                                                                                                                                            \
+          cfg.FIELD = parsed;                                                                                                                                                                          \
+          return true;                                                                                                                                                                                 \
+      },                                                                                                                                                                                               \
+      []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting ) { fprintf( out, "%s = %d\n", setting.name, cfg.FIELD ); } }
 
-#define CONFIG_FLOAT( KEY, FIELD, MIN_VALUE, MAX_VALUE )                                                                    \
-    { KEY,                                                                                                                  \
-      ConfigValueType::Float,                                                                                               \
-      true,                                                                                                                 \
-      static_cast<double>( MIN_VALUE ),                                                                                     \
-      static_cast<double>( MAX_VALUE ),                                                                                     \
-      []( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool          \
-      {                                                                                                                     \
-          float parsed = 0.0f;                                                                                              \
-          if ( !ParseConfigFloatValue( value, setting, path, line, parsed ) )                                               \
-          {                                                                                                                 \
-              return false;                                                                                                 \
-          }                                                                                                                 \
-          cfg.FIELD = parsed;                                                                                               \
-          return true;                                                                                                      \
-      },                                                                                                                    \
-      []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting )                                                \
-      { fprintf( out, "%s = %.9g\n", setting.name, static_cast<double>( cfg.FIELD ) ); } }
+#define CONFIG_FLOAT( KEY, FIELD, MIN_VALUE, MAX_VALUE )                                                                                                                                               \
+    { KEY,                                                                                                                                                                                             \
+      ConfigValueType::Float,                                                                                                                                                                          \
+      true,                                                                                                                                                                                            \
+      static_cast<double>( MIN_VALUE ),                                                                                                                                                                \
+      static_cast<double>( MAX_VALUE ),                                                                                                                                                                \
+      []( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool                                                                                     \
+      {                                                                                                                                                                                                \
+          float parsed = 0.0f;                                                                                                                                                                         \
+          if ( !ParseConfigFloatValue( value, setting, path, line, parsed ) )                                                                                                                          \
+          {                                                                                                                                                                                            \
+              return false;                                                                                                                                                                            \
+          }                                                                                                                                                                                            \
+          cfg.FIELD = parsed;                                                                                                                                                                          \
+          return true;                                                                                                                                                                                 \
+      },                                                                                                                                                                                               \
+      []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting ) { fprintf( out, "%s = %.9g\n", setting.name, static_cast<double>( cfg.FIELD ) ); } }
 
-#define CONFIG_BOOL( KEY, FIELD )                                                                                           \
-    { KEY,                                                                                                                  \
-      ConfigValueType::Bool,                                                                                                \
-      true,                                                                                                                 \
-      0.0,                                                                                                                  \
-      static_cast<double>( INT_MAX ),                                                                                       \
-      []( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool          \
-      {                                                                                                                     \
-          bool parsed = false;                                                                                              \
-          if ( !ParseConfigBoolValue( value, setting, path, line, parsed ) )                                                \
-          {                                                                                                                 \
-              return false;                                                                                                 \
-          }                                                                                                                 \
-          cfg.FIELD = parsed;                                                                                               \
-          return true;                                                                                                      \
-      },                                                                                                                    \
-      []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting )                                                \
-      { fprintf( out, "%s = %d\n", setting.name, cfg.FIELD ? 1 : 0 ); } }
+#define CONFIG_BOOL( KEY, FIELD )                                                                                                                                                                      \
+    { KEY,                                                                                                                                                                                             \
+      ConfigValueType::Bool,                                                                                                                                                                           \
+      true,                                                                                                                                                                                            \
+      0.0,                                                                                                                                                                                             \
+      static_cast<double>( INT_MAX ),                                                                                                                                                                  \
+      []( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool                                                                                     \
+      {                                                                                                                                                                                                \
+          bool parsed = false;                                                                                                                                                                         \
+          if ( !ParseConfigBoolValue( value, setting, path, line, parsed ) )                                                                                                                           \
+          {                                                                                                                                                                                            \
+              return false;                                                                                                                                                                            \
+          }                                                                                                                                                                                            \
+          cfg.FIELD = parsed;                                                                                                                                                                          \
+          return true;                                                                                                                                                                                 \
+      },                                                                                                                                                                                               \
+      []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting ) { fprintf( out, "%s = %d\n", setting.name, cfg.FIELD ? 1 : 0 ); } }
 
-#define CONFIG_STRING( KEY, FIELD )                                                                                         \
-    { KEY,                                                                                                                  \
-      ConfigValueType::String,                                                                                              \
-      false,                                                                                                                \
-      0.0,                                                                                                                  \
-      0.0,                                                                                                                  \
-      []( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool          \
-      { return ApplyConfigString( cfg, value, setting, path, line, cfg.FIELD ); },                                          \
-      []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting )                                                \
-      { fprintf( out, "%s = %s\n", setting.name, cfg.FIELD.c_str() ); } }
+#define CONFIG_STRING( KEY, FIELD )                                                                                                                                                                    \
+    { KEY,                                                                                                                                                                                             \
+      ConfigValueType::String,                                                                                                                                                                         \
+      false,                                                                                                                                                                                           \
+      0.0,                                                                                                                                                                                             \
+      0.0,                                                                                                                                                                                             \
+      []( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool { return ApplyConfigString( cfg, value, setting, path, line, cfg.FIELD ); },        \
+      []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting ) { fprintf( out, "%s = %s\n", setting.name, cfg.FIELD.c_str() ); } }
 
 template <typename T, size_t N> constexpr size_t ArrayCount( const T ( & )[N] )
 {
@@ -332,123 +326,102 @@ template <size_t N> constexpr ConfigSettingRange FullConfigRange( ConfigSettingD
 // Concept: each table owns one EngineConfig domain's key/type/range/destination
 // facts. The separate order registry below composes those facts into the public
 // compatibility sequence without creating a second copy of any binding.
-static const ConfigSetting kWindowSettings[] = {
-    CONFIG_INT( "screen_x", window.screenX, 1, 32768 ),
-    CONFIG_INT( "screen_y", window.screenY, 1, 32768 ),
-    CONFIG_BOOL( "fullscreen", window.fullscreen ),
-    CONFIG_INT( "bits_per_pixel", window.bitsPerPixel, 1, 128 ),
-    CONFIG_INT( "refresh_rate", window.refreshRate, 1, 1000 ),
-};
+static const ConfigSetting kWindowSettings[] = { CONFIG_INT( "screen_x", window.screenX, 1, 32768 ),
+                                                 CONFIG_INT( "screen_y", window.screenY, 1, 32768 ),
+                                                 CONFIG_BOOL( "fullscreen", window.fullscreen ),
+                                                 CONFIG_INT( "bits_per_pixel", window.bitsPerPixel, 1, 128 ),
+                                                 CONFIG_INT( "refresh_rate", window.refreshRate, 1, 1000 ), };
 
-static const ConfigSetting kCameraSettings[] = {
-    CONFIG_FLOAT( "frustum_near", camera.frustumNear, 0.0001, 100000000.0 ),
-    CONFIG_FLOAT( "frustum_far", camera.frustumFar, 0.0001, 100000000.0 ),
-    CONFIG_FLOAT( "mouse_sensitivity", camera.mouseSensitivity, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "key_speed", camera.keySpeed, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "camera_tween_rate", camera.cameraTweenRate, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "camera_collision_threshold", camera.cameraCollisionThreshold, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "min_camera_height", camera.minCameraHeight, -1000000.0, 1000000.0 ),
-    CONFIG_FLOAT( "max_camera_height", camera.maxCameraHeight, -1000000.0, 1000000.0 ),
-    CONFIG_FLOAT( "min_view_mag", camera.minViewMag, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "max_view_mag", camera.maxViewMag, 0.0, 1000000.0 ),
-};
+static const ConfigSetting kCameraSettings[] = { CONFIG_FLOAT( "frustum_near", camera.frustumNear, 0.0001, 100000000.0 ),
+                                                 CONFIG_FLOAT( "frustum_far", camera.frustumFar, 0.0001, 100000000.0 ),
+                                                 CONFIG_FLOAT( "mouse_sensitivity", camera.mouseSensitivity, 0.0, 1000000.0 ),
+                                                 CONFIG_FLOAT( "key_speed", camera.keySpeed, 0.0, 1000000.0 ),
+                                                 CONFIG_FLOAT( "camera_tween_rate", camera.cameraTweenRate, 0.0, 1000000.0 ),
+                                                 CONFIG_FLOAT( "camera_collision_threshold", camera.cameraCollisionThreshold, 0.0, 1000000.0 ),
+                                                 CONFIG_FLOAT( "min_camera_height", camera.minCameraHeight, -1000000.0, 1000000.0 ),
+                                                 CONFIG_FLOAT( "max_camera_height", camera.maxCameraHeight, -1000000.0, 1000000.0 ),
+                                                 CONFIG_FLOAT( "min_view_mag", camera.minViewMag, 0.0, 1000000.0 ),
+                                                 CONFIG_FLOAT( "max_view_mag", camera.maxViewMag, 0.0, 1000000.0 ), };
 
-static const ConfigSetting kTerrainGeometrySettings[] = {
-    CONFIG_FLOAT( "terrain_scale", terrainGeometry.scale, 0.0001, 1000000.0 ),
-    CONFIG_FLOAT( "terrain_height_scale", terrainGeometry.heightScale, -1000000.0, 1000000.0 ),
-};
+static const ConfigSetting kTerrainGeometrySettings[] = { CONFIG_FLOAT( "terrain_scale", terrainGeometry.scale, 0.0001, 1000000.0 ), CONFIG_FLOAT( "terrain_height_scale", terrainGeometry.heightScale, -1000000.0, 1000000.0 ), };
 
-static const ConfigSetting kSkyboxSettings[] = {
-    CONFIG_FLOAT( "skybox_render_height", skybox.renderHeight, -1000000.0, 1000000.0 ),
-    CONFIG_INT( "skybox_overflow", skybox.overflow, -1000000, 1000000 ),
-    CONFIG_FLOAT( "skybox_scale", skybox.scale, 0.0001, 1000000.0 ),
-};
+static const ConfigSetting kSkyboxSettings[] = { CONFIG_FLOAT( "skybox_render_height", skybox.renderHeight, -1000000.0, 1000000.0 ), CONFIG_INT( "skybox_overflow", skybox.overflow, -1000000, 1000000 ), CONFIG_FLOAT( "skybox_scale", skybox.scale, 0.0001, 1000000.0 ), };
 
-static const ConfigSetting kRuntimeCapacitySettings[] = {
-    CONFIG_INT( "game_model_capacity", runtimeCapacity.sceneObjectCapacity, 1,
-                SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ),
-    CONFIG_INT( "worker_threads", runtimeCapacity.workerThreads, -1, 1024 ),
-};
+static const ConfigSetting kRuntimeCapacitySettings[] = { CONFIG_INT( "game_model_capacity", runtimeCapacity.sceneObjectCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ), CONFIG_INT( "worker_threads", runtimeCapacity.workerThreads, -1, 1024 ), };
 
-static const ConfigSetting kPhysicsExecutionSettings[] = {
-    CONFIG_BOOL( "physics_parallel", physicsExecution.parallel ),
-    CONFIG_BOOL( "physics_parallel_apply_forces", physicsExecution.parallelApplyForces ),
-    CONFIG_BOOL( "physics_parallel_mutual_gravity", physicsExecution.parallelMutualGravity ),
-    CONFIG_BOOL( "physics_parallel_tornado_field", physicsExecution.parallelExternalForceFields ),
-    CONFIG_BOOL( "physics_parallel_narrowphase", physicsExecution.parallelNarrowphase ),
-    CONFIG_BOOL( "physics_parallel_terrain_detect", physicsExecution.parallelTerrainDetect ),
-    CONFIG_BOOL( "physics_parallel_integrate", physicsExecution.parallelIntegrate ),
-};
+static const ConfigSetting kPhysicsExecutionSettings[] = { CONFIG_BOOL( "physics_parallel", physicsExecution.parallel ),
+                                                           CONFIG_BOOL( "physics_parallel_apply_forces", physicsExecution.parallelApplyForces ),
+                                                           CONFIG_BOOL( "physics_parallel_mutual_gravity", physicsExecution.parallelMutualGravity ),
+                                                           CONFIG_BOOL( "physics_parallel_tornado_field", physicsExecution.parallelExternalForceFields ),
+                                                           CONFIG_BOOL( "physics_parallel_narrowphase", physicsExecution.parallelNarrowphase ),
+                                                           CONFIG_BOOL( "physics_parallel_terrain_detect", physicsExecution.parallelTerrainDetect ),
+                                                           CONFIG_BOOL( "physics_parallel_integrate", physicsExecution.parallelIntegrate ), };
 
-static const ConfigSetting kRuntimeRenderSettings[] = {
-    CONFIG_BOOL( "shadow_parallel_prep", runtimeRender.shadowParallelPrep ),
-    CONFIG_BOOL( "vsync_enabled", runtimeRender.vsyncEnabled ),
-    CONFIG_BOOL( "force_pipeline_sync", runtimeRender.forcePipelineSync ),
-    CONFIG_BOOL( "render_collision_volumes", runtimeRender.renderCollisionVolumes ),
-    CONFIG_BOOL( "presentation_interpolation", runtimeRender.presentationInterpolation ),
-};
+static const ConfigSetting kRuntimeRenderSettings[] = { CONFIG_BOOL( "shadow_parallel_prep", runtimeRender.shadowParallelPrep ),
+                                                        CONFIG_BOOL( "vsync_enabled", runtimeRender.vsyncEnabled ),
+                                                        CONFIG_BOOL( "force_pipeline_sync", runtimeRender.forcePipelineSync ),
+                                                        CONFIG_BOOL( "render_collision_volumes", runtimeRender.renderCollisionVolumes ),
+                                                        CONFIG_BOOL( "presentation_interpolation", runtimeRender.presentationInterpolation ), };
 
-static const ConfigSetting kReplayPredictionSettings[] = {
-    CONFIG_FLOAT( "replay_prediction_instant_budget_ms", replayPrediction.instantBudgetMs, 0.0, 10000.0 ),
-    CONFIG_INT( "replay_prediction_probe_ticks", replayPrediction.probeTicks, 8, 2400 ),
-};
+static const ConfigSetting kReplayPredictionSettings[] = { CONFIG_FLOAT( "replay_prediction_instant_budget_ms", replayPrediction.instantBudgetMs, 0.0, 10000.0 ), CONFIG_INT( "replay_prediction_probe_ticks", replayPrediction.probeTicks, 8, 2400 ), };
 
-static const ConfigSetting kSceneLightSettings[] = {
-    CONFIG_FLOAT( "scene_light_color_r", sceneLight.colorR, -1000000.0, 1000000.0 ),
-    CONFIG_FLOAT( "scene_light_color_g", sceneLight.colorG, -1000000.0, 1000000.0 ),
-    CONFIG_FLOAT( "scene_light_color_b", sceneLight.colorB, -1000000.0, 1000000.0 ),
-    CONFIG_FLOAT( "scene_light_color_a", sceneLight.colorA, -1000000.0, 1000000.0 ),
-};
+static const ConfigSetting kSceneLightSettings[] = { CONFIG_FLOAT( "scene_light_color_r", sceneLight.colorR, -1000000.0, 1000000.0 ),
+                                                     CONFIG_FLOAT( "scene_light_color_g", sceneLight.colorG, -1000000.0, 1000000.0 ),
+                                                     CONFIG_FLOAT( "scene_light_color_b", sceneLight.colorB, -1000000.0, 1000000.0 ),
+                                                     CONFIG_FLOAT( "scene_light_color_a", sceneLight.colorA, -1000000.0, 1000000.0 ), };
 
-static const ConfigSetting kOrdinaryRenderSettings[] = {
-    CONFIG_FLOAT( "ordinary_sun_intensity", ordinaryRender.sunIntensity, 0.0, 8.0 ),
-    CONFIG_FLOAT( "ordinary_sun_color_r", ordinaryRender.sunColorR, 0.0, 4.0 ),
-    CONFIG_FLOAT( "ordinary_sun_color_g", ordinaryRender.sunColorG, 0.0, 4.0 ),
-    CONFIG_FLOAT( "ordinary_sun_color_b", ordinaryRender.sunColorB, 0.0, 4.0 ),
-    CONFIG_FLOAT( "ordinary_ambient_strength", ordinaryRender.ambientStrength, 0.0, 2.0 ),
-    CONFIG_FLOAT( "ordinary_sky_ambient_r", ordinaryRender.skyAmbientR, 0.0, 4.0 ),
-    CONFIG_FLOAT( "ordinary_sky_ambient_g", ordinaryRender.skyAmbientG, 0.0, 4.0 ),
-    CONFIG_FLOAT( "ordinary_sky_ambient_b", ordinaryRender.skyAmbientB, 0.0, 4.0 ),
-    CONFIG_FLOAT( "ordinary_ground_ambient_r", ordinaryRender.groundAmbientR, 0.0, 4.0 ),
-    CONFIG_FLOAT( "ordinary_ground_ambient_g", ordinaryRender.groundAmbientG, 0.0, 4.0 ),
-    CONFIG_FLOAT( "ordinary_ground_ambient_b", ordinaryRender.groundAmbientB, 0.0, 4.0 ),
-    CONFIG_BOOL( "ordinary_shadows", ordinaryRender.shadow.enabled ),
-    CONFIG_BOOL( "ordinary_shadow_terrain_casts", ordinaryRender.shadow.terrainCasts ),
-    CONFIG_BOOL( "ordinary_shadow_objects_cast", ordinaryRender.shadow.objectsCast ),
-    CONFIG_BOOL( "ordinary_shadow_terrain_receives", ordinaryRender.shadow.terrainReceives ),
-    CONFIG_BOOL( "ordinary_shadow_objects_receive", ordinaryRender.shadow.objectsReceive ),
-    CONFIG_INT( "ordinary_shadow_map_size", ordinaryRender.shadow.mapSize, 256, 8192 ),
-    CONFIG_INT( "ordinary_shadow_pcf_radius", ordinaryRender.shadow.pcfRadius, 0, 3 ),
-    CONFIG_FLOAT( "ordinary_shadow_strength", ordinaryRender.shadow.strength, 0.0, 1.0 ),
-    CONFIG_FLOAT( "ordinary_shadow_softness", ordinaryRender.shadow.softness, 0.25, 4.0 ),
-    CONFIG_FLOAT( "ordinary_shadow_depth_bias", ordinaryRender.shadow.depthBias, 0.0, 0.05 ),
-    CONFIG_FLOAT( "ordinary_shadow_slope_bias", ordinaryRender.shadow.slopeBias, 0.0, 0.05 ),
-    CONFIG_FLOAT( "ordinary_shadow_max_distance", ordinaryRender.shadow.maxDistance, 128.0, 10000.0 ),
-    CONFIG_FLOAT( "ordinary_water_tint_r", ordinaryRender.waterTintR, 0.0, 4.0 ),
-    CONFIG_FLOAT( "ordinary_water_tint_g", ordinaryRender.waterTintG, 0.0, 4.0 ),
-    CONFIG_FLOAT( "ordinary_water_tint_b", ordinaryRender.waterTintB, 0.0, 4.0 ),
-    CONFIG_FLOAT( "ordinary_water_alpha", ordinaryRender.waterAlpha, 0.0, 1.0 ),
-    CONFIG_FLOAT( "ordinary_water_reflection_strength", ordinaryRender.waterReflectionStrength, 0.0, 1.0 ),
-    CONFIG_FLOAT( "ordinary_water_fresnel_f0", ordinaryRender.waterFresnelF0, 0.0, 0.25 ),
-    CONFIG_FLOAT( "ordinary_ball_roughness_scale", ordinaryRender.ballRoughnessScale, 0.25, 2.0 ),
-    CONFIG_FLOAT( "ordinary_ball_specular_scale", ordinaryRender.ballSpecularScale, 0.0, 2.0 ),
-    CONFIG_FLOAT( "ordinary_box_roughness_scale", ordinaryRender.boxRoughnessScale, 0.25, 2.0 ),
-    CONFIG_FLOAT( "ordinary_box_specular_scale", ordinaryRender.boxSpecularScale, 0.0, 2.0 ),
-    CONFIG_FLOAT( "replay_trajectory_future_width", ordinaryRender.replayTrajectory.futureWidth, 1.0, 6.0 ),
-    CONFIG_FLOAT( "replay_trajectory_future_alpha", ordinaryRender.replayTrajectory.futureAlpha, 0.05, 1.0 ),
-    CONFIG_FLOAT( "replay_trajectory_future_edge_feather", ordinaryRender.replayTrajectory.futureEdgeFeather, 0.25, 1.25 ),
-    CONFIG_FLOAT( "replay_trajectory_causal_width", ordinaryRender.replayTrajectory.causalWidth, 1.0, 6.0 ),
-    CONFIG_FLOAT( "replay_trajectory_causal_alpha", ordinaryRender.replayTrajectory.causalAlpha, 0.05, 1.0 ),
-    CONFIG_FLOAT( "replay_trajectory_causal_edge_feather", ordinaryRender.replayTrajectory.causalEdgeFeather, 0.25, 1.25 ),
-    CONFIG_FLOAT( "replay_trajectory_baseline_width", ordinaryRender.replayTrajectory.baselineWidth, 1.0, 6.0 ),
-    CONFIG_FLOAT( "replay_trajectory_baseline_alpha", ordinaryRender.replayTrajectory.baselineAlpha, 0.05, 1.0 ),
-    CONFIG_FLOAT( "replay_trajectory_baseline_edge_feather", ordinaryRender.replayTrajectory.baselineEdgeFeather, 0.25,
-                  1.25 ),
-    CONFIG_FLOAT( "replay_trajectory_marker_width", ordinaryRender.replayTrajectory.markerWidth, 1.0, 6.0 ),
-    CONFIG_FLOAT( "replay_trajectory_marker_alpha", ordinaryRender.replayTrajectory.markerAlpha, 0.05, 1.0 ),
-    CONFIG_FLOAT( "replay_trajectory_marker_edge_feather", ordinaryRender.replayTrajectory.markerEdgeFeather, 0.25, 1.25 ),
-    CONFIG_FLOAT( "replay_trajectory_selected_emphasis", ordinaryRender.replayTrajectory.selectedEmphasis, 0.0, 1.0 ),
-};
+static const ConfigSetting kOrdinaryRenderSettings[] = { CONFIG_FLOAT( "ordinary_sun_intensity", ordinaryRender.sunIntensity, 0.0, 8.0 ),
+                                                         CONFIG_FLOAT( "ordinary_sun_color_r", ordinaryRender.sunColorR, 0.0, 4.0 ),
+                                                         CONFIG_FLOAT( "ordinary_sun_color_g", ordinaryRender.sunColorG, 0.0, 4.0 ),
+                                                         CONFIG_FLOAT( "ordinary_sun_color_b", ordinaryRender.sunColorB, 0.0, 4.0 ),
+                                                         CONFIG_FLOAT( "ordinary_ambient_strength", ordinaryRender.ambientStrength, 0.0, 2.0 ),
+                                                         CONFIG_FLOAT( "ordinary_sky_ambient_r", ordinaryRender.skyAmbientR, 0.0, 4.0 ),
+                                                         CONFIG_FLOAT( "ordinary_sky_ambient_g", ordinaryRender.skyAmbientG, 0.0, 4.0 ),
+                                                         CONFIG_FLOAT( "ordinary_sky_ambient_b", ordinaryRender.skyAmbientB, 0.0, 4.0 ),
+                                                         CONFIG_FLOAT( "ordinary_ground_ambient_r", ordinaryRender.groundAmbientR, 0.0, 4.0 ),
+                                                         CONFIG_FLOAT( "ordinary_ground_ambient_g", ordinaryRender.groundAmbientG, 0.0, 4.0 ),
+                                                         CONFIG_FLOAT( "ordinary_ground_ambient_b", ordinaryRender.groundAmbientB, 0.0, 4.0 ),
+                                                         CONFIG_BOOL( "ordinary_shadows", ordinaryRender.shadow.enabled ),
+                                                         CONFIG_BOOL( "ordinary_shadow_terrain_casts", ordinaryRender.shadow.terrainCasts ),
+                                                         CONFIG_BOOL( "ordinary_shadow_objects_cast", ordinaryRender.shadow.objectsCast ),
+                                                         CONFIG_BOOL( "ordinary_shadow_terrain_receives", ordinaryRender.shadow.terrainReceives ),
+                                                         CONFIG_BOOL( "ordinary_shadow_objects_receive", ordinaryRender.shadow.objectsReceive ),
+                                                         CONFIG_INT( "ordinary_shadow_map_size", ordinaryRender.shadow.mapSize, 256, 8192 ),
+                                                         CONFIG_INT( "ordinary_shadow_pcf_radius", ordinaryRender.shadow.pcfRadius, 0, 3 ),
+                                                         CONFIG_FLOAT( "ordinary_shadow_strength", ordinaryRender.shadow.strength, 0.0, 1.0 ),
+                                                         CONFIG_FLOAT( "ordinary_shadow_softness", ordinaryRender.shadow.softness, 0.25, 4.0 ),
+                                                         CONFIG_FLOAT( "ordinary_shadow_depth_bias", ordinaryRender.shadow.depthBias, 0.0, 0.05 ),
+                                                         CONFIG_FLOAT( "ordinary_shadow_slope_bias", ordinaryRender.shadow.slopeBias, 0.0, 0.05 ),
+                                                         CONFIG_FLOAT( "ordinary_shadow_max_distance", ordinaryRender.shadow.maxDistance, 128.0, 10000.0 ),
+                                                         CONFIG_FLOAT( "ordinary_water_tint_r", ordinaryRender.waterTintR, 0.0, 4.0 ),
+                                                         CONFIG_FLOAT( "ordinary_water_tint_g", ordinaryRender.waterTintG, 0.0, 4.0 ),
+                                                         CONFIG_FLOAT( "ordinary_water_tint_b", ordinaryRender.waterTintB, 0.0, 4.0 ),
+                                                         CONFIG_FLOAT( "ordinary_water_alpha", ordinaryRender.waterAlpha, 0.0, 1.0 ),
+                                                         CONFIG_FLOAT( "ordinary_water_reflection_strength", ordinaryRender.waterReflectionStrength, 0.0, 1.0 ),
+                                                         CONFIG_FLOAT( "ordinary_water_fresnel_f0", ordinaryRender.waterFresnelF0, 0.0, 0.25 ),
+                                                         CONFIG_FLOAT( "ordinary_ball_roughness_scale", ordinaryRender.ballRoughnessScale, 0.25, 2.0 ),
+                                                         CONFIG_FLOAT( "ordinary_ball_specular_scale", ordinaryRender.ballSpecularScale, 0.0, 2.0 ),
+                                                         CONFIG_FLOAT( "ordinary_box_roughness_scale", ordinaryRender.boxRoughnessScale, 0.25, 2.0 ),
+                                                         CONFIG_FLOAT( "ordinary_box_specular_scale", ordinaryRender.boxSpecularScale, 0.0, 2.0 ),
+                                                         CONFIG_FLOAT( "replay_trajectory_future_width", ordinaryRender.replayTrajectory.futureWidth, 1.0, 6.0 ),
+                                                         CONFIG_FLOAT( "replay_trajectory_future_alpha", ordinaryRender.replayTrajectory.futureAlpha, 0.05, 1.0 ),
+                                                         CONFIG_FLOAT( "replay_trajectory_future_edge_feather", ordinaryRender.replayTrajectory.futureEdgeFeather, 0.25, 1.25 ),
+                                                         CONFIG_FLOAT( "replay_trajectory_causal_width", ordinaryRender.replayTrajectory.causalWidth, 1.0, 6.0 ),
+                                                         CONFIG_FLOAT( "replay_trajectory_causal_alpha", ordinaryRender.replayTrajectory.causalAlpha, 0.05, 1.0 ),
+                                                         CONFIG_FLOAT( "replay_trajectory_causal_edge_feather", ordinaryRender.replayTrajectory.causalEdgeFeather, 0.25, 1.25 ),
+                                                         CONFIG_FLOAT( "replay_trajectory_baseline_width", ordinaryRender.replayTrajectory.baselineWidth, 1.0, 6.0 ),
+                                                         CONFIG_FLOAT( "replay_trajectory_baseline_alpha", ordinaryRender.replayTrajectory.baselineAlpha, 0.05, 1.0 ),
+                                                         CONFIG_FLOAT( "replay_trajectory_baseline_edge_feather", ordinaryRender.replayTrajectory.baselineEdgeFeather, 0.25, 1.25 ),
+                                                         CONFIG_FLOAT( "replay_trajectory_marker_width", ordinaryRender.replayTrajectory.markerWidth, 1.0, 6.0 ),
+                                                         CONFIG_FLOAT( "replay_trajectory_marker_alpha", ordinaryRender.replayTrajectory.markerAlpha, 0.05, 1.0 ),
+                                                         CONFIG_FLOAT( "replay_trajectory_marker_edge_feather", ordinaryRender.replayTrajectory.markerEdgeFeather, 0.25, 1.25 ),
+                                                         CONFIG_FLOAT( "replay_trajectory_selected_emphasis", ordinaryRender.replayTrajectory.selectedEmphasis, 0.0, 1.0 ),
+                                                         CONFIG_FLOAT( "grass_quality", ordinaryRender.grass.quality, 0.00, 2.00 ),
+                                                         CONFIG_FLOAT( "grass_density", ordinaryRender.grass.density, 0.25, 1.00 ),
+                                                         CONFIG_FLOAT( "grass_distance", ordinaryRender.grass.distance, 8.00, 32.00 ),
+                                                         CONFIG_FLOAT( "grass_height", ordinaryRender.grass.height, 0.08, 0.50 ),
+                                                         CONFIG_FLOAT( "grass_bend", ordinaryRender.grass.bend, 0.00, 1.00 ),
+                                                         CONFIG_FLOAT( "grass_recovery_seconds", ordinaryRender.grass.recoverySeconds, 2.00, 5.00 ), };
 
 static const ConfigSetting kCinematicRenderSettings[] = {
 
@@ -539,105 +512,73 @@ static const ConfigSetting kCinematicRenderSettings[] = {
     CONFIG_FLOAT( "cinematic_basin_feather", cinematicRender.basinFeather, 0.0, 1.0 ),
 };
 
-static const ConfigSetting kWorldForceSettings[] = {
-    CONFIG_FLOAT( "gravity", worldForces.gravity, -1000000.0, 1000000.0 ),
-    CONFIG_FLOAT( "fluid_height", worldForces.fluidHeight, -1000000.0, 1000000.0 ),
-    CONFIG_FLOAT( "fluid_density", worldForces.fluidDensity, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "gas_density", worldForces.gasDensity, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "fluid_angular_drag_multiplier", worldForces.fluidAngularDragMultiplier, 0.0, 1000000.0 ),
-};
+static const ConfigSetting kWorldForceSettings[] = { CONFIG_FLOAT( "gravity", worldForces.gravity, -1000000.0, 1000000.0 ),
+                                                     CONFIG_FLOAT( "fluid_height", worldForces.fluidHeight, -1000000.0, 1000000.0 ),
+                                                     CONFIG_FLOAT( "fluid_density", worldForces.fluidDensity, 0.0, 1000000.0 ),
+                                                     CONFIG_FLOAT( "gas_density", worldForces.gasDensity, 0.0, 1000000.0 ),
+                                                     CONFIG_FLOAT( "fluid_angular_drag_multiplier", worldForces.fluidAngularDragMultiplier, 0.0, 1000000.0 ), };
 
-static const ConfigSetting kBodySimulationSettings[] = {
-    CONFIG_FLOAT( "velocity_limit", bodySimulation.velocityLimit, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "contact_restitution_threshold", bodySimulation.contactRestitutionThreshold, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "contact_epsilon", bodySimulation.contactEpsilon, 0.0, 1000000.0 ),
-};
+static const ConfigSetting kBodySimulationSettings[] = { CONFIG_FLOAT( "velocity_limit", bodySimulation.velocityLimit, 0.0, 1000000.0 ), CONFIG_FLOAT( "contact_restitution_threshold", bodySimulation.contactRestitutionThreshold, 0.0, 1000000.0 ), CONFIG_FLOAT( "contact_epsilon", bodySimulation.contactEpsilon, 0.0, 1000000.0 ), };
 
-static const ConfigSetting kPhysicsMaterialSettings[] = {
-    CONFIG_FLOAT( "sphere_drag_coeff", physicsMaterial.sphereDragCoeff, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "friction_coeff", physicsMaterial.frictionCoeff, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "object_friction_coeff", physicsMaterial.objectFrictionCoeff, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "rolling_friction_coeff", physicsMaterial.rollingFrictionCoeff, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "spin_friction_coeff", physicsMaterial.spinFrictionCoeff, 0.0, 1000000.0 ),
-};
+static const ConfigSetting kPhysicsMaterialSettings[] = { CONFIG_FLOAT( "sphere_drag_coeff", physicsMaterial.sphereDragCoeff, 0.0, 1000000.0 ),
+                                                          CONFIG_FLOAT( "friction_coeff", physicsMaterial.frictionCoeff, 0.0, 1000000.0 ),
+                                                          CONFIG_FLOAT( "object_friction_coeff", physicsMaterial.objectFrictionCoeff, 0.0, 1000000.0 ),
+                                                          CONFIG_FLOAT( "rolling_friction_coeff", physicsMaterial.rollingFrictionCoeff, 0.0, 1000000.0 ),
+                                                          CONFIG_FLOAT( "spin_friction_coeff", physicsMaterial.spinFrictionCoeff, 0.0, 1000000.0 ), };
 
-static const ConfigSetting kBroadphaseSettings[] = {
-    CONFIG_FLOAT( "broadphase_cell", broadphase.cellSize, 0.0001, 1000000.0 ),
-};
+static const ConfigSetting kBroadphaseSettings[] = { CONFIG_FLOAT( "broadphase_cell", broadphase.cellSize, 0.0001, 1000000.0 ), };
 
-static const ConfigSetting kPersistentContactSolverSettings[] = {
-    CONFIG_FLOAT( "persistent_contact_slop", persistentContactSolver.slop, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "persistent_contact_baumgarte_beta", persistentContactSolver.baumgarteBeta, 0.0, 1.0 ),
-    CONFIG_FLOAT( "persistent_contact_position_correction_percent", persistentContactSolver.positionCorrectionPercent, 0.0,
-                  1.0 ),
-    CONFIG_INT( "persistent_contact_solver_iterations", persistentContactSolver.iterations, 1, 1000000 ),
-};
+static const ConfigSetting kPersistentContactSolverSettings[] = { CONFIG_FLOAT( "persistent_contact_slop", persistentContactSolver.slop, 0.0, 1000000.0 ),
+                                                                  CONFIG_FLOAT( "persistent_contact_baumgarte_beta", persistentContactSolver.baumgarteBeta, 0.0, 1.0 ),
+                                                                  CONFIG_FLOAT( "persistent_contact_position_correction_percent", persistentContactSolver.positionCorrectionPercent, 0.0, 1.0 ),
+                                                                  CONFIG_INT( "persistent_contact_solver_iterations", persistentContactSolver.iterations, 1, 1000000 ),
+                                                                  CONFIG_BOOL( "persistent_contact_warm_start", persistentContactSolver.warmStart ), };
 
-static const ConfigSetting kTerrainContactSettings[] = {
-    CONFIG_FLOAT( "terrain_contact_threshold", terrainContact.threshold, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "terrain_contact_slop", terrainContact.slop, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "terrain_contact_baumgarte_beta", terrainContact.baumgarteBeta, 0.0, 1.0 ),
-    CONFIG_FLOAT( "terrain_max_baumgarte_bias", terrainContact.maxBaumgarteBias, 0.0, 1000000.0 ),
-};
+static const ConfigSetting kTerrainContactSettings[] = { CONFIG_FLOAT( "terrain_contact_threshold", terrainContact.threshold, 0.0, 1000000.0 ),
+                                                         CONFIG_FLOAT( "terrain_contact_slop", terrainContact.slop, 0.0, 1000000.0 ),
+                                                         CONFIG_FLOAT( "terrain_contact_baumgarte_beta", terrainContact.baumgarteBeta, 0.0, 1.0 ),
+                                                         CONFIG_FLOAT( "terrain_max_baumgarte_bias", terrainContact.maxBaumgarteBias, 0.0, 1000000.0 ), };
 
-static const ConfigSetting kPhysicsSleepSettings[] = {
-    CONFIG_FLOAT( "physics_sleep_linear_speed", physicsSleep.linearSpeed, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "physics_sleep_angular_speed", physicsSleep.angularSpeed, 0.0, 1000000.0 ),
-    CONFIG_INT( "physics_sleep_frames", physicsSleep.frames, 0, 1000000 ),
-};
+static const ConfigSetting kPhysicsSleepSettings[] = { CONFIG_FLOAT( "physics_sleep_linear_speed", physicsSleep.linearSpeed, 0.0, 1000000.0 ), CONFIG_FLOAT( "physics_sleep_angular_speed", physicsSleep.angularSpeed, 0.0, 1000000.0 ), CONFIG_INT( "physics_sleep_frames", physicsSleep.frames, 0, 1000000 ), };
 
-static const ConfigSetting kBlobShadowSettings[] = {
-    CONFIG_FLOAT( "shadow_max_height", blobShadow.maxHeight, 0.0, 1000000.0 ),
-    CONFIG_FLOAT( "shadow_max_alpha", blobShadow.maxAlpha, 0.0, 1.0 ),
-    CONFIG_FLOAT( "shadow_offset", blobShadow.offset, -1000000.0, 1000000.0 ),
-    CONFIG_FLOAT( "shadow_scale", blobShadow.scale, 0.0, 1000000.0 ),
-};
+static const ConfigSetting kBlobShadowSettings[] = { CONFIG_FLOAT( "shadow_max_height", blobShadow.maxHeight, 0.0, 1000000.0 ),
+                                                     CONFIG_FLOAT( "shadow_max_alpha", blobShadow.maxAlpha, 0.0, 1.0 ),
+                                                     CONFIG_FLOAT( "shadow_offset", blobShadow.offset, -1000000.0, 1000000.0 ),
+                                                     CONFIG_FLOAT( "shadow_scale", blobShadow.scale, 0.0, 1000000.0 ), };
 
-static const ConfigSetting kGeneratedSceneSettings[] = {
-    CONFIG_FLOAT( "spawn_x_base", generatedScene.spawnXBase, -1000000.0, 1000000.0 ),
-    CONFIG_INT( "spawn_x_range", generatedScene.spawnXRange, 0, 1000000 ),
-    CONFIG_FLOAT( "spawn_y_base", generatedScene.spawnYBase, -1000000.0, 1000000.0 ),
-    CONFIG_INT( "spawn_y_range", generatedScene.spawnYRange, 0, 1000000 ),
-    CONFIG_FLOAT( "spawn_z_base", generatedScene.spawnZBase, -1000000.0, 1000000.0 ),
-    CONFIG_INT( "spawn_z_range", generatedScene.spawnZRange, 0, 1000000 ),
-    CONFIG_FLOAT( "ball_mass_min", generatedScene.ballMassMin, 0.0, 1000000.0 ),
-    CONFIG_INT( "ball_mass_range", generatedScene.ballMassRange, 0, 1000000 ),
-    CONFIG_FLOAT( "ball_moment_min", generatedScene.ballMomentMin, 0.0, 1000000.0 ),
-    CONFIG_INT( "ball_moment_range", generatedScene.ballMomentRange, 0, 1000000 ),
-    CONFIG_FLOAT( "ball_restitution_min", generatedScene.ballRestitutionMin, -1000000.0, 1000000.0 ),
-    CONFIG_INT( "ball_restitution_range", generatedScene.ballRestitutionRange, 0, 1000000 ),
-    CONFIG_INT( "ball_radius_range", generatedScene.ballRadiusRange, 0, 1000000 ),
-    CONFIG_INT( "ball_force_range", generatedScene.ballForceRange, 0, 1000000 ),
-};
+static const ConfigSetting kGeneratedSceneSettings[] = { CONFIG_FLOAT( "spawn_x_base", generatedScene.spawnXBase, -1000000.0, 1000000.0 ),
+                                                         CONFIG_INT( "spawn_x_range", generatedScene.spawnXRange, 0, 1000000 ),
+                                                         CONFIG_FLOAT( "spawn_y_base", generatedScene.spawnYBase, -1000000.0, 1000000.0 ),
+                                                         CONFIG_INT( "spawn_y_range", generatedScene.spawnYRange, 0, 1000000 ),
+                                                         CONFIG_FLOAT( "spawn_z_base", generatedScene.spawnZBase, -1000000.0, 1000000.0 ),
+                                                         CONFIG_INT( "spawn_z_range", generatedScene.spawnZRange, 0, 1000000 ),
+                                                         CONFIG_FLOAT( "ball_mass_min", generatedScene.ballMassMin, 0.0, 1000000.0 ),
+                                                         CONFIG_INT( "ball_mass_range", generatedScene.ballMassRange, 0, 1000000 ),
+                                                         CONFIG_FLOAT( "ball_moment_min", generatedScene.ballMomentMin, 0.0, 1000000.0 ),
+                                                         CONFIG_INT( "ball_moment_range", generatedScene.ballMomentRange, 0, 1000000 ),
+                                                         CONFIG_FLOAT( "ball_restitution_min", generatedScene.ballRestitutionMin, -1000000.0, 1000000.0 ),
+                                                         CONFIG_INT( "ball_restitution_range", generatedScene.ballRestitutionRange, 0, 1000000 ),
+                                                         CONFIG_INT( "ball_radius_range", generatedScene.ballRadiusRange, 0, 1000000 ),
+                                                         CONFIG_INT( "ball_force_range", generatedScene.ballForceRange, 0, 1000000 ), };
 
-static const ConfigSetting kAssetPathsSettings[] = {
-    CONFIG_STRING( "sky_front", assetPaths.skyFront ),
-    CONFIG_STRING( "sky_left", assetPaths.skyLeft ),
-    CONFIG_STRING( "sky_back", assetPaths.skyBack ),
-    CONFIG_STRING( "sky_right", assetPaths.skyRight ),
-    CONFIG_STRING( "sky_up", assetPaths.skyUp ),
-    CONFIG_STRING( "sky_down", assetPaths.skyDown ),
-    CONFIG_STRING( "terrain_texture", assetPaths.terrainTexture ),
-    CONFIG_STRING( "sphere_texture", assetPaths.sphereTexture ),
-    CONFIG_STRING( "terrain_raw", assetPaths.terrainRaw ),
-};
+static const ConfigSetting kAssetPathsSettings[] = { CONFIG_STRING( "sky_front", assetPaths.skyFront ),
+                                                     CONFIG_STRING( "sky_left", assetPaths.skyLeft ),
+                                                     CONFIG_STRING( "sky_back", assetPaths.skyBack ),
+                                                     CONFIG_STRING( "sky_right", assetPaths.skyRight ),
+                                                     CONFIG_STRING( "sky_up", assetPaths.skyUp ),
+                                                     CONFIG_STRING( "sky_down", assetPaths.skyDown ),
+                                                     CONFIG_STRING( "terrain_texture", assetPaths.terrainTexture ),
+                                                     CONFIG_STRING( "sphere_texture", assetPaths.sphereTexture ),
+                                                     CONFIG_STRING( "terrain_raw", assetPaths.terrainRaw ), };
 
-static const ConfigSetting kWaterRenderStyleSettings[] = {
-    CONFIG_FLOAT( "ocean_wave_height", waterRenderStyle.oceanWaveHeight, -1000000.0, 1000000.0 ),
-    CONFIG_FLOAT( "ocean_perturb_strength", waterRenderStyle.oceanPerturbStrength, -1000000.0, 1000000.0 ),
-};
+static const ConfigSetting kWaterRenderStyleSettings[] = { CONFIG_FLOAT( "ocean_wave_height", waterRenderStyle.oceanWaveHeight, -1000000.0, 1000000.0 ), CONFIG_FLOAT( "ocean_perturb_strength", waterRenderStyle.oceanPerturbStrength, -1000000.0, 1000000.0 ), };
 
-constexpr size_t kExpectedConfigSettingCount = 224;
-static_assert( ArrayCount( kWindowSettings ) + ArrayCount( kCameraSettings ) + ArrayCount( kTerrainGeometrySettings ) +
-                       ArrayCount( kSkyboxSettings ) + ArrayCount( kRuntimeCapacitySettings ) +
-                       ArrayCount( kPhysicsExecutionSettings ) + ArrayCount( kRuntimeRenderSettings ) +
-                       ArrayCount( kReplayPredictionSettings ) + ArrayCount( kSceneLightSettings ) +
-                       ArrayCount( kOrdinaryRenderSettings ) + ArrayCount( kCinematicRenderSettings ) +
-                       ArrayCount( kWorldForceSettings ) + ArrayCount( kBodySimulationSettings ) +
-                       ArrayCount( kPhysicsMaterialSettings ) + ArrayCount( kBroadphaseSettings ) +
-                       ArrayCount( kPersistentContactSolverSettings ) + ArrayCount( kTerrainContactSettings ) +
-                       ArrayCount( kPhysicsSleepSettings ) + ArrayCount( kBlobShadowSettings ) +
-                       ArrayCount( kGeneratedSceneSettings ) + ArrayCount( kAssetPathsSettings ) +
+constexpr size_t kExpectedConfigSettingCount = 231;
+static_assert( ArrayCount( kWindowSettings ) + ArrayCount( kCameraSettings ) + ArrayCount( kTerrainGeometrySettings ) + ArrayCount( kSkyboxSettings ) + ArrayCount( kRuntimeCapacitySettings ) +
+                       ArrayCount( kPhysicsExecutionSettings ) + ArrayCount( kRuntimeRenderSettings ) + ArrayCount( kReplayPredictionSettings ) + ArrayCount( kSceneLightSettings ) +
+                       ArrayCount( kOrdinaryRenderSettings ) + ArrayCount( kCinematicRenderSettings ) + ArrayCount( kWorldForceSettings ) + ArrayCount( kBodySimulationSettings ) +
+                       ArrayCount( kPhysicsMaterialSettings ) + ArrayCount( kBroadphaseSettings ) + ArrayCount( kPersistentContactSolverSettings ) + ArrayCount( kTerrainContactSettings ) +
+                       ArrayCount( kPhysicsSleepSettings ) + ArrayCount( kBlobShadowSettings ) + ArrayCount( kGeneratedSceneSettings ) + ArrayCount( kAssetPathsSettings ) +
                        ArrayCount( kWaterRenderStyleSettings ) ==
                    kExpectedConfigSettingCount,
                "Every engine config key must belong to exactly one domain table." );
@@ -645,64 +586,59 @@ static_assert( ArrayCount( kWindowSettings ) + ArrayCount( kCameraSettings ) + A
 // The enum ordinal, table pointer, and table count have one shared definition.
 // Traversal and its constexpr proof therefore cannot disagree about which
 // physical array belongs to a domain.
-static constexpr ConfigSettingTable kConfigSettingTables[] = {
-    { kWindowSettings, ArrayCount( kWindowSettings ) },
-    { kCameraSettings, ArrayCount( kCameraSettings ) },
-    { kTerrainGeometrySettings, ArrayCount( kTerrainGeometrySettings ) },
-    { kSkyboxSettings, ArrayCount( kSkyboxSettings ) },
-    { kRuntimeCapacitySettings, ArrayCount( kRuntimeCapacitySettings ) },
-    { kPhysicsExecutionSettings, ArrayCount( kPhysicsExecutionSettings ) },
-    { kRuntimeRenderSettings, ArrayCount( kRuntimeRenderSettings ) },
-    { kReplayPredictionSettings, ArrayCount( kReplayPredictionSettings ) },
-    { kSceneLightSettings, ArrayCount( kSceneLightSettings ) },
-    { kOrdinaryRenderSettings, ArrayCount( kOrdinaryRenderSettings ) },
-    { kCinematicRenderSettings, ArrayCount( kCinematicRenderSettings ) },
-    { kWorldForceSettings, ArrayCount( kWorldForceSettings ) },
-    { kBodySimulationSettings, ArrayCount( kBodySimulationSettings ) },
-    { kPhysicsMaterialSettings, ArrayCount( kPhysicsMaterialSettings ) },
-    { kBroadphaseSettings, ArrayCount( kBroadphaseSettings ) },
-    { kPersistentContactSolverSettings, ArrayCount( kPersistentContactSolverSettings ) },
-    { kTerrainContactSettings, ArrayCount( kTerrainContactSettings ) },
-    { kPhysicsSleepSettings, ArrayCount( kPhysicsSleepSettings ) },
-    { kBlobShadowSettings, ArrayCount( kBlobShadowSettings ) },
-    { kGeneratedSceneSettings, ArrayCount( kGeneratedSceneSettings ) },
-    { kAssetPathsSettings, ArrayCount( kAssetPathsSettings ) },
-    { kWaterRenderStyleSettings, ArrayCount( kWaterRenderStyleSettings ) },
-};
-static_assert( ArrayCount( kConfigSettingTables ) == static_cast<size_t>( ConfigSettingDomain::Count ),
-               "Every config domain must have exactly one table descriptor." );
+static constexpr ConfigSettingTable kConfigSettingTables[] = { { kWindowSettings, ArrayCount( kWindowSettings ) },
+                                                               { kCameraSettings, ArrayCount( kCameraSettings ) },
+                                                               { kTerrainGeometrySettings, ArrayCount( kTerrainGeometrySettings ) },
+                                                               { kSkyboxSettings, ArrayCount( kSkyboxSettings ) },
+                                                               { kRuntimeCapacitySettings, ArrayCount( kRuntimeCapacitySettings ) },
+                                                               { kPhysicsExecutionSettings, ArrayCount( kPhysicsExecutionSettings ) },
+                                                               { kRuntimeRenderSettings, ArrayCount( kRuntimeRenderSettings ) },
+                                                               { kReplayPredictionSettings, ArrayCount( kReplayPredictionSettings ) },
+                                                               { kSceneLightSettings, ArrayCount( kSceneLightSettings ) },
+                                                               { kOrdinaryRenderSettings, ArrayCount( kOrdinaryRenderSettings ) },
+                                                               { kCinematicRenderSettings, ArrayCount( kCinematicRenderSettings ) },
+                                                               { kWorldForceSettings, ArrayCount( kWorldForceSettings ) },
+                                                               { kBodySimulationSettings, ArrayCount( kBodySimulationSettings ) },
+                                                               { kPhysicsMaterialSettings, ArrayCount( kPhysicsMaterialSettings ) },
+                                                               { kBroadphaseSettings, ArrayCount( kBroadphaseSettings ) },
+                                                               { kPersistentContactSolverSettings, ArrayCount( kPersistentContactSolverSettings ) },
+                                                               { kTerrainContactSettings, ArrayCount( kTerrainContactSettings ) },
+                                                               { kPhysicsSleepSettings, ArrayCount( kPhysicsSleepSettings ) },
+                                                               { kBlobShadowSettings, ArrayCount( kBlobShadowSettings ) },
+                                                               { kGeneratedSceneSettings, ArrayCount( kGeneratedSceneSettings ) },
+                                                               { kAssetPathsSettings, ArrayCount( kAssetPathsSettings ) },
+                                                               { kWaterRenderStyleSettings, ArrayCount( kWaterRenderStyleSettings ) }, };
+static_assert( ArrayCount( kConfigSettingTables ) == static_cast<size_t>( ConfigSettingDomain::Count ), "Every config domain must have exactly one table descriptor." );
 
 // Invariant: these ranges are the single compatibility order for lookup and
 // Dump(). Slices preserve the few historical interleavings between domains.
 // Hazard: reordering a slice changes dump output and duplicate-key precedence.
-static constexpr ConfigSettingRange kConfigSettingOrder[] = {
-    FullConfigRange( ConfigSettingDomain::Window, kWindowSettings ),
-    FullConfigRange( ConfigSettingDomain::Camera, kCameraSettings ),
-    FullConfigRange( ConfigSettingDomain::TerrainGeometry, kTerrainGeometrySettings ),
-    FullConfigRange( ConfigSettingDomain::Skybox, kSkyboxSettings ),
-    FullConfigRange( ConfigSettingDomain::RuntimeCapacity, kRuntimeCapacitySettings ),
-    FullConfigRange( ConfigSettingDomain::PhysicsExecution, kPhysicsExecutionSettings ),
-    { ConfigSettingDomain::RuntimeRender, 0, 1 },
-    FullConfigRange( ConfigSettingDomain::ReplayPrediction, kReplayPredictionSettings ),
-    FullConfigRange( ConfigSettingDomain::SceneLight, kSceneLightSettings ),
-    FullConfigRange( ConfigSettingDomain::OrdinaryRender, kOrdinaryRenderSettings ),
-    FullConfigRange( ConfigSettingDomain::CinematicRender, kCinematicRenderSettings ),
-    { ConfigSettingDomain::WorldForce, 0, 4 },
-    { ConfigSettingDomain::BodySimulation, 0, 1 },
-    { ConfigSettingDomain::PhysicsMaterial, 0, 1 },
-    { ConfigSettingDomain::WorldForce, 4, 1 },
-    { ConfigSettingDomain::PhysicsMaterial, 1, 4 },
-    { ConfigSettingDomain::BodySimulation, 1, 2 },
-    FullConfigRange( ConfigSettingDomain::Broadphase, kBroadphaseSettings ),
-    FullConfigRange( ConfigSettingDomain::PersistentContactSolver, kPersistentContactSolverSettings ),
-    FullConfigRange( ConfigSettingDomain::TerrainContact, kTerrainContactSettings ),
-    FullConfigRange( ConfigSettingDomain::PhysicsSleep, kPhysicsSleepSettings ),
-    FullConfigRange( ConfigSettingDomain::BlobShadow, kBlobShadowSettings ),
-    FullConfigRange( ConfigSettingDomain::GeneratedScene, kGeneratedSceneSettings ),
-    FullConfigRange( ConfigSettingDomain::AssetPaths, kAssetPathsSettings ),
-    FullConfigRange( ConfigSettingDomain::WaterRenderStyle, kWaterRenderStyleSettings ),
-    { ConfigSettingDomain::RuntimeRender, 1, 4 },
-};
+static constexpr ConfigSettingRange kConfigSettingOrder[] = { FullConfigRange( ConfigSettingDomain::Window, kWindowSettings ),
+                                                              FullConfigRange( ConfigSettingDomain::Camera, kCameraSettings ),
+                                                              FullConfigRange( ConfigSettingDomain::TerrainGeometry, kTerrainGeometrySettings ),
+                                                              FullConfigRange( ConfigSettingDomain::Skybox, kSkyboxSettings ),
+                                                              FullConfigRange( ConfigSettingDomain::RuntimeCapacity, kRuntimeCapacitySettings ),
+                                                              FullConfigRange( ConfigSettingDomain::PhysicsExecution, kPhysicsExecutionSettings ),
+                                                              { ConfigSettingDomain::RuntimeRender, 0, 1 },
+                                                              FullConfigRange( ConfigSettingDomain::ReplayPrediction, kReplayPredictionSettings ),
+                                                              FullConfigRange( ConfigSettingDomain::SceneLight, kSceneLightSettings ),
+                                                              FullConfigRange( ConfigSettingDomain::OrdinaryRender, kOrdinaryRenderSettings ),
+                                                              FullConfigRange( ConfigSettingDomain::CinematicRender, kCinematicRenderSettings ),
+                                                              { ConfigSettingDomain::WorldForce, 0, 4 },
+                                                              { ConfigSettingDomain::BodySimulation, 0, 1 },
+                                                              { ConfigSettingDomain::PhysicsMaterial, 0, 1 },
+                                                              { ConfigSettingDomain::WorldForce, 4, 1 },
+                                                              { ConfigSettingDomain::PhysicsMaterial, 1, 4 },
+                                                              { ConfigSettingDomain::BodySimulation, 1, 2 },
+                                                              FullConfigRange( ConfigSettingDomain::Broadphase, kBroadphaseSettings ),
+                                                              FullConfigRange( ConfigSettingDomain::PersistentContactSolver, kPersistentContactSolverSettings ),
+                                                              FullConfigRange( ConfigSettingDomain::TerrainContact, kTerrainContactSettings ),
+                                                              FullConfigRange( ConfigSettingDomain::PhysicsSleep, kPhysicsSleepSettings ),
+                                                              FullConfigRange( ConfigSettingDomain::BlobShadow, kBlobShadowSettings ),
+                                                              FullConfigRange( ConfigSettingDomain::GeneratedScene, kGeneratedSceneSettings ),
+                                                              FullConfigRange( ConfigSettingDomain::AssetPaths, kAssetPathsSettings ),
+                                                              FullConfigRange( ConfigSettingDomain::WaterRenderStyle, kWaterRenderStyleSettings ),
+                                                              { ConfigSettingDomain::RuntimeRender, 1, 4 }, };
 
 // Invariant: every row of every domain appears in exactly one ordered slice.
 // Full-domain additions update automatically; additions to an interleaved
@@ -753,8 +689,7 @@ constexpr bool ConfigSettingOrderCoversEveryDomainRowExactlyOnce()
     return true;
 }
 
-static_assert( ConfigSettingOrderCoversEveryDomainRowExactlyOnce(),
-               "Config setting order must visit every row of every domain exactly once." );
+static_assert( ConfigSettingOrderCoversEveryDomainRowExactlyOnce(), "Config setting order must visit every row of every domain exactly once." );
 
 template <typename Visitor> bool VisitConfigSettingsInOrder( Visitor&& visitor )
 {
@@ -777,8 +712,7 @@ template <typename Visitor> bool VisitConfigSettingsInOrder( Visitor&& visitor )
 const ConfigSetting* FindConfigSetting( const char* name )
 {
     const ConfigSetting* found = nullptr;
-    VisitConfigSettingsInOrder(
-        [name, &found]( const ConfigSetting& setting )
+    VisitConfigSettingsInOrder( [name, &found]( const ConfigSetting& setting )
         {
             if ( strcmp( setting.name, name ) != 0 )
             {
@@ -810,12 +744,10 @@ SbResult OpenOptionalConfigFile( SbDiagnosticStore& diagnostics, const char* pat
         return SbResult::Success();
     }
 
-    return diagnostics.Failure( "Core/EngineConfig", "Unable to open engine config for reading: %s (error %d).", path,
-                                error );
+    return diagnostics.Failure( "Core/EngineConfig", "Unable to open engine config for reading: %s (error %d).", path, error );
 }
 
-SbResult RequireCompleteConfigRead( SbDiagnosticStore& diagnostics, FILE* file, const char* path, const char* pass,
-                                    bool injectedFailure = false )
+SbResult RequireCompleteConfigRead( SbDiagnosticStore& diagnostics, FILE* file, const char* path, const char* pass, bool injectedFailure = false )
 {
     if ( !injectedFailure && !ferror( file ) )
     {
@@ -823,12 +755,10 @@ SbResult RequireCompleteConfigRead( SbDiagnosticStore& diagnostics, FILE* file, 
     }
 
     const int error = errno;
-    return diagnostics.Failure( "Core/EngineConfig", "Unable to complete engine config %s read: %s (error %d).", pass, path,
-                                error );
+    return diagnostics.Failure( "Core/EngineConfig", "Unable to complete engine config %s read: %s (error %d).", pass, path, error );
 }
 
-SbResult RejectTruncatedConfigLine( SbDiagnosticStore& diagnostics, FILE* file, const char* path, int lineNumber,
-                                    const char* line, size_t lineCapacity )
+SbResult RejectTruncatedConfigLine( SbDiagnosticStore& diagnostics, FILE* file, const char* path, int lineNumber, const char* line, size_t lineCapacity )
 {
     const size_t length = strlen( line );
     if ( length + 1u < lineCapacity || length == 0u || line[length - 1u] == '\n' )
@@ -857,8 +787,7 @@ SbResult RejectTruncatedConfigLine( SbDiagnosticStore& diagnostics, FILE* file, 
         return RequireCompleteConfigRead( diagnostics, file, path, "line-boundary" );
     }
 
-    return diagnostics.Failure( "Core/EngineConfig", "Engine config line does not fit the %zu-byte parser buffer at %s:%d.",
-                                lineCapacity, path, lineNumber );
+    return diagnostics.Failure( "Core/EngineConfig", "Engine config line does not fit the %zu-byte parser buffer at %s:%d.", lineCapacity, path, lineNumber );
 }
 
 SbResult RejectEmbeddedConfigNul( SbDiagnosticStore& diagnostics, FILE* file, const char* path )
@@ -884,8 +813,7 @@ SbResult RejectEmbeddedConfigNul( SbDiagnosticStore& diagnostics, FILE* file, co
     clearerr( file );
     if ( fseek( file, 0, SEEK_SET ) != 0 )
     {
-        return diagnostics.Failure( "Core/EngineConfig", "Unable to restart engine config after binary preflight: %s.",
-                                    path );
+        return diagnostics.Failure( "Core/EngineConfig", "Unable to restart engine config after binary preflight: %s.", path );
     }
     return SbResult::Success();
 }
@@ -946,8 +874,7 @@ SbResult ReadConfigFormatVersion( SbDiagnosticStore& diagnostics, FILE* file, co
 
         if ( sawVersion )
         {
-            return diagnostics.Failure( "Core/EngineConfig", "Duplicate engine config format_version at %s:%d.", path,
-                                        lineNumber );
+            return diagnostics.Failure( "Core/EngineConfig", "Duplicate engine config format_version at %s:%d.", path, lineNumber );
         }
 
         char* value = TrimInPlace( eq + 1 );
@@ -965,8 +892,7 @@ SbResult ReadConfigFormatVersion( SbDiagnosticStore& diagnostics, FILE* file, co
 
         if ( end == value || *TrimInPlace( end ) != '\0' || errno == ERANGE || parsed > UINT_MAX )
         {
-            return diagnostics.Failure( "Core/EngineConfig", "Invalid engine config format_version at %s:%d.", path,
-                                        lineNumber );
+            return diagnostics.Failure( "Core/EngineConfig", "Invalid engine config format_version at %s:%d.", path, lineNumber );
         }
 
         outVersion = static_cast<unsigned int>( parsed );
@@ -981,9 +907,7 @@ SbResult ReadConfigFormatVersion( SbDiagnosticStore& diagnostics, FILE* file, co
 
     if ( outVersion > ENGINE_CONFIG_FORMAT_VERSION )
     {
-        return diagnostics.Failure( "Core/EngineConfig",
-                                    "Engine config format version %u is newer than current version %u: %s.", outVersion,
-                                    ENGINE_CONFIG_FORMAT_VERSION, path );
+        return diagnostics.Failure( "Core/EngineConfig", "Engine config format version %u is newer than current version %u: %s.", outVersion, ENGINE_CONFIG_FORMAT_VERSION, path );
     }
 
     // Versions 0-6 share the key/value grammar. Versioned execution rows are
@@ -1042,8 +966,7 @@ SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
     errno = 0;
     if ( fseek( file.get(), 0, SEEK_SET ) != 0 )
     {
-        return diagnostics.Failure( "Core/EngineConfig", "Unable to restart engine config settings read: %s (error %d).",
-                                    path, errno );
+        return diagnostics.Failure( "Core/EngineConfig", "Unable to restart engine config settings read: %s (error %d).", path, errno );
     }
 
     EngineConfig candidate = *this;
@@ -1070,8 +993,7 @@ SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
         }
 
         ++lineNumber;
-        const SbResult lineResult = RejectTruncatedConfigLine( diagnostics, file.get(), path, lineNumber, line,
-                                                               sizeof( line ) );
+        const SbResult lineResult = RejectTruncatedConfigLine( diagnostics, file.get(), path, lineNumber, line, sizeof( line ) );
         if ( !lineResult.Ok() )
         {
             return lineResult;
@@ -1154,11 +1076,94 @@ void EngineConfig::Dump( FILE* out ) const
     }
 
     fprintf( out, "[config]\n" );
-    VisitConfigSettingsInOrder(
-        [this, out]( const ConfigSetting& setting )
+    VisitConfigSettingsInOrder( [this, out]( const ConfigSetting& setting )
         {
             setting.dump( *this, out, setting );
 
             return true;
         } );
+}
+
+namespace
+{
+bool IsPhysicsDefaultKey( const char* key )
+{
+    for ( const ConfigSettingDomain domain : { ConfigSettingDomain::PhysicsMaterial,
+                                               ConfigSettingDomain::BodySimulation,
+                                               ConfigSettingDomain::PersistentContactSolver,
+                                               ConfigSettingDomain::TerrainContact,
+                                               ConfigSettingDomain::PhysicsSleep } )
+    {
+        const auto& table = kConfigSettingTables[static_cast<std::size_t>( domain )];
+        for ( std::size_t index = 0; index < table.count; ++index )
+        {
+            if ( std::strcmp( key, table.settings[index].name ) == 0 )
+            {
+                return true;
+            }
+        }
+    }
+    return std::strcmp( key, "gravity" ) == 0;
+}
+} // namespace
+
+SbResult EngineConfig::SavePhysicsDefaults( SbDiagnosticStore& diagnostics, const char* path ) const
+{
+    // Explicit cold save only. Preflight the version before opening a temporary
+    // file; unrelated keys and comments survive, and replacement is atomic.
+    EngineConfig preflight;
+    const auto status = preflight.Load( diagnostics, path );
+    if ( !status.Ok() )
+    {
+        return status;
+    }
+    std::ifstream input( path );
+    std::vector<std::string> preserved;
+    std::string line;
+    while ( std::getline( input, line ) )
+    {
+        char key[128] {};
+        if ( sscanf_s( line.c_str(), " %127[^ =\t]", key, static_cast<unsigned>( sizeof( key ) ) ) == 1 &&
+             ( IsPhysicsDefaultKey( key ) || std::strcmp( key, "format_version" ) == 0 || std::strcmp( key, "physics_simd_kernels" ) == 0 || std::strcmp( key, "terrain_render_step_size" ) == 0 ||
+               std::strncmp( key, "contact_audio_", 14 ) == 0 ) )
+        {
+            continue;
+        }
+        preserved.push_back( line );
+    }
+    if ( input.bad() )
+    {
+        return diagnostics.Failure( "Core/EngineConfig", "Cannot read Physics defaults: %s", path );
+    }
+    input.close();
+    const std::filesystem::path target( path );
+    auto temporary = target;
+    temporary += ".physics.tmp";
+    FILE* output = nullptr;
+    if ( _wfopen_s( &output, temporary.c_str(), L"wb" ) != 0 || !output )
+    {
+        return diagnostics.Failure( "Core/EngineConfig", "Cannot open Physics defaults temporary file: %s", path );
+    }
+    fprintf( output, "format_version = %u\n", ENGINE_CONFIG_FORMAT_VERSION );
+    for ( const auto& value : preserved )
+    {
+        fprintf( output, "%s\n", value.c_str() );
+    }
+    VisitConfigSettingsInOrder( [this, output]( const ConfigSetting& setting )
+        {
+            if ( IsPhysicsDefaultKey( setting.name ) )
+            {
+                setting.dump( *this, output, setting );
+            }
+            return true;
+        } );
+    const bool writeFailed = ferror( output ) != 0;
+    const bool closeFailed = fclose( output ) != 0;
+    Platform::NativeError error {};
+    if ( writeFailed || closeFailed || !Platform::ReplaceFile( temporary.c_str(), target.c_str(), error ) )
+    {
+        Platform::DeleteFileIfPresent( temporary.c_str() );
+        return diagnostics.Failure( "Core/EngineConfig", "Cannot replace Physics defaults: %s", path );
+    }
+    return SbResult::Success();
 }

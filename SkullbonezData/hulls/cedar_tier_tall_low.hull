@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name cedar_tier_tall_low
 source_hash 0xe6b3105c49928d4d
 
@@ -27,7 +27,8 @@ default_density 0.9
 default_mass 4149.6
 bounding_radius 16.6660582
 inertia_half_extents 11 7 11
-unit_inertia 56.6666667 80.6666667 56.6666667
+unit_inertia 44.7032339 58.3983806 44.7032339
+unit_inertia_products 0 0 0
 projected_surface_area 366.666667
 
 # Baked centered vertices.

@@ -213,6 +213,7 @@
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'">false</WholeProgramOptimization>
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PersistentContactGeometry.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsPoseIntegration.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsTerrainView.cpp" />
@@ -260,6 +261,8 @@
     <ClInclude Include="SkullbonezSource\Physics\ConvexDistance.h" />
     <ClInclude Include="SkullbonezSource\Physics\SpeculativeContacts.h" />
     <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PersistentContactGeometry.h" />
+    <ClInclude Include="SkullbonezSource\Physics\ContactSupportGeometry.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsApi.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsPoseIntegration.h" />

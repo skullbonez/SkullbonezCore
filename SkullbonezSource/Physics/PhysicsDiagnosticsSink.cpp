@@ -65,9 +65,7 @@ void PhysicsDiagnosticsSink::SetDiagnosticNames( std::span<const char* const> di
 
     if ( diagnosticNames.size() > m_diagnosticNames.size() )
     {
-        SB_FATAL( "Physics/DiagnosticsSink",
-                  "Diagnostic name registration exceeds fixed capacity. requested=%zu capacity=%zu", diagnosticNames.size(),
-                  m_diagnosticNames.size() );
+        SB_FATAL( "Physics/DiagnosticsSink", "Diagnostic name registration exceeds fixed capacity. requested=%zu capacity=%zu", diagnosticNames.size(), m_diagnosticNames.size() );
     }
 
     std::fill( m_diagnosticNames.begin(), m_diagnosticNames.end(), nullptr );
@@ -88,7 +86,8 @@ PhysicsDiagnosticsNameView PhysicsDiagnosticsSink::RegisteredNames() const
 
 
 #if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-bool SkullbonezCore::Physics::TryBuildPhysicsDiagnosticsModelRecord( int index, const PhysicsBodyStore& bodyStore,
+bool SkullbonezCore::Physics::TryBuildPhysicsDiagnosticsModelRecord( int index,
+                                                                     const PhysicsBodyStore& bodyStore,
                                                                      const ColliderStore& colliderStore,
                                                                      const PhysicsDiagnosticsNameView& names,
                                                                      PhysicsDiagnosticsModelRecord& outRecord )
@@ -109,6 +108,7 @@ bool SkullbonezCore::Physics::TryBuildPhysicsDiagnosticsModelRecord( int index, 
     outRecord.velocity = PhysicsBodyLinearVelocity( hotFields, bodyIndex );
     outRecord.angularVelocity = PhysicsBodyAngularVelocity( hotFields, bodyIndex );
     outRecord.rotationalInertia = bodyRecord.rotationalInertia;
+    outRecord.rotationalInertiaProducts = bodyRecord.rotationalInertiaProducts;
     PhysicsBodyOrientation( hotFields, bodyIndex ).GetComponents( outRecord.qx, outRecord.qy, outRecord.qz, outRecord.qw );
 
     outRecord.mass = bodyRecord.mass;
@@ -117,32 +117,30 @@ bool SkullbonezCore::Physics::TryBuildPhysicsDiagnosticsModelRecord( int index, 
     // Why: regression CSV diagnostics are emitted after the solver, so body and
     // shape state must come from the stores just written by the step. The
     // scene/model edge contributes only the cold presentation name.
-    Math::CollisionDetection::
-        VisitCollisionShape( colliderRecord.shape,
-                             [&]( const auto& shape )
-                             {
-                                 using ShapeT = std::decay_t<decltype( shape )>;
+    Math::CollisionDetection::VisitCollisionShape( colliderRecord.shape, [&]( const auto& shape )
+                                                   {
+                                                       using ShapeT = std::decay_t<decltype( shape )>;
 
-                                 if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingSphere> )
-                                 {
-                                     outRecord.shapeName = "sphere";
-                                     outRecord.radius = shape.GetRadius();
-                                 }
-                                 else if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingBox> )
-                                 {
-                                     outRecord.shapeName = "box";
-                                     outRecord.halfExtents = shape.GetHalfExtents();
-                                 }
-                                 else
-                                 {
-                                     outRecord.shapeName = "convex_hull";
-                                     outRecord.radius = shape.GetBoundingRadius();
-                                     outRecord.hullName = shape.GetName();
-                                     outRecord.hullVertices = shape.GetVertexCount();
-                                     outRecord.hullFaces = shape.GetFaceCount();
-                                     outRecord.hullEdges = shape.GetEdgeCount();
-                                 }
-                             } );
+                                                       if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingSphere> )
+                                                       {
+                                                           outRecord.shapeName = "sphere";
+                                                           outRecord.radius = shape.GetRadius();
+                                                       }
+                                                       else if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingBox> )
+                                                       {
+                                                           outRecord.shapeName = "box";
+                                                           outRecord.halfExtents = shape.GetHalfExtents();
+                                                       }
+                                                       else
+                                                       {
+                                                           outRecord.shapeName = "convex_hull";
+                                                           outRecord.radius = shape.GetBoundingRadius();
+                                                           outRecord.hullName = shape.GetName();
+                                                           outRecord.hullVertices = shape.GetVertexCount();
+                                                           outRecord.hullFaces = shape.GetFaceCount();
+                                                           outRecord.hullEdges = shape.GetEdgeCount();
+                                                       }
+                                                   } );
     return true;
 }
 
@@ -215,8 +213,7 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInp
 
     const int modelCount = frame.bodyStore.Count();
 
-    std::fill_n( m_regressionContactMetrics.begin(), static_cast<std::size_t>( modelCount ),
-                 PhysicsRegressionContactMetrics {} );
+    std::fill_n( m_regressionContactMetrics.begin(), static_cast<std::size_t>( modelCount ), PhysicsRegressionContactMetrics {} );
 
     for ( const PersistentContact& contact : diagnosticsView.persistentContacts )
     {
@@ -233,9 +230,7 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInp
             metrics.maxSeparationBias = (std::max)( metrics.maxSeparationBias, fabsf( contact.separationBias ) );
             metrics.maxClosingSpeed = (std::max)( metrics.maxClosingSpeed, fabsf( contact.preSolveClosingSpeed ) );
             metrics.maxSlipSpeed = (std::max)( metrics.maxSlipSpeed, fabsf( contact.preSolveSlipSpeed ) );
-            metrics.maxImpulse = (std::max)( metrics.maxImpulse,
-                                             (std::max)( fabsf( contact.accN ),
-                                                         (std::max)( fabsf( contact.accT1 ), fabsf( contact.accT2 ) ) ) );
+            metrics.maxImpulse = (std::max)( metrics.maxImpulse, (std::max)( fabsf( contact.accN ), (std::max)( fabsf( contact.accT1 ), fabsf( contact.accT2 ) ) ) );
         };
 
         addContact( contact.bodyA );
@@ -244,11 +239,7 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInp
 
     if ( m_physicsRegressionLogFrame == 0 )
     {
-        frame.csvWriter.Writef( m_physicsRegressionLogPath,
-                                "frame,idx,name,posX,posY,posZ,velX,velY,velZ,speed,omegaX,omegaY,omegaZ,omegaMag,qX,"
-                                "qY,qZ,qW,grounded,sleeping,sleepInhibited,sleepCounter,islandRoot,bodyEligible,"
-                                "islandEligible,topologyStable,islandCanSleep,contactRows,maxPenetration,"
-                                "maxSeparationBias,maxClosingSpeed,maxSlipSpeed,maxImpulse,resetReason\n" );
+        frame.csvWriter.Writef( m_physicsRegressionLogPath, "frame,idx,name,posX,posY,posZ,velX,velY,velZ,speed,omegaX,omegaY,omegaZ,omegaMag,qX," "qY,qZ,qW,grounded,sleeping,sleepInhibited,sleepCounter,islandRoot,bodyEligible," "islandEligible,topologyStable,islandCanSleep,contactRows,maxPenetration," "maxSeparationBias,maxClosingSpeed,maxSlipSpeed,maxImpulse,resetReason\n" );
     }
 
     for ( int i = 0; i < modelCount; ++i )
@@ -270,28 +261,49 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInp
         int sleepInhibited = ( i < static_cast<int>( sleepInhibitedThisFrame.size() ) ) ? sleepInhibitedThisFrame[i] : 0;
         const int islandRoot = i < static_cast<int>( sleepIslandParents.size() ) ? sleepIslandParents[i] : i;
         const int bodyEligible = i < static_cast<int>( sleepBodyEligible.size() ) ? sleepBodyEligible[i] : 0;
-        const int islandEligible = islandRoot >= 0 && islandRoot < static_cast<int>( sleepIslandEligible.size() )
-                                       ? sleepIslandEligible[islandRoot]
-                                       : 0;
-        const int topologyStable = islandRoot >= 0 && islandRoot < static_cast<int>( sleepIslandTopologyStable.size() )
-                                       ? sleepIslandTopologyStable[islandRoot]
-                                       : 0;
-        const int islandCanSleep = islandRoot >= 0 && islandRoot < static_cast<int>( sleepIslandCanSleep.size() )
-                                       ? sleepIslandCanSleep[islandRoot]
-                                       : 0;
+        const int islandEligible = islandRoot >= 0 && islandRoot < static_cast<int>( sleepIslandEligible.size() ) ? sleepIslandEligible[islandRoot] : 0;
+        const int topologyStable = islandRoot >= 0 && islandRoot < static_cast<int>( sleepIslandTopologyStable.size() ) ? sleepIslandTopologyStable[islandRoot] : 0;
+        const int islandCanSleep = islandRoot >= 0 && islandRoot < static_cast<int>( sleepIslandCanSleep.size() ) ? sleepIslandCanSleep[islandRoot] : 0;
         const uint32_t quietFrames = i < static_cast<int>( sleepCounter.size() ) ? sleepCounter[i] : 0u;
         const int resetReason = i < static_cast<int>( sleepResetReason.size() ) ? sleepResetReason[i] : 0;
         const PhysicsRegressionContactMetrics& contactMetrics = m_regressionContactMetrics[static_cast<std::size_t>( i )];
 
         frame.csvWriter.Writef( m_physicsRegressionLogPath,
-                                "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.6f,%.6f,%.6f,%.6f,%d,%d,%"
-                                "d,%u,%d,%d,%d,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%d\n",
-                                m_physicsRegressionLogFrame, i, model.name, pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, speed,
-                                omega.x, omega.y, omega.z, omegaMag, model.qx, model.qy, model.qz, model.qw, sleepSupported,
-                                sleeping, sleepInhibited, quietFrames, islandRoot, bodyEligible, islandEligible,
-                                topologyStable, islandCanSleep, contactMetrics.rowCount, contactMetrics.maxPenetration,
-                                contactMetrics.maxSeparationBias, contactMetrics.maxClosingSpeed,
-                                contactMetrics.maxSlipSpeed, contactMetrics.maxImpulse, resetReason );
+                                "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.6f,%.6f,%.6f,%.6f,%d,%d,%" "d,%u,%d,%d,%d,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%d\n",
+                                m_physicsRegressionLogFrame,
+                                i,
+                                model.name,
+                                pos.x,
+                                pos.y,
+                                pos.z,
+                                vel.x,
+                                vel.y,
+                                vel.z,
+                                speed,
+                                omega.x,
+                                omega.y,
+                                omega.z,
+                                omegaMag,
+                                model.qx,
+                                model.qy,
+                                model.qz,
+                                model.qw,
+                                sleepSupported,
+                                sleeping,
+                                sleepInhibited,
+                                quietFrames,
+                                islandRoot,
+                                bodyEligible,
+                                islandEligible,
+                                topologyStable,
+                                islandCanSleep,
+                                contactMetrics.rowCount,
+                                contactMetrics.maxPenetration,
+                                contactMetrics.maxSeparationBias,
+                                contactMetrics.maxClosingSpeed,
+                                contactMetrics.maxSlipSpeed,
+                                contactMetrics.maxImpulse,
+                                resetReason );
     }
 
     ++m_physicsRegressionLogFrame;
@@ -327,8 +339,7 @@ void PhysicsDiagnosticsSink::BeginCollisionTimeFrame()
 #endif
 }
 
-void PhysicsDiagnosticsSink::QueueCollisionTime( const char* type, int bodyA, int bodyB, float collisionTime,
-                                                 float availableTime )
+void PhysicsDiagnosticsSink::QueueCollisionTime( const char* type, int bodyA, int bodyB, float collisionTime, float availableTime )
 {
 #if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 
@@ -340,13 +351,12 @@ void PhysicsDiagnosticsSink::QueueCollisionTime( const char* type, int bodyA, in
     if ( m_collisionTimeEventCount >= COLLISION_TIME_EVENT_CAPACITY )
     {
         SB_FATAL( "PhysicsDiagnosticsSink",
-                  "Collision-time event capacity exhausted. owner=PhysicsDiagnosticsSink capacity=%d high_water=%d "
-                  "phase=fixed_step_collision_commit",
-                  COLLISION_TIME_EVENT_CAPACITY, m_collisionTimeEventHighWater );
+                  "Collision-time event capacity exhausted. owner=PhysicsDiagnosticsSink capacity=%d high_water=%d " "phase=fixed_step_collision_commit",
+                  COLLISION_TIME_EVENT_CAPACITY,
+                  m_collisionTimeEventHighWater );
     }
 
-    m_collisionTimeEvents[static_cast<std::size_t>(
-        m_collisionTimeEventCount++ )] = PhysicsCollisionTimeEvent { type, bodyA, bodyB, collisionTime, availableTime };
+    m_collisionTimeEvents[static_cast<std::size_t>( m_collisionTimeEventCount++ )] = PhysicsCollisionTimeEvent { type, bodyA, bodyB, collisionTime, availableTime };
 
     m_collisionTimeEventHighWater = (std::max)( m_collisionTimeEventHighWater, m_collisionTimeEventCount );
 #else
@@ -369,22 +379,27 @@ void PhysicsDiagnosticsSink::FlushCollisionTimes( const PhysicsDiagnosticsCsvWri
 
     if ( !m_physicsCollisionTimeHeaderWritten )
     {
-        csvWriter.Writef( m_physicsCollisionTimeLogPath,
-                          "frame,type,bodyA,bodyB,nameA,nameB,collisionTime,availableTime\n" );
+        csvWriter.Writef( m_physicsCollisionTimeLogPath, "frame,type,bodyA,bodyB,nameA,nameB,collisionTime,availableTime\n" );
 
         m_physicsCollisionTimeHeaderWritten = true;
     }
 
     const PhysicsDiagnosticsNameView names = RegisteredNames();
-    const auto collisionNameFor = [&]( int bodyIndex ) -> const char*
-    { return ( bodyIndex >= 0 && bodyIndex < names.count ) ? names.NameFor( bodyIndex ) : "terrain"; };
+    const auto collisionNameFor = [&]( int bodyIndex ) -> const char* { return ( bodyIndex >= 0 && bodyIndex < names.count ) ? names.NameFor( bodyIndex ) : "terrain"; };
 
     for ( int eventIndex = 0; eventIndex < m_collisionTimeEventCount; ++eventIndex )
     {
         const PhysicsCollisionTimeEvent& event = m_collisionTimeEvents[static_cast<std::size_t>( eventIndex )];
-        csvWriter.Writef( m_physicsCollisionTimeLogPath, "%d,%s,%d,%d,%s,%s,%.6f,%.6f\n", m_physicsCollisionTimeLogFrame,
-                          event.type, event.bodyA, event.bodyB, collisionNameFor( event.bodyA ),
-                          collisionNameFor( event.bodyB ), event.collisionTime, event.availableTime );
+        csvWriter.Writef( m_physicsCollisionTimeLogPath,
+                          "%d,%s,%d,%d,%s,%s,%.6f,%.6f\n",
+                          m_physicsCollisionTimeLogFrame,
+                          event.type,
+                          event.bodyA,
+                          event.bodyB,
+                          collisionNameFor( event.bodyA ),
+                          collisionNameFor( event.bodyB ),
+                          event.collisionTime,
+                          event.availableTime );
     }
 #else
     (void)csvWriter;

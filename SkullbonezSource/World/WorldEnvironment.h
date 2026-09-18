@@ -86,9 +86,10 @@ class WaterRenderRebuildLease
         if ( !Complete() )
         {
             SB_FATAL( "World/WorldEnvironment",
-                      "Water resource operation requires complete backend-epoch bindings. operation=%s assets=%d "
-                      "resources=%d",
-                      operation ? operation : "unknown", m_assets ? 1 : 0, m_resources ? 1 : 0 );
+                      "Water resource operation requires complete backend-epoch bindings. operation=%s assets=%d " "resources=%d",
+                      operation ? operation : "unknown",
+                      m_assets ? 1 : 0,
+                      m_resources ? 1 : 0 );
         }
     }
 
@@ -103,6 +104,7 @@ enum class WaterMode
     Ocean = 2,
     WetFloor = 3,
     StylizedBasin = 4,
+    WetShore = 5,
 };
 
 struct WaterReflectionInput
@@ -110,7 +112,7 @@ struct WaterReflectionInput
     Math::Transformation::Matrix4 sampleViewProjection; // Reflection sampling matrix for raster or raytraced water.
     uint32_t textureHandle = 0;                         // Engine reflection texture handle; 0 means none.
     bool noReflection = false;                          // Scene/style explicitly disables reflection sampling.
-    bool raytraced = false; // Reflection texture came from the DXR path instead of raster capture.
+    bool raytraced = false;                             // Reflection texture came from the DXR path instead of raster capture.
 };
 
 // Detached before/after values produced by one atomic world-policy mutation.
@@ -175,45 +177,41 @@ class WorldEnvironment
 {
 
   public:
-    WorldEnvironment(); // Initializes default gravity/fluid values from config-era constants.
-    WorldEnvironment( float fluidSurfaceHeight, float fluidDensity, float gasDensity,
-                      float gravity );                         // Explicit physics constants for tests and scene loading.
-    ~WorldEnvironment();                                       // Releases owned water mesh/shader resources.
-    WorldEnvironment( WorldEnvironment&& ) noexcept = default; // Scene containers move worlds during setup only.
-    WorldEnvironment& operator=( WorldEnvironment&& ) noexcept = default; // Scene containers move worlds during setup only.
+    WorldEnvironment();                                                                                // Initializes default gravity/fluid values from config-era constants.
+    WorldEnvironment( float fluidSurfaceHeight, float fluidDensity, float gasDensity, float gravity ); // Explicit physics constants for tests and scene loading.
+    ~WorldEnvironment();                                                                               // Releases owned water mesh/shader resources.
+    WorldEnvironment( WorldEnvironment&& ) noexcept = default;                                         // Scene containers move worlds during setup only.
+    WorldEnvironment& operator=( WorldEnvironment&& ) noexcept = default;                              // Scene containers move worlds during setup only.
 
-    void SetTerrainBounds( float xMin, float xMax, float zMin,
-                           float zMax ); // Must be called before first render; drives calm/ocean mesh split
-    void RenderFluid( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj,
-                      const Math::Vector::Vector3& cameraWorld, Rendering::Dx12TextureOwner& textures,
-                      const WaterReflectionInput& reflection, const Rendering::PassRasterStateBucket& rasterState,
-                      float time, bool flatWater = false, bool cinematic = false,
-                      const SkullbonezCore::Core::CinematicRenderConfig* cinematicConfig =
-                          nullptr ); // Active water mesh render path with current style/reflection inputs.
-    void BindRuntimeConfig(
-        const SkullbonezCore::Core::EngineConfig& config ); // Borrow runtime settings for water physics and style constants.
+    void SetTerrainBounds( float xMin, float xMax, float zMin, float zMax ); // Must be called before first render; drives calm/ocean mesh split
+    void RenderFluid( const Math::Transformation::Matrix4& view,
+                      const Math::Transformation::Matrix4& proj,
+                      const Math::Vector::Vector3& cameraWorld,
+                      Rendering::Dx12TextureOwner& textures,
+                      const WaterReflectionInput& reflection,
+                      const Rendering::PassRasterStateBucket& rasterState,
+                      float time,
+                      bool flatWater = false,
+                      bool cinematic = false,
+                      const SkullbonezCore::Core::CinematicRenderConfig* cinematicConfig = nullptr ); // Active water mesh render path with current style/reflection inputs.
+    void BindRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );                       // Borrow runtime settings for water physics and style constants.
     void
-    BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
-                        Rendering::Dx12ResourceBuilder& resources ); // Borrow rebuild-only services for water resources.
-    void EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
-                                Rendering::Dx12ResourceBuilder& resources ); // Lazily rebuilds missing backend resources.
-    void ResetRenderResources();                // Rebuilds GPU resources after renderer reset/switch
-    void ReleaseRenderResources();              // Releases GPU resources without rebuilding.
-    float GetFluidSurfaceHeight() const;        // World-space Y plane where water begins.
-    void SetFluidSurfaceHeight( float height ); // Moves the water plane without rebuilding collision geometry.
-    void ApplyFluidSurfaceAdjustment( const FluidSurfaceAdjustment& adjustment,
-                                      float deltaSeconds ); // Applies typed input intent in world units.
-    float GetGravity() const;                               // Gravitational acceleration in m/s^2; negative is downward.
-    void SetGravity( float gravity );                       // Updates gravity for future force integration ticks.
-    float GetFluidDensity() const;                          // Fluid density in kg/m^3 for buoyancy and drag.
-    void SetFluidDensity( float density );                  // Updates fluid density for future force integration ticks.
-    WorldOverrideChange
-    ApplyOverride( float gravity, float fluidHeight,
-                   float fluidDensity ); // Applies one detached world-policy tuple and returns before/after values.
-    const Physics::MutualGravitySettings&
-    GetMutualGravitySettings() const; // Pairwise attraction settings for authored space scenes.
-    void SetMutualGravitySettings( const Physics::MutualGravitySettings& settings ); // Updates future mutual-gravity ticks.
-    Physics::PhysicsWorldForces GetPhysicsWorldForces() const; // Tick-local force inputs for physics-owned integration.
+    BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& resources ); // Borrow rebuild-only services for water resources.
+    void
+    EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& resources ); // Lazily rebuilds missing backend resources.
+    void ResetRenderResources();                                                                      // Rebuilds GPU resources after renderer reset/switch
+    void ReleaseRenderResources();                                                                    // Releases GPU resources without rebuilding.
+    float GetFluidSurfaceHeight() const;                                                              // World-space Y plane where water begins.
+    void SetFluidSurfaceHeight( float height );                                                       // Moves the water plane without rebuilding collision geometry.
+    void ApplyFluidSurfaceAdjustment( const FluidSurfaceAdjustment& adjustment, float deltaSeconds ); // Applies typed input intent in world units.
+    float GetGravity() const;                                                                         // Gravitational acceleration in m/s^2; negative is downward.
+    void SetGravity( float gravity );                                                                 // Updates gravity for future force integration ticks.
+    float GetFluidDensity() const;                                                                    // Fluid density in kg/m^3 for buoyancy and drag.
+    void SetFluidDensity( float density );                                                            // Updates fluid density for future force integration ticks.
+    WorldOverrideChange ApplyOverride( float gravity, float fluidHeight, float fluidDensity );        // Applies one detached world-policy tuple and returns before/after values.
+    const Physics::MutualGravitySettings& GetMutualGravitySettings() const;                           // Pairwise attraction settings for authored space scenes.
+    void SetMutualGravitySettings( const Physics::MutualGravitySettings& settings );                  // Updates future mutual-gravity ticks.
+    Physics::PhysicsWorldForces GetPhysicsWorldForces() const;                                        // Tick-local force inputs for physics-owned integration.
 
   private:
     friend struct WorldEnvironmentRenderLifecycleTestAccess;
@@ -223,11 +221,10 @@ class WorldEnvironment
     // copy also retains profile state needed across render calls.
     struct BoundWaterRenderStyleSettings
     {
-        SkullbonezCore::Core::OrdinaryRenderConfig ordinary; // Ordinary water shader style from current runtime config.
-        SkullbonezCore::Core::CinematicRenderConfig
-            cinematicFallback;               // Used when cinematic render has no per-frame override.
-        float oceanWaveHeight = 4.0f;        // Visual wave amplitude, not physics height.
-        float oceanPerturbStrength = 0.002f; // Reflection perturbation scale for water shaders.
+        SkullbonezCore::Core::OrdinaryRenderConfig ordinary;           // Ordinary water shader style from current runtime config.
+        SkullbonezCore::Core::CinematicRenderConfig cinematicFallback; // Used when cinematic render has no per-frame override.
+        float oceanWaveHeight = 4.0f;                                  // Visual wave amplitude, not physics height.
+        float oceanPerturbStrength = 0.002f;                           // Reflection perturbation scale for water shaders.
     };
 
     struct WaterMeshBuildSettings
@@ -240,10 +237,10 @@ class WorldEnvironment
         float angularDragMultiplier = 2.0f; // Physics damping multiplier for submerged spin/drag.
     };
 
-    float m_fluidSurfaceHeight; // World-space Y of the fluid surface (m).  Objects below this are submerged
-    float m_fluidDensity;       // Density of the fluid medium (kg/m³).  Water ≈ 1000, heavy oil ≈ 850
-    float m_gasDensity;         // Density of the gas medium above the surface (kg/m³).  Air ≈ 1.225
-    float m_gravity;            // Gravitational acceleration (m/s², stored NEGATIVE for downward, e.g. -9.81)
+    float m_fluidSurfaceHeight;                     // World-space Y of the fluid surface (m).  Objects below this are submerged
+    float m_fluidDensity;                           // Density of the fluid medium (kg/m³).  Water ≈ 1000, heavy oil ≈ 850
+    float m_gasDensity;                             // Density of the gas medium above the surface (kg/m³).  Air ≈ 1.225
+    float m_gravity;                                // Gravitational acceleration (m/s², stored NEGATIVE for downward, e.g. -9.81)
     Physics::MutualGravitySettings m_mutualGravity; // Optional body/body attraction copied into physics ticks.
     float m_terrainXMin = 0.0f;                     // terrain footprint — calm mesh bounds
     float m_terrainXMax = 0.0f;
@@ -258,26 +255,21 @@ class WorldEnvironment
     // storage while the allocation guard is in its Render phase.
     std::vector<float> m_calmVertices;
     std::vector<float> m_oceanVertices;
-    BoundWaterRenderStyleSettings m_waterStyle; // Owned water shader style subset; defaults support standalone worlds.
-    WaterMeshBuildSettings m_waterMeshBuild;    // Owned water mesh rebuild subset.
-    FluidForceSettings m_fluidForces;           // Owned fluid-force subset used by deterministic physics.
-    Assets::AssetSystem* m_assets = nullptr;    // Borrowed asset registry for water shaders.
+    BoundWaterRenderStyleSettings m_waterStyle;            // Owned water shader style subset; defaults support standalone worlds.
+    WaterMeshBuildSettings m_waterMeshBuild;               // Owned water mesh rebuild subset.
+    FluidForceSettings m_fluidForces;                      // Owned fluid-force subset used by deterministic physics.
+    Assets::AssetSystem* m_assets = nullptr;               // Borrowed asset registry for water shaders.
     Rendering::Dx12ResourceBuilder* m_resources = nullptr; // Borrowed cold builder for water meshes.
     WaterRenderRebuildLease m_renderLease;                 // Authoritative preserved rebuild-borrow tuple.
     void RequireRenderBindings( const char* operation ) const;
-    void PrepareFluidMeshData(); // Cold scene/setup projection retained for backend rebuilds.
-    void BuildFluidMesh();       // Builds calm and ocean meshes from current terrain bounds.
-    void ApplyWaterAndFluidSettings(
-        const SkullbonezCore::Core::EngineConfig& config ); // Copies only the water and fluid fields this type consumes.
-    WaterStyleParams BuildCalmWaterStyle( bool cinematic,
-                                          const SkullbonezCore::Core::CinematicRenderConfig& cinematicConfig ) const;
-    WaterStyleParams BuildOceanWaterStyle( bool cinematic,
-                                           const SkullbonezCore::Core::CinematicRenderConfig& cinematicConfig ) const;
-    void BindCommonWaterStyle( Rendering::ShaderDX12& shader, const WaterStyleParams& style,
-                               const Math::Vector::Vector3& cameraWorld, const WaterReflectionInput& reflection ) const;
+    void PrepareFluidMeshData();                                                         // Cold scene/setup projection retained for backend rebuilds.
+    void BuildFluidMesh();                                                               // Builds calm and ocean meshes from current terrain bounds.
+    void ApplyWaterAndFluidSettings( const SkullbonezCore::Core::EngineConfig& config ); // Copies only the water and fluid fields this type consumes.
+    WaterStyleParams BuildCalmWaterStyle( bool cinematic, const SkullbonezCore::Core::CinematicRenderConfig& cinematicConfig ) const;
+    WaterStyleParams BuildOceanWaterStyle( bool cinematic, const SkullbonezCore::Core::CinematicRenderConfig& cinematicConfig ) const;
+    void BindCommonWaterStyle( Rendering::ShaderDX12& shader, const WaterStyleParams& style, const Math::Vector::Vector3& cameraWorld, const WaterReflectionInput& reflection ) const;
     void BindCalmWaterStyle( Rendering::ShaderDX12& shader, const WaterStyleParams& style ) const;
-    void BindOceanWaterStyle( Rendering::ShaderDX12& shader, const WaterStyleParams& style, float time,
-                              bool flatWater ) const;
+    void BindOceanWaterStyle( Rendering::ShaderDX12& shader, const WaterStyleParams& style, float time, bool flatWater ) const;
 };
 } // namespace Environment
 } // namespace SkullbonezCore

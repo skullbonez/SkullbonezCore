@@ -17,6 +17,7 @@ Invariants:
     storage.
 */
 #pragma once
+#include "../Maths/SymmetricMatrix3.h"
 #include "PointJointSettings.h"
 
 #include <algorithm>
@@ -65,12 +66,13 @@ enum PhysicsPointJointUpdateMask : uint32_t
 struct PhysicsBodyCreateDesc
 {
     PhysicsSceneObjectId sceneObjectId;
-    Math::CollisionDetection::CollisionShape shape;             // Geometry and center offset are body-local.
-    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR; // World-space center of mass.
+    Math::CollisionDetection::CollisionShape shape;                                     // Geometry and center offset are body-local.
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;                         // World-space center of mass.
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION; // Body-to-world rotation.
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;                   // World-space distance per second.
     Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;                  // World-space radians per second.
-    Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;                // Body-principal diagonal.
+    Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;                // Body-frame diagonal.
+    Math::Vector::Vector3 rotationalInertiaProducts = Math::Vector::ZERO_VECTOR;        // Body-frame xy, xz, yz.
     float mass = 1.0f;
     float restitution = 0.0f;
     float friction = 0.0f;
@@ -89,12 +91,17 @@ struct PhysicsBodyCreateDesc
     const char* diagnosticName = nullptr;
 };
 
-inline PhysicsBodyCreateDesc
-MakePhysicsBodyCreateDesc( PhysicsSceneObjectId sceneObjectId, const Math::CollisionDetection::CollisionShape& shape,
-                           const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
-                           const Math::Vector::Vector3& linearVelocity, const Math::Vector::Vector3& angularVelocity,
-                           const Math::Vector::Vector3& rotationalInertia, float mass, float restitution,
-                           PhysicsBodyMotionKind motionKind, const char* diagnosticName = nullptr )
+inline PhysicsBodyCreateDesc MakePhysicsBodyCreateDesc( PhysicsSceneObjectId sceneObjectId,
+                                                        const Math::CollisionDetection::CollisionShape& shape,
+                                                        const Math::Vector::Vector3& position,
+                                                        const Math::Orientation::Quaternion& orientation,
+                                                        const Math::Vector::Vector3& linearVelocity,
+                                                        const Math::Vector::Vector3& angularVelocity,
+                                                        const Math::Transformation::SymmetricMatrix3& rotationalInertia,
+                                                        float mass,
+                                                        float restitution,
+                                                        PhysicsBodyMotionKind motionKind,
+                                                        const char* diagnosticName = nullptr )
 {
     PhysicsBodyCreateDesc desc;
     desc.sceneObjectId = sceneObjectId;
@@ -103,7 +110,8 @@ MakePhysicsBodyCreateDesc( PhysicsSceneObjectId sceneObjectId, const Math::Colli
     desc.orientation = orientation;
     desc.linearVelocity = linearVelocity;
     desc.angularVelocity = angularVelocity;
-    desc.rotationalInertia = rotationalInertia;
+    desc.rotationalInertia = rotationalInertia.diagonal;
+    desc.rotationalInertiaProducts = rotationalInertia.offDiagonal;
     desc.mass = mass;
     desc.restitution = restitution;
     desc.boundingRadius = Math::CollisionDetection::GetShapeBodyOriginBoundingRadius( desc.shape );
@@ -137,7 +145,8 @@ struct PhysicsBodyUpdateDesc
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION; // Body-to-world rotation.
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;                   // World-space distance per second.
     Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;                  // World-space radians per second.
-    Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;                // Body-principal diagonal.
+    Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;                // Body-frame diagonal.
+    Math::Vector::Vector3 rotationalInertiaProducts = Math::Vector::ZERO_VECTOR;        // Body-frame xy, xz, yz.
     float mass = 1.0f;
     float restitution = 0.0f;
     float friction = 0.0f;
@@ -160,8 +169,8 @@ struct HullShapeIdentity
     // scale construction. Unproved or procedurally built hulls stay unique.
     bool operator==( const HullShapeIdentity& rhs ) const
     {
-        return shareable && rhs.shareable && scaleXBits == rhs.scaleXBits && scaleYBits == rhs.scaleYBits &&
-               scaleZBits == rhs.scaleZBits && strcmp( normalizedResolvedPath, rhs.normalizedResolvedPath ) == 0;
+        return shareable && rhs.shareable && scaleXBits == rhs.scaleXBits && scaleYBits == rhs.scaleYBits && scaleZBits == rhs.scaleZBits &&
+               strcmp( normalizedResolvedPath, rhs.normalizedResolvedPath ) == 0;
     }
 };
 
@@ -173,13 +182,11 @@ inline uint32_t HullScaleBits( float value )
     return bits;
 }
 
-inline HullShapeIdentity MakeShareableHullShapeIdentity( const char* resolvedAuthoredPath,
-                                                         const Math::Vector::Vector3& cumulativeScale )
+inline HullShapeIdentity MakeShareableHullShapeIdentity( const char* resolvedAuthoredPath, const Math::Vector::Vector3& cumulativeScale )
 {
     HullShapeIdentity identity;
 
-    if ( !resolvedAuthoredPath || resolvedAuthoredPath[0] == '\0' || !std::isfinite( cumulativeScale.x ) ||
-         !std::isfinite( cumulativeScale.y ) || !std::isfinite( cumulativeScale.z ) )
+    if ( !resolvedAuthoredPath || resolvedAuthoredPath[0] == '\0' || !std::isfinite( cumulativeScale.x ) || !std::isfinite( cumulativeScale.y ) || !std::isfinite( cumulativeScale.z ) )
     {
         return identity;
     }
@@ -244,7 +251,8 @@ struct PhysicsAuthoredBodyRegistration
 // default box and hull inputs back to the sphere alternative after this packet
 // gained HullShapeIdentity.
 inline PhysicsColliderCreateDesc MakeColliderCreateDesc( const Math::CollisionDetection::CollisionShape& shape,
-                                                         float restitution, uint32_t contactMaterialId,
+                                                         float restitution,
+                                                         uint32_t contactMaterialId,
                                                          const char* contactMaterialName = nullptr,
                                                          HullShapeIdentity hullIdentity = {} )
 {
@@ -259,8 +267,7 @@ inline PhysicsColliderCreateDesc MakeColliderCreateDesc( const Math::CollisionDe
 
     if ( contactMaterialName && contactMaterialName[0] != '\0' )
     {
-        const std::size_t copiedChars = (std::min)( std::strlen( contactMaterialName ),
-                                                    sizeof( desc.contactMaterialName ) - 1u );
+        const std::size_t copiedChars = (std::min)( std::strlen( contactMaterialName ), sizeof( desc.contactMaterialName ) - 1u );
         std::memcpy( desc.contactMaterialName, contactMaterialName, copiedChars );
         desc.contactMaterialName[copiedChars] = '\0';
     }
@@ -303,7 +310,7 @@ struct PhysicsRayCastDesc
 {
     Math::Vector::Vector3 origin = Math::Vector::ZERO_VECTOR;                    // World-space segment origin.
     Math::Vector::Vector3 direction = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f ); // World direction; need not be unit length.
-    float maxDistance = 0.0f; // World-space length after direction normalization.
+    float maxDistance = 0.0f;                                                    // World-space length after direction normalization.
     bool includeFixedBodies = true;
     bool includeSleepingBodies = true;
 };

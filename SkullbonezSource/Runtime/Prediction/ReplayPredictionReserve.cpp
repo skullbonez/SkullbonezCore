@@ -126,6 +126,7 @@ uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const ReplaySolverWorldSnapsh
     bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandCanSleep );
     bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContacts );
     bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContactCache );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.bodyInertia );
     bytes += ReplayPredictionVectorCapacityBytes( physics.pointJoints );
     bytes += ReplayPredictionVectorCapacityBytes( physics.motionEligibilityState );
     bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContactCounts );

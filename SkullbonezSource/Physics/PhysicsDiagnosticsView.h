@@ -86,6 +86,8 @@ struct PersistentContact
     // stay excluded so diagnostic energy accounting cannot waive bounce energy.
     float separationBias = 0.0f;
     float frictionLimit = 0.0f;
+    // Observational final clamp from the latest tangent solve; not cached or hashed.
+    float appliedFrictionLimit = -1.0f; // Negative until a live solve publishes the actual clamp.
     float accN = 0.0f;
     float accT1 = 0.0f;
     float accT2 = 0.0f;
@@ -122,6 +124,7 @@ struct PersistentContactSolverStats
     int warmStartedRows = 0;
     int positionCorrectionRows = 0;
     int solverIterations = 0;
+    int solverSweepBudget = 0;
     float positionCorrectionTotal = 0.0f;
     float positionCorrectionMax = 0.0f;
 };

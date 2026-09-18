@@ -244,6 +244,7 @@ struct CachedPSODX12
 
 struct GridLinePSODX12
 {
+    bool depthTest = false;
     DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
     ID3D12PipelineState* pso = nullptr;
 };
@@ -649,7 +650,7 @@ class Dx12GeometryOwner
     bool PrecompileDynamicVBRasterState( uint32_t handle, Dx12DrawGate& drawGate, const RasterStateDesc& declaredRasterState );
     void DestroyDynamicVB( uint32_t handle );
     void AdoptGridLineShader( std::unique_ptr<ShaderDX12> shader );
-    bool EnsureGridLinePipeline( ID3D12Device* device, Dx12PipelineOwner& pipeline, DXGI_FORMAT rtvFormat );
+    bool EnsureGridLinePipeline( ID3D12Device* device, Dx12PipelineOwner& pipeline, DXGI_FORMAT rtvFormat, bool depthTest = false );
     void AdoptTransientTriangleShader( TransientTriangleStyle style, std::unique_ptr<ShaderDX12> shader );
     static const char* TransientShaderBaseName( TransientTriangleStyle style );
     bool HasTransientTriangleShader( TransientTriangleStyle style ) const;
@@ -664,7 +665,9 @@ class Dx12GeometryOwner
                            Dx12PipelineOwner& pipeline,
                            Dx12DrawGate& drawGate,
                            Dx12Diagnostics& diagnostics,
-                           const RasterStateDesc& rasterState );
+                           const RasterStateDesc& rasterState,
+                           float opacity = 1.0f,
+                           LineAppearance appearance = LineAppearance::Plain );
     void DrawTransientColoredTriangles( std::span<const float> packedVertices,
                                         const Math::Transformation::Matrix4& viewProjection,
                                         TransientTriangleStyle style,
@@ -707,7 +710,11 @@ class Dx12GeometryOwner
     // with the stable frame/pipeline/diagnostics owners bound at startup.
     bool PrecompileDynamicVBRasterState( uint32_t handle, const PassRasterStateBucket& bucket );
     void UploadAndDrawDynamicVB( uint32_t handle, std::span<const float> packedVertices, const PassRasterStateBucket& bucket );
-    void DrawLinesColored( std::span<const float> packedVertices, const Math::Transformation::Matrix4& viewProjection, const PassRasterStateBucket& bucket );
+    void DrawLinesColored( std::span<const float> packedVertices,
+                           const Math::Transformation::Matrix4& viewProjection,
+                           const PassRasterStateBucket& bucket,
+                           float opacity = 1.0f,
+                           LineAppearance appearance = LineAppearance::Plain );
     void DrawTransientColoredTriangles( std::span<const float> packedVertices, const Math::Transformation::Matrix4& viewProjection, TransientTriangleStyle style, const PassRasterStateBucket& bucket );
     void DrawRetainedGeometryRibbon( std::span<const float> packedVertices,
                                      RetainedGeometryStreamToken stream,
@@ -725,7 +732,8 @@ class Dx12GeometryOwner
                                    RetainedGeometryStreamToken stream,
                                    bool priorityLane,
                                    const Math::Transformation::Matrix4& viewProjection,
-                                   const PassRasterStateBucket& bucket );
+                                   const PassRasterStateBucket& bucket,
+                                   LineAppearance appearance = LineAppearance::Plain );
     void UploadInstanceData( uint32_t handle, std::span<const float> packedInstances );
     void DrawInstancedMesh( const InstancedMeshDrawDesc& draw );
     void DestroyInstancedMesh( uint32_t handle );
@@ -857,10 +865,12 @@ class Dx12GeometryOwner
                                      Dx12PipelineOwner& pipeline,
                                      Dx12DrawGate& drawGate,
                                      Dx12Diagnostics& diagnostics,
-                                     const RasterStateDesc& rasterState );
+                                     const RasterStateDesc& rasterState,
+                                     float opacity = 1.0f,
+                                     LineAppearance appearance = LineAppearance::Plain );
     static constexpr size_t MAX_DYNAMIC_VERTEX_BUFFERS = 32;
     static constexpr size_t MAX_GRID_LINE_PSOS = 4;
-    static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;
+    static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 5;
     using RetainedGeometryBufferStore = std::array<RetainedGeometryBufferDX12, Dx12FrameOwner::MAX_FRAME_COUNT>;
 
     // Hazard: expanded ribbons/lines and compact ranges share one persistent

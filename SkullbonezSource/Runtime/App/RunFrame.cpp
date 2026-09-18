@@ -90,6 +90,37 @@ void PrintRuntimeExitReason( const char* reason )
 }
 
 #if defined( SKULLBONEZ_SKARNESS )
+void ProjectWorldPresentationState( SkarnessFrameState& state, const RuntimeRenderer& renderer, const OverlayDebugState& overlay )
+{
+    const auto& grass = renderer.PresentedGrass();
+    state.presentation.grassEnabled = grass.Enabled();
+    state.presentation.grassTick = grass.Tick();
+    state.presentation.grassPatchCount = grass.PatchCount();
+    state.presentation.grassStampedCells = grass.StampedCells();
+    state.presentation.grassDroppedCells = grass.DroppedCells();
+    state.presentation.grassRootTests = grass.RootTests();
+    state.presentation.grassCacheBytes = 2 * sizeof( GrassPresentation );
+    state.presentation.grassPatchBytes = grass.PatchCount() * GrassPresentation::PATCH_FLOATS * sizeof( float );
+    state.presentation.grassHistoryAvailable = grass.HistoryAvailable();
+    state.presentation.gravityGridVertexCount = overlay.isGravityGridVisible ? renderer.GravityGridVertexCount() : 0;
+    state.presentation.gravityGridSourceCount = renderer.GravityGridSourceCount();
+    state.presentation.gravityGridFirstSourceId = renderer.GravityGridFirstSourceId();
+    const auto fieldPosition = renderer.GravityGridFirstSourcePosition();
+    state.presentation.gravityGridFirstSourcePosition = { fieldPosition.x, fieldPosition.y, fieldPosition.z };
+    state.presentation.gravityGridMinimumHeight = renderer.GravityGridMinimumHeight();
+    state.presentation.gravityFieldHeight = overlay.gravityField.height;
+    state.presentation.gravityFieldOpacity = overlay.gravityField.opacity;
+    state.presentation.gravityFieldColor = overlay.gravityField.color;
+    state.presentation.gravityFieldSnapBalls = overlay.gravityField.snapBalls;
+    const auto& grid = renderer.GravityField();
+    state.presentation.gravityFieldSnappedCount = grid.SnappedCount();
+    state.presentation.gravityFieldFirstSnappedId = grid.FirstSnappedId();
+    const auto snapped = grid.FirstSnappedPosition();
+    state.presentation.gravityFieldFirstSnappedPosition = { snapped.x, snapped.y, snapped.z };
+    state.presentation.gravityFieldFirstSnappedRadius = grid.FirstSnappedRadius();
+    state.presentation.gravityFieldFirstSnappedSurfaceHeight = grid.SnappedCount() ? grid.HeightAt( snapped.x, snapped.z ) : 0.0f;
+}
+
 // Capture belongs to InputRouter; observe the Win32 result on its owning thread.
 void ProjectSkarnessInputState( SkarnessFrameState& state, const ReplayInputView& input, const InputRouter& router, HWND window )
 {
@@ -238,6 +269,8 @@ void CaptureReplayPostStep( RuntimeTools& runtimeTools,
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
     PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
     ReplayWorldPresentationSample worldSample;
+    const auto* terrain = sceneController.Scene().Terrain().Get();
+    worldSample.terrainFingerprint = terrain ? terrain->ContentFingerprint() : 0;
     worldSample.gravity = world.GetGravity();
     worldSample.fluidHeight = world.GetFluidSurfaceHeight();
     worldSample.fluidDensity = world.GetFluidDensity();
@@ -252,7 +285,15 @@ void CaptureReplayPostStep( RuntimeTools& runtimeTools,
     cameraSample.view = cameras.GetCameraView();
     cameraSample.up = cameras.GetCameraUp();
 
-    replayRuntime.CaptureFrame( scene.currentFrame, PHYSICS_FIXED_DT, worldSample, cameraSample, physics, sceneController.Scene().Tornado(), entities, runtimeTools );
+    replayRuntime.CaptureFrame( scene.currentFrame,
+                                PHYSICS_FIXED_DT,
+                                worldSample,
+                                cameraSample,
+                                physics,
+                                sceneController.Scene().Tornado(),
+                                entities,
+                                runtimeTools,
+                                sceneController.Scene().MutableRenderInstances() );
 }
 
 } // namespace
@@ -1180,7 +1221,13 @@ SkullbonezCore::Core::SbResult Run::Execute()
         }
 
         RuntimeRenderFrameViews renderFrame = PublishRenderModelsPhase();
-        const RuntimeRenderFramePolicy debugFramePolicy = ProjectRenderFramePolicy( m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(), m_timers.SimulationTotalSeconds() ) );
+        RuntimeRenderFramePolicy debugFramePolicy = ProjectRenderFramePolicy( m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(), m_timers.SimulationTotalSeconds() ) );
+        const auto& debugBodies = Physics::PhysicsEngine::ReadBodies( m_sceneController.Scene().Physics() );
+        const int debugSelectedRow = PeekSelectedEditorModelIndex( m_editorTools.Editor(), debugBodies );
+        if ( debugSelectedRow >= 0 && debugSelectedRow < debugBodies.Count() )
+        {
+            debugFramePolicy.physicsSelectedBody = debugBodies.Records()[static_cast<std::size_t>( debugSelectedRow )].sceneObjectId.value;
+        }
         Renderer().UpdateDebugVisualizers( static_cast<float>( secondsPerFrame ), renderFrame.debug, debugFramePolicy );
 
         // Fixed boundary: diagnostics advance once from completed frame-model
@@ -1301,21 +1348,8 @@ void Run::ProjectEditorPaneState( SkarnessFrameState& state )
     }
 }
 
-void Run::PublishSkarnessFrameState()
+void Run::ProjectPhysicsWindowState( SkarnessFrameState& state, const OverlayDebugState& overlayPresentation )
 {
-    if ( !m_skarness.Enabled() )
-    {
-        return;
-    }
-
-    // Skarness constructs disposable observation packets; their vectors belong
-    // to diagnostics, including collection before the host serializes them.
-    CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
-    const ReplaySkarnessState replay = m_replayRuntime.BuildSkarnessState();
-    const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
-    SkarnessFrameState state;
-    state.presentation.positionGates = BuildSkarnessPositionGates( replay.positionGates );
-    const OverlayDebugState overlayPresentation = m_overlayDiagnostics->PresentationSnapshot();
     const UI::UIPhysicsDebugStatus physicsUi = BuildDiagnosticsPhysicsUIStatus( overlayPresentation );
     const Gameplay::TornadoFieldConfig& tornado = m_sceneController.Scene().Tornado().GetFieldConfig();
     const RunRayCastTestState& rayCast = m_runtimeTools.RayCastTest();
@@ -1347,8 +1381,28 @@ void Run::PublishSkarnessFrameState()
                                           m_sceneController.Scene().Tornado().VisualSettings().enabled,
                                           tornado.visualizeVelocityField,
                                           rayCast.visualizeRays };
+    state.presentation.physicsAdditionalLayers = physicsUi.additionalLayers;
+    state.presentation.physicsGeometryCounts = Renderer().PhysicsDebugGeometryCounts();
     state.presentation.physicsPipelineStage = physicsUi.pipelineStageIndex;
     state.presentation.physicsPipelineStages = physicsUi.pipelineStageCount;
+}
+
+void Run::PublishSkarnessFrameState()
+{
+    if ( !m_skarness.Enabled() )
+    {
+        return;
+    }
+
+    // Skarness constructs disposable observation packets; their vectors belong
+    // to diagnostics, including collection before the host serializes them.
+    CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+    const ReplaySkarnessState replay = m_replayRuntime.BuildSkarnessState();
+    const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+    SkarnessFrameState state;
+    state.presentation.positionGates = BuildSkarnessPositionGates( replay.positionGates );
+    const OverlayDebugState overlayPresentation = m_overlayDiagnostics->PresentationSnapshot();
+    ProjectPhysicsWindowState( state, overlayPresentation );
     const auto& scene = m_sceneController.State();
     const bool cinematicRendering = IsSceneCinematicRenderingEnabled( scene, m_config, m_launchOptions, overlayPresentation.isTextOnly, true );
     state.presentation.cinematicShadows = cinematicRendering;
@@ -1357,13 +1411,20 @@ void Run::PublishSkarnessFrameState()
                                           overlayPresentation.isWaterHidden,
                                           overlayPresentation.isWaterFreezeDebug,
                                           overlayPresentation.isWaterFlatDebug,
-                                          cinematicRendering ? ActiveSceneCinematicConfig( scene, m_config ).shadow.enabled : m_config.ordinaryRender.shadow.enabled };
+                                          cinematicRendering ? ActiveSceneCinematicConfig( scene, m_config ).shadow.enabled : m_config.ordinaryRender.shadow.enabled,
+                                          overlayPresentation.isGravityGridVisible,
+                                          overlayPresentation.gravityField.snapBalls };
+    ProjectWorldPresentationState( state, Renderer(), overlayPresentation );
     state.presentation.sceneControlValues = { static_cast<float>( scene.rngSeed ),
                                               static_cast<float>( scene.solverBallCount ),
                                               static_cast<float>( scene.solverBoxCount ),
                                               m_sceneController.Scene().Environment().GetFluidSurfaceHeight(),
                                               m_sceneController.Scene().Environment().GetFluidDensity(),
                                               static_cast<float>( scene.modelCount ) };
+    const auto tornadoVisual = m_sceneController.Scene().Tornado().VisualSnapshot();
+    state.presentation.tornadoVisualSeconds = tornadoVisual.seconds;
+    state.presentation.tornadoVisualVortices = tornadoVisual.activeVortices;
+    state.presentation.tornadoVisualVertices = tornadoVisual.vertices;
     state.presentation.modelCapacity = Core::ActiveSceneObjectCapacity( m_config );
     state.presentation.fileDialogResponsesConsumed = m_skarness.FileDialogResponsesConsumed();
     const RECT viewport = m_window.PresentationViewport();
@@ -1485,6 +1546,14 @@ void Run::PublishSkarnessFrameState()
     state.presentation.replayControlsBounds = { layout.replayControls.x, layout.replayControls.y, layout.replayControls.w, layout.replayControls.h };
     state.presentation.replayDetailsBounds = { layout.replayDetails.x, layout.replayDetails.y, layout.replayDetails.w, layout.replayDetails.h };
     state.presentation.replayScroll = layout.replayScroll;
+    state.presentation.physicsCompletedSteps = m_sceneController.Scene().Physics().CompletedStepCount();
+    state.presentation.physicsSettings = Physics::InteractivePhysicsValues( m_sceneController.Scene().Physics().RuntimeSettings() );
+    state.presentation.physicsPeer = layout.physicsPeer;
+    state.presentation.physicsSection = layout.physicsSection;
+    state.presentation.physicsScroll = layout.physicsScroll;
+    state.presentation.physicsTabBounds = { layout.physicsTab.x, layout.physicsTab.y, layout.physicsTab.w, layout.physicsTab.h };
+    state.presentation.physicsHeaderBounds = { layout.physicsHeader.x, layout.physicsHeader.y, layout.physicsHeader.w, layout.physicsHeader.h };
+    state.presentation.physicsControlsBounds = { layout.physicsControls.x, layout.physicsControls.y, layout.physicsControls.w, layout.physicsControls.h };
     state.presentation.causeControlsBounds = { layout.causeControls.x, layout.causeControls.y, layout.causeControls.w, layout.causeControls.h };
     state.presentation.detailsCausesTabBounds = { layout.detailsCausesTab.x, layout.detailsCausesTab.y, layout.detailsCausesTab.w, layout.detailsCausesTab.h };
     state.presentation.editorControlsBounds = { layout.editorControls.x, layout.editorControls.y, layout.editorControls.w, layout.editorControls.h };
@@ -1496,6 +1565,7 @@ void Run::PublishSkarnessFrameState()
     state.presentation.replayResizeBounds = { layout.replayResize.x, layout.replayResize.y, layout.replayResize.w, layout.replayResize.h };
     state.presentation.memoryWaterlineBounds = { diagnostics.memoryBounds.x, diagnostics.memoryBounds.y, diagnostics.memoryBounds.w, diagnostics.memoryBounds.h };
     const auto header = UI::GameLayout::ComputeHeaderRects( layout.header, m_operatorUi->PresentationWorkspace() );
+    state.presentation.headerPhysicsBounds = { header.physics.x, header.physics.y, header.physics.w, header.physics.h };
     state.presentation.headerLayoutBounds = { header.layout.x, header.layout.y, header.layout.w, header.layout.h };
     state.presentation.headerFourViewsBounds = { header.fourViews.x, header.fourViews.y, header.fourViews.w, header.fourViews.h };
     state.presentation.headerWorkspaceBounds = { header.workspace.x, header.workspace.y, header.workspace.w, header.workspace.h };
@@ -1769,7 +1839,8 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned, 
                                                                                pacingPolicy,
                                                                                policy.physicsAdvance,
                                                                                stepRequested,
-                                                                               canStepPhysics } );
+                                                                               canStepPhysics,
+                                                                               m_uiFixedTickRequested } );
 
     const float presentationAlpha = ResolvePresentationAlpha( m_config, capturePresentationPinned, tick.presentationAlpha );
 
@@ -1812,6 +1883,25 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned, 
             {
                 PROFILE_SCOPED( "Frame/Physics/Step/PresentationCaptureComplete" );
                 m_sceneController.Scene().CompletePhysicsStepPresentationCapture();
+            }
+
+            const std::string* grassScenePath = m_sceneController.CurrentPath();
+            if ( ( ( grassScenePath && grassScenePath->empty() ) || Renderer( "GrassCapture" ).Grass().FixtureEnabled( m_sceneController.LifecyclePacket().generation ) ) &&
+                 m_sceneController.Scene().Terrain().Get() )
+            {
+                auto& terrain = *m_sceneController.Scene().Terrain().Get();
+                GrassTimeCursor::Context context;
+                context.generation = m_sceneController.LifecyclePacket().generation;
+                context.recording = m_replayRuntime.LiveRecordingEpoch();
+                context.branch = m_replayRuntime.CaptureBranchId();
+                context.terrainRevision = terrain.EditRevision();
+                Renderer( "GrassCapture" )
+                    .Grass()
+                    .CaptureLive( m_sceneController.Scene().MutableRenderInstances(),
+                                  m_sceneController.Scene().Colliders(),
+                                  terrain,
+                                  context,
+                                  m_sceneController.Scene().Environment().GetFluidSurfaceHeight() );
             }
 
             if ( manipulatorPhysics || replayCapture )

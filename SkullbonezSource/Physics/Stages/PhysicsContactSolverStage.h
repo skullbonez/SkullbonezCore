@@ -85,7 +85,6 @@ class ConstraintSolvePhaseCursor
         Precompute,
         WarmStartJoints,
         SolveRows,
-        PointSupportInstability,
         WriteBack,
         DebugContacts,
         PositionCorrection,
@@ -105,8 +104,7 @@ class ConstraintSolvePhaseCursor
 
     static constexpr bool IsLegalTransition( Phase from, Phase to )
     {
-        const bool adjacent = from >= Phase::Idle && from < Phase::Complete &&
-                              to == static_cast<Phase>( static_cast<uint8_t>( from ) + 1u );
+        const bool adjacent = from >= Phase::Idle && from < Phase::Complete && to == static_cast<Phase>( static_cast<uint8_t>( from ) + 1u );
         const bool noInput = from == Phase::EntryPolicySetup && to == Phase::Complete;
         const bool noRows = from == Phase::PrepareJoints && to == Phase::Complete;
         const bool normalCompletion = from == Phase::FixedContactRelease && to == Phase::CacheStore;
@@ -191,69 +189,83 @@ class ConstraintSolveTransaction
     bool IsReactivatedPair( int a, int b ) const;
     void RecomputeContactMass( PersistentContact& contact );
     void OrderCandidatePairs( const PhysicsBodyStore& bodyStore, std::span<const std::pair<int, int>> candidates );
-    void PrepareJoints( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
-                        std::span<const PointJointConstraint> constraints, const PersistentContactSolverStepPolicy& policy );
+    void PrepareJoints( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> constraints, const PersistentContactSolverStepPolicy& policy );
     void WarmStartJoints();
     void StoreJointImpulses( std::span<PointJointConstraint> constraints ) const;
     template <bool CollectDiagnostics> void SolveJointBlocks( const PhysicsBodyStore& bodyStore, int iteration );
-    void SetupBodies( const PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState, int modelCount,
-                      Core::Profiler* profiler );
+    void SetupBodies( const PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState, int modelCount, Core::Profiler* profiler );
     template <bool RetainPipelineRecords>
-    void BuildManifolds( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
-                         const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy,
-                         std::span<const std::pair<int, int>> candidatePairs, std::span<const uint8_t> sleepState,
-                         PhysicsCandidatePairList& sleepSupportEdges, int modelCount, std::size_t pipelineRecordCapacity,
+    void BuildManifolds( PhysicsContactSolverStage& stage,
+                         const PhysicsBodyStore& bodyStore,
+                         const ColliderStore& colliderStore,
+                         const PersistentContactSolverStepPolicy& stepPolicy,
+                         std::span<const std::pair<int, int>> candidatePairs,
+                         std::span<const uint8_t> sleepState,
+                         PhysicsCandidatePairList& sleepSupportEdges,
+                         int modelCount,
+                         std::size_t pipelineRecordCapacity,
                          Core::Profiler* profiler );
     template <bool RetainPipelineRecords>
-    void BuildTerrainRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+    void BuildTerrainRows( PhysicsContactSolverStage& stage,
+                           const PhysicsBodyStore& bodyStore,
                            const PersistentContactSolverStepPolicy& stepPolicy,
                            PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
-                           std::span<const uint8_t> sleepState, std::span<const float> timeRemaining, int modelCount,
-                           std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler );
+                           std::span<const uint8_t> sleepState,
+                           std::span<const float> timeRemaining,
+                           int modelCount,
+                           std::size_t pipelineRecordCapacity,
+                           float dt,
+                           Core::Profiler* profiler );
     template <bool RetainPipelineRecords>
-    void PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
-                         const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy,
-                         std::span<const uint8_t> sleepState, std::span<const float> timeRemaining,
-                         std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler );
-    void PrecomputeTerrainAngularResistance( PersistentContact& contact, const ColliderRecord& collider,
-                                             const PersistentContactSolverStepPolicy& stepPolicy, float normalVelocity );
+    void PrecomputeRows( PhysicsContactSolverStage& stage,
+                         const PhysicsBodyStore& bodyStore,
+                         const ColliderStore& colliderStore,
+                         const PersistentContactSolverStepPolicy& stepPolicy,
+                         std::span<const uint8_t> sleepState,
+                         std::span<const float> timeRemaining,
+                         std::size_t pipelineRecordCapacity,
+                         float dt,
+                         Core::Profiler* profiler );
+    void PrecomputeTerrainAngularResistance( PersistentContact& contact, const ColliderRecord& collider, const PersistentContactSolverStepPolicy& stepPolicy, float normalVelocity );
     template <bool CollectConvergenceDiagnostics, bool RetainPipelineRecords>
-    void SolveRowsIterations( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
-                              const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity );
-    void SolveRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
-                    const PersistentContactSolverStepPolicy& stepPolicy, bool retainPipelineRecords,
-                    std::size_t pipelineRecordCapacity, Core::Profiler* profiler );
-    void ApplyPointSupportInstability( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
-                                       const ColliderStore& colliderStore,
-                                       const PersistentContactSolverStepPolicy& stepPolicy,
-                                       std::span<const uint8_t> sleepState, std::span<const uint8_t> sleepSupportedThisFrame,
-                                       int modelCount, float dt, Core::Profiler* profiler );
+    void SolveRowsIterations( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity );
+    void SolveRows( PhysicsContactSolverStage& stage,
+                    const PhysicsBodyStore& bodyStore,
+                    const PersistentContactSolverStepPolicy& stepPolicy,
+                    bool retainPipelineRecords,
+                    std::size_t pipelineRecordCapacity,
+                    Core::Profiler* profiler );
     template <bool RetainPipelineRecords>
-    void WriteBack( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState,
-                    int modelCount, std::size_t pipelineRecordCapacity, Core::Profiler* profiler );
-    void PublishDebugContacts( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
-                               PhysicsStepDiagnostics& stepDiagnostics, Core::Profiler* profiler );
+    void WriteBack( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState, int modelCount, std::size_t pipelineRecordCapacity, Core::Profiler* profiler );
+    void PublishDebugContacts( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, PhysicsStepDiagnostics& stepDiagnostics, Core::Profiler* profiler );
     template <bool RetainPipelineRecords>
-    void CorrectPositions( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore,
-                           const PersistentContactSolverStepPolicy& stepPolicy, std::span<const uint8_t> sleepState,
-                           std::size_t pipelineRecordCapacity, Core::Profiler* profiler );
+    void CorrectPositions( PhysicsContactSolverStage& stage,
+                           PhysicsBodyStore& bodyStore,
+                           const PersistentContactSolverStepPolicy& stepPolicy,
+                           std::span<const uint8_t> sleepState,
+                           std::size_t pipelineRecordCapacity,
+                           Core::Profiler* profiler );
     template <bool RetainPipelineRecords>
-    void StoreCache( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, std::size_t pipelineRecordCapacity,
+    void StoreCache( PhysicsContactSolverStage& stage,
+                     const PhysicsBodyStore& bodyStore,
+                     const PersistentContactSolverStepPolicy& stepPolicy,
+                     std::size_t pipelineRecordCapacity,
                      Core::Profiler* profiler );
-    void ReleaseFixedContacts( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore, int modelCount,
-                               Core::Profiler* profiler );
+    void ReleaseFixedContacts( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore, int modelCount, Core::Profiler* profiler );
     void AdvanceOrFatal( ConstraintSolvePhaseCursor::Phase next, const char* operation );
 
-    PhysicsCandidatePairList m_candidatePairs { "ConstraintSolveTransaction.candidatePairs",
-                                                PhysicsCapacityReason::CandidatePairs };
-    PhysicsBodyRowList<int> m_reactivatedBodies { "ConstraintSolveTransaction.reactivatedBodies",
-                                                  PhysicsCapacityReason::SceneBodies };
+    PhysicsCandidatePairList m_candidatePairs { "ConstraintSolveTransaction.candidatePairs", PhysicsCapacityReason::CandidatePairs };
+    PhysicsBodyRowList<int> m_reactivatedBodies { "ConstraintSolveTransaction.reactivatedBodies", PhysicsCapacityReason::SceneBodies };
     std::size_t m_continuationContactCount = 0u;
     ConstraintIslandSchedule m_islands;
-    PhysicsBodyRowList<PointJointBlock> m_jointBlocks { "ConstraintSolveTransaction.jointBlocks",
-                                                        PhysicsCapacityReason::SceneBodies };
-    PhysicsBodyRowList<PointJointIterationSample> m_jointSamples { "ConstraintSolveTransaction.jointSamples",
-                                                                   PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<PointJointBlock> m_jointBlocks { "ConstraintSolveTransaction.jointBlocks", PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<PointJointIterationSample> m_jointSamples { "ConstraintSolveTransaction.jointSamples", PhysicsCapacityReason::SceneBodies };
+    // One coefficient per prepared row, reconstructed before every solve.
+    // -1 preserves primitive response; nonnegative values couple hull friction
+    // to solved normal load. No material scratch enters Replay or body state.
+    PhysicsFixedList<uint32_t, PHYSICS_MAX_CONTACT_ROWS> m_contactLifetime { "ConstraintSolveTransaction.contactLifetime", PhysicsCapacityReason::PersistentContacts };
+    PhysicsFixedList<uint8_t, PHYSICS_MAX_CONTACT_ROWS> m_cacheUsed { "ConstraintSolveTransaction.cacheUsed", PhysicsCapacityReason::PersistentContacts };
+    PhysicsFixedList<float, PHYSICS_MAX_CONTACT_ROWS> m_materialFriction { "ConstraintSolveTransaction.materialFriction", PhysicsCapacityReason::PersistentContacts };
     ConstraintSolvePhaseCursor m_phase;
     SolverBodyStateList m_bodies { "PhysicsContactSolverStage.solverBodies", PhysicsCapacityReason::SceneBodies };
 };
@@ -265,17 +277,12 @@ struct PersistentContactSolverSideEffects
     // Invariant: a step publishes either ordered pipelineRecords or their
     // equivalent pipelineEventCount. Count-only mode leaves the record list
     // empty so no payload can be mistaken for live diagnostic output.
-    PhysicsPipelineRecordList pipelineRecords { "PhysicsContactSolverStage.pipelineRecords",
-                                                PhysicsCapacityReason::PipelineRecords };
+    PhysicsPipelineRecordList pipelineRecords { "PhysicsContactSolverStage.pipelineRecords", PhysicsCapacityReason::PipelineRecords };
     std::size_t pipelineEventCount = 0;
-    PhysicsCollisionVisualBodyList collisionVisualBodies { "PhysicsContactSolverStage.collisionVisualBodies",
-                                                           PhysicsCapacityReason::CollisionVisualBodies };
-    PhysicsContactBodyList fixedContactBodies { "PhysicsContactSolverStage.fixedContactBodies",
-                                                PhysicsCapacityReason::PersistentContacts };
-    PhysicsReleaseWakeBodyList releaseWakeBodies { "PhysicsContactSolverStage.releaseWakeBodies",
-                                                   PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedTreeReleaseList fixedTreeReleases { "PhysicsContactSolverStage.fixedTreeReleases",
-                                                    PhysicsCapacityReason::SceneBodies };
+    PhysicsCollisionVisualBodyList collisionVisualBodies { "PhysicsContactSolverStage.collisionVisualBodies", PhysicsCapacityReason::CollisionVisualBodies };
+    PhysicsContactBodyList fixedContactBodies { "PhysicsContactSolverStage.fixedContactBodies", PhysicsCapacityReason::PersistentContacts };
+    PhysicsReleaseWakeBodyList releaseWakeBodies { "PhysicsContactSolverStage.releaseWakeBodies", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedTreeReleaseList fixedTreeReleases { "PhysicsContactSolverStage.fixedTreeReleases", PhysicsCapacityReason::SceneBodies };
 };
 
 class PhysicsContactCacheWakeAccess
@@ -299,16 +306,12 @@ class PhysicsContactSolverStage
     friend struct PersistentContactPositionCorrectionTestAccess;
     friend struct PhysicsContactSolverStageTestAccess;
 
-    PersistentContactList m_persistentContacts { "PhysicsContactSolverStage.persistentContacts",
-                                                 PhysicsCapacityReason::PersistentContacts };
-    PersistentContactCacheList m_persistentContactCache { "PhysicsContactSolverStage.persistentContactCache",
-                                                          PhysicsCapacityReason::PersistentContacts };
+    PersistentContactList m_persistentContacts { "PhysicsContactSolverStage.persistentContacts", PhysicsCapacityReason::PersistentContacts };
+    PersistentContactCacheList m_persistentContactCache { "PhysicsContactSolverStage.persistentContactCache", PhysicsCapacityReason::PersistentContacts };
     PersistentContactSolverStats m_persistentContactSolverStats;
     PersistentContactConvergenceTrace m_persistentContactConvergenceTrace;
-    PersistentContactCountList m_persistentContactCounts { "PhysicsContactSolverStage.persistentContactCounts",
-                                                           PhysicsCapacityReason::SceneBodies };
-    PersistentContactCountList m_persistentRestingContactCounts { "PhysicsContactSolverStage.persistentRestingContactCounts",
-                                                                  PhysicsCapacityReason::SceneBodies };
+    PersistentContactCountList m_persistentContactCounts { "PhysicsContactSolverStage.persistentContactCounts", PhysicsCapacityReason::SceneBodies };
+    PersistentContactCountList m_persistentRestingContactCounts { "PhysicsContactSolverStage.persistentRestingContactCounts", PhysicsCapacityReason::SceneBodies };
     ConstraintSolveTransaction m_solveTransaction;
     PersistentContactSolverSideEffects m_sideEffects;
 
@@ -329,15 +332,16 @@ class PhysicsContactSolverStage
     // Returns the single per-solve normalization of raw stamped settings and
     // live world-force policy. Tests use this seam to pin bounds without
     // recreating solver math.
-    static PersistentContactSolverStepPolicy ResolveStepPolicy( const PhysicsRuntimeSettings& settings,
-                                                                const PhysicsWorldForces& worldForces,
-                                                                float stepDurationSeconds ) noexcept;
-    void Solve( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs,
-                std::span<const uint8_t> sleepState, std::span<const float> timeRemaining,
+    static PersistentContactSolverStepPolicy ResolveStepPolicy( const PhysicsRuntimeSettings& settings, const PhysicsWorldForces& worldForces, float stepDurationSeconds ) noexcept;
+    void Solve( PhysicsBodyStore& bodyStore,
+                const ColliderStore& colliderStore,
+                const PersistentContactSolverStepPolicy& stepPolicy,
+                std::span<const std::pair<int, int>> candidatePairs,
+                std::span<const uint8_t> sleepState,
+                std::span<const float> timeRemaining,
                 PhysicsCandidatePairList& sleepSupportEdges,
                 PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
-                std::span<uint8_t> sleepSupportedThisFrame, PhysicsStepDiagnostics& stepDiagnostics,
+                PhysicsStepDiagnostics& stepDiagnostics,
                 std::span<PointJointConstraint> joints = {} );
     bool HasPendingReleasedConstraints() const
     {
@@ -348,12 +352,16 @@ class PhysicsContactSolverStage
     {
         return m_solveTransaction.m_reactivatedBodies;
     }
-    void ContinueReleasedConstraints( PhysicsBodyStore& bodies, const ColliderStore& colliders,
+    void ContinueReleasedConstraints( PhysicsBodyStore& bodies,
+                                      const ColliderStore& colliders,
                                       const PersistentContactSolverStepPolicy& policy,
-                                      std::span<const std::pair<int, int>> candidates, std::span<const uint8_t> sleep,
-                                      std::span<const float> timeRemaining, PhysicsCandidatePairList& supportEdges,
+                                      std::span<const std::pair<int, int>> candidates,
+                                      std::span<const uint8_t> sleep,
+                                      std::span<const float> timeRemaining,
+                                      PhysicsCandidatePairList& supportEdges,
                                       PhysicsBodyRowList<TerrainContactManifold>& terrain,
-                                      PhysicsStepDiagnostics& diagnostics, std::span<PointJointConstraint> joints );
+                                      PhysicsStepDiagnostics& diagnostics,
+                                      std::span<PointJointConstraint> joints );
     PhysicsContactCacheWakeAccess CreateWakeAccess();
 
     void CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const;

@@ -100,12 +100,18 @@ UIOptionsTabFrameView InGameUIFrameData::OptionsTabFrame() const
              world.waterFreezeDebug,
              world.waterFlatDebug,
              world.terrainHidden,
-             world.waterHidden };
+             world.waterHidden,
+             world.gravityGridVisible,
+             world.gravityFieldHeight,
+             world.gravityFieldOpacity,
+             world.gravityFieldColor,
+             world.gravityFieldSnapBalls };
 }
 
 UIPhysicsTabFrameView InGameUIFrameData::PhysicsTabFrame() const
 {
     return { world.physicsDebug,
+             world.physicsInspector,
              world.worldGravity,
              world.rayCastImpulseStrength,
              world.launcherProjectileSpeed,
@@ -705,7 +711,8 @@ void UIWindowInteractionOwner::DrawActiveTabContent( const InGameUIFrameData& da
         SceneTab::Draw( m_sceneTab, draw, data.SceneTabFrame(), content.x, content.y, content.w, content.h, scrolledY, m_mouseX, m_mouseY );
         break;
     case InGameUITab::Physics:
-        PhysicsTab::Draw( m_physicsTab, draw, data.PhysicsTabFrame(), content.x, content.y, content.w, content.h, scrolledY, m_activeSlider, m_mouseX, m_mouseY );
+        draw.RoundedPanel( { content.x, scrolledY + 20, (std::min)( 240.0f, content.w ), 30 }, 4, Style::Palette().control, Style::Palette().border );
+        draw.Text( content.x + 10, scrolledY + 28, 12, 1, 1, 1, "Open Physics window" );
         break;
     case InGameUITab::Editor:
         EditorTab::Draw( m_editorTab, draw, data.EditorTabFrame(), content.x, content.y, content.w, content.h, scrolledY, m_mouseX, m_mouseY );
@@ -809,6 +816,7 @@ void InGameUI::RevealCauseControls( int width, int height )
     m_windowInteraction.m_presentation.preferences.layout = LayoutMode::Editor;
     m_windowInteraction.m_presentation.detailsOpen = false;
     m_windowInteraction.m_presentation.detailsCauses = true;
+    m_windowInteraction.m_presentation.preferences.physicsPeer = false;
     m_windowInteraction.m_presentation.preferences.rightFolded = false;
     m_windowInteraction.m_presentationRects = ComputePresentationRects( m_windowInteraction.m_presentation, width, height );
 }
@@ -1055,7 +1063,7 @@ void UIWindowInteractionOwner::DrawActiveTabHitboxes( const UIDrawContext& draw,
         break;
     case InGameUITab::Options:
 
-        for ( int i = 0; i < 6; ++i )
+        for ( int i = 0; i < 8; ++i )
         {
             DrawHitboxRect( draw, m_optionsTab.toggles[i].Bounds(), contentR, contentG, contentB );
         }
@@ -1301,12 +1309,13 @@ void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& d
         }
     }
     m_frameDrawList.SetPanel( UIPanel::Right );
-    const UIRect tabs[] = { m_presentationRects.detailsReplayTab, m_presentationRects.detailsCausesTab };
-    for ( int index = 0; index < 2; ++index )
+    const UIRect tabs[] = { m_presentationRects.detailsReplayTab, m_presentationRects.detailsCausesTab, m_presentationRects.right.w > 24 ? m_presentationRects.physicsTab : UIRect {} };
+    for ( int index = 0; index < 3; ++index )
     {
         if ( tabs[index].w > 0.0f )
         {
-            const bool selected = m_presentation.detailsCauses == ( index == 1 );
+            const bool selected = index == 2 ? m_presentation.preferences.physicsPeer
+                                             : !m_presentation.preferences.physicsPeer && ( m_presentation.preferences.layout == LayoutMode::Editor || m_presentation.detailsCauses == ( index == 1 ) );
             const bool hovered = tabs[index].Contains( m_mouseX, m_mouseY );
             const auto& fill = selected ? palette.selection : ( hovered ? palette.controlHover : palette.control );
             const auto& ink = selected || hovered ? palette.textPrimary : palette.textSecondary;
@@ -1321,7 +1330,7 @@ void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& d
                        ink.r,
                        ink.g,
                        ink.b,
-                       m_presentation.workspace == Workspace::SolverLab ? ( index == 0 ? "Controls" : "Differences" ) : ( index == 0 ? "Replay" : "Causes" ) );
+                       index == 2 ? "Physics" : m_presentation.workspace == Workspace::SolverLab ? ( index == 0 ? "Controls" : "Differences" ) : ( index == 0 ? "Replay" : "Causes" ) );
         }
     }
     draw.BeginLayer();
@@ -1379,15 +1388,9 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
     m_frameDrawList.SetPanel( m_presentation.preferences.rightFolded ? UIPanel::None : UIPanel::Right );
     verticalTab( m_presentationRects.causeTab, m_presentation.workspace == Workspace::SolverLab ? "Differences" : "Causes", palette.textSecondary );
     DrawDockFold( draw, m_presentationRects.rightFold, !m_presentation.preferences.rightFolded, m_presentationRects.rightFold.Contains( m_mouseX, m_mouseY ) );
-    if ( m_presentationRects.right.w > 24 )
+    if ( m_presentationRects.right.w <= 24 )
     {
-        draw.Text( m_presentationRects.right.x + 30,
-                   m_presentationRects.right.y + 8,
-                   11,
-                   palette.textPrimary.r,
-                   palette.textPrimary.g,
-                   palette.textPrimary.b,
-                   m_presentation.workspace == Workspace::SolverLab ? "Differences" : "Causes" );
+        verticalTab( m_presentationRects.physicsTab, "Physics", palette.textSecondary );
     }
     // A visible grip and larger hit area make both dock edges discoverable.
     const UIRect grips[] = { m_presentationRects.leftResize, m_presentationRects.replayResize, m_presentationRects.rightResize };
@@ -1416,6 +1419,48 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
     {
         draw.Text( m_presentationRects.left.x + 12.0f, m_presentationRects.left.y + 52.0f, 11.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, "Editor controls are open in Tools." );
     }
+}
+
+void UIWindowInteractionOwner::DrawPhysicsDock( const InGameUIFrameData& data )
+{
+    const auto& bounds = m_presentationRects.physicsControls;
+    if ( !m_presentationEnabled || bounds.w <= 0 || bounds.h <= 0 )
+    {
+        return;
+    }
+    const UIPanelScope panelScope( m_frameDrawList, UIPanel::Right );
+    const UIDrawContext draw( data.surface.screenW, data.surface.screenH, m_frameDrawList );
+    const auto& header = m_presentationRects.physicsHeader;
+    draw.PushClip( header );
+    char context[128] {};
+    std::snprintf( context,
+                   sizeof( context ),
+                   "%s | step %llu | body %u",
+                   data.world.physicsInspector.historicalContext ? "Live (read-only)" : "Live",
+                   static_cast<unsigned long long>( data.world.physicsInspector.tick ),
+                   data.world.physicsInspector.selectedId );
+    draw.Text( header.x, header.y + 4, 11, 1, 1, 1, context );
+    const char* actions[] = { data.operatorEditor.tools.crossScenePauseLocked ? "Resume" : "Pause", "One tick", "Restart" };
+    const char* sections[] = { "Simulation", "Visualisation", "Body", "Statistics" };
+    const auto& palette = Style::Palette();
+    for ( int i = 0; i < 7; ++i )
+    {
+        const int index = i < 3 ? i : i - 3;
+        const float width = header.w / ( i < 3 ? 3 : 2 );
+        const UIRect button { header.x + ( i < 3 ? index : index % 2 ) * width, header.y + ( i < 3 ? 24 : 54 + 27 * ( index / 2 ) ), width - 3, 24 };
+        const bool selected = i >= 3 && index == m_presentation.preferences.physicsSection;
+        draw.RoundedPanel( button, 3, selected ? palette.selection : palette.control, palette.border );
+        draw.Text( button.x + 5, button.y + 6, 11, 1, 1, 1, i < 3 ? actions[index] : sections[index] );
+    }
+    draw.PopClip();
+    m_physicsTab.section = m_presentation.preferences.physicsSection;
+    m_physicsTab.liveEditable = data.world.physicsInspector.liveEditable;
+    m_physicsTab.bodyContentHeight = PhysicsTab::BodyContentHeight( data.world.physicsInspector );
+    const int contentHeight = m_physicsTab.section == 2 ? m_physicsTab.bodyContentHeight : PhysicsTab::ContentHeight( m_physicsTab.section, m_physicsTab.advancedOpen, m_physicsTab.tornadoOpen );
+    m_presentation.physicsScroll = std::clamp( m_presentation.physicsScroll, 0.0f, (std::max)( 0.0f, static_cast<float>( contentHeight ) - bounds.h ) );
+    draw.PushClip( bounds );
+    PhysicsTab::Draw( m_physicsTab, draw, data.PhysicsTabFrame(), bounds.x, bounds.y, bounds.w, bounds.h, bounds.y - m_presentation.physicsScroll, m_activeSlider, m_mouseX, m_mouseY );
+    draw.PopClip();
 }
 
 void UIWindowInteractionOwner::DrawPresentedEditorPalette( const InGameUIFrameData& data )
@@ -1600,6 +1645,7 @@ void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& 
         draw.PopClip();
     };
     button( bounds.layout, m_presentation.preferences.layout == LayoutMode::Canvas ? "Options" : "Exit" );
+    button( bounds.physics, "Physics" );
     button( bounds.fourViews, data.surface.fourViews ? "1 View" : "4 Views" );
     if ( bounds.close.w > 0.0f )
     {
@@ -1798,6 +1844,7 @@ const UIDrawList& UIWindowInteractionOwner::Draw( const InGameUIFrameData& data 
     m_frameDrawList.Clear();
     DrawPresentationDocks( data );
     DrawEditorDock( data );
+    DrawPhysicsDock( data );
     m_histogramDrawList.Clear();
     m_memoryOverlayDrawList.Clear();
     const bool histogramEnabled = ProfilerTab::PerformanceHistogramEnabled( m_profilerTab );

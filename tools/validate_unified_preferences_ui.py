@@ -90,7 +90,7 @@ def run(root: Path) -> None:
                 wait_for_exit(directory)
 
     session('legacy-editor', False, toggle=True)
-    assert 'version 6\n' in preferences.read_text() and 'toolsOpen 1\n' in preferences.read_text()
+    assert 'version 7\n' in preferences.read_text() and 'toolsOpen 1\n' in preferences.read_text()
     session('restored-open', True)
     session('restored-open-then-close', True, toggle=True)
     assert 'toolsOpen 0\n' in preferences.read_text()

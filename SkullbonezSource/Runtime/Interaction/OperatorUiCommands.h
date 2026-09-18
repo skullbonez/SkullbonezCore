@@ -26,6 +26,7 @@ Related:
 #pragma once
 
 #include "OperatorEditorExchange.h"
+#include "../../Physics/PhysicsRuntimeSettings.h"
 
 #include <cstdint>
 
@@ -163,6 +164,13 @@ enum class UIRenderParam
     TrajectoryMarkerAlpha,
     TrajectoryMarkerEdgeFeather,
     TrajectorySelectedEmphasis,
+    GrassQuality,
+    GrassDensity,
+    GrassDistance,
+    GrassHeight,
+    GrassBend,
+    GrassRecovery,
+
     Count
 };
 
@@ -175,7 +183,17 @@ enum class UIPhysicsDebugOverlay : uint32_t
     Axes,
     Contacts,
     Sleep,
-    Pipeline
+    Pipeline,
+    Normals,
+    NormalImpulses,
+    FrictionImpulses,
+    CenterOfMass,
+    BodyAabbs,
+    Joints,
+    JointError,
+    Motion,
+    SelectedOnly,
+    Shapes
 };
 
 // Detached status rendered by the Physics tab. Runtime samples each bool from
@@ -196,6 +214,8 @@ struct UIPhysicsDebugStatus
     bool collisionVisualizer = false;
     bool transparent = false;
     bool broadphase = false;
+    std::array<bool, 10> additionalLayers {};
+    float impulseScale = .1f, impulseThreshold = .001f;
 };
 
 struct UIOnlyCommands
@@ -236,8 +256,28 @@ struct UISceneCommands
     bool requestSingleStep = false;     // Advance one paused scene turn; never retained beyond this input frame.
 };
 
+struct UIPhysicsPointImpulse
+{
+    uint32_t sceneObjectId = 0;
+    std::array<float, 3> impulse { 0, 10, 0 }, point {};
+    bool local = true;
+};
+
 struct UIPhysicsCommands
 {
+    bool applyPointImpulse = false;
+    UIPhysicsPointImpulse pointImpulse;
+
+    Physics::InteractivePhysicsSetting setting = Physics::InteractivePhysicsSetting::None;
+    float settingValue = 0;
+    bool saveBodyScene = false;
+    bool requestBodyMass = false;
+    uint32_t bodySceneObjectId = 0;
+    float bodyMass = 0;
+    bool restoreStartup = false;
+    bool saveDefaults = false;
+    float requestedImpulseScale = -1, requestedImpulseThreshold = -1;
+
     UIPhysicsDebugOverlay physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::None;
     bool toggleCollisionVisualizer = false;
     bool togglePhysicsSleepPolicy = false;
@@ -318,6 +358,12 @@ struct UISceneOptionCommands
     bool toggleWaterFreeze = false;
     bool toggleWaterFlat = false;
     bool toggleShadows = false;
+    bool toggleGravityGrid = false;
+    bool toggleGravityFieldSnap = false;
+    bool requestGravityFieldHeight = false;
+    float gravityFieldHeight = 0.0f;
+    float requestedGravityFieldOpacity = -1.0f;
+    int requestedGravityFieldColor = -1;
     float requestedTimeScale = -1.0f;
     int requestedModelCount = -1;
 };
@@ -367,6 +413,7 @@ struct UIRenderCommands
 {
     bool toggleShadows = false;
     bool saveDefaults = false;
+    float requestedImpulseScale = -1, requestedImpulseThreshold = -1;
     UIRenderParam requestedParam = UIRenderParam::None;
     float requestedValue = 0.0f;
 };

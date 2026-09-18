@@ -228,6 +228,8 @@ bool CaptureReplayPredictionBodyState( const PhysicsBodyStore& bodyStore,
         backup.inverseMass = hotFields.inverseMass[bodyIndex];
         backup.rotationalInertia = body.rotationalInertia;
         backup.inverseRotationalInertia = PhysicsBodyInverseInertia( hotFields, bodyIndex );
+        backup.rotationalInertiaProducts = body.rotationalInertiaProducts;
+        backup.inverseRotationalInertiaProducts = PhysicsBodyInverseInertiaProducts( hotFields, bodyIndex );
         backup.fixed = hotFields.fixed[bodyIndex] != 0u;
         outBodies[static_cast<std::size_t>( i )] = backup;
     };
@@ -282,7 +284,9 @@ bool ApplyReplayPredictionBodyState( PhysicsEngine& physicsEngine, SkullbonezCor
                                                 backup.mass,
                                                 backup.inverseMass,
                                                 backup.rotationalInertia,
-                                                backup.inverseRotationalInertia };
+                                                backup.inverseRotationalInertia,
+                                                backup.rotationalInertiaProducts,
+                                                backup.inverseRotationalInertiaProducts };
 
         if ( !physicsEngine.RestoreReplayBodyState( restore ) )
         {
@@ -438,6 +442,16 @@ bool CaptureReplayPredictionFrame( ReplayPrediction& predictionOwner,
         const bool bodyBActive = prediction.build.causalContactActiveModels[static_cast<std::size_t>( contact.bodyB )] != 0u;
 
         if ( bodyAActive == bodyBActive )
+        {
+            continue;
+        }
+
+        // Invariant: a fixed body can end a causal branch but cannot carry an
+        // incoming impulse to its other contacts. Shared floors must not mark
+        // every resting body as affected before the moving chain reaches it.
+        const int sourceModel = bodyAActive ? contact.bodyA : contact.bodyB;
+
+        if ( hotFields.fixed[static_cast<std::size_t>( sourceModel )] != 0u )
         {
             continue;
         }

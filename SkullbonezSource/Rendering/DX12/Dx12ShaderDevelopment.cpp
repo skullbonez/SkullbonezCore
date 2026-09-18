@@ -72,8 +72,7 @@ bool Dx12RenderSuiteRequested()
             ++cursor;
         }
 
-        if ( static_cast<std::size_t>( cursor - begin ) == std::strlen( SUITE_TOKEN ) &&
-             std::strncmp( begin, SUITE_TOKEN, std::strlen( SUITE_TOKEN ) ) == 0 )
+        if ( static_cast<std::size_t>( cursor - begin ) == std::strlen( SUITE_TOKEN ) && std::strncmp( begin, SUITE_TOKEN, std::strlen( SUITE_TOKEN ) ) == 0 )
         {
             return true;
         }
@@ -90,11 +89,13 @@ bool Dx12RenderSuiteRequested()
 
 
 Dx12ShaderDevelopment::Dx12ShaderDevelopment( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-                                              Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures,
-                                              Dx12GeometryOwner& geometry, Dx12RenderDevice& device, Dx12FrameOwner& frame,
+                                              Dx12PipelineOwner& pipeline,
+                                              Dx12TextureOwner& textures,
+                                              Dx12GeometryOwner& geometry,
+                                              Dx12RenderDevice& device,
+                                              Dx12FrameOwner& frame,
                                               Dx12Diagnostics& diagnostics )
-    : m_resultDiagnostics( resultDiagnostics ), m_pipeline( pipeline ), m_textures( textures ), m_geometry( geometry ),
-      m_device( device ), m_frame( frame ), m_diagnostics( diagnostics )
+    : m_resultDiagnostics( resultDiagnostics ), m_pipeline( pipeline ), m_textures( textures ), m_geometry( geometry ), m_device( device ), m_frame( frame ), m_diagnostics( diagnostics )
 {
 }
 
@@ -109,17 +110,18 @@ Dx12InitialRasterShaderBytecodePreparationSummary Dx12ShaderDevelopment::Prepare
 {
     std::string error;
     const ShaderBytecodeManifestCache::PreparationSummary cacheSummary = m_bytecodeCache.PrepareFirstGameplayPrograms( error );
-    const Dx12InitialRasterShaderBytecodePreparationSummary summary { cacheSummary.attempted, cacheSummary.complete,
-                                                                      cacheSummary.newlyPublished, cacheSummary.cacheHits,
-                                                                      cacheSummary.stageLoads };
+    const Dx12InitialRasterShaderBytecodePreparationSummary summary { cacheSummary.attempted, cacheSummary.complete, cacheSummary.newlyPublished, cacheSummary.cacheHits, cacheSummary.stageLoads };
 
     // Bounded cold evidence: stdout survives Profile builds and records only
     // this invocation. Lifetime totals cannot distinguish a partial retry from
     // an idempotent warm call.
     std::fprintf( stdout,
-                  "dx12_shader_manifest_warm attempted=%zu complete=%zu newly_published=%zu cache_hits=%zu "
-                  "stage_loads=%zu\n",
-                  summary.attempted, summary.complete, summary.newlyPublished, summary.cacheHits, summary.stageLoads );
+                  "dx12_shader_manifest_warm attempted=%zu complete=%zu newly_published=%zu cache_hits=%zu " "stage_loads=%zu\n",
+                  summary.attempted,
+                  summary.complete,
+                  summary.newlyPublished,
+                  summary.cacheHits,
+                  summary.stageLoads );
     std::fflush( stdout );
 
     if ( summary.complete != summary.attempted )
@@ -133,8 +135,8 @@ Dx12InitialRasterShaderBytecodePreparationSummary Dx12ShaderDevelopment::Prepare
 
     // The existing --suite launch is the renderer-owned validation boundary.
     // External manifest overrides remain recoverable: the assertion probe runs
-    // only after the production warm call proved the pinned 13-row projection.
-    if ( Dx12RenderSuiteRequested() && summary.attempted == 13u && summary.complete == 13u )
+    // only after the production warm call proved the pinned 16-row projection.
+    if ( Dx12RenderSuiteRequested() && summary.attempted == 16u && summary.complete == 16u )
     {
         ValidateInitialRasterShaderBytecodeCache();
     }
@@ -143,8 +145,7 @@ Dx12InitialRasterShaderBytecodePreparationSummary Dx12ShaderDevelopment::Prepare
 }
 
 
-bool Dx12ShaderDevelopment::LoadCurrentProgramBytecode( const char* hlslPath, ComPtr<ID3DBlob>& outVertex,
-                                                        ComPtr<ID3DBlob>& outPixel, std::string& outError )
+bool Dx12ShaderDevelopment::LoadCurrentProgramBytecode( const char* hlslPath, ComPtr<ID3DBlob>& outVertex, ComPtr<ID3DBlob>& outPixel, std::string& outError )
 {
     return m_bytecodeCache.LoadProgram( hlslPath, outVertex, outPixel, outError ).complete;
 }
@@ -165,52 +166,42 @@ void Dx12ShaderDevelopment::ValidateInitialRasterShaderBytecodeCache() const
     ShaderBytecodeManifestCache isolated;
     std::string error;
     const ShaderBytecodeManifestCache::PreparationSummary first = isolated.PrepareFirstGameplayPrograms( error );
-    require( first.attempted == 13u && first.complete == 13u && first.newlyPublished == 13u && first.cacheHits == 0u &&
-                 first.stageLoads == 26u,
-             "first warm did not publish exactly 13 two-stage programs" );
+    require( first.attempted == 16u && first.complete == 16u && first.newlyPublished == 16u && first.cacheHits == 0u && first.stageLoads == 32u, "first warm did not publish exactly 16 two-stage programs" );
 
     const ShaderBytecodeManifestCache::PreparationSummary second = isolated.PrepareFirstGameplayPrograms( error );
-    require( second.attempted == 13u && second.complete == 13u && second.newlyPublished == 0u && second.cacheHits == 13u &&
-                 second.stageLoads == 0u,
-             "second warm did not use exactly 13 manifest-free cache hits" );
+    require( second.attempted == 16u && second.complete == 16u && second.newlyPublished == 0u && second.cacheHits == 16u && second.stageLoads == 0u, "second warm did not use exactly 16 manifest-free cache hits" );
 
     isolated.Reset();
     const std::string missingPath = std::string( DATA_ROOT ) + "shaders/__manifest_cache_validation_missing.hlsl";
     ComPtr<ID3DBlob> vertex;
     ComPtr<ID3DBlob> pixel;
-    const ShaderBytecodeManifestCache::ProgramLoadSummary missingFirst = isolated.LoadProgram( missingPath.c_str(), vertex,
-                                                                                               pixel, error );
-    const ShaderBytecodeManifestCache::ProgramLoadSummary missingSecond = isolated.LoadProgram( missingPath.c_str(), vertex,
-                                                                                                pixel, error );
-    require( !missingFirst.complete && !missingFirst.newlyPublished && !missingFirst.cacheHit &&
-                 missingFirst.stageLoads == 1u && !missingSecond.complete && !missingSecond.newlyPublished &&
-                 !missingSecond.cacheHit && missingSecond.stageLoads == 1u && isolated.m_programCount == 0u,
-             "missing program was cached or did not retry its manifest load" );
+    const ShaderBytecodeManifestCache::ProgramLoadSummary missingFirst = isolated.LoadProgram( missingPath.c_str(), vertex, pixel, error );
+    const ShaderBytecodeManifestCache::ProgramLoadSummary missingSecond = isolated.LoadProgram( missingPath.c_str(), vertex, pixel, error );
+    require( !missingFirst.complete && !missingFirst.newlyPublished && !missingFirst.cacheHit && missingFirst.stageLoads == 1u && !missingSecond.complete && !missingSecond.newlyPublished && !missingSecond.cacheHit && missingSecond.stageLoads == 1u && isolated.m_programCount == 0u, "missing program was cached or did not retry its manifest load" );
 
     isolated.Reset();
     const std::string directPath = std::string( DATA_ROOT ) + "shaders/lit_textured.hlsl";
-    const ShaderBytecodeManifestCache::ProgramLoadSummary direct = isolated.LoadProgram( directPath.c_str(), vertex, pixel,
-                                                                                         error );
-    require( direct.complete && direct.newlyPublished && !direct.cacheHit && direct.stageLoads == 2u &&
-                 isolated.m_programCount == 1u,
-             "direct load did not publish one verified raster pair" );
+    const ShaderBytecodeManifestCache::ProgramLoadSummary direct = isolated.LoadProgram( directPath.c_str(), vertex, pixel, error );
+    require( direct.complete && direct.newlyPublished && !direct.cacheHit && direct.stageLoads == 2u && isolated.m_programCount == 1u, "direct load did not publish one verified raster pair" );
 
     isolated.Reset();
     const ShaderBytecodeManifestCache::PreparationSummary afterInvalidation = isolated.PrepareFirstGameplayPrograms( error );
-    require( afterInvalidation.attempted == 13u && afterInvalidation.complete == 13u &&
-                 afterInvalidation.newlyPublished == 13u && afterInvalidation.cacheHits == 0u &&
-                 afterInvalidation.stageLoads == 26u,
-             "cache invalidation did not force the next warm to reload all stages" );
+    require( afterInvalidation.attempted == 16u && afterInvalidation.complete == 16u && afterInvalidation.newlyPublished == 16u && afterInvalidation.cacheHits == 0u && afterInvalidation.stageLoads == 32u, "cache invalidation did not force the next warm to reload all stages" );
 
     std::fprintf( stdout,
-                  "dx12_shader_manifest_cache_validation pass=1 first_attempted=%zu first_complete=%zu "
-                  "first_newly_published=%zu first_cache_hits=%zu first_stage_loads=%zu second_newly_published=%zu "
-                  "second_cache_hits=%zu second_stage_loads=%zu missing_first_stage_loads=%zu "
-                  "missing_second_stage_loads=%zu "
-                  "direct_stage_loads=%zu reload_stage_loads=%zu\n",
-                  first.attempted, first.complete, first.newlyPublished, first.cacheHits, first.stageLoads,
-                  second.newlyPublished, second.cacheHits, second.stageLoads, missingFirst.stageLoads,
-                  missingSecond.stageLoads, direct.stageLoads, afterInvalidation.stageLoads );
+                  "dx12_shader_manifest_cache_validation pass=1 first_attempted=%zu first_complete=%zu " "first_newly_published=%zu first_cache_hits=%zu first_stage_loads=%zu second_newly_published=%zu " "second_cache_hits=%zu second_stage_loads=%zu missing_first_stage_loads=%zu " "missing_second_stage_loads=%zu " "direct_stage_loads=%zu reload_stage_loads=%zu\n",
+                  first.attempted,
+                  first.complete,
+                  first.newlyPublished,
+                  first.cacheHits,
+                  first.stageLoads,
+                  second.newlyPublished,
+                  second.cacheHits,
+                  second.stageLoads,
+                  missingFirst.stageLoads,
+                  missingSecond.stageLoads,
+                  direct.stageLoads,
+                  afterInvalidation.stageLoads );
     std::fflush( stdout );
 }
 
@@ -299,8 +290,7 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::BakeSourceGeneration() con
 
     if ( GetFileAttributesA( BAKE_PATH ) == INVALID_FILE_ATTRIBUTES )
     {
-        return m_resultDiagnostics.Failure( "Rendering/DX12",
-                                            "Shader bake tool is unavailable from this working directory" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "Shader bake tool is unavailable from this working directory" );
     }
 
     // Cold utility action: invoke the same pinned DXC bake used by validation.
@@ -314,11 +304,9 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::BakeSourceGeneration() con
     fprintf( stdout, "[shader-hot-reload] bake begin\n" );
     fflush( stdout );
 
-    if ( !CreateProcessA( nullptr, commandLine, nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &startup,
-                          &process ) )
+    if ( !CreateProcessA( nullptr, commandLine, nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process ) )
     {
-        return m_resultDiagnostics.Failure( "Rendering/DX12", "Shader bake process failed to start (error=%lu)",
-                                            GetLastError() );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "Shader bake process failed to start (error=%lu)", GetLastError() );
     }
 
     const DWORD waitResult = WaitForSingleObject( process.hProcess, INFINITE );
@@ -330,8 +318,7 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::BakeSourceGeneration() con
     if ( !exited || exitCode != 0 )
     {
         // Recoverable error: the external bake can fail without changing the live generation.
-        return m_resultDiagnostics.Failure( "Rendering/DX12", "Shader bake failed (wait=%lu exit=%lu)", waitResult,
-                                            exitCode );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "Shader bake failed (wait=%lu exit=%lu)", waitResult, exitCode );
     }
 
     return SkullbonezCore::Core::SbResult::Success();
@@ -343,8 +330,7 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadBakedGeneration( ID3
     // Runtime allocation policy: candidate reflection containers may allocate only in
     // the explicit BackendInit developer scope held by the F9 caller.
     ID3D12PipelineState* generateMipsCandidate = nullptr;
-    const SkullbonezCore::Core::SbResult computeResult = m_textures.PrepareGenerateMipsShaderReload( device,
-                                                                                                     generateMipsCandidate );
+    const SkullbonezCore::Core::SbResult computeResult = m_textures.PrepareGenerateMipsShaderReload( device, generateMipsCandidate );
 
     if ( !computeResult.Ok() )
     {
@@ -363,8 +349,7 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadBakedGeneration( ID3
 
             // Recoverable error: a changed shader interface needs a rebuilt executable;
             // every live shader and PSO still names the previous generation.
-            return m_resultDiagnostics.Failure( "Rendering/DX12",
-                                                "Shader hot reload rejected changed or invalid bytecode contract" );
+            return m_resultDiagnostics.Failure( "Rendering/DX12", "Shader hot reload rejected changed or invalid bytecode contract" );
         }
     }
 
@@ -388,8 +373,7 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadBakedGeneration( ID3
 
     fprintf( stdout, "[shader-hot-reload] committed\n" );
     fflush( stdout );
-    SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_hot_reload_complete owner=Dx12ShaderDevelopment shaders=%llu",
-                                             static_cast<unsigned long long>( m_liveShaderCount ) );
+    SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_hot_reload_complete owner=Dx12ShaderDevelopment shaders=%llu", static_cast<unsigned long long>( m_liveShaderCount ) );
 
     return SkullbonezCore::Core::SbResult::Success();
 }
@@ -402,8 +386,7 @@ void Dx12ShaderDevelopment::ResetAfterShutdown()
     // would become a dangling owner reference after backend destruction.
     if ( m_liveShaderCount != 0 )
     {
-        SB_FATAL( "Dx12ShaderDevelopment", "Shader registry remained live at backend shutdown. count=%zu capacity=%zu",
-                  m_liveShaderCount, m_liveShaders.size() );
+        SB_FATAL( "Dx12ShaderDevelopment", "Shader registry remained live at backend shutdown. count=%zu capacity=%zu", m_liveShaderCount, m_liveShaders.size() );
     }
 
     m_liveShaders = {};

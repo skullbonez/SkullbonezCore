@@ -32,6 +32,7 @@ Related:
 #include "../../Core/Profiler.h"
 #include "../ColliderStore.h"
 #include "../ObjectContactManifold.h"
+#include "../ConvexDistance.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsWorldForces.h"
 
@@ -123,14 +124,14 @@ bool HasObjectContactAtTime( SkullbonezCore::Core::Profiler* profiler,
                                        manifold );
 }
 
-float RefineObjectSweepContactTime( SkullbonezCore::Core::Profiler* profiler,
-                                    const PhysicsBodyHotFieldsConstView& hotFields,
-                                    std::span<const ColliderRecord> colliderRecords,
-                                    int bodyA,
-                                    int bodyB,
-                                    float coarseTime,
-                                    float availableTime,
-                                    float contactEpsilon )
+float RefinePrimitiveSweepContactTime( SkullbonezCore::Core::Profiler* profiler,
+                                       const PhysicsBodyHotFieldsConstView& hotFields,
+                                       std::span<const ColliderRecord> colliderRecords,
+                                       int bodyA,
+                                       int bodyB,
+                                       float coarseTime,
+                                       float availableTime,
+                                       float contactEpsilon )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/RefineContactTime" );
 
@@ -186,6 +187,35 @@ float RefineObjectSweepContactTime( SkullbonezCore::Core::Profiler* profiler,
     }
 
     return hi;
+}
+
+ObjectContactSweepResult RefineObjectSweepContact( SkullbonezCore::Core::Profiler* profiler,
+                                                   const PhysicsBodyHotFieldsConstView& hotFields,
+                                                   std::span<const ColliderRecord> colliders,
+                                                   const ObjectContactSweepResult& coarse,
+                                                   int bodyA,
+                                                   int bodyB,
+                                                   float availableTime,
+                                                   float contactEpsilon )
+{
+    if ( !coarse.hit )
+    {
+        return coarse;
+    }
+    if ( colliders[bodyA].shapeKind == ColliderShapeKind::ConvexHull || colliders[bodyB].shapeKind == ColliderShapeKind::ConvexHull )
+    {
+        const ConvexCastResult exact = CastConvexContact( ObjectContactBodyViewAtTime( hotFields, bodyA, 0.0f ),
+                                                          colliders[bodyA].shape,
+                                                          PhysicsBodyLinearVelocity( hotFields, bodyA ),
+                                                          ObjectContactBodyViewAtTime( hotFields, bodyB, 0.0f ),
+                                                          colliders[bodyB].shape,
+                                                          PhysicsBodyLinearVelocity( hotFields, bodyB ),
+                                                          availableTime,
+                                                          contactEpsilon );
+        return { exact.hit, exact.collisionTime };
+    }
+    // Primitive-only pairs retain their accepted time/refinement arithmetic.
+    return { true, RefinePrimitiveSweepContactTime( profiler, hotFields, colliders, bodyA, bodyB, coarse.collisionTime, availableTime, contactEpsilon ) };
 }
 
 ObjectContactSweepResult
@@ -298,13 +328,14 @@ void PhysicsNarrowphaseStage::ProcessSleepingObjectPair( const ObjectNarrowphase
 
     if ( step.timeRemaining[awakeIndex] > 0.0f && ObjectPairNeedsSweptCcd( step.motionEligibilityState, awakeIndex, sleepingIndex, step.timeRemaining[awakeIndex] ) )
     {
-        const ObjectContactSweepResult sweep = SweepObjectPair( step.profiler, hotFields, colliderRecords, awakeIndex, sleepingIndex, step.timeRemaining[awakeIndex] );
+        const ObjectContactSweepResult coarse = SweepObjectPair( step.profiler, hotFields, colliderRecords, awakeIndex, sleepingIndex, step.timeRemaining[awakeIndex] );
+        const ObjectContactSweepResult
+            sweep = RefineObjectSweepContact( step.profiler, hotFields, colliderRecords, coarse, awakeIndex, sleepingIndex, step.timeRemaining[awakeIndex], step.policy.contactEpsilon );
 
         if ( sweep.hit )
         {
             const float availableTime = step.timeRemaining[awakeIndex];
-            const float
-                collisionTime = RefineObjectSweepContactTime( step.profiler, hotFields, colliderRecords, awakeIndex, sleepingIndex, sweep.collisionTime, availableTime, step.policy.contactEpsilon );
+            const float collisionTime = sweep.collisionTime;
 
             if constexpr ( RetainPipelineRecords )
             {
@@ -396,7 +427,8 @@ template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessAwake
 
     const PhysicsBodyHotFieldsConstView hotFields = step.bodyStore.HotFields();
     const std::span<const ColliderRecord> colliderRecords = step.colliderStore.Records();
-    const ObjectContactSweepResult sweep = SweepObjectPair( step.profiler, hotFields, colliderRecords, bodyA, bodyB, availableTime );
+    const ObjectContactSweepResult coarse = SweepObjectPair( step.profiler, hotFields, colliderRecords, bodyA, bodyB, availableTime );
+    const ObjectContactSweepResult sweep = RefineObjectSweepContact( step.profiler, hotFields, colliderRecords, coarse, bodyA, bodyB, availableTime, step.policy.contactEpsilon );
 
     if ( !sweep.hit )
     {
@@ -417,7 +449,7 @@ template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessAwake
         return;
     }
 
-    const float collisionTime = RefineObjectSweepContactTime( step.profiler, hotFields, colliderRecords, bodyA, bodyB, sweep.collisionTime, availableTime, step.policy.contactEpsilon );
+    const float collisionTime = sweep.collisionTime;
 
     if constexpr ( RetainPipelineRecords )
     {

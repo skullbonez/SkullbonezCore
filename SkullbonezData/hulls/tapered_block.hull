@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name tapered_block
 source_hash 0xb2b08e1b9c8d0d4d
 
@@ -27,7 +27,8 @@ default_density 0.9
 default_mass 604.8
 bounding_radius 9.0486215
 inertia_half_extents 6 4 6
-unit_inertia 17.3333333 24 17.3333333
+unit_inertia 12.722449 15.9428571 12.722449
+unit_inertia_products 0 0 -1.05735526e-17
 projected_surface_area 112
 
 # Baked centered vertices.

@@ -1012,8 +1012,8 @@ ReplayWorkspaceTooltips BuildReplayWorkspaceTooltips( const ReplayOverlayStateVi
         result[next - 1].focused = causality.tree.filterFocused;
         add( ReplayCauseWindowFilterFunnelRect( causality.tree ), { "Cycle the evidence category filter." } );
         add( ReplayCauseWindowFilterChipRect( causality.tree, RunReplayCauseTreeFilter::All ), { "Show all evidence categories." } );
-        add( ReplayCauseWindowFilterChipRect( causality.tree, RunReplayCauseTreeFilter::Prediction ), { "Show prediction evidence and its ancestry." } );
-        add( ReplayCauseWindowFilterChipRect( causality.tree, RunReplayCauseTreeFilter::Contacts ), { "Show contacts and their ancestry." } );
+        add( ReplayCauseWindowFilterChipRect( causality.tree, RunReplayCauseTreeFilter::Prediction ), { "Show predicted bodies and motion events without contact or solver detail." } );
+        add( ReplayCauseWindowFilterChipRect( causality.tree, RunReplayCauseTreeFilter::Contacts ), { "Show collision manifolds and their parent bodies. All also shows solver rows." } );
     }
     if ( layout.visibleDrawer.w > 0.0f )
     {

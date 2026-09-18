@@ -43,6 +43,7 @@ Related:
 // =============================================================================
 
 #pragma pack_matrix(column_major)
+#include "split_environment.hlsli"
 
 cbuffer Uniforms : register(b0)
 {
@@ -217,6 +218,17 @@ float3 ProceduralBeachBallColorFromSphereDir(float3 localDir)
     float seamWidth = max(0.014f, seamFootprint * 1.35f);
     float seam = 1.0f - smoothstep(0.0f, seamWidth, seamMetric);
     return ProceduralBeachBallPalette(redPanel, seam);
+}
+
+// Integrate each panel boundary across its pixel footprint before combining
+// the two axes. Filtering abs(a-b) would erase the crossing when both are 0.5;
+// the coverage XOR preserves a half-covered pixel there instead.
+float3 SplitFilteredPanelColor(float2 panelDistance)
+{
+    float2 footprint = max(fwidth(panelDistance), float2(0.00001f, 0.00001f));
+    float2 coverage = saturate(0.5f + panelDistance / footprint);
+    float redPanel = coverage.x + coverage.y - 2.0f * coverage.x * coverage.y;
+    return ProceduralBeachBallPalette(redPanel, 0.0f);
 }
 
 float3 QuantizedLowPolyNormal(float3 N)
@@ -551,6 +563,14 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     {
         float3 proceduralColor = uPrimitiveShape == 1 ? ProceduralBeachBallColorFromSphereDir(input.localDir)
                                                       : ProceduralBeachBallColorFromUv(input.texCoord);
+        if (cinematicMode && DecodeObjectStyle(uObjectStyle) == SPLIT_OBJECT_STYLE)
+        {
+            // Sphere planes avoid the UV wrap; periodic UV distances keep the
+            // box's repeated face borders continuous, including the bevels.
+            float2 panelDistance = uPrimitiveShape == 1 ? input.localDir.xy
+                                                        : sin(input.texCoord * 6.28318530718f);
+            proceduralColor = SplitFilteredPanelColor(panelDistance);
+        }
         if (input.material0.a < -1.5f)
         {
             proceduralColor = 1.0f - proceduralColor;
@@ -558,6 +578,56 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         materialColor = proceduralColor * input.material0.rgb;
     }
     float3 emissive = input.material2.rgb * max(input.material1.w, 0.0f);
+
+    // Invariant: style 14 is opt-in in the Split Future scene. Existing
+    // cinematic and ordinary materials keep their established shading paths.
+    if (cinematicMode && DecodeObjectStyle(uObjectStyle) == SPLIT_OBJECT_STYLE)
+    {
+        if (materialMode == 3)
+        {
+            // Authored luminous path segments use scene geometry, so depth and
+            // planar reflections match their real position, including fading alpha.
+            return float4(emissive + materialColor * 0.03f, materialAlpha);
+        }
+        float surfaceRoughness = clamp(input.material1.x, 0.08f, 1.0f);
+        float surfaceSpecular = max(input.material1.z, 0.0f);
+        // Fine coating variation follows the object rather than the camera.
+        // Derivative filtering fades grain below a pixel instead of shimmering.
+        float2 surfaceUv = uPrimitiveShape == 1 ? input.localDir.xy * 27.0f + input.localDir.zz * 11.0f
+                                               : input.texCoord * 48.0f;
+        float footprint = max(length(ddx(surfaceUv)), length(ddy(surfaceUv)));
+        float detail = 1.0f - smoothstep(0.25f, 1.2f, footprint);
+        float grain = SplitNoise(surfaceUv * 3.0f);
+        float wear = SplitNoise(surfaceUv * 0.23f + 8.4f);
+        float scratches = pow(saturate(SplitNoise(surfaceUv * float2(0.35f, 22.0f))), 9.0f) * detail;
+        surfaceRoughness = clamp(surfaceRoughness + (grain - 0.5f) * 0.10f * detail + wear * 0.055f + scratches * 0.18f, 0.1f, 0.9f);
+        if (materialMode == 0)
+        {
+            materialColor *= 0.92f + grain * 0.08f * detail;
+            materialColor = lerp(materialColor, materialColor * 0.65f, scratches * 0.24f);
+        }
+        float height = (grain - 0.5f) * 0.007f * detail;
+        float3 dPdx = ddx(input.worldPos);
+        float3 dPdy = ddy(input.worldPos);
+        float3 tangentX = cross(dPdy, worldN);
+        float3 tangentY = cross(worldN, dPdx);
+        float determinant = dot(dPdx, tangentX);
+        float3 gradient = (ddx(height) * tangentX + ddy(height) * tangentY)
+                        * (determinant < 0.0f ? -1.0f : 1.0f) / max(abs(determinant), 0.00001f);
+        worldN = normalize(worldN - gradient);
+        N = normalize(mul((float3x3)uView, worldN));
+        float shadow = ShadowVisibility(SphereShadowReceiverWorldPos(input.worldPos, input.sphereShadowInfo), N, L);
+        float3 color = OrdinaryMaterialBRDF(materialColor, emissive, surfaceRoughness, metallic,
+                                           surfaceSpecular, worldN, N, V, L, shadow);
+        float3 worldV = normalize(mul(transpose((float3x3)uView), V));
+        float3 f0 = lerp(float3(0.04f, 0.04f, 0.04f) * surfaceSpecular, materialColor, metallic);
+        float3 F = FresnelSchlick(saturate(dot(worldN, worldV)), f0);
+        // Replace the legacy flat ambient with diffuse and glossy environment response.
+        color -= materialColor * OrdinaryHemisphereAmbient(worldN);
+        color += materialColor * (1.0f - metallic) * (1.0f - F) * SplitDiffuseLight(worldN);
+        color += SplitSpecularLight(reflect(-worldV, worldN), surfaceRoughness) * F;
+        return float4(lerp(color, float3(1.0f, 1.0f, 1.0f), contactFlash), materialAlpha);
+    }
 
     if (cinematicMode)
     {

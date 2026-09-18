@@ -925,7 +925,15 @@ struct ExpectedFixedRowGrowth
     int requestedCapacity;
 };
 
-constexpr ExpectedFixedRowGrowth EXPECTED_PHYSICS_GROWTH[] = { { "PhysicsEngine.m_authoredBodyDescs", 2000 },
+constexpr ExpectedFixedRowGrowth EXPECTED_PHYSICS_GROWTH[] = { { "PhysicsBodyStore.inverseInertiaXY", 2000 },
+                                                               { "PhysicsBodyStore.inverseInertiaXZ", 2000 },
+                                                               { "PhysicsBodyStore.inverseInertiaYZ", 2000 },
+                                                               { "ConstraintSolveTransaction.contactLifetime", 147072 },
+                                                               { "ConstraintSolveTransaction.cacheUsed", 147072 },
+                                                               { "ConstraintSolveTransaction.materialFriction", 147072 },
+                                                               { "PhysicsSleepController.hullSupport", 2000 },
+                                                               { "PhysicsSleepController.hullSupported", 2000 },
+                                                               { "PhysicsEngine.m_authoredBodyDescs", 2000 },
                                                                { "PhysicsWorld.timeRemaining", 2000 },
                                                                { "PhysicsWorld.pointJointConstraints", 24 },
                                                                { "PhysicsForceStage.m_mutualGravityForces", 2000 },
@@ -1020,7 +1028,7 @@ void CheckPhysicsGrowthEventMetadata( const SkullbonezCore::Core::Allocation::Ru
 
     // Geometry, body order, bounds tree and joint keys grow with this scene.
     // Candidate pairs and sweep membership already reached their hard caps.
-    REQUIRE( eventCount == 118 );
+    REQUIRE( eventCount == 126 );
     CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
 
     for ( int eventIndex = 0; eventIndex < eventCount; ++eventIndex )
@@ -1071,9 +1079,9 @@ void CheckPhysicsRegisteredOwners( int eventCount )
     using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
 
 #if defined( _DEBUG )
-    CHECK( eventCount + static_cast<int>( std::size( EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH ) ) == 135 );
+    CHECK( eventCount + static_cast<int>( std::size( EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH ) ) == 143 );
 #else
-    CHECK( eventCount + static_cast<int>( std::size( EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH ) ) == 134 );
+    CHECK( eventCount + static_cast<int>( std::size( EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH ) ) == 142 );
 #endif
 
     for ( const ExpectedRegisteredWithoutGrowth& expected : EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH )
@@ -1139,9 +1147,9 @@ void CheckPhysicsCapacityRows()
     }
 
 #if defined( _DEBUG )
-    CHECK( physicsCapacityRowCount == 130 );
+    CHECK( physicsCapacityRowCount == 138 );
 #else
-    CHECK( physicsCapacityRowCount == 129 );
+    CHECK( physicsCapacityRowCount == 137 );
 #endif
 }
 
@@ -1278,6 +1286,7 @@ void CheckPredictionSnapshotRejections( PhysicsEngine& predictionEngine, const S
     legacySnapshot.version = 2u;
     legacySnapshot.pointJoints.clear();
     legacySnapshot.motionEligibilityState.clear();
+    legacySnapshot.bodyInertia.clear();
     REQUIRE( predictionEngine.RestoreReplaySolverSnapshot( legacySnapshot, MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
     CHECK( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse == Vector3( 0.0f, 0.0f, 0.0f ) );
 }
@@ -1441,9 +1450,9 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     forces.angularDragMultiplier = 0.0f;
 
     SkullbonezCore::Math::CollisionDetection::ConvexHullShape sharedHullShape;
-    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/pyramid.hull", sharedHullShape ) );
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/convex_quality_tetrahedron_ordinary.hull", sharedHullShape ) );
     const CollisionShape sharedHull = sharedHullShape;
-    const HullShapeIdentity sharedHullIdentity = MakeShareableHullShapeIdentity( "SKULLBONEZDATA\\HULLS\\PYRAMID.HULL", Vector3( 1.0f, 1.0f, 1.0f ) );
+    const HullShapeIdentity sharedHullIdentity = MakeShareableHullShapeIdentity( "SKULLBONEZDATA\\HULLS\\CONVEX_QUALITY_TETRAHEDRON_ORDINARY.HULL", Vector3( 1.0f, 1.0f, 1.0f ) );
     const CollisionShape shapes[bodyCount] = { MakeColliderShape( 1.25f ), BoxShape( Vector3( 1.5f, 2.0f, 2.5f ) ), sharedHull, sharedHull };
 
     auto liveEngine = std::make_unique<PhysicsEngine>();
@@ -1470,6 +1479,13 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
                                                                             SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic,
                                                                             "prediction-seed-clone-body" );
 
+            if ( row >= 2 )
+            {
+                const auto inertia = sharedHullShape.ComputeInertia( mass );
+                body.rotationalInertia = inertia.diagonal;
+                body.rotationalInertiaProducts = inertia.offDiagonal;
+                REQUIRE( inertia.offDiagonal != Vector3( 0, 0, 0 ) );
+            }
             body.angularVelocityLimit = 1000.0f;
             auto collider = SkullbonezCore::Physics::MakeColliderCreateDesc( shapes[row],
                                                                              body.restitution,
@@ -1569,6 +1585,8 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
         CHECK( sourceBody->handle == clonedBody->handle );
         CHECK( sourceBody->sceneObjectId == clonedBody->sceneObjectId );
         CheckVectorBitsEqual( sourceBody->rotationalInertia, clonedBody->rotationalInertia );
+        CheckVectorBitsEqual( sourceBody->rotationalInertiaProducts, clonedBody->rotationalInertiaProducts );
+        CheckVectorBitsEqual( SkullbonezCore::Physics::PhysicsBodyInverseInertiaProducts( sourceBodies.HotFields(), index ), SkullbonezCore::Physics::PhysicsBodyInverseInertiaProducts( clonedBodies.HotFields(), index ) );
         CheckVectorBitsEqual( sourceBody->pendingImpulse, clonedBody->pendingImpulse );
         CheckVectorBitsEqual( sourceBody->pendingImpulseWorldOffset, clonedBody->pendingImpulseWorldOffset );
         CHECK( FloatBitsEqual( sourceBody->mass, clonedBody->mass ) );

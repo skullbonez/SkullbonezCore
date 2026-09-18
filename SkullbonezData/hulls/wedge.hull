@@ -1,6 +1,6 @@
 # Convex hull asset.
 # source_* directives preserve editable geometry; runtime reads baked directives.
-hull_version 2
+hull_version 3
 name wedge
 source_hash 0x3f498d8c7bf5ac35
 
@@ -24,7 +24,8 @@ default_density 0.9
 default_mass 270
 bounding_radius 8.56997342
 inertia_half_extents 5 3 5
-unit_inertia 11.3333333 16.6666667 11.3333333
+unit_inertia 7.55555556 13.8888889 10.3333333
+unit_inertia_products -2.36847579e-17 9.47390314e-17 1.66666667
 projected_surface_area 73.3333333
 
 # Baked centered vertices.
