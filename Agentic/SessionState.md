@@ -2,7 +2,20 @@
 
 Date: 2026-09-18
 Branch: `main`
-Status: Audit-remediation planning on main; SOURCE_QUALITY 0/6, GOVERNANCE_REPAIR 0/8 and RENDER_SHADER 0/6 queued; live portfolio 145/172. No implementation started.
+Status: Audit-remediation plans owner-parked in WNF on main; SOURCE_QUALITY 0/6, GOVERNANCE_REPAIR 0/8 and RENDER_SHADER 0/6 excluded from the live portfolio of 145/152. No implementation started.
+
+## Audit-remediation plans parked - 2026-09-18
+
+The owner directed moving all three newly created plans from TODO to WNF,
+committing and pushing on main. Their 20 unchecked phases are excluded from
+active totals, restoring 145/152. Plan content and dependencies remain intact;
+links to the still-active Physics A/B and convex-hull plans resolve across
+folders. The original renderer proposal now points to the parked WNF plan.
+
+These plans are not selectable. Resume only after explicit owner reactivation,
+with the file and master inventory restored to TODO. Existing active and parked
+work remains unchanged. The earlier queue note below records the initial
+publication and is superseded by this parking instruction.
 
 ## Audit-remediation planning - 2026-09-18
 

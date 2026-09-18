@@ -1,10 +1,17 @@
 # Source Code Quality Remediation
 
 Date: 2026-09-18
-Status: Queued plan only; 0/6 phases complete. Implementation has not started.
+Status: WNF — owner-parked 2026-09-18; 0/6 phases complete. Implementation has not started.
 Owner: Scene input validation, Replay artifact loading, and Core diagnostics
 Impact: Scene, Replay, tests, and focused maintainability work
 Commit name: `SOURCE_QUALITY`
+
+## Owner direction and activation
+
+The owner parked this plan in WNF on 2026-09-18. It is excluded from active
+portfolio totals and is not selectable for implementation. Resume only after
+explicit owner reactivation, moving the plan back to TODO and updating the
+master inventory. The phase order and dependencies below apply after activation.
 
 ## Goal and evidence
 
@@ -37,7 +44,7 @@ SQ1-SQ3 can proceed after SQ0 without waiting for that extraction. SQ4's
 application-ownership acceptance waits for GV2. Replay codec edits must be
 coordinated with GV1's Physics-owned compatibility policy; codec budgets and
 chunk-table uniqueness stay owned by this plan. Neither plan changes the
-[Physics A/B acceptance scope](physics-ab-comparison.md).
+[Physics A/B acceptance scope](../TODO/physics-ab-comparison.md).
 
 ## Boundaries and decisions
 

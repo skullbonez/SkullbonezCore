@@ -1,10 +1,17 @@
 # Governance Review Remediation
 
 Date: 2026-09-18
-Status: Queued plan only; 0/8 phases complete. Implementation has not started.
+Status: WNF — owner-parked 2026-09-18; 0/8 phases complete. Implementation has not started.
 Owner: Runtime domain owners, Physics compatibility, and repository validation
 Impact: App, Planning, Replay, Automation, Render, tests, policy and review skills
 Commit name: `GOVERNANCE_REPAIR`
+
+## Owner direction and activation
+
+The owner parked this plan in WNF on 2026-09-18. It is excluded from active
+portfolio totals and is not selectable for implementation. Resume only after
+explicit owner reactivation, moving the plan back to TODO and updating the
+master inventory. The phase order and dependencies below apply after activation.
 
 ## Goal and source
 
@@ -40,7 +47,7 @@ This plan owns comparison and Physics-controls extraction, including the shared
 maintainability finding in [source quality](source-code-quality-remediation.md).
 That plan owns parser finite conversion, replay file/decoded-memory budgets and
 singleton chunk uniqueness. GV1 coordinates codec edits with SQ2/SQ3 but does
-not duplicate their work. Preserve [Physics A/B](physics-ab-comparison.md)
+not duplicate their work. Preserve [Physics A/B](../TODO/physics-ab-comparison.md)
 acceptance and viewer behavior; extraction does not complete its open phases.
 
 The [renderer plan](render-and-shader-audit-remediation.md) owns timing accuracy,

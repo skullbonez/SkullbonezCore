@@ -1,10 +1,17 @@
 # Render and Shader Audit Remediation
 
 Date: 2026-09-18
-Status: Queued plan only; 0/6 phases complete. Implementation has not started.
+Status: WNF — owner-parked 2026-09-18; 0/6 phases complete. Implementation has not started.
 Owner: Rendering, Runtime/Render, UI submission and shader tooling
 Impact: DX12 timing/lifetimes, render submission, UI geometry, HLSL and performance
 Commit name: `RENDER_SHADER`
+
+## Owner direction and activation
+
+The owner parked this plan in WNF on 2026-09-18. It is excluded from active
+portfolio totals and is not selectable for implementation. Resume only after
+explicit owner reactivation, moving the plan back to TODO and updating the
+master inventory. The phase order and dependencies below apply after activation.
 
 ## Goal and source
 
@@ -42,7 +49,7 @@ candidate, not an established runtime bottleneck; reconcile actual usage first.
 overlay choices, renderer transaction lifetime and diagnostic boundary repairs.
 Agree and land those contracts before RS2-RS4 edit the same seams. RS0/RS1 may
 proceed independently where source and GPU resources are disjoint. Coordinate hull
-presentation with the retained [convex-hull plan](convex-hull-collision-response-and-sleep.md);
+presentation with the retained [convex-hull plan](../TODO/convex-hull-collision-response-and-sleep.md);
 this work neither changes colliders nor accepts its remaining owner review.
 
 Preserve culling, PSO caching, stable descriptors, frame-slot pacing and generic

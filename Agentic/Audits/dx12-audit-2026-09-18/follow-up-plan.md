@@ -1,6 +1,6 @@
 # DX12 rectification and shader profiling plan
 
-> Execution plan: [Render and Shader Audit Remediation](../../Plans/TODO/render-and-shader-audit-remediation.md), queued at 0/6 on 2026-09-18. This document retains the original audit proposal and profiling detail; the TODO plan owns future phase acceptance and ledger updates.
+> Execution plan: [Render and Shader Audit Remediation](../../Plans/WNF/render-and-shader-audit-remediation.md), owner-parked in WNF at 0/6 on 2026-09-18. This document retains the original audit proposal and profiling detail; implementation requires explicit owner reactivation of the WNF plan.
 
 18 September 2026 · Owner: Rendering, with Runtime/Render and UI owners · **0/6 phases complete**
 
