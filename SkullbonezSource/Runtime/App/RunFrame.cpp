@@ -1853,6 +1853,13 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned, 
         {
             PROFILE_SCOPED( "Frame/Physics/Step" );
             {
+                // Hazard: cull entities restored or authored below a terrain
+                // kill plane before broadphase validates their world bounds.
+                PROFILE_SCOPED( "Frame/Physics/Step/KillPlanePreflight" );
+                (void)m_sceneController.Scene().CullFallenDynamicEntities();
+            }
+
+            {
                 PROFILE_SCOPED( "Frame/Physics/Step/PresentationCaptureBegin" );
                 m_sceneController.Scene().BeginPhysicsStepPresentationCapture();
             }
@@ -1877,6 +1884,14 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned, 
             {
                 PROFILE_SCOPED( "Frame/Physics/Step/PresentationCaptureComplete" );
                 m_sceneController.Scene().CompletePhysicsStepPresentationCapture();
+            }
+
+            {
+                // Invariant: fixed-contact rows and both presentation pose
+                // endpoints are consumed before kill-plane deletion compacts
+                // the aligned scene, physics, gameplay, and render stores.
+                PROFILE_SCOPED( "Frame/Physics/Step/KillPlane" );
+                (void)m_sceneController.Scene().CullFallenDynamicEntities();
             }
 
             const std::string* grassScenePath = m_sceneController.CurrentPath();

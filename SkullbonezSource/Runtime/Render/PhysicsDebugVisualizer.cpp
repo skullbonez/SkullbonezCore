@@ -510,35 +510,6 @@ void PhysicsDebugVisualizer::EmitContacts( const PhysicsDebugContactView& view )
             continue;
         }
         const float fade = ContactFade( tracked );
-        const bool normalVisible = ( m_flags & PHYSICS_DEBUG_NORMAL_IMPULSES ) != 0 && std::abs( contact.normalImpulse ) >= m_impulseThreshold;
-        const float tangentMagnitude = std::sqrt( contact.tangentImpulse1 * contact.tangentImpulse1 + contact.tangentImpulse2 * contact.tangentImpulse2 );
-        const bool tangentVisible = ( m_flags & PHYSICS_DEBUG_FRICTION_IMPULSES ) != 0 && tangentMagnitude >= m_impulseThreshold;
-        if ( normalVisible || tangentVisible )
-        {
-            if ( m_labelCount < m_contactLabels.size() )
-            {
-                auto& label = m_contactLabels[m_labelCount++];
-                label.point = contact.point;
-                label.fade = fade;
-                // Values retain their solver magnitude even when the displayed
-                // arrow is capped. Pair and feature match this exact linger row.
-                std::snprintf( label.text.data(),
-                               label.text.size(),
-                               "%u/%u f%u %s N %.3g T %.3g,%.3g",
-                               contact.sceneObjectA,
-                               contact.sceneObjectB,
-                               contact.featureId,
-                               fade < .999f ? "past" : "now",
-                               contact.normalImpulse,
-                               contact.tangentImpulse1,
-                               contact.tangentImpulse2 );
-            }
-            else
-            {
-                ++m_droppedLabels;
-            }
-        }
-
         if ( ( m_flags & PHYSICS_DEBUG_CONTACTS ) != 0 )
         {
             EmitCross( contact.point, .35f, fade, .95f * fade, .15f * fade );

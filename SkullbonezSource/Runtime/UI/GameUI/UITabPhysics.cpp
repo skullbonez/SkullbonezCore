@@ -1113,9 +1113,9 @@ void Draw( UIPhysicsTabState& state,
         draw.Text( contentX, scrolledY + 1020, 10, 1, 1, 1, text );
         std::snprintf( text, sizeof( text ), "History dropped %zu | capped arrows %zu", data.inspector.geometry[2], data.inspector.geometry[3] );
         draw.Text( contentX, scrolledY + 1040, 10, 1, 1, 1, text );
-        std::snprintf( text, sizeof( text ), "Contact labels %zu / 32 | omitted %zu", data.inspector.geometry[4], data.inspector.geometry[5] );
+        std::snprintf( text, sizeof( text ), "Mass labels %zu / 32 | omitted %zu", data.inspector.geometry[4], data.inspector.geometry[5] );
         draw.Text( contentX, scrolledY + 1060, 10, 1, 1, 1, text );
-        draw.Text( contentX, scrolledY + 1080, 10, 1, 1, 1, "Labels: stable pair / feature, uncapped N/T." );
+        draw.Text( contentX, scrolledY + 1080, 10, 1, 1, 1, "Mass labels show body id and kilograms." );
         DrawPipelineStepButton( draw, state.pipelinePrevButton, true, state.pipelinePrevButton.Contains( mouseX, mouseY ) );
         DrawPipelineStepButton( draw, state.pipelineNextButton, false, state.pipelineNextButton.Contains( mouseX, mouseY ) );
         std::snprintf( text, sizeof( text ), "Stage %d/%d: %s", data.physicsDebug.pipelineStageIndex + 1, data.physicsDebug.pipelineStageCount, data.physicsDebug.pipelineStageName );

@@ -4285,6 +4285,91 @@ TEST_CASE( "SceneWorld deletion preserves the moved tornado body timer history" 
 }
 
 
+TEST_CASE( "SceneWorld terrain kill plane culls fallen dynamic bodies and preserves fixed bodies" )
+{
+    SkullbonezCore::Core::SbDiagnosticStore worldDiagnostics;
+    SkullbonezCore::Runtime::SceneWorld world( worldDiagnostics );
+    SkullbonezCore::Core::EngineConfig config;
+    config.physicsExecution.parallel = false;
+    world.ApplyRuntimeConfig( config );
+    world.ReplaceTerrain( std::make_unique<SkullbonezCore::Geometry::Terrain>( 0.0f, 0.0f, 0.0f, config ), true );
+
+    std::array<SkullbonezCore::Physics::PhysicsBodyHandle, 3u> bodyHandles {};
+    const std::array<float, 3u> heights { -129.0f, -129.0f, 5.0f };
+
+    for ( std::size_t index = 0; index < bodyHandles.size(); ++index )
+    {
+        const SkullbonezCore::Physics::PhysicsSceneObjectId sceneObjectId { static_cast<uint32_t>( 4200u + index ) };
+        const SkullbonezCore::Math::CollisionDetection::CollisionShape shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
+        SkullbonezCore::Runtime::SceneEntityCreateDesc entity;
+        entity.sceneObjectId = sceneObjectId;
+        entity.SetName( "kill-plane-body" );
+
+        const auto motion = index == 1u ? SkullbonezCore::Physics::PhysicsBodyMotionKind::Fixed : SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic;
+        auto bodyDesc = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc( sceneObjectId,
+                                                                            shape,
+                                                                            Vector3( static_cast<float>( index ), heights[index], 0.0f ),
+                                                                            SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                                                            Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                            Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                            Vector3( 0.4f, 0.4f, 0.4f ),
+                                                                            1.0f,
+                                                                            0.0f,
+                                                                            motion,
+                                                                            "kill-plane-body" );
+        auto colliderDesc = SkullbonezCore::Physics::MakeColliderCreateDesc( shape, 0.0f, 0u, "kill-plane-body" );
+        colliderDesc.sceneObjectId = sceneObjectId;
+
+        const SkullbonezCore::Runtime::SceneEntityCreateResult created = world.TryCreateSceneEntity( entity, bodyDesc, colliderDesc );
+        REQUIRE( created.status.Ok() );
+        REQUIRE( created.body.IsValid() );
+        bodyHandles[index] = created.body;
+    }
+
+    CHECK( world.CullFallenDynamicEntities() == 1 );
+    CHECK( world.SceneEntityCount() == 2 );
+    CHECK_FALSE( world.BodyStore().Contains( bodyHandles[0] ) );
+    CHECK( world.BodyStore().Contains( bodyHandles[1] ) );
+    CHECK( world.BodyStore().Contains( bodyHandles[2] ) );
+    CHECK( world.CullFallenDynamicEntities() == 0 );
+}
+
+
+TEST_CASE( "SceneWorld does not apply the kill plane without terrain" )
+{
+    SkullbonezCore::Core::SbDiagnosticStore worldDiagnostics;
+    SkullbonezCore::Runtime::SceneWorld world( worldDiagnostics );
+    SkullbonezCore::Core::EngineConfig config;
+    config.physicsExecution.parallel = false;
+    world.ApplyRuntimeConfig( config );
+
+    const SkullbonezCore::Physics::PhysicsSceneObjectId sceneObjectId { 4250u };
+    const SkullbonezCore::Math::CollisionDetection::CollisionShape shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
+    SkullbonezCore::Runtime::SceneEntityCreateDesc entity;
+    entity.sceneObjectId = sceneObjectId;
+    entity.SetName( "space-body" );
+    auto bodyDesc = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc( sceneObjectId,
+                                                                        shape,
+                                                                        Vector3( 0.0f, -50000.0f, 0.0f ),
+                                                                        SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                                                        Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                        Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                        Vector3( 0.4f, 0.4f, 0.4f ),
+                                                                        1.0f,
+                                                                        0.0f,
+                                                                        SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic,
+                                                                        "space-body" );
+    auto colliderDesc = SkullbonezCore::Physics::MakeColliderCreateDesc( shape, 0.0f, 0u, "space-body" );
+    colliderDesc.sceneObjectId = sceneObjectId;
+
+    const SkullbonezCore::Runtime::SceneEntityCreateResult created = world.TryCreateSceneEntity( entity, bodyDesc, colliderDesc );
+    REQUIRE( created.status.Ok() );
+
+    CHECK( world.CullFallenDynamicEntities() == 0 );
+    CHECK( world.BodyStore().Contains( created.body ) );
+}
+
+
 TEST_CASE( "Orderly exit returns the interaction recording save failure" )
 {
     namespace fs = std::filesystem;

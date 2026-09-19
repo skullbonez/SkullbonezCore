@@ -97,19 +97,20 @@ class SceneWorld
 
     // Authored/generated setup supplies exact topology before its first append;
     // SceneWorld sequences concrete Physics owners without retaining a bag.
-    SkullbonezCore::Core::SbResult CommitPhysicsSceneCapacity( int bodyCount, int sphereCount, int boxCount,
-                                                               int hullColliderCount, int hullVariantCapacity,
-                                                               int pointJointCount );
-    SkullbonezCore::Core::SbResult ReserveAdditionalPhysicsSceneCapacity( int sphereCount, int boxCount, int hullCount,
-                                                                          int pointJointCount );
+    SkullbonezCore::Core::SbResult CommitPhysicsSceneCapacity( int bodyCount, int sphereCount, int boxCount, int hullColliderCount, int hullVariantCapacity, int pointJointCount );
+    SkullbonezCore::Core::SbResult ReserveAdditionalPhysicsSceneCapacity( int sphereCount, int boxCount, int hullCount, int pointJointCount );
 
     // One preflighted command publishes entity, physics, collider, and render
     // rows together. A mismatched post-commit count is a fatal invariant.
-    SceneEntityCreateResult TryCreateSceneEntity( SceneEntityCreateDesc entity, Physics::PhysicsBodyCreateDesc bodyDesc,
-                                                  Physics::PhysicsColliderCreateDesc colliderDesc );
+    SceneEntityCreateResult TryCreateSceneEntity( SceneEntityCreateDesc entity, Physics::PhysicsBodyCreateDesc bodyDesc, Physics::PhysicsColliderCreateDesc colliderDesc );
 
     // Cold editor deletion removes the same four rows as one swap-last commit.
     bool DestroySceneEntity( Physics::PhysicsBodyHandle body );
+
+    // Terrain scenes retire dynamic bodies below their terrain-relative safety
+    // plane. Terrainless scenes, including space scenes, never cull this way.
+    // Any borrowed dense-row view expires when this compacts scene topology.
+    int CullFallenDynamicEntities();
 
     // Terrain replacement is a lifetime transaction: revoke Physics' borrowed
     // cell span before destroying the backing owner, then publish the new view.
@@ -122,14 +123,12 @@ class SceneWorld
 
     // Executes the deterministic live/replay physics boundary. Returned dense
     // rows are valid only for the synchronous presentation handoff.
-    ScenePhysicsPostStepOutput StepPhysics( float fixedDt, const Physics::PhysicsWorldForces& worldForces,
-                                            Threading::WorkerPool& workerPool );
+    ScenePhysicsPostStepOutput StepPhysics( float fixedDt, const Physics::PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool );
     void PrepareRenderInstances( float presentationAlpha = 1.0f );
     void BeginCollisionVisualFrame();
     void EndCollisionVisualFrame();
 
-    bool TryGetPresentationPose( int index, float presentationAlpha, Math::Vector::Vector3& outPosition,
-                                 Math::Orientation::Quaternion& outOrientation ) const;
+    bool TryGetPresentationPose( int index, float presentationAlpha, Math::Vector::Vector3& outPosition, Math::Orientation::Quaternion& outOrientation ) const;
     int SceneEntityCount() const;
 
     // Publishes every SceneWorld-owned field needed by one synchronous scene

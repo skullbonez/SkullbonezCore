@@ -46,6 +46,7 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsBodyStore.h"
+#include "../../Physics/SpatialGrid.h"
 #include "../../Rendering/RenderInstanceStore.h"
 
 #include <algorithm>
@@ -93,6 +94,8 @@ using SkullbonezCore::Rendering::ShadowCasterStream;
 namespace
 {
 constexpr const char* SCENE_ENTITY_CREATION_OWNER = "Scene/EntityCreation";
+constexpr float TERRAIN_KILL_PLANE_CLEARANCE = 128.0f;
+constexpr float BROADPHASE_KILL_PLANE_MARGIN = 10000.0f;
 constexpr int PINE_VISUAL_MATERIAL_MODE = 13;
 
 ShadowCasterStream ResolveRegisteredShadowCasterStream( const ColliderRecord& collider, const RenderMaterial& material )
@@ -649,6 +652,63 @@ bool SceneWorld::DestroySceneEntity( PhysicsBodyHandle body )
     RegisterPhysicsDiagnosticNames();
     AssertSceneCreationTopology( modelCount - 1 );
     return !BodyStore().Contains( body );
+}
+
+
+int SceneWorld::CullFallenDynamicEntities()
+{
+    const Geometry::Terrain* terrain = Terrain().Get();
+
+    if ( !terrain )
+    {
+        return 0;
+    }
+
+    // Hazard: SpatialGrid validates bounds inside +/-MAX_WORLD_COORDINATE.
+    // Clamp unusually low terrain kill planes inward so a fallen body is
+    // retired before a later broadphase update can reach that fatal boundary.
+    const float broadphaseSafeFloor = -Math::CollisionDetection::SpatialGrid::MAX_WORLD_COORDINATE + BROADPHASE_KILL_PLANE_MARGIN;
+    const float killPlaneHeight = (std::max)( terrain->GetMinHeight() - TERRAIN_KILL_PLANE_CLEARANCE, broadphaseSafeFloor );
+
+    if ( !std::isfinite( killPlaneHeight ) )
+    {
+        return 0;
+    }
+
+    int culledCount = 0;
+    bool removedEntity = true;
+
+    // Why: DestroySceneEntity rejects a group root while dependants still name
+    // it. Re-scan after each swap-last commit so dependants are removed before
+    // a fallen root without retaining an allocation-backed work list.
+    while ( removedEntity )
+    {
+        removedEntity = false;
+        const PhysicsBodyStore& bodyStore = BodyStore();
+        const auto bodyRecords = bodyStore.Records();
+        const auto hotFields = bodyStore.HotFields();
+
+        for ( int modelIndex = bodyStore.Count() - 1; modelIndex >= 0; --modelIndex )
+        {
+            const std::size_t row = static_cast<std::size_t>( modelIndex );
+
+            if ( hotFields.fixed[row] || hotFields.positionY[row] >= killPlaneHeight )
+            {
+                continue;
+            }
+
+            const PhysicsBodyHandle body = bodyRecords[row].handle;
+
+            if ( DestroySceneEntity( body ) )
+            {
+                ++culledCount;
+                removedEntity = true;
+                break;
+            }
+        }
+    }
+
+    return culledCount;
 }
 
 

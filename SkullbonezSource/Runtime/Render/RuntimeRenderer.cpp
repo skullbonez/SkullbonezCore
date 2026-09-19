@@ -2406,7 +2406,7 @@ bool RuntimeRenderer::RenderFrameOverlays( const WorldOverlayTransaction& world,
                                                                         world.m_windowHeight } );
     }
 
-    if ( ( world.m_policy.physicsDebugFlags & ( Physics::PHYSICS_DEBUG_NORMAL_IMPULSES | Physics::PHYSICS_DEBUG_FRICTION_IMPULSES ) ) != 0 )
+    if ( ( world.m_policy.physicsDebugFlags & Physics::PHYSICS_DEBUG_COM ) != 0 )
     {
         const UiTextViewport viewport { world.m_windowWidth, world.m_windowHeight };
         const auto& labels = m_resources.UiText().BuildContactLabels( m_physicsDebugVisualizer.ContactLabels(), world.m_camera.viewProjection, viewport );
