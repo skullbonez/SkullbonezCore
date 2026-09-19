@@ -254,8 +254,10 @@ the arrow pauses; holding both leaves time unchanged. Playback stops at the
 available prediction endpoints. The camera follows the focused object while
 right-drag orbit and wheel zoom remain adjustable, and all predicted paths stay
 visible. Leaving causal inspection retains the displayed time in the paused
-prediction timeline. The arrows have no scene-navigation binding and do nothing
-outside paused prediction inspection or while a text field owns keyboard input.
+prediction timeline. While paused prediction inspection owns the arrows, they
+do not navigate scenes. Outside that causal step mode, Left and Right cycle to
+the previous or next scene. A text field keeps keyboard ownership while it is
+active.
 
 A cyan position gate marks the selected object's displayed location on its
 prediction path. A selected manifold marks both participants. The hollow diamond
@@ -458,6 +460,7 @@ Troubleshooting rules:
 | F1 | In Attach mode, cycle attached-camera submodes: fixed relative, velocity forward, and ragdoll eyes when the target supports it. |
 | Enter | In Attach mode, pin/unpin the camera so the mouse can operate UI/replay controls without losing the current world-space view. In launcher mode, write Debug-build repro data for the object under the crosshair to `Debug/launcher_repro_snapshots.txt`. While the replay scrubber is paused on the solver or `V2 FILE` row, trigger the same restore path as the scrubber `BRANCH` button. |
 | R | Reset or rerun the current scene/generated demo while preserving live controls. |
+| Left / Right Arrow | Load the previous or next scene. In paused predicted-cause inspection, step or play the causal prediction backward or forward instead. |
 | F2 | Save a scene snapshot. |
 | F3 | Save a screenshot. |
 | F8 | Start or stop a recorded interaction repro. Recording starts only from idle input and captures its baseline at the next pre-input boundary. |

@@ -908,6 +908,15 @@ bool Run::HandlePreUiSceneNavigationAction( const InputActionEvent& event, Runti
     {
         return false;
     }
+
+    // Causal prediction inspection reads held arrows later in the same input
+    // turn. Consume the pressed scene action here so that playback keeps its
+    // selected scene and exact prediction evidence.
+    if ( ReplayCauseInspectionUsesArrowPlayback( m_replayRuntime.CauseInspectionView().Transport() ) )
+    {
+        return true;
+    }
+
     const int direction = event.action == RuntimeInputAction::NavigateScenePrevious ? -1 : 1;
     EnterInteractiveInputScene();
     UI::SceneNavigationModel& navigation = m_operatorUi->SceneNavigation();

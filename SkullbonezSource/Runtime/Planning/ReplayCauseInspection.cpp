@@ -1351,7 +1351,7 @@ bool ReplayCauseInspection::Select( int rowIndex, const ReplayCauseSeekResult& s
 
 bool ReplayCauseInspection::SeekPredictionPlayback( std::span<const RunReplayPredictionFrame> frames, float normalized, double nowSeconds ) noexcept
 {
-    if ( m_state.mode != ReplayCauseInspectionMode::DetailPaused || m_state.seekSource != ReplayCauseSeekSource::Prediction || frames.empty() )
+    if ( !ReplayCauseInspectionUsesArrowPlayback( m_state ) || frames.empty() )
     {
         return false;
     }
@@ -1367,7 +1367,7 @@ bool ReplayCauseInspection::SeekPredictionPlayback( std::span<const RunReplayPre
 
 void ReplayCauseInspection::AdvancePredictionPlayback( std::span<const RunReplayPredictionFrame> frames, int direction, double nowSeconds ) noexcept
 {
-    if ( m_state.mode != ReplayCauseInspectionMode::DetailPaused || m_state.seekSource != ReplayCauseSeekSource::Prediction || frames.empty() || direction == 0 )
+    if ( !ReplayCauseInspectionUsesArrowPlayback( m_state ) || frames.empty() || direction == 0 )
     {
         m_playbackDirection = 0;
         return;

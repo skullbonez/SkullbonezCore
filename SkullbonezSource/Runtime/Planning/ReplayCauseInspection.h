@@ -311,6 +311,10 @@ constexpr bool ReplayCauseInspectionAcceptsOrbit( ReplayCauseInspectionMode mode
 {
     return mode == ReplayCauseInspectionMode::DetailPaused || mode == ReplayCauseInspectionMode::AftermathFollow;
 }
+constexpr bool ReplayCauseInspectionUsesArrowPlayback( const ReplayCauseTransportView& transport ) noexcept
+{
+    return transport.mode == ReplayCauseInspectionMode::DetailPaused && transport.seekSource == ReplayCauseSeekSource::Prediction;
+}
 
 inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS = 4;
 inline constexpr double REPLAY_CAUSE_INSPECTOR_DRAWER_SECONDS = 0.18;

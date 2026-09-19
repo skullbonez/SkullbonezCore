@@ -66,7 +66,10 @@ def verify_causal_loading(connection: SkarnessConnection, session: Path) -> None
             for line in trace:
                 event = json.loads(line)
                 if event.get("topic") == "replay.cause":
-                    cause = event["payload"]
+                    candidate = event["payload"]
+                    if "loading" not in candidate:
+                        continue
+                    cause = candidate
                     if cause["loading"]:
                         assert cause["loadingTargetId"] == 6
                         assert cause["rowCount"] == 0, "partial collisions populated the loading panel"
@@ -145,6 +148,8 @@ def verify_retained_geometry(session: Path) -> None:
                 break
             if event.get("topic") == "replay.visual_packet":
                 payload = event["payload"]
+                if "retainedStreamId" not in payload:
+                    continue
                 retained = (payload["retainedStreamId"], payload["retainedRevision"])
             if event.get("runtimeTurn", 0) >= start and retained:
                 initial = initial or retained
@@ -406,11 +411,25 @@ def run(session: Path, executable: Path) -> None:
         # All topics remain durable on disk; live subscriptions are unnecessary
         # for this synchronous command client and can fill the pipe during QA.
         send("state.subscribe", topics=[], detail="normal")
+        original_objects = send("scene.object.list")["result"]["objects"]
+        original_identity = [(row["sceneObjectId"], row["name"]) for row in original_objects]
         send("input.set_arrows", left=False, right=True)
         outside = state("outside")
         send("input.set_arrows", left=False, right=False)
         assert outside["causeInspectionMode"] == 0
+        adjacent_objects = send("scene.object.list")["result"]["objects"]
+        adjacent_identity = [(row["sceneObjectId"], row["name"]) for row in adjacent_objects]
+        assert adjacent_identity != original_identity
+        send("input.set_arrows", left=True, right=False)
+        state("outside-left")
+        send("input.set_arrows", left=False, right=False)
+        previous_objects = send("scene.object.list")["result"]["objects"]
+        previous_identity = [(row["sceneObjectId"], row["name"]) for row in previous_objects]
+        assert previous_identity != adjacent_identity
+        send("scene.load", name=scene.name)
+        state("returned")
         objects = send("scene.object.list")["result"]["objects"]
+        assert [(row["sceneObjectId"], row["name"]) for row in objects] == original_identity
         assert any(row["name"] == "path_striker" and row["sceneObjectId"] == 6 for row in objects)
         send("replay.set_prediction_horizon", seconds=60.0)
         send("prediction.select_target", name="path_striker")
@@ -464,11 +483,15 @@ def run(session: Path, executable: Path) -> None:
         exited = state("exited")
         send("input.set_arrows", left=True, right=False)
         after_exit = state("after-exit")
+        send("input.set_arrows", left=False, right=False)
+        after_exit_objects = send("scene.object.list")["result"]["objects"]
+        after_exit_identity = [(row["sceneObjectId"], row["name"]) for row in after_exit_objects]
         assert forward["causePresentedFrame"] > before["causePresentedFrame"]
         assert held["causePresentedFrame"] == paused["causePresentedFrame"] == both["causePresentedFrame"]
         assert reverse["causePresentedFrame"] < held["causePresentedFrame"]
-        assert exited["presentedReplayFrame"] == before_exit["presentedReplayFrame"] == after_exit["presentedReplayFrame"]
+        assert exited["presentedReplayFrame"] == before_exit["presentedReplayFrame"]
         assert after_exit["causeInspectionMode"] == 0
+        assert after_exit_identity != original_identity
         for sample in (forward, paused, held, reverse, stopped):
             assert sample["selectedCausePrimaryId"] == before["selectedCausePrimaryId"]
             assert sample["publishedPredictionTargetId"] == sample["submittedPredictionTargetId"] == sample["pathTargetId"]
